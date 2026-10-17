@@ -236,6 +236,39 @@ def create_app(
             ],
         )
 
+    @application.put(
+        "/v1/me/personal-workspace", response_model=WorkspaceResponse
+    )
+    async def ensure_personal_workspace(
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> WorkspaceResponse:
+        try:
+            membership = await _workspace_directory(request).ensure_personal_workspace(
+                auth.principal, auth.access_token
+            )
+        except AuthenticationRejected as exc:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid bearer access token",
+                headers={"WWW-Authenticate": "Bearer"},
+            ) from exc
+        except WorkspaceAccessDenied as exc:
+            raise HTTPException(
+                status_code=403,
+                detail="Personal workspace is unavailable for this account",
+            ) from exc
+        except WorkspaceDataUnavailable as exc:
+            raise HTTPException(
+                status_code=503, detail="Workspace directory is unavailable"
+            ) from exc
+
+        return WorkspaceResponse(
+            id=membership.workspace_id,
+            name=membership.workspace_name,
+            role=membership.role,
+        )
+
     @application.get("/v1/workspaces/{workspace_id}", response_model=WorkspaceResponse)
     async def get_workspace(
         workspace_id: UUID,
