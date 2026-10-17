@@ -18,7 +18,8 @@ from evidence_service.auth import (
     SupabaseTokenVerifier,
 )
 from evidence_service.config import SupabaseSettings
-from evidence_service.tenant_context import WorkspaceMembership
+from evidence_service.supabase_repository import WorkspaceDataUnavailable
+from evidence_service.tenant_context import WorkspaceAccessDenied, WorkspaceMembership
 
 ISSUER = "https://project-ref.supabase.co/auth/v1"
 SUBJECT_A = uuid.UUID("10000000-0000-4000-8000-000000000001")
@@ -102,6 +103,18 @@ class JwksFeed:
 class DirectorySpy:
     def __init__(self) -> None:
         self.calls: list[tuple[str, uuid.UUID, str]] = []
+        self.personal_calls: list[tuple[uuid.UUID, str]] = []
+        self.personal_error: Exception | None = None
+
+    async def ensure_personal_workspace(
+        self, principal: Principal, access_token: str
+    ) -> WorkspaceMembership:
+        self.personal_calls.append((principal.subject, access_token))
+        if self.personal_error is not None:
+            raise self.personal_error
+        if principal.subject == SUBJECT_A:
+            return WorkspaceMembership(WORKSPACE_A, "A primary", "owner")
+        return WorkspaceMembership(WORKSPACE_B, "B personal", "owner")
 
     async def list_memberships(
         self, principal: Principal, access_token: str
@@ -182,16 +195,86 @@ def test_missing_and_malformed_tokens_are_rejected_before_directory_access() -> 
 
     with make_client(feed, directory) as client:
         missing = client.get("/v1/me")
+        personal_missing = client.put("/v1/me/personal-workspace")
         malformed = client.get(
             "/v1/me", headers={"Authorization": "Bearer not-a-jwt"}
+        )
+        personal_malformed = client.put(
+            "/v1/me/personal-workspace",
+            headers={"Authorization": "Bearer not-a-jwt"},
         )
         non_bearer = client.get(
             "/v1/me", headers={"Authorization": "Basic aW52YWxpZA=="}
         )
 
-    assert [missing.status_code, malformed.status_code, non_bearer.status_code] == [401, 401, 401]
+    assert [
+        missing.status_code,
+        personal_missing.status_code,
+        malformed.status_code,
+        personal_malformed.status_code,
+        non_bearer.status_code,
+    ] == [401, 401, 401, 401, 401]
     assert directory.calls == []
+    assert directory.personal_calls == []
     assert feed.calls == 0
+
+
+def test_personal_workspace_bootstrap_uses_verified_subject_and_token() -> None:
+    key = new_signing_key()
+    directory = DirectorySpy()
+    feed = JwksFeed([{"keys": [jwk_for(key, "key-1")]}])
+    token = token_for(key)
+
+    with make_client(feed, directory) as client:
+        response = client.put(
+            "/v1/me/personal-workspace",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "id": str(WORKSPACE_A),
+        "name": "A primary",
+        "role": "owner",
+    }
+    assert directory.personal_calls == [(SUBJECT_A, token)]
+    assert directory.calls == []
+
+
+@pytest.mark.parametrize(
+    ("directory_error", "expected_status"),
+    [
+        (AuthenticationRejected("synthetic identity detail"), 401),
+        (WorkspaceAccessDenied("synthetic membership detail"), 403),
+        (WorkspaceDataUnavailable("synthetic provider detail"), 503),
+    ],
+)
+def test_personal_workspace_rpc_failures_use_safe_api_responses(
+    directory_error: Exception,
+    expected_status: int,
+) -> None:
+    key = new_signing_key()
+    directory = DirectorySpy()
+    directory.personal_error = directory_error
+    feed = JwksFeed([{"keys": [jwk_for(key, "key-1")]}])
+    token = token_for(key)
+
+    with make_client(feed, directory) as client:
+        response = client.put(
+            "/v1/me/personal-workspace",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+    assert response.status_code == expected_status
+    assert str(directory_error) not in response.text
+    assert response.json() == {
+        "detail": {
+            401: "Invalid bearer access token",
+            403: "Personal workspace is unavailable for this account",
+            503: "Workspace directory is unavailable",
+        }[expected_status]
+    }
+    assert directory.personal_calls == [(SUBJECT_A, token)]
 
 
 @pytest.mark.parametrize(
@@ -219,6 +302,40 @@ def test_invalid_claims_are_rejected_before_directory_access(
     response = response_for_claims(
         claims, signing_key=key, directory=directory
     )
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Invalid bearer access token"}
+    assert directory.calls == []
+
+
+@pytest.mark.parametrize("missing_claim", ["aud", "exp", "iat", "iss", "sub", "role"])
+def test_each_required_claim_is_rejected_when_actually_absent(
+    missing_claim: str,
+) -> None:
+    key = new_signing_key()
+    directory = DirectorySpy()
+    now = int(time.time())
+    claims: dict[str, object] = {
+        "iss": ISSUER,
+        "aud": "authenticated",
+        "sub": str(SUBJECT_A),
+        "role": "authenticated",
+        "is_anonymous": False,
+        "iat": now,
+        "exp": now + 300,
+    }
+    del claims[missing_claim]
+    assert missing_claim not in claims
+    token = jwt.encode(
+        claims,
+        key,
+        algorithm="RS256",
+        headers={"kid": "key-1", "typ": "JWT"},
+    )
+    feed = JwksFeed([{"keys": [jwk_for(key, "key-1")]}])
+
+    with make_client(feed, directory) as client:
+        response = client.get("/v1/me", headers={"Authorization": f"Bearer {token}"})
 
     assert response.status_code == 401
     assert response.json() == {"detail": "Invalid bearer access token"}
@@ -376,6 +493,10 @@ def test_workspace_selection_requires_membership_for_verified_user() -> None:
             f"/v1/workspaces/{WORKSPACE_B}",
             headers={"Authorization": f"Bearer {token}"},
         )
+        other_user_denied = client.get(
+            f"/v1/workspaces/{WORKSPACE_A}",
+            headers={"Authorization": f"Bearer {token_for(key, subject=SUBJECT_B)}"},
+        )
 
     assert allowed.status_code == 200
     assert allowed.json() == {
@@ -384,7 +505,12 @@ def test_workspace_selection_requires_membership_for_verified_user() -> None:
         "role": "owner",
     }
     assert denied.status_code == 404
-    assert [call[0] for call in directory.calls] == [str(WORKSPACE_A), str(WORKSPACE_B)]
+    assert other_user_denied.status_code == 404
+    assert [call[0] for call in directory.calls] == [
+        str(WORKSPACE_A),
+        str(WORKSPACE_B),
+        str(WORKSPACE_A),
+    ]
 
 
 def test_rotated_key_document_replaces_old_key_after_cache_expiry() -> None:
