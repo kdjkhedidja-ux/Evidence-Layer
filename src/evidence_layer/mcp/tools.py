@@ -2,7 +2,10 @@
 
 This module wraps ``evidence_layer.retrieval.local_corpus.LocalCorpusRetriever``
 behind a strict, JSON-safe, read-only function boundary. It is *not* an MCP
-server and performs no network, provider, database, or filesystem-write I/O.
+server. The standard stdio path constructs ``LocalCorpusRetriever()`` without a
+trusted source context or injected JEV scoring policy, so it fails closed before
+reading unclassified sources and never calls a remote scorer. Source-read and
+provider-transfer authorization remain separate server-side decisions.
 
 Inputs are typed as ``object`` on purpose so runtime validation can reject
 wrongly-typed or non-JSON-safe values safely before any core work happens.

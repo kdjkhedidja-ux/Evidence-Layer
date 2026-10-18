@@ -10,7 +10,12 @@ isolation.
 
 Local lexical scoring runs only after a source read has been authorized. A
 source-read denial is an error and never falls through to lexical ranking.
-Provider-transfer authorization remains a separate policy decision.
+Provider-transfer authorization remains a separate server-side policy decision:
+source-read authorization, caller-supplied feature/request/plan flags, or a
+caller-supplied grant do not authorize sending data to JEV. The current Phase 1
+scoring policy never invokes JEV. Any future trusted-host path must recompute the
+complete candidate set with Lexical after a JEV failure or invalid score; it
+must not mix provider rankings.
 """
 
 from __future__ import annotations
@@ -84,7 +89,9 @@ class LocalCorpusRetriever:
     and accepts no injected boundary. The named development factory opts into
     one fixed, unprotected synthetic fixture only. Neither path provides a
     trusted host or authorization for real sources. No filesystem path or
-    caller-supplied authorizer is accepted by this API.
+    caller-supplied authorizer is accepted by this API. The standard MCP path
+    does not inject a JEV scoring policy, and current Phase 1 scoring is
+    lexical-only after an authorized source read.
     """
 
     def __init__(

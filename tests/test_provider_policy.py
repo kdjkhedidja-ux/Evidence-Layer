@@ -425,7 +425,7 @@ def test_source_read_denial_does_not_fall_back_to_returning_lexical_content(
     assert jev.calls == []
 
 
-def test_local_retrieval_remains_deterministic_and_network_free(monkeypatch):
+def test_default_local_retrieval_is_deterministic_without_remote_scoring(monkeypatch):
     source_context = _source_context()
     boundary = _UnprotectedFixtureBoundary(
         source_context,

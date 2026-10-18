@@ -80,9 +80,12 @@ def _lexical_recompute_after_provider_failure(
 class ProviderSelectionPolicy:
     """Keep JEV disabled until a separately approved trusted host exists.
 
-    The feature and plan flags remain configuration gates, not authorization.
-    Even a caller-supplied grant or authorizer cannot enable the live JEV path
-    in Phase 1. Local lexical scoring remains available.
+    Feature, request, and plan flags are caller-supplied gates, not server-side
+    authorization to transfer query or candidate text. Provider-transfer
+    authorization is a separate decision. Even a caller-supplied grant or
+    authorizer cannot enable live JEV in Phase 1. Local lexical scoring remains
+    available; a future trusted-host path must recompute the complete candidate
+    set lexically after any JEV failure or invalid score, never mixing rankings.
     """
 
     def __init__(
