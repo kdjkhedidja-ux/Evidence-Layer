@@ -8,7 +8,7 @@ import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import ec, rsa
 from fastapi.testclient import TestClient
-from jwt.utils import to_base64url_uint
+from jwt.utils import base64url_decode, base64url_encode, to_base64url_uint
 
 from evidence_service.app import create_app
 from evidence_service.auth import (
@@ -423,6 +423,11 @@ def test_rotated_key_document_replaces_old_key_after_cache_expiry() -> None:
 def test_es256_supabase_signing_key_is_cryptographically_verified() -> None:
     private_key = ec.generate_private_key(ec.SECP256R1())
     public = private_key.public_key().public_numbers()
+    x = base64url_encode(public.x.to_bytes(32, "big")).decode("ascii")
+    y = base64url_encode(public.y.to_bytes(32, "big")).decode("ascii")
+    assert len(base64url_decode(x)) == 32
+    assert len(base64url_decode(y)) == 32
+
     jwk = {
         "kty": "EC",
         "use": "sig",
@@ -430,8 +435,8 @@ def test_es256_supabase_signing_key_is_cryptographically_verified() -> None:
         "alg": "ES256",
         "kid": "ec-key",
         "crv": "P-256",
-        "x": to_base64url_uint(public.x).decode("ascii"),
-        "y": to_base64url_uint(public.y).decode("ascii"),
+        "x": x,
+        "y": y,
     }
     claims = {
         "iss": ISSUER,
