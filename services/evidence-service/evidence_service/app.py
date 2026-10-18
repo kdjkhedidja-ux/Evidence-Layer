@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from evidence_service.auth import (
     AuthenticatedRequest,
@@ -17,12 +18,20 @@ from evidence_service.auth import (
     TokenVerifier,
 )
 from evidence_service.config import ConfigurationError, SupabaseSettings
+from evidence_service.evidence_repository import (
+    EvidenceAccessDenied,
+    EvidenceDataUnavailable,
+    EvidenceRecord,
+    EvidenceRepository,
+    SupabaseEvidenceRepository,
+)
 from evidence_service.supabase_repository import (
     SupabaseWorkspaceRepository,
     WorkspaceDataUnavailable,
 )
 from evidence_service.tenant_context import (
     WorkspaceAccessDenied,
+    WorkspaceContext,
     WorkspaceDirectory,
     resolve_workspace_context,
 )
@@ -44,6 +53,39 @@ class WorkspaceResponse(BaseModel):
     id: UUID
     name: str
     role: Literal["owner", "member"]
+
+
+class EvidenceCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    content: str = Field(min_length=1, max_length=65_536)
+    source_label: str | None = Field(default=None, max_length=512)
+
+
+class EvidenceUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    content: str | None = Field(default=None, min_length=1, max_length=65_536)
+    source_label: str | None = Field(default=None, max_length=512)
+
+    @model_validator(mode="after")
+    def require_update_fields(self) -> EvidenceUpdateRequest:
+        if not self.model_fields_set:
+            raise ValueError("At least one evidence field must be provided")
+        if "content" in self.model_fields_set and self.content is None:
+            raise ValueError("Evidence content cannot be null")
+        return self
+
+
+class EvidenceResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    workspace_id: UUID
+    content: str
+    source_label: str | None
+    created_at: datetime
+    updated_at: datetime
 
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -104,11 +146,50 @@ def _workspace_directory(request: Request) -> WorkspaceDirectory:
     return directory
 
 
+def _evidence_repository(request: Request) -> EvidenceRepository:
+    repository = request.app.state.evidence_repository
+    if repository is None:
+        repository = SupabaseEvidenceRepository(_settings_for(request))
+        request.app.state.evidence_repository = repository
+    return repository
+
+
+async def _resolve_workspace_or_404(
+    request: Request,
+    auth: AuthenticatedRequest,
+    workspace_id: UUID,
+) -> WorkspaceContext:
+    try:
+        return await resolve_workspace_context(
+            _workspace_directory(request),
+            auth.principal,
+            auth.access_token,
+            workspace_id,
+        )
+    except WorkspaceAccessDenied as exc:
+        raise HTTPException(status_code=404, detail="Workspace not found") from exc
+    except WorkspaceDataUnavailable as exc:
+        raise HTTPException(
+            status_code=503, detail="Workspace directory is unavailable"
+        ) from exc
+
+
+def _evidence_access_error(exc: EvidenceAccessDenied) -> HTTPException:
+    return HTTPException(status_code=404, detail="Evidence record not found")
+
+
+def _evidence_data_error(exc: EvidenceDataUnavailable) -> HTTPException:
+    return HTTPException(
+        status_code=503, detail="Evidence storage is unavailable"
+    )
+
+
 def create_app(
     settings: SupabaseSettings | None = None,
     *,
     token_verifier: TokenVerifier | None = None,
     workspace_directory: WorkspaceDirectory | None = None,
+    evidence_repository: EvidenceRepository | None = None,
 ) -> FastAPI:
     """Create the service app; optional integrations are initialized on demand."""
     application = FastAPI(
@@ -120,6 +201,7 @@ def create_app(
     application.state.supabase_settings = settings
     application.state.token_verifier = token_verifier
     application.state.workspace_directory = workspace_directory
+    application.state.evidence_repository = evidence_repository
 
     @application.api_route(
         "/healthz", methods=["GET"], status_code=200, include_in_schema=False
@@ -179,6 +261,122 @@ def create_app(
             name=context.workspace_name,
             role=context.role,
         )
+
+    @application.get(
+        "/v1/workspaces/{workspace_id}/evidence",
+        response_model=list[EvidenceResponse],
+    )
+    async def list_evidence(
+        workspace_id: UUID,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> list[EvidenceRecord]:
+        context = await _resolve_workspace_or_404(request, auth, workspace_id)
+        try:
+            return await _evidence_repository(request).list_records(
+                auth.access_token, context.workspace_id
+            )
+        except EvidenceAccessDenied as exc:
+            raise _evidence_access_error(exc) from exc
+        except EvidenceDataUnavailable as exc:
+            raise _evidence_data_error(exc) from exc
+
+    @application.post(
+        "/v1/workspaces/{workspace_id}/evidence",
+        response_model=EvidenceResponse,
+        status_code=201,
+    )
+    async def create_evidence(
+        workspace_id: UUID,
+        body: EvidenceCreateRequest,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> EvidenceRecord:
+        context = await _resolve_workspace_or_404(request, auth, workspace_id)
+        try:
+            return await _evidence_repository(request).create_record(
+                auth.access_token,
+                context.workspace_id,
+                content=body.content,
+                source_label=body.source_label,
+            )
+        except EvidenceAccessDenied as exc:
+            raise _evidence_access_error(exc) from exc
+        except EvidenceDataUnavailable as exc:
+            raise _evidence_data_error(exc) from exc
+
+    @application.get(
+        "/v1/workspaces/{workspace_id}/evidence/{evidence_id}",
+        response_model=EvidenceResponse,
+    )
+    async def get_evidence(
+        workspace_id: UUID,
+        evidence_id: UUID,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> EvidenceRecord:
+        context = await _resolve_workspace_or_404(request, auth, workspace_id)
+        try:
+            record = await _evidence_repository(request).get_record(
+                auth.access_token, context.workspace_id, evidence_id
+            )
+        except EvidenceAccessDenied as exc:
+            raise _evidence_access_error(exc) from exc
+        except EvidenceDataUnavailable as exc:
+            raise _evidence_data_error(exc) from exc
+        if record is None:
+            raise HTTPException(status_code=404, detail="Evidence record not found")
+        return record
+
+    @application.patch(
+        "/v1/workspaces/{workspace_id}/evidence/{evidence_id}",
+        response_model=EvidenceResponse,
+    )
+    async def update_evidence(
+        workspace_id: UUID,
+        evidence_id: UUID,
+        body: EvidenceUpdateRequest,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> EvidenceRecord:
+        context = await _resolve_workspace_or_404(request, auth, workspace_id)
+        try:
+            record = await _evidence_repository(request).update_record(
+                auth.access_token,
+                context.workspace_id,
+                evidence_id,
+                body.model_dump(exclude_unset=True),
+            )
+        except EvidenceAccessDenied as exc:
+            raise _evidence_access_error(exc) from exc
+        except EvidenceDataUnavailable as exc:
+            raise _evidence_data_error(exc) from exc
+        if record is None:
+            raise HTTPException(status_code=404, detail="Evidence record not found")
+        return record
+
+    @application.delete(
+        "/v1/workspaces/{workspace_id}/evidence/{evidence_id}",
+        status_code=204,
+    )
+    async def delete_evidence(
+        workspace_id: UUID,
+        evidence_id: UUID,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> Response:
+        context = await _resolve_workspace_or_404(request, auth, workspace_id)
+        try:
+            deleted = await _evidence_repository(request).delete_record(
+                auth.access_token, context.workspace_id, evidence_id
+            )
+        except EvidenceAccessDenied as exc:
+            raise _evidence_access_error(exc) from exc
+        except EvidenceDataUnavailable as exc:
+            raise _evidence_data_error(exc) from exc
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Evidence record not found")
+        return Response(status_code=204)
 
     return application
 
