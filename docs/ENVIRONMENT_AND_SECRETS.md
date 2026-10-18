@@ -48,15 +48,17 @@ replace this placeholder with the domain the owner actually controls.
 3. In **Authentication → Providers → Email**, enable email/password sign-in
    and require email confirmation. The app fails closed if sign-up returns an
    active session before confirmation.
-4. In **Authentication → URL Configuration**, set the production Site URL to
-   the actual app origin and add these exact full callback URLs (the `next`
-   query string is part of the redirect target):
+4. Use a separate non-production Supabase project for the first hosted test.
+   In **Authentication → URL Configuration**, set that project's Site URL to
+   the local or staging app origin and add only the matching non-production
+   callback URLs (the `next` query string is part of the redirect target):
    `http://localhost:3000/auth/callback?next=%2F`,
    `http://localhost:3000/auth/callback?next=%2Freset-password`,
-   `https://<actual-app-host>/auth/callback?next=%2F`, and
-   `https://<actual-app-host>/auth/callback?next=%2Freset-password`. Replace
-   `<actual-app-host>` with the deployed app hostname. Do not use an unbounded
-   redirect wildcard.
+   `https://<staging-app-host>/auth/callback?next=%2F`, and
+   `https://<staging-app-host>/auth/callback?next=%2Freset-password`. Replace
+   `<staging-app-host>` with the approved non-production hostname. Do not add
+   production URLs to this test project or use an unbounded redirect wildcard;
+   configure production separately after review and approval.
 5. Keep the confirmation and password recovery templates routed through
    Supabase's `{{ .ConfirmationURL }}` so Supabase verifies the one-time link
    and redirects back to the configured app callback. Do not expose raw OTPs
@@ -67,6 +69,11 @@ key as its password; its current SMTP documentation recommends port 465 for
 SSL. Verify these values against the Resend account before configuring a
 project. The sender domain/address and app production origin are intentionally
 not guessed here.
+
+The checked-in `supabase/config.toml` disables local signup and local SMTP.
+Use the isolated hosted non-production project for a real confirmation-email
+check; no local or production Auth settings are changed by this repository
+integration.
 
 ## Web app variables
 
