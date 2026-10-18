@@ -1,0 +1,25 @@
+import Link from "next/link";
+import AuthErrorMessage from "./auth-error-message";
+
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+
+export default async function AuthErrorPage({ searchParams }: { searchParams: SearchParams }) {
+  const params = await searchParams;
+  const reason = typeof params.reason === "string" ? params.reason : undefined;
+  return (
+    <main className="auth-page">
+      <section className="auth-card" aria-labelledby="auth-error-title">
+        <Link className="auth-brand" href="/login" aria-label="Evidence Layer sign in">
+          <span className="brand-name">evidence<span>layer</span></span>
+        </Link>
+        <p className="eyebrow">ACCOUNT ACCESS</p>
+        <AuthErrorMessage initialReason={reason} />
+        <nav className="auth-links" aria-label="Recovery options">
+          <Link href="/signup">Return to sign-up</Link>
+          <Link href="/forgot-password">Request a password-reset link</Link>
+          <Link href="/login">Return to sign in</Link>
+        </nav>
+      </section>
+    </main>
+  );
+}
