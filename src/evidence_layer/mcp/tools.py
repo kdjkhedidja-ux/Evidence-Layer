@@ -2,10 +2,10 @@
 
 This module wraps ``evidence_layer.retrieval.local_corpus.LocalCorpusRetriever``
 behind a strict, JSON-safe, read-only function boundary. It is *not* an MCP
-server. Its standard construction uses ``LocalCorpusRetriever()`` without an
-injected JEV scoring policy, so this path uses deterministic lexical scoring and
-does not call a remote scorer. An independently constructed retriever with an
-injected remote scoring policy would not have that network-free guarantee.
+server. The standard stdio path constructs ``LocalCorpusRetriever()`` without a
+trusted source context or injected JEV scoring policy, so it fails closed before
+reading unclassified sources and never calls a remote scorer. Source-read and
+provider-transfer authorization remain separate server-side decisions.
 
 Inputs are typed as ``object`` on purpose so runtime validation can reject
 wrongly-typed or non-JSON-safe values safely before any core work happens.
@@ -14,6 +14,7 @@ wrongly-typed or non-JSON-safe values safely before any core work happens.
 from __future__ import annotations
 
 from evidence_layer.retrieval.local_corpus import LocalCorpusRetriever
+from evidence_layer.source_access import SourceReadError
 
 _TOP_K_MIN = 1
 _TOP_K_MAX = 20
@@ -49,8 +50,9 @@ def retrieve_evidence(
 ) -> dict[str, object]:
     """Retrieve ranked, budgeted local evidence for ``query``.
 
-    Returns a JSON-compatible dict on success, or a structured error dict on
-    validation, corpus, or unexpected failure. Deterministic and read-only.
+    This standard stdio path has no trusted request context or source catalog.
+    It therefore fails closed until a source is explicitly classified and a
+    trusted boundary is composed. It never opens an unclassified corpus.
     """
     stripped_query = _validate_query(query)
     if stripped_query is None:
@@ -103,5 +105,7 @@ def retrieve_evidence(
             "scoring_provider": result.scoring_provider,
             "scoring_failure_category": result.scoring_failure_category,
         }
+    except SourceReadError:
+        return _error("source_unavailable", "local source is unavailable")
     except Exception:
         return _error("internal_error", "retrieve_evidence failed")

@@ -22,7 +22,7 @@
 | Platform | Allowed variables | Examples |
 |---|---|---|
 | Vercel (frontend) | Public only | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (later) |
-| Railway (service) | Server-only | `SUPABASE_SERVICE_ROLE_KEY`, `JEV_API_KEY` |
+| Railway (health-only service; persistent MCP later) | `PORT` is non-secret; future server-only credentials | `SUPABASE_SERVICE_ROLE_KEY`, `JEV_API_KEY` (planned) |
 | GitHub Codespaces | Encrypted Codespaces secrets | provider keys used for local work |
 
 The Supabase service role key must never reach the frontend, a `NEXT_PUBLIC_*`
@@ -30,5 +30,8 @@ variable, or client-side code.
 
 ## Status
 
-No external project is created or linked yet; none of these variables are in
-use today.
+The synthetic-only Evidence Explorer prototype is deployed from `main` on
+Vercel. The health-only Python service is deployed on Railway and reads the
+non-secret `PORT` setting (default `8000`). Neither provides customer-data
+operations or uses hosted database or provider credentials. The hosted backend
+and its production identity/authorization boundary remain unimplemented.

@@ -18,14 +18,25 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=8",
+    "httpx>=0.27,<1",
 ]
 jev = [
     "typesafe-sdk==0.7.2",
+]
+service = [
+    "fastapi>=0.115,<1",
+    "uvicorn>=0.30,<1",
+    "httpx>=0.27,<1",
+    "PyJWT[crypto]>=2.10,<3",
 ]
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+evidence_layer = ["retrieval/_fixtures/*.jsonl"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+pythonpath = ["src", "services/evidence-service"]

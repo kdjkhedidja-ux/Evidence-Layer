@@ -2,19 +2,23 @@
 
 ## Status
 
-This document describes the **approved target architecture**, not deployed
-infrastructure. The repository currently contains a Python library, local
-evaluation scripts, dataset artifacts, a JEV scorer, and a local stdio MCP
-server (`retrieve_evidence`). It does not contain a source router, Decisions
-API client, or the SaaS infrastructure described below.
+This document describes the **approved target architecture**, while marking
+which parts are present. The repository contains a Python library, local
+evaluation scripts, dataset artifacts, a JEV scorer, a local stdio MCP server
+(`retrieve_evidence`), and a synthetic-only Next.js Evidence Explorer
+prototype. The prototype's production deployment from `main` on Vercel is
+confirmed; it is not an authenticated SaaS dashboard or customer-data service.
+The repository does not contain a source router, Decisions API client, or the
+SaaS backend described below.
 
-The `services/evidence-service/` directory is a placeholder for a future
-service. No local FastAPI/HTTP server or health endpoint is implemented there;
-the local stdio MCP server above is a separate existing component.
+The health-only FastAPI service at `services/evidence-service/` is deployed on
+Railway and exposes only `GET /healthz`; it does not read corpus content,
+retrieve evidence, authenticate customers, or call providers. It is separate
+from the stdio MCP server and is not a customer-data service.
 
 Delivery phasing follows the canonical [Product Roadmap](ROADMAP.md): Phase 5
 requires mandatory per-user tenant isolation that protects each user's data;
-Phase 6 adds advanced team management, workspaces, billing, and broader
+Phase 6 adds advanced team management, shared workspaces, billing, and broader
 collaboration. Phase 6 does not defer Phase 5 isolation.
 
 ## Target System Context
@@ -62,9 +66,11 @@ document data or scorer behavior.
 
 - A local stdio MCP server is implemented and exposes `retrieve_evidence`.
 - Its standard tool path constructs `LocalCorpusRetriever()` without an
-  injected JEV policy and therefore remains lexical-only.
-- The `services/evidence-service/` directory is a placeholder; it contains no
-  local FastAPI/HTTP server or health endpoint.
+  injected JEV policy and is lexical-only, but the retriever's default source
+  boundary denies corpus reads before opening content. The tool therefore does
+  not currently return corpus evidence without a future trusted source boundary.
+- A separate local FastAPI health-only service exposes `GET /healthz`; it has no
+  retrieval, authentication, MCP, or provider integration.
 - The persistent Railway HTTP service is planned; it will host the same MCP
   protocol and `retrieve_evidence` tool.
 - The future customer-facing service must authenticate/authorize the caller
@@ -87,10 +93,13 @@ document data or scorer behavior.
   chunks, ingestion state, and usage events. Exact schema and migrations are
   not yet defined.
 
-### Vercel dashboard (planned)
+### Evidence Explorer prototype (implemented UI; SaaS dashboard planned)
 
-- Next.js frontend for account setup, Google Drive connection, usage and plan
-  visibility, and the Comparison Lab.
+- The Next.js app at `apps/web/` is a synthetic-only Evidence Explorer
+  prototype, deployed from `main` on Vercel. It has no backend integration or
+  customer account operations.
+- Account setup, Google Drive connection, usage and plan visibility, and the
+  Comparison Lab remain planned product capabilities.
 - The browser must not receive provider keys, database service-role secrets,
   or unrestricted billing credentials.
 
@@ -113,10 +122,10 @@ document data or scorer behavior.
   invalid, or incomplete scores, or any result that fails validation or cannot
   be used safely—requires recomputing the entire candidate set lexically. Never
   mix JEV and lexical scores or rankings.
-- Call TypeSafe only from a server-side boundary when JEV is enabled and
-  permitted by plan and request policy, and the separate transfer authorization
-  is present. An injected remote JEV policy means local-corpus retrieval is not
-  guaranteed to be network-free.
+- The target architecture calls TypeSafe only from a server-side boundary when
+  JEV is enabled and permitted by plan and request policy, and separate transfer
+  authorization is present. In the current implementation, live JEV transfer
+  is hard-denied on supported package paths, including injected dependencies.
 - Requested model defaults to `jev-latest`; record the provider-returned model
   when available because the alias may resolve to a changing concrete model.
 
@@ -157,8 +166,8 @@ document data or scorer behavior.
 
 ### Stripe billing (planned for Phase 6)
 
-- Manage subscriptions and $5 credit packs through verified server-side
-  webhook/event processing.
+- Manage subscriptions and any future credit packs through verified
+  server-side webhook/event processing; commercial terms remain undecided.
 - Enforce entitlements in the backend, not the frontend.
 - Specify idempotency, refunds, charge disputes, credits, plan periods, and
   usage reconciliation before implementation.
@@ -195,10 +204,10 @@ This flow is a design target; production retrieval, policy, auth, storage, and
 usage enforcement are not present yet.
 
 Hosted authentication and tenant-isolation enforcement, hosted provider-transfer
-authorization, production source connectors and Decisions integration, hosted
-deployment, hosted database/RLS, dashboard, and billing are not implemented.
-The `services/evidence-service/` directory remains a placeholder, not an
-implemented local service or health endpoint.
+authorization, production source connectors and Decisions integration, the
+hosted customer-data service, hosted database/RLS, SaaS dashboard capabilities,
+and billing are not implemented. The health-only FastAPI service is deployed on
+Railway but has no customer-data capabilities.
 
 ## Initial Data Concepts
 
@@ -217,15 +226,12 @@ schema or isolation mechanism from these logical concepts.
 
 ## Plans and Limits (Target)
 
-- Phase 5 free-tier usage limits: 500 requests and 200K JEV tokens.
-- Illustrative Phase 6 paid Pro target: $19/month, 3,000 requests and 2M JEV
-  tokens, with $5 credit packs. The $19/month figure is a planning estimate,
-  not an approved final price.
-
-Quota period, request counting semantics, token metering, overage behavior, and
-credit interaction are open decisions. Usage limits and metering are distinct
-from payment collection. Resolve the open accounting rules before Phase 6
-billing enforcement.
+The roadmap's plan and workspace mapping remains a proposal. No pricing,
+numeric quota values or periods, credit amounts, or member limits are approved.
+Usage metering and safety limits are distinct from payment collection; define
+their semantics and backend enforcement before implementing them. Keep plans,
+capabilities, entitlements, and observed usage separate rather than treating a
+plan label as an authorization decision.
 
 ## Security and Reliability Principles
 
@@ -248,16 +254,41 @@ billing enforcement.
 - Track retries, idempotency, rate limits, and request-level usage explicitly
   before production launch.
 
+## Flexible Configuration and Extensibility Principles
+
+“Flexible by design. Extensible for the future.” is an accepted guiding
+principle, not a claim that a centralized configuration service or workspace
+system already exists. The target design should:
+
+- Resolve and validate configuration through a clear, centralized boundary;
+  version configuration changes and provide safe migrations rather than
+  scattering unrelated flags across components.
+- Keep subscription plans, product capabilities, entitlements, and measured
+  usage limits as separate concepts. A plan label is not authorization, and
+  access enforcement belongs on the trusted server.
+- Treat a workspace as a logical scope for resources and integrations, not as
+  proof of identity or permission. Server-side authorization must enforce
+  access within that scope.
+- Extend through explicit contracts and incremental, validated additions. Add
+  abstractions only when an evidenced requirement needs them.
+
+These are target design constraints. Configuration versioning, safe migration
+workflows, hosted workspaces, and their authorization controls are not
+implemented.
+
 ## Deployment Boundaries
 
-- Vercel: Next.js dashboard.
+- Vercel: synthetic-only Next.js Evidence Explorer prototype; SaaS dashboard
+  capabilities remain planned.
 - Supabase: backend services and data.
-- Railway: persistent MCP server only.
+- Railway: health-only service deployed; persistent MCP service remains planned.
 - TypeSafe: external JEV evidence-scoring API.
 - OpenAI Decisions API: planned source-routing intelligence for complex
   queries; not a scorer or answer generator.
 
-These are approved target placements; none imply a current deployment.
+Vercel currently hosts the synthetic-only Evidence Explorer prototype from
+`main`; Railway hosts the separate health-only service. These deployments do
+not mean that the hosted customer-data architecture is implemented.
 
 ## Open Architecture Decisions
 
@@ -275,13 +306,14 @@ These are approved target placements; none imply a current deployment.
 
 ## Platform Deployment Target
 
-This is the target architecture. It is **not implemented yet**: no external
-project exists and nothing is deployed.
+This separates the existing deployments from the target architecture. The
+Evidence Explorer UI prototype is deployed from `main` on Vercel; the
+health-only Python service is deployed on Railway. Neither provides customer
+retrieval or hosted SaaS operations.
 
 ```text
 Vercel:
-- Next.js frontend at apps/web
-- production from main
+- Synthetic-only Next.js Evidence Explorer prototype at apps/web (deployed)
 - preview deployments from PRs later
 
 Supabase:
@@ -290,9 +322,8 @@ Supabase:
 - migrations are source of truth
 
 Railway:
-- future MCP/HTTP Python service
-- production from main later
-- no deployment until service has health endpoint and auth model
+- health-only Python service at services/evidence-service (deployed)
+- persistent MCP/HTTP customer service remains future work
 ```
 
 Repository scaffolding for these targets lives in `apps/web`, `supabase/`, and
