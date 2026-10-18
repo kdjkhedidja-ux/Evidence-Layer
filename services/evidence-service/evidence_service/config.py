@@ -59,6 +59,10 @@ class SupabaseSettings:
     def rest_url(self) -> str:
         return f"{self.supabase_url.rstrip('/')}/rest/v1/workspace_memberships"
 
+    @property
+    def evidence_records_url(self) -> str:
+        return f"{self.supabase_url.rstrip('/')}/rest/v1/evidence_records"
+
     @classmethod
     def from_environment(
         cls, environment: Mapping[str, str] | None = None

@@ -40,6 +40,11 @@ def test_service_routes_are_limited_and_docs_are_disabled() -> None:
         ("GET", "/healthz"),
         ("GET", "/v1/me"),
         ("GET", "/v1/workspaces/{workspace_id}"),
+        ("GET", "/v1/workspaces/{workspace_id}/evidence"),
+        ("POST", "/v1/workspaces/{workspace_id}/evidence"),
+        ("GET", "/v1/workspaces/{workspace_id}/evidence/{evidence_id}"),
+        ("PATCH", "/v1/workspaces/{workspace_id}/evidence/{evidence_id}"),
+        ("DELETE", "/v1/workspaces/{workspace_id}/evidence/{evidence_id}"),
     }
 
     with TestClient(service_app.app) as client:
