@@ -1,0 +1,266 @@
+import { expect, test } from "@playwright/test";
+
+const email = "person@example.test";
+const secondEmail = "switch@example.test";
+const password = "Synthetic-password-123";
+
+test("login authenticates with the local fixture and opens the signed-in account control", async ({ page }) => {
+  await page.route("**/api/evidence/personal-workspace", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) }),
+  );
+  await page.goto("/login");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill(password);
+  await page.getByRole("button", { name: "Sign in" }).click();
+
+  await expect(page).toHaveURL("/");
+  await expect(page.getByRole("button", { name: "Open account" })).toBeVisible();
+});
+
+test("account panel signs out cleanly before a different synthetic account signs in", async ({ page }) => {
+  const accounts = [
+    {
+      email,
+      id: "synthetic-ui-user",
+      workspace: { id: "synthetic-workspace-one", name: "First synthetic workspace", role: "owner" },
+    },
+    {
+      email: secondEmail,
+      id: "synthetic-ui-user-two",
+      workspace: { id: "synthetic-workspace-two", name: "Second synthetic workspace", role: "owner" },
+    },
+  ];
+  let activeAccount = accounts[0];
+  await page.route("**/api/evidence/personal-workspace", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) }),
+  );
+  await page.route("**/api/evidence/me", (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({ user_id: activeAccount.id, workspaces: [activeAccount.workspace] }),
+  }));
+
+  await page.goto("/login");
+  await page.getByLabel("Email").fill(activeAccount.email);
+  await page.getByLabel("Password").fill(password);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page).toHaveURL("http://localhost:3000/");
+  await page.getByRole("button", { name: "Open account" }).click();
+
+  const accountPanel = page.getByRole("region", { name: "ACCOUNT WORKSPACE" });
+  await expect(accountPanel).toBeVisible();
+  await expect(accountPanel.getByText(email, { exact: true })).toBeVisible();
+  await expect(accountPanel.getByText(accounts[0].workspace.name, { exact: true })).toBeVisible();
+  await accountPanel.getByRole("button", { name: "Sign out" }).click();
+  await expect(page).toHaveURL("http://localhost:3000/login?reason=signed-out");
+  await expect(page.getByRole("status")).toContainText("You have been signed out.");
+
+  activeAccount = accounts[1];
+  await page.getByLabel("Email").fill(activeAccount.email);
+  await page.getByLabel("Password").fill(password);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page).toHaveURL("http://localhost:3000/");
+  await page.getByRole("button", { name: "Open account" }).click();
+
+  const switchedPanel = page.getByRole("region", { name: "ACCOUNT WORKSPACE" });
+  await expect(switchedPanel.getByText(secondEmail, { exact: true })).toBeVisible();
+  await expect(switchedPanel.getByText(accounts[1].workspace.name, { exact: true })).toBeVisible();
+  await expect(switchedPanel.getByText(accounts[0].workspace.name, { exact: true })).toHaveCount(0);
+});
+
+test("login normalizes an unsafe external next destination to the app root", async ({ page }) => {
+  await page.route("**/api/evidence/personal-workspace", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) }),
+  );
+  await page.goto("/login?next=https%3A%2F%2Fevil.example%2Foutside");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill(password);
+  await page.getByRole("button", { name: "Sign in" }).click();
+
+  await expect(page).toHaveURL("http://localhost:3000/");
+});
+
+test("login failure is announced accessibly", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill("incorrect synthetic password");
+  await page.getByRole("button", { name: "Sign in" }).click();
+
+  await expect(page.locator(".auth-error[role='alert']")).toHaveText(
+    "We could not sign you in. Check your details or try again later.",
+  );
+});
+
+test("login prevents duplicate submissions while the local Auth request is pending", async ({ page }) => {
+  let releaseAuthRequest!: () => void;
+  let markAuthRequestStarted!: () => void;
+  const heldRequest = new Promise<void>((resolve) => { releaseAuthRequest = resolve; });
+  const authRequestStarted = new Promise<void>((resolve) => { markAuthRequestStarted = resolve; });
+  let passwordRequests = 0;
+
+  await page.route((url) => url.pathname === "/auth/v1/token" && url.searchParams.get("grant_type") === "password", async (route) => {
+    passwordRequests += 1;
+    if (passwordRequests === 1) {
+      markAuthRequestStarted();
+      await heldRequest;
+      await route.continue();
+    } else {
+      await route.abort();
+    }
+  });
+  await page.route("**/api/evidence/personal-workspace", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) }),
+  );
+
+  await page.goto("/login");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill(password);
+  const submit = page.locator(".auth-submit");
+  const form = page.locator(".auth-form");
+
+  try {
+    await submit.click();
+    await authRequestStarted;
+    await expect(submit).toBeDisabled();
+    await expect(form).toHaveAttribute("aria-busy", "true");
+    await form.evaluate((element) => (element as HTMLFormElement).requestSubmit());
+    releaseAuthRequest();
+
+    await expect(page).toHaveURL("http://localhost:3000/");
+    await page.waitForLoadState("networkidle");
+    expect(passwordRequests).toBe(1);
+  } finally {
+    releaseAuthRequest();
+  }
+});
+
+test("signup displays its confirmation status without sending real email", async ({ page }) => {
+  await page.goto("/signup");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password", { exact: true }).fill(password);
+  await page.getByLabel("Confirm password").fill(password);
+  await page.getByRole("button", { name: "Create account" }).click();
+
+  await expect(page.getByRole("status")).toHaveText(
+    "Check your email for a confirmation link. You can sign in after confirming your address.",
+  );
+});
+
+test("signup reports required and malformed fields through native browser validation", async ({ page }) => {
+  let passwordRequests = 0;
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    if (url.pathname === "/auth/v1/token" || url.pathname === "/auth/v1/signup") passwordRequests += 1;
+  });
+
+  await page.goto("/signup");
+  const emailInput = page.getByLabel("Email");
+  const passwordInput = page.getByLabel("Password", { exact: true });
+  const confirmationInput = page.getByLabel("Confirm password");
+  await expect(emailInput).toHaveAttribute("required", "");
+  await expect(passwordInput).toHaveAttribute("required", "");
+  await expect(confirmationInput).toHaveAttribute("required", "");
+
+  await page.getByRole("button", { name: "Create account" }).click();
+  await expect(emailInput).toBeFocused();
+  expect(await emailInput.evaluate((input) => (input as HTMLInputElement).validity.valid)).toBe(false);
+  expect(await emailInput.evaluate((input) => (input as HTMLInputElement).validity.valueMissing)).toBe(true);
+
+  await emailInput.fill("not-an-email");
+  await page.getByRole("button", { name: "Create account" }).click();
+  expect(await emailInput.evaluate((input) => (input as HTMLInputElement).validity.valid)).toBe(false);
+  expect(await emailInput.evaluate((input) => (input as HTMLInputElement).validity.typeMismatch)).toBe(true);
+  expect(passwordRequests).toBe(0);
+});
+
+test("forgot-password displays a non-enumerating reset status", async ({ page }) => {
+  await page.goto("/forgot-password");
+  await page.getByLabel("Email").fill(email);
+  await page.getByRole("button", { name: "Send reset link" }).click();
+
+  await expect(page.getByRole("status")).toHaveText(
+    "If an account matches that address, a reset link will arrive by email.",
+  );
+});
+
+test("recovery callback opens reset-password and completes using the synthetic Auth fixture", async ({ page }) => {
+  await page.goto("/auth/callback?token_hash=synthetic-recovery-link&type=recovery");
+  await expect(page).toHaveURL(/\/reset-password$/);
+  await expect(page.getByRole("heading", { name: "Choose a new password" })).toBeVisible();
+  await page.getByLabel("New password").fill(password);
+  await page.getByLabel("Confirm password").fill(password);
+  await page.getByRole("button", { name: "Update password" }).click();
+
+  await expect(page.getByRole("status")).toHaveText("Password updated. Sign in with your new password.");
+});
+
+test("expired recovery token is rejected by the deterministic local fixture", async ({ page }) => {
+  await page.goto("/auth/callback?token_hash=synthetic-expired-recovery-link&type=recovery");
+
+  await expect(page).toHaveURL("http://localhost:3000/auth/error?reason=invalid-link");
+  await expect(page.getByRole("heading", { name: "This link could not be verified" })).toBeVisible();
+  await expect(page.locator("body")).not.toContainText("synthetic-expired-recovery-link");
+});
+
+test("callback errors show safe, accessible guidance", async ({ page }) => {
+  await page.goto(
+    "/auth/callback?error=access_denied&error_code=otp_expired&error_description=synthetic-private-detail",
+  );
+
+  await expect(page).toHaveURL(/\/auth\/error\?reason=expired-link$/);
+  await expect(page.getByRole("heading", { name: "This link has expired" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Request a password-reset link" })).toHaveAttribute(
+    "href",
+    "/forgot-password",
+  );
+  await expect(page.locator("body")).not.toContainText("synthetic-private-detail");
+});
+
+for (const viewport of [
+  { name: "desktop", width: 1280, height: 800 },
+  { name: "mobile", width: 390, height: 844 },
+]) {
+  test(`signed-out sidebar navigation reaches login on ${viewport.name}`, async ({ page }) => {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await page.goto("/");
+
+    if (viewport.width <= 900) {
+      const menuButton = page.getByRole("button", { name: "Open navigation" });
+      await menuButton.click();
+      await expect(page.getByRole("button", { name: "Close navigation" })).toHaveAttribute(
+        "aria-expanded",
+        "true",
+      );
+    }
+
+    await page.getByRole("link", { name: "Sign in" }).click();
+    await expect(page).toHaveURL(/\/login$/);
+    await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+  });
+}
+
+for (const viewport of [
+  { name: "desktop", width: 1280, height: 800 },
+  { name: "mobile", width: 390, height: 844 },
+]) {
+  test(`login layout, keyboard focus, and themes work on ${viewport.name}`, async ({ page }) => {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await page.goto("/login");
+    await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth))
+      .toBeLessThanOrEqual(viewport.width);
+
+    await page.keyboard.press("Tab");
+    await expect(page.getByRole("link", { name: "Evidence Layer sign in" })).toBeFocused();
+    await page.keyboard.press("Tab");
+    const emailInput = page.getByLabel("Email");
+    await expect(emailInput).toBeFocused();
+    await expect(emailInput).toHaveCSS("outline-style", "solid");
+
+    await page.evaluate(() => localStorage.setItem("evidence-layer-theme", "dark"));
+    await page.reload();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+    await expect(page.locator("html")).toHaveCSS("color-scheme", "dark");
+  });
+}

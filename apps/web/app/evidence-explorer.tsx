@@ -2,7 +2,18 @@
 
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import ThemeToggle from "./theme-toggle";
+import Link from "next/link";
 import AuthAccount from "../components/auth-account";
+
+type ExplorerAccount = { id: string; email: string } | null;
+
+function AccountIcon() {
+  return <svg className="account-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="8" r="3.5" />
+    <path d="M5.5 20v-1.5a6.5 6.5 0 0 1 13 0V20" />
+  </svg>;
+}
 import {
   filterEvidence,
   SAMPLE_EVIDENCE,
@@ -506,7 +517,7 @@ function RelationshipMap({
   );
 }
 
-export default function Home() {
+export default function Home({ account }: { account: ExplorerAccount }) {
   const [query, setQuery] = useState("");
   const [recordType, setRecordType] = useState("all");
   const [status, setStatus] = useState("all");
@@ -514,6 +525,7 @@ export default function Home() {
   const [hoveredRecordId, setHoveredRecordId] = useState<string | null>(null);
   const [focusedRecordId, setFocusedRecordId] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
   const [activeSection, setActiveSection] = useState("explorer");
   const [inquiryOpen, setInquiryOpen] = useState(false);
   const [inquiryTopic, setInquiryTopic] = useState<InquiryTopic | null>(null);
@@ -662,8 +674,21 @@ export default function Home() {
           <p>No evidence sources are connected.</p>
         </div>
 
-        <AuthAccount />
-        <ThemeToggle />
+        {account && accountOpen && <AuthAccount key={account.id} userId={account.id} email={account.email} />}
+        <div className="sidebar-controls">
+          {account ? (
+            <button className="account-toggle" type="button" aria-label={accountOpen ? "Close account" : "Open account"}
+              title="Account" aria-controls="account-panel" aria-expanded={accountOpen}
+              onClick={() => setAccountOpen((open) => !open)}>
+              <AccountIcon />
+            </button>
+          ) : (
+            <Link className="account-toggle" href="/login" aria-label="Sign in" title="Sign in">
+              <AccountIcon />
+            </Link>
+          )}
+          <ThemeToggle />
+        </div>
       </aside>
 
       <div className="main-column">

@@ -10,6 +10,29 @@ permissions:
   contents: read
 
 jobs:
+  auth-ui-browser:
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_synthetic_ui_only
+      EVIDENCE_SERVICE_URL: http://127.0.0.1:54322
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - name: Install web dependencies
+        working-directory: apps/web
+        run: npm ci
+      - name: Install Chromium and operating-system dependencies
+        working-directory: apps/web
+        run: npx playwright install --with-deps chromium
+      - name: Run authentication browser tests against local fixtures
+        working-directory: apps/web
+        run: npm run test:e2e
+
   web:
     runs-on: ubuntu-latest
     steps:

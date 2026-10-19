@@ -45,7 +45,7 @@ describe("same-origin Evidence Service proxy", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("forwards only the verified session token and strips non-UI identity fields", async () => {
+  it("forwards only the verified session token and returns the verified user ID", async () => {
     const fetchMock = vi.mocked(fetch).mockResolvedValue(Response.json({
       user_id: USER_ID,
       issuer: "https://sample.supabase.co/auth/v1",
@@ -54,6 +54,7 @@ describe("same-origin Evidence Service proxy", () => {
     const response = await getMe(request("/api/evidence/me"));
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
+      user_id: USER_ID,
       workspaces: [{ id: WORKSPACE_ID, name: "Personal", role: "owner" }],
     });
     const [, init] = fetchMock.mock.calls[0];

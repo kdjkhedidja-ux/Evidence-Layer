@@ -1,0 +1,38 @@
+import { defineConfig, devices } from "@playwright/test";
+
+const appUrl = "http://localhost:3000";
+const authUrl = "http://127.0.0.1:54321";
+const syntheticConfig = {
+  NEXT_PUBLIC_SUPABASE_URL: authUrl,
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_synthetic_ui_only",
+  EVIDENCE_SERVICE_URL: "http://127.0.0.1:54322",
+  PORT: "3000",
+};
+
+export default defineConfig({
+  testDir: "./tests/e2e",
+  fullyParallel: true,
+  forbidOnly: Boolean(process.env.CI),
+  retries: 0,
+  reporter: "list",
+  use: {
+    ...devices["Desktop Chrome"],
+    baseURL: appUrl,
+    trace: "retain-on-failure",
+  },
+  webServer: [
+    {
+      command: "node tests/e2e/mock-auth-server.mjs",
+      url: `${authUrl}/health`,
+      reuseExistingServer: false,
+      timeout: 30_000,
+    },
+    {
+      command: "npm run build && npm run start -- --hostname 127.0.0.1 --port 3000",
+      url: appUrl,
+      reuseExistingServer: false,
+      timeout: 180_000,
+      env: syntheticConfig,
+    },
+  ],
+});
