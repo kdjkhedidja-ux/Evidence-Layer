@@ -124,7 +124,6 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
       setWorkspaces([]);
       setState("expired");
       router.replace("/login?reason=signed-out");
-      router.refresh();
     } catch {
       setMessage("Sign out could not be confirmed. Try again.");
     } finally {
