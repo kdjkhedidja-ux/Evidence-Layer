@@ -92,6 +92,82 @@ Data API configuration documented in
 Set both `NEXT_PUBLIC_*` values in the app's build environment before building:
 Next.js embeds public-prefixed variables in the browser bundle at build time.
 
+## Hosted Staging authentication smoke test
+
+The hosted smoke suite is separate from the mocked local browser tests. It
+targets only the Staging Supabase project `slxfsjnsrvfkdtxayiud` and never
+creates accounts or sends recovery mail. From `apps/web`, run:
+
+```bash
+npm run test:e2e:hosted
+```
+
+Provide these values through an authorized, temporary CI/Codespaces secret
+store, not a checked-in file or command-line argument:
+
+| Variable | Required for | Handling |
+| --- | --- | --- |
+| `STAGING_APP_URL` | Preview checks | HTTPS origin for the PR Preview |
+| `STAGING_VERCEL_STORAGE_STATE` | Protected Preview | Path to a protected Playwright storage-state file containing the normal Vercel SSO session only; Supabase Auth state is rejected |
+| `STAGING_ALLOW_AUTHENTICATED_PREVIEW_REQUESTS` | Authenticated Preview calls | Set to the exact value `I_CONFIRM_STAGING_PREVIEW_USES_STAGING_SUPABASE_AND_EVIDENCE_SERVICE` only after verifying the effective Vercel Preview variables target this Staging Supabase project and the approved Staging Evidence Service |
+| `STAGING_TEST_EMAIL_A`, `STAGING_TEST_PASSWORD_A` | Authenticated smoke | Existing, authorized Staging identity A |
+| `STAGING_TEST_EMAIL_B`, `STAGING_TEST_PASSWORD_B` | Workspace isolation | Existing, authorized Staging identity B |
+| `STAGING_EVIDENCE_SERVICE_URL` | Service JWT rejection checks | HTTPS origin for the Staging Evidence Service |
+| `STAGING_ALLOW_EVIDENCE_SERVICE_REQUESTS` | Direct service checks | Set to `I_CONFIRM_STAGING_EVIDENCE_SERVICE` only after verifying the target Railway service is Staging |
+| `STAGING_EXPIRED_ACCESS_TOKEN` | Expiry rejection check | Optional previously issued Staging JWT, kept in the secret store |
+| `STAGING_ALLOW_PERSONAL_WORKSPACE_PROVISIONING` | Workspace provisioning | Set to the exact value `I_AUTHORIZE_STAGING_PERSONAL_WORKSPACE_PROVISIONING` only after the account owners explicitly authorize this idempotent Staging mutation |
+
+The app origin is deliberately restricted to the Vercel branch-preview hostname
+for `fix/es256-p256-jwk-test-fixture`; custom domains and the production alias
+are rejected. The service hostname must contain a `staging`, `stage`, `test`,
+or `preview` label. These checks reduce accidental production targeting but
+do not replace verification of the deployment SHA and effective platform
+configuration.
+
+For a protected Preview, authenticate normally through Vercel SSO in an
+authorized browser and save the SSO-only state to a protected temporary file.
+Storage states containing Supabase Auth sessions or Vercel protection-bypass
+cookies are rejected.
+Playwright Codegen can save the state without using browser developer tools:
+
+```bash
+npx playwright codegen --save-storage="$STAGING_VERCEL_STORAGE_STATE" "$STAGING_APP_URL"
+```
+
+Close the browser after normal SSO login. Do not share, print, commit, or
+upload the storage-state file as a build artifact. Do not use a Vercel
+protection-bypass token. The hosted suite disables traces, screenshots, and
+video recording.
+
+Authenticated Preview calls are blocked unless the operator has confirmed the
+effective Vercel Preview targets. Browser Auth traffic is also intercepted:
+only requests to the verified Staging Supabase origin with a publishable key
+are allowed through, preventing accidental credential submission to another
+Supabase project. Direct service checks require the separate Staging-target
+confirmation.
+
+Without the provisioning authorization flag, the suite intercepts the app's
+workspace `PUT` locally and rejects it before it reaches the Preview. Once
+authenticated Preview requests are explicitly confirmed, login and the
+authenticated `GET /api/evidence/me` can be tested without provisioning. With
+the exact authorization flag, the app may issue its idempotent
+personal-workspace `PUT`; the test reports only the HTTP status. The isolation
+test uses both existing accounts and requires B to have an active workspace;
+it checks that A receives 404 for B's workspace. Invalid JWT testing is
+read-only. Expired-token testing is skipped unless a previously issued JWT has
+an expired `exp` claim and the Staging issuer; the token is never included in
+output.
+
+If any required configuration is unavailable, the hosted command fails before
+test collection and lists missing variable names only; it does not silently
+return a green run of skipped tests. If Vercel SSO blocks the runner, the
+affected browser checks report `BLOCKED`/skipped and do not count as hosted
+evidence. Account B and the expired JWT are optional and their corresponding
+checks are skipped if absent. A Supabase Management API token is not used by
+this suite. The hosted command does not create users, request password resets,
+send email, or mutate data unless the explicit provisioning authorization is
+present.
+
 ## Status
 
 The repository now contains the local Supabase Auth frontend flow and an

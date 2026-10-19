@@ -60,8 +60,14 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
         setState("unavailable");
         setMessage("The workspace could not be created. Try again later.");
       } else {
-        await loadWorkspaces();
-        setMessage("Your personal workspace is ready.");
+        const provisioned = (await response.json()) as Workspace;
+        const memberships = await loadWorkspaces();
+        if (memberships?.some((workspace) => workspace.id === provisioned.id)) {
+          setMessage("Your personal workspace is ready.");
+        } else if (memberships) {
+          setState("unavailable");
+          setMessage("Workspace access could not be confirmed. Try again later.");
+        }
       }
     } catch {
       setState("unavailable");
@@ -144,7 +150,14 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
       {state === "expired" && (
         <p role="alert">Your session expired. <a href="/login?reason=session-expired">Sign in again</a>.</p>
       )}
-      {state === "unavailable" && <p role="status">Workspace service is unavailable.</p>}
+      {state === "unavailable" && (
+        <>
+          <p role="status">Workspace service is unavailable.</p>
+          <button className="account-action" type="button" onClick={createPersonalWorkspace} disabled={pending}>
+            Retry workspace setup
+          </button>
+        </>
+      )}
       {state === "ready" && workspaces.length === 0 && (
         <>
           <p>No personal workspace is set up for this account yet.</p>

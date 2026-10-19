@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState, type FormEvent } from "react";
 import { createSupabaseBrowserClient } from "../lib/supabase/client";
 import { getSupabasePublicConfig } from "../lib/supabase/config";
-import { safeInternalPath } from "../lib/supabase/redirect";
+import { authCallbackUrl, safeInternalPath } from "../lib/supabase/redirect";
 
 export type AuthFormMode = "login" | "signup" | "forgot-password" | "reset-password";
 
@@ -36,12 +36,6 @@ const CONTENT: Record<AuthFormMode, { eyebrow: string; title: string; descriptio
   },
 };
 
-function confirmationUrl(next: string): string {
-  const callback = new URL("/auth/callback", window.location.origin);
-  callback.searchParams.set("next", next);
-  return callback.toString();
-}
-
 export default function AuthForm({
   mode,
   returnTo = "/",
@@ -60,6 +54,7 @@ export default function AuthForm({
   const [errorMessage, setErrorMessage] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const [completed, setCompleted] = useState(false);
+  const [sessionEstablished, setSessionEstablished] = useState(false);
   const content = CONTENT[mode];
   const hasConfiguration = Boolean(getSupabasePublicConfig());
 
@@ -74,7 +69,8 @@ export default function AuthForm({
       return;
     }
     const normalizedEmail = email.trim();
-    if (mode !== "reset-password" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+    if (mode !== "reset-password" && !(mode === "login" && sessionEstablished) &&
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
       setErrorMessage("Enter a valid email address.");
       return;
     }
@@ -96,22 +92,33 @@ export default function AuthForm({
     try {
       const supabase = createSupabaseBrowserClient();
       if (mode === "login") {
-        const { error } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password });
-        if (error) {
-          setErrorMessage("We could not sign you in. Check your details or try again later.");
+        if (!sessionEstablished) {
+          const { data, error } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password });
+          if (error || !data?.session) {
+            setErrorMessage("We could not sign you in. Check your details or try again later.");
+            return;
+          }
+          setSessionEstablished(true);
+        }
+        let workspaceResponse: Response;
+        try {
+          workspaceResponse = await fetch("/api/evidence/personal-workspace", {
+            method: "PUT",
+            cache: "no-store",
+          });
+        } catch {
+          setErrorMessage("Your account is signed in, but the workspace service could not be reached. Try opening it again.");
           return;
         }
-        const workspaceResponse = await fetch("/api/evidence/personal-workspace", {
-          method: "PUT",
-          cache: "no-store",
-        });
         if (!workspaceResponse.ok) {
-          setErrorMessage("Your account is signed in, but your workspace could not be opened. Try again later.");
+          setErrorMessage(workspaceResponse.status === 401
+            ? "Sign-in succeeded, but your workspace could not verify this session. Try opening it again."
+            : "Your account is signed in, but your workspace could not be opened. Try again later.");
           return;
         }
         setStatusMessage("Signed in. Opening your workspace…");
+        setCompleted(true);
         router.replace(safeInternalPath(returnTo));
-        router.refresh();
         return;
       }
 
@@ -119,7 +126,7 @@ export default function AuthForm({
         const { data, error } = await supabase.auth.signUp({
           email: normalizedEmail,
           password,
-          options: { emailRedirectTo: confirmationUrl("/") },
+          options: { emailRedirectTo: authCallbackUrl(window.location.origin, "/") },
         });
         if (error) {
           setErrorMessage("We could not create the account. Check the details or try again later.");
@@ -138,7 +145,7 @@ export default function AuthForm({
 
       if (mode === "forgot-password") {
         const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
-          redirectTo: confirmationUrl("/reset-password"),
+          redirectTo: authCallbackUrl(window.location.origin, "/reset-password"),
         });
         if (error) {
           setErrorMessage("We could not request a reset email. Try again later.");
@@ -155,6 +162,16 @@ export default function AuthForm({
         cache: "no-store",
       });
       if (!response.ok) {
+        if (response.status === 503) {
+          const result = await response.json().catch(() => null);
+          if (result?.code === "signout-unconfirmed") {
+            setPassword("");
+            setPasswordConfirmation("");
+            setCompleted(true);
+            setStatusMessage("Password updated, but automatic sign out could not be confirmed. Sign out before continuing.");
+            return;
+          }
+        }
         setErrorMessage(response.status === 401 || response.status === 403
           ? "The reset link is invalid or expired. Request a new link."
           : "We could not update the password. Try again or request a new link.");
@@ -192,7 +209,7 @@ export default function AuthForm({
         {statusMessage && <p className="auth-notice" role="status">{statusMessage}</p>}
 
         {!completed && <form className="auth-form" onSubmit={submit} aria-busy={pending}>
-          {(mode === "login" || mode === "signup" || mode === "forgot-password") && (
+          {((mode === "login" && !sessionEstablished) || mode === "signup" || mode === "forgot-password") && (
             <label>
               <span>Email</span>
               <input
@@ -206,7 +223,7 @@ export default function AuthForm({
               />
             </label>
           )}
-          {(mode === "login" || mode === "signup" || mode === "reset-password") && (
+          {((mode === "login" && !sessionEstablished) || mode === "signup" || mode === "reset-password") && (
             <label>
               <span>{mode === "reset-password" ? "New password" : "Password"}</span>
               <input
@@ -235,7 +252,7 @@ export default function AuthForm({
             </label>
           )}
           <button className="auth-submit" type="submit" disabled={pending || !hasConfiguration}>
-            {pending ? "Please wait…" : content.button}
+            {pending ? "Please wait…" : mode === "login" && sessionEstablished ? "Retry opening workspace" : content.button}
           </button>
         </form>}
 

@@ -18,6 +18,12 @@ export function safeInternalPath(value: string | null | undefined, fallback = "/
   }
 }
 
+export function authCallbackUrl(origin: string, next: string): string {
+  const callback = new URL("/auth/callback", origin);
+  callback.searchParams.set("next", next);
+  return callback.toString();
+}
+
 export function callbackFailureReason(
   error: string | null,
   errorCode: string | null,

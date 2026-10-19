@@ -14,9 +14,11 @@ function failure(request: Request, reason: string): NextResponse {
 export async function GET(request: Request): Promise<NextResponse> {
   const url = new URL(request.url);
   const codeValues = url.searchParams.getAll("code");
+  const flowIdValues = url.searchParams.getAll("sb_flow_id");
   const tokenHashValues = url.searchParams.getAll("token_hash");
   const typeValues = url.searchParams.getAll("type");
   const code = codeValues[0];
+  const flowId = flowIdValues[0];
   const tokenHash = tokenHashValues[0];
   const otpType = typeValues[0];
   const providerError = url.searchParams.get("error");
@@ -25,8 +27,9 @@ export async function GET(request: Request): Promise<NextResponse> {
   const hasCode = codeValues.length === 1 && Boolean(code);
   const hasOtp = tokenHashValues.length === 1 && Boolean(tokenHash) &&
     (otpType === "email" || otpType === "recovery") && typeValues.length === 1;
-  const isCodeFlow = hasCode && tokenHashValues.length === 0 && typeValues.length === 0;
-  const isOtpFlow = hasOtp && codeValues.length === 0;
+  const isCodeFlow = hasCode && tokenHashValues.length === 0 && typeValues.length === 0 &&
+    flowIdValues.length <= 1 && (flowIdValues.length === 0 || Boolean(flowId));
+  const isOtpFlow = hasOtp && codeValues.length === 0 && flowIdValues.length === 0;
   if (providerError || errorCode || isCodeFlow === isOtpFlow) {
     return failure(request, callbackFailureReason(providerError, errorCode));
   }
@@ -35,7 +38,9 @@ export async function GET(request: Request): Promise<NextResponse> {
   try {
     const supabase = await createSupabaseServerClient();
     const { data: exchangeData, error: exchangeError } = hasCode
-      ? await supabase.auth.exchangeCodeForSession(code ?? "")
+      ? flowId
+        ? await supabase.auth.exchangeCodeForSession(code ?? "", { flowId })
+        : await supabase.auth.exchangeCodeForSession(code ?? "")
       : await supabase.auth.verifyOtp({
         token_hash: tokenHash ?? "",
         type: otpType as "email" | "recovery",
@@ -50,9 +55,12 @@ export async function GET(request: Request): Promise<NextResponse> {
       return failure(request, "invalid-link");
     }
 
-    const target = hasOtp && otpType === "recovery"
-      ? "/reset-password"
-      : safeInternalPath(url.searchParams.get("next"), "/");
+    const isRecovery = hasCode
+      ? "redirectType" in exchangeData && exchangeData.redirectType === "recovery"
+      : otpType === "recovery";
+    const requestedTarget = safeInternalPath(url.searchParams.get("next"), "/");
+    const target = isRecovery ? "/reset-password" :
+      new URL(requestedTarget, url.origin).pathname === "/reset-password" ? "/" : requestedTarget;
     if (
       target !== "/reset-password" &&
       !(await provisionPersonalWorkspaceForSession(session.access_token))

@@ -8,10 +8,11 @@
     "start": "next start",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "test:e2e:hosted": "playwright test --config=playwright.hosted.config.ts",
     "test:integration:local": "node tests/auth-db.integration.mjs",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "lint": "biome lint components lib middleware.ts app/page.tsx app/api app/auth app/login app/signup app/forgot-password app/reset-password tests"
+    "lint": "biome lint components lib middleware.ts app/page.tsx app/api app/auth app/login app/signup app/forgot-password app/reset-password playwright.hosted.config.ts tests"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",
