@@ -1,0 +1,151 @@
+name: Supabase migration validation and release
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ['supabase/**', 'scripts/supabase_migration_guard.py', 'tests/test_supabase_migration_guard.py', '.github/workflows/supabase-migrations.yml']
+  push:
+    branches: [main]
+    paths: ['supabase/**', 'scripts/supabase_migration_guard.py', 'tests/test_supabase_migration_guard.py', '.github/workflows/supabase-migrations.yml']
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Review a plan or request an approved apply
+        required: true
+        type: choice
+        options: [plan, apply]
+        default: plan
+      confirm_project_ref:
+        description: Type the reviewed production project ref for a manual apply
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: evidence-supabase-production-migrations
+  cancel-in-progress: false
+
+jobs:
+  local-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - name: Validate reviewed migration inventory and guard tests
+        run: |
+          python scripts/supabase_migration_guard.py validate
+          python -m unittest discover -s tests -p 'test_supabase_migration_guard.py'
+      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
+        with:
+          version: 2.121.0
+      - name: Start local Supabase
+        run: supabase start
+      - name: Apply migrations to local database
+        run: supabase db reset --local
+      - name: Test local database policies
+        run: supabase test db --local
+      - name: Stop local Supabase
+        if: always()
+        run: supabase stop --no-backup
+
+  production-plan:
+    needs: local-validation
+    # Disabled until environment review, main protection, credentials,
+    # and a usable recovery point are independently verified.
+    if: ${{ github.ref == 'refs/heads/main' && false }}
+    runs-on: ubuntu-latest
+    environment: Production
+    env:
+      SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+    outputs:
+      digest: ${{ steps.digest.outputs.value }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
+        with:
+          version: 2.121.0
+      - name: Verify target, history, catalog, and recovery point
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: python scripts/supabase_migration_guard.py plan --plan-file "$RUNNER_TEMP/plan.json"
+      - name: Link verified target and preview pending migrations
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          test -n "$SUPABASE_DB_PASSWORD"
+          supabase link --project-ref "$SUPABASE_PROJECT_REF"
+          supabase migration list --linked
+          supabase db push --linked --dry-run
+      - name: Publish reviewed plan digest
+        id: digest
+        run: |
+          python -c 'import json,os; p=json.load(open(os.environ["RUNNER_TEMP"]+"/plan.json")); print("value="+p["digest"],file=open(os.environ["GITHUB_OUTPUT"],"a"))'
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: supabase-plan-${{ github.sha }}
+          path: ${{ runner.temp }}/plan.json
+          if-no-files-found: error
+
+  production-apply:
+    needs: [local-validation, production-plan]
+    # Disabled until Production requires per-run reviewers and main-only
+    # deployments. The approver must inspect this run's plan artifact first.
+    if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.operation == 'apply') && false }}
+    name: Apply Evidence-test migrations after reviewing ${{ needs.production-plan.outputs.digest }}
+    runs-on: ubuntu-latest
+    environment: Production
+    env:
+      SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+      CONFIRM_PROJECT_REF: ${{ inputs.confirm_project_ref }}
+      OPERATION: ${{ inputs.operation }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
+        with:
+          version: 2.121.0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: supabase-plan-${{ github.sha }}
+          path: ${{ runner.temp }}
+      - name: Require dispatcher target confirmation when manually applying
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          test "$OPERATION" = apply
+          test "$CONFIRM_PROJECT_REF" = ayrtyjgqlgtuiwuyigbz
+      - name: Recheck exact approved plan and remote recovery state
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: python scripts/supabase_migration_guard.py assert-plan --plan-file "$RUNNER_TEMP/plan.json"
+      - name: Apply reviewed plan to verified project
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          test -n "$SUPABASE_DB_PASSWORD"
+          supabase link --project-ref "$SUPABASE_PROJECT_REF"
+          supabase db push --linked --dry-run
+          supabase --yes db push --linked
+      - name: Assert remote history, catalog, grants, and no pending migrations
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          python scripts/supabase_migration_guard.py verify --plan-file "$RUNNER_TEMP/plan.json"
+          supabase migration list --linked
+          supabase db push --linked --dry-run
+          supabase db diff --linked --schema public,private > "$RUNNER_TEMP/remote-schema-diff.sql"
+          if test -s "$RUNNER_TEMP/remote-schema-diff.sql"; then
+            echo "Remote public/private schema differs from the committed migrations" >&2
+            exit 1
+          fi
