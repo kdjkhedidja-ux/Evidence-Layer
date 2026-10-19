@@ -1,5 +1,10 @@
 begin;
 
+-- Supabase CLI uses a temporary login role for hosted tests. Run fixtures as
+-- postgres, then switch explicitly to anon/authenticated for RLS assertions.
+set local role postgres;
+set local search_path = public, extensions;
+
 create extension if not exists pgtap with schema extensions;
 
 select plan(22);
@@ -141,7 +146,7 @@ exception when insufficient_privilege then
     insert into pg_temp.workspace_rls_observations values ('a_workspace_insert', '42501');
 end $$;
 
-reset role;
+set local role postgres;
 
 select is((select value from workspace_rls_observations where name = 'a_workspaces'), '2', 'A sees only workspaces with active memberships');
 select is((select value from workspace_rls_observations where name = 'a_active_memberships'), '2', 'A sees multiple active memberships of its own');
@@ -175,7 +180,7 @@ values
         select count(*)::text from public.workspaces
         where id = 'a2000000-0000-4000-8000-000000000002'
     ));
-reset role;
+set local role postgres;
 
 select is((select value from workspace_rls_observations where name = 'b_workspaces'), '2', 'B sees only its own two active workspaces');
 select is((select value from workspace_rls_observations where name = 'b_memberships'), '2', 'B sees only its own active memberships');
@@ -195,7 +200,7 @@ begin
 exception when insufficient_privilege then
     insert into pg_temp.workspace_rls_observations values ('anon_read', '42501');
 end $$;
-reset role;
+set local role postgres;
 select is((select value from workspace_rls_observations where name = 'anon_read'), '42501', 'Client-supplied authenticated claim does not grant the anon database role access');
 
 select * from finish();

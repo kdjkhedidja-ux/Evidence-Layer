@@ -1,5 +1,10 @@
 begin;
 
+-- Supabase CLI uses a temporary login role for hosted tests. Run fixtures as
+-- postgres, then switch explicitly to anon/authenticated for RLS assertions.
+set local role postgres;
+set local search_path = public, extensions;
+
 create extension if not exists pgtap with schema extensions;
 
 select plan(14);
