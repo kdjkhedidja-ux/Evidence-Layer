@@ -46,7 +46,11 @@ npm run test:integration:local
 
 Auth callback URL: `/auth/callback`. Set the Supabase Site URL and exact full
 callback URLs (including `?next=%2F` or `?next=%2Freset-password`) in the Auth
-URL Configuration. Email confirmation and password reset both return through
-this PKCE callback.
+URL Configuration. Email confirmation returns through this PKCE callback.
+For password recovery, the hosted email template links to
+`/auth/recovery?token_hash={{ .TokenHash }}` on the app origin. That page asks
+for a button press before the callback verifies the token hash, so recovery
+works when an email app opens a different browser and link previews do not
+consume the one-time token.
 The integration command requires the local Supabase stack started from the
 repository root; it reads CLI status and uses only local Mailpit messages.
