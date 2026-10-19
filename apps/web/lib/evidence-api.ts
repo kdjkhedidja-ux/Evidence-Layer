@@ -40,6 +40,7 @@ export async function provisionPersonalWorkspaceForSession(accessToken: string):
       },
       cache: "no-store",
       redirect: "manual",
+      signal: AbortSignal.timeout(10_000),
     });
     if (response.status !== 200) return false;
 
@@ -100,6 +101,7 @@ export async function proxyEvidenceRequest({
       },
       cache: "no-store",
       redirect: "manual",
+      signal: AbortSignal.timeout(10_000),
     });
   } catch {
     return json(503, { error: "Evidence service is unavailable." });
@@ -116,7 +118,13 @@ export async function proxyEvidenceRequest({
   let payload: unknown;
   try {
     payload = await upstream.json();
-  } catch {
+  } catch (error) {
+    if (
+      (error instanceof Error || error instanceof DOMException) &&
+      (error.name === "AbortError" || error.name === "TimeoutError")
+    ) {
+      return json(503, { error: "Evidence service is unavailable." });
+    }
     return json(502, { error: "Evidence service returned an invalid response." });
   }
 

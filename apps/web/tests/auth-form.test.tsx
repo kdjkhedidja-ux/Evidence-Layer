@@ -32,7 +32,7 @@ describe("Supabase Auth forms", () => {
       url: "https://sample-project.supabase.co",
       publishableKey: "sb_publishable_synthetic_test_key",
     });
-    mocks.auth.signInWithPassword.mockResolvedValue({ error: null });
+    mocks.auth.signInWithPassword.mockResolvedValue({ data: { session: { access_token: "synthetic-token" } }, error: null });
     mocks.auth.signUp.mockResolvedValue({ data: { user: { id: "synthetic-user" }, session: null }, error: null });
     mocks.auth.resetPasswordForEmail.mockResolvedValue({ error: null });
     mocks.auth.updateUser.mockResolvedValue({ error: null });
@@ -52,7 +52,7 @@ describe("Supabase Auth forms", () => {
       email: "user@example.test",
       password: "synthetic-password",
     });
-    expect(mocks.refresh).toHaveBeenCalledOnce();
+    expect(mocks.refresh).not.toHaveBeenCalled();
     expect(fetch).toHaveBeenCalledWith("/api/evidence/personal-workspace", { method: "PUT", cache: "no-store" });
   });
 
@@ -66,10 +66,23 @@ describe("Supabase Auth forms", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("We could not sign you in");
     expect(screen.queryByText(/raw provider detail/)).not.toBeInTheDocument();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("does not open a workspace when sign-in returns no session", async () => {
+    mocks.auth.signInWithPassword.mockResolvedValueOnce({ data: { session: null }, error: null });
+    const user = userEvent.setup();
+    render(<AuthForm mode="login" />);
+    await user.type(screen.getByLabelText("Email"), "user@example.test");
+    await user.type(screen.getByLabelText("Password"), "synthetic-password");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("We could not sign you in");
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it("prevents duplicate sign-in submissions while Supabase is pending", async () => {
-    let completeSignIn!: (result: { error: null }) => void;
+    let completeSignIn!: (result: { data: { session: { access_token: string } }; error: null }) => void;
     mocks.auth.signInWithPassword.mockImplementation(() => new Promise((resolve) => {
       completeSignIn = resolve;
     }));
@@ -83,12 +96,14 @@ describe("Supabase Auth forms", () => {
     fireEvent.submit(form);
     fireEvent.submit(form);
     expect(mocks.auth.signInWithPassword).toHaveBeenCalledOnce();
-    completeSignIn({ error: null });
+    completeSignIn({ data: { session: { access_token: "synthetic-token" } }, error: null });
     await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith("/"));
   });
 
-  it("holds the signed-in account when workspace provisioning fails", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 503 })));
+  it("keeps the session and retries only workspace provisioning after a service error", async () => {
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(new Response(null, { status: 503 }))
+      .mockResolvedValueOnce(Response.json({ ok: true })));
     const user = userEvent.setup();
     render(<AuthForm mode="login" />);
     await user.type(screen.getByLabelText("Email"), "user@example.test");
@@ -96,6 +111,35 @@ describe("Supabase Auth forms", () => {
     await user.click(screen.getByRole("button", { name: "Sign in" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("workspace could not be opened");
     expect(mocks.replace).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Retry opening workspace" }));
+    await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith("/"));
+    expect(mocks.auth.signInWithPassword).toHaveBeenCalledOnce();
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("classifies a workspace transport failure after sign-in as a workspace error", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("synthetic transport detail")));
+    const user = userEvent.setup();
+    render(<AuthForm mode="login" />);
+    await user.type(screen.getByLabelText("Email"), "user@example.test");
+    await user.type(screen.getByLabelText("Password"), "synthetic-password");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("workspace service could not be reached");
+    expect(screen.queryByText("synthetic transport detail")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Retry opening workspace" })).toBeInTheDocument();
+  });
+
+  it("identifies a server-side session verification failure after successful sign-in", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 401 })));
+    const user = userEvent.setup();
+    render(<AuthForm mode="login" />);
+    await user.type(screen.getByLabelText("Email"), "user@example.test");
+    await user.type(screen.getByLabelText("Password"), "synthetic-password");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Sign-in succeeded, but your workspace could not verify this session");
+    expect(screen.getByRole("button", { name: "Retry opening workspace" })).toBeInTheDocument();
   });
 
   it("requires matching signup passwords and requests email confirmation", async () => {
@@ -113,8 +157,10 @@ describe("Supabase Auth forms", () => {
     await user.click(screen.getByRole("button", { name: "Create account" }));
     expect(await screen.findByRole("status")).toHaveTextContent("Check your email for a confirmation link");
     const credentials = mocks.auth.signUp.mock.calls[0][0];
-    expect(credentials.options.emailRedirectTo).toContain("/auth/callback");
-    expect(credentials.options.emailRedirectTo).toContain("next=%2F");
+    const emailRedirectTo = new URL(credentials.options.emailRedirectTo);
+    expect(emailRedirectTo.origin).toBe(window.location.origin);
+    expect(emailRedirectTo.pathname).toBe("/auth/callback");
+    expect(emailRedirectTo.searchParams.get("next")).toBe("/");
   });
 
   it("does not keep a session when email confirmation appears disabled", async () => {
@@ -186,6 +232,30 @@ describe("Supabase Auth forms", () => {
     await user.click(screen.getByRole("button", { name: "Update password" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("invalid or expired");
     expect(screen.queryByText("private")).not.toBeInTheDocument();
+  });
+
+  it("reports a failed password update without claiming success", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ message: "private detail" }, { status: 400 })));
+    const user = userEvent.setup();
+    render(<AuthForm mode="reset-password" />);
+    await user.type(screen.getByLabelText("New password"), "new-synthetic-password");
+    await user.type(screen.getByLabelText("Confirm password"), "new-synthetic-password");
+    await user.click(screen.getByRole("button", { name: "Update password" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("We could not update the password");
+    expect(screen.queryByText("private detail")).not.toBeInTheDocument();
+  });
+
+  it("reports that the password changed when automatic sign-out fails", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ code: "signout-unconfirmed" }, { status: 503 })));
+    const user = userEvent.setup();
+    render(<AuthForm mode="reset-password" />);
+    await user.type(screen.getByLabelText("New password"), "new-synthetic-password");
+    await user.type(screen.getByLabelText("Confirm password"), "new-synthetic-password");
+    await user.click(screen.getByRole("button", { name: "Update password" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Password updated, but automatic sign out could not be confirmed");
+    expect(screen.queryByRole("button", { name: "Update password" })).not.toBeInTheDocument();
   });
 
   it("fails closed when public Supabase configuration is absent", async () => {

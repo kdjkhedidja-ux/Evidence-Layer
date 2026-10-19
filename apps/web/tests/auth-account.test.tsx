@@ -60,6 +60,41 @@ describe("authenticated workspace controls", () => {
     expect(fetchMock.mock.calls[2][0]).toContain("/api/evidence/workspaces/");
   });
 
+  it("does not claim the workspace is ready when the membership reload fails", async () => {
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(Response.json({ id: "10000000-0000-4000-8000-000000000001", name: "Personal", role: "owner" }))
+      .mockResolvedValueOnce(new Response(null, { status: 503 })));
+    render(<AuthAccount userId="user-a" email="a@example.test" />);
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Workspace service is unavailable"));
+    expect(screen.queryByText("Your personal workspace is ready.")).not.toBeInTheDocument();
+  });
+
+  it("does not claim the provisioned workspace is ready when its membership is absent", async () => {
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(Response.json({ id: "10000000-0000-4000-8000-000000000001", name: "Personal", role: "owner" }))
+      .mockResolvedValueOnce(Response.json({ user_id: "user-a", workspaces: [] })));
+    render(<AuthAccount userId="user-a" email="a@example.test" />);
+    expect(await screen.findByText("Workspace access could not be confirmed. Try again later.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Retry workspace setup" })).toBeInTheDocument();
+    expect(screen.queryByText("Your personal workspace is ready.")).not.toBeInTheDocument();
+  });
+
+  it("retries workspace setup without changing the signed-in account", async () => {
+    const workspace = { id: "10000000-0000-4000-8000-000000000001", name: "Personal", role: "owner" };
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(null, { status: 503 }))
+      .mockResolvedValueOnce(Response.json(workspace))
+      .mockResolvedValueOnce(Response.json({ user_id: "user-a", workspaces: [workspace] }));
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<AuthAccount userId="user-a" email="a@example.test" />);
+
+    await user.click(await screen.findByRole("button", { name: "Retry workspace setup" }));
+    expect(await screen.findByRole("button", { name: "Verify access" })).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(mocks.signOut).not.toHaveBeenCalled();
+  });
+
   it("does not provision a second personal workspace when memberships already exist", async () => {
     const workspace = {
       id: "10000000-0000-4000-8000-000000000001",

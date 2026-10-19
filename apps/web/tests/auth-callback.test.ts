@@ -20,7 +20,7 @@ describe("Supabase PKCE callback", () => {
   beforeEach(() => {
     mocks.getPublicConfig.mockReturnValue({ url: "https://sample.supabase.co", publishableKey: "sb_publishable_synthetic" });
     mocks.exchangeCodeForSession.mockResolvedValue({
-      data: { session: { access_token: "synthetic-session-token", user: { id: "synthetic-user" } } },
+      data: { session: { access_token: "synthetic-session-token", user: { id: "synthetic-user" } }, redirectType: null },
       error: null,
     });
     mocks.getUser.mockResolvedValue({ data: { user: { id: "synthetic-user" } }, error: null });
@@ -52,14 +52,55 @@ describe("Supabase PKCE callback", () => {
     expect(external.headers.get("location")).toBe("https://app.example/");
   });
 
-  it("routes password recovery back to the guarded reset page", async () => {
+  it("verifies an email-confirmation OTP and provisions the confirmed user", async () => {
     const response = await GET(new Request(
-      "https://app.example/auth/callback?code=synthetic-recovery-code&next=%2Freset-password",
+      "https://app.example/auth/callback?token_hash=synthetic-confirmation-hash&type=email&next=%2F",
+    ));
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe("https://app.example/");
+    expect(mocks.verifyOtp).toHaveBeenCalledWith({
+      token_hash: "synthetic-confirmation-hash",
+      type: "email",
+    });
+    expect(mocks.getUser).toHaveBeenCalledOnce();
+    expect(mocks.provisionPersonalWorkspace).toHaveBeenCalledWith("synthetic-session-token");
+  });
+
+  it("routes password recovery back to the guarded reset page", async () => {
+    mocks.exchangeCodeForSession.mockResolvedValueOnce({
+      data: { session: { access_token: "synthetic-session-token", user: { id: "synthetic-user" } }, redirectType: "recovery" },
+      error: null,
+    });
+    const response = await GET(new Request(
+      "https://app.example/auth/callback?code=synthetic-recovery-code&sb_flow_id=synthetic-flow-id",
     ));
     expect(response.headers.get("location")).toBe("https://app.example/reset-password");
+    expect(mocks.exchangeCodeForSession).toHaveBeenCalledWith("synthetic-recovery-code", { flowId: "synthetic-flow-id" });
     expect(mocks.provisionPersonalWorkspace).not.toHaveBeenCalled();
     expect(response.cookies.get("evidence-layer-recovery")?.httpOnly).toBe(true);
     expect(response.cookies.get("evidence-layer-recovery")?.value).not.toContain("synthetic-session-token");
+  });
+
+  it("does not turn a confirmation code or email OTP into password recovery through next", async () => {
+    const codeResponse = await GET(new Request(
+      "https://app.example/auth/callback?code=synthetic-confirmation-code&next=%2Freset-password",
+    ));
+    const otpResponse = await GET(new Request(
+      "https://app.example/auth/callback?token_hash=synthetic-confirmation-hash&type=email&next=%2Freset-password%3Fsource%3Demail",
+    ));
+    expect(codeResponse.headers.get("location")).toBe("https://app.example/");
+    expect(otpResponse.headers.get("location")).toBe("https://app.example/");
+    expect(codeResponse.cookies.get("evidence-layer-recovery")).toBeUndefined();
+    expect(otpResponse.cookies.get("evidence-layer-recovery")).toBeUndefined();
+  });
+
+  it("rejects duplicate PKCE flow identifiers before exchanging a code", async () => {
+    const response = await GET(new Request(
+      "https://app.example/auth/callback?code=synthetic-code&sb_flow_id=first&sb_flow_id=second",
+    ));
+    expect(response.headers.get("location")).toBe("https://app.example/auth/error?reason=invalid-link");
+    expect(mocks.exchangeCodeForSession).not.toHaveBeenCalled();
   });
 
   it("accepts a one-time recovery token hash and rejects malformed token links", async () => {

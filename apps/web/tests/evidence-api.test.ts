@@ -60,6 +60,7 @@ describe("same-origin Evidence Service proxy", () => {
     const [, init] = fetchMock.mock.calls[0];
     expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer synthetic-test-access-token");
     expect(init).toMatchObject({ method: "GET", cache: "no-store", redirect: "manual" });
+    expect(init?.signal).toBeInstanceOf(AbortSignal);
   });
 
   it("maps an invalid service token to a sanitized 401", async () => {
@@ -79,6 +80,30 @@ describe("same-origin Evidence Service proxy", () => {
       issuer: "untrusted",
       workspaces: [],
     }));
+    const response = await getMe(request("/api/evidence/me"));
+    expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({ error: "Evidence service returned an invalid response." });
+  });
+
+  it.each(["TimeoutError", "AbortError"])(
+    "maps a %s while reading an upstream body to service unavailable",
+    async (name) => {
+      const upstream = new Response(null, { status: 200 });
+      vi.spyOn(upstream, "json").mockRejectedValue(new DOMException("Body read interrupted", name));
+      vi.mocked(fetch).mockResolvedValue(upstream);
+
+      const response = await getMe(request("/api/evidence/me"));
+      expect(response.status).toBe(503);
+      expect(await response.json()).toEqual({ error: "Evidence service is unavailable." });
+    },
+  );
+
+  it("keeps malformed upstream JSON classified as an invalid response", async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response("{", {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    }));
+
     const response = await getMe(request("/api/evidence/me"));
     expect(response.status).toBe(502);
     expect(await response.json()).toEqual({ error: "Evidence service returned an invalid response." });
@@ -117,6 +142,7 @@ describe("same-origin Evidence Service proxy", () => {
       expect(url).toBe("https://evidence.example/v1/me/personal-workspace");
       expect(init?.method).toBe("PUT");
       expect(init).not.toHaveProperty("body");
+      expect(init?.signal).toBeInstanceOf(AbortSignal);
       expect(new Headers(init?.headers).get("Authorization")).toBe(
         "Bearer synthetic-session-token",
       );
@@ -153,5 +179,9 @@ describe("same-origin Evidence Service proxy", () => {
     const transportResponse = await getMe(request("/api/evidence/me"));
     expect(transportResponse.status).toBe(503);
     expect(await transportResponse.json()).toEqual({ error: "Evidence service is unavailable." });
+
+    vi.mocked(fetch).mockRejectedValueOnce(new DOMException("Request timed out", "TimeoutError"));
+    const timeoutResponse = await getMe(request("/api/evidence/me"));
+    expect(timeoutResponse.status).toBe(503);
   });
 });

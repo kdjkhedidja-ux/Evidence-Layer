@@ -17,6 +17,29 @@ test("login authenticates with the local fixture and opens the signed-in account
   await expect(page.getByRole("button", { name: "Open account" })).toBeVisible();
 });
 
+test("a workspace failure keeps the signed-in session and can be retried", async ({ page }) => {
+  let attempts = 0;
+  await page.route("**/api/evidence/personal-workspace", (route) => {
+    attempts += 1;
+    return route.fulfill({
+      status: attempts === 1 ? 503 : 200,
+      contentType: "application/json",
+      body: JSON.stringify(attempts === 1 ? { error: "synthetic workspace failure" } : { ok: true }),
+    });
+  });
+  await page.goto("/login");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill(password);
+  await page.getByRole("button", { name: "Sign in" }).click();
+
+  await expect(page.locator(".auth-error[role='alert']")).toContainText("workspace could not be opened");
+  await expect(page).toHaveURL("http://localhost:3000/login");
+  await page.getByRole("button", { name: "Retry opening workspace" }).click();
+  await expect(page).toHaveURL("http://localhost:3000/");
+  await expect(page.getByRole("button", { name: "Open account" })).toBeVisible();
+  expect(attempts).toBe(2);
+});
+
 test("account panel signs out cleanly before a different synthetic account signs in", async ({ page }) => {
   const accounts = [
     {
@@ -32,7 +55,7 @@ test("account panel signs out cleanly before a different synthetic account signs
   ];
   let activeAccount = accounts[0];
   await page.route("**/api/evidence/personal-workspace", (route) =>
-    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) }),
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(activeAccount.workspace) }),
   );
   await page.route("**/api/evidence/me", (route) => route.fulfill({
     status: 200,

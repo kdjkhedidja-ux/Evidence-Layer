@@ -4,8 +4,10 @@ import { hasRecoveryProof, RECOVERY_COOKIE } from "../../../../lib/supabase/reco
 
 export const dynamic = "force-dynamic";
 
-function result(status: number, message: string): Response {
-  return Response.json({ message }, { status, headers: { "Cache-Control": "no-store" } });
+function result(status: number, message: string, code?: string): Response {
+  return Response.json({ message, ...(code ? { code } : {}) }, {
+    status, headers: { "Cache-Control": "no-store" },
+  });
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -34,11 +36,16 @@ export async function POST(request: Request): Promise<Response> {
   try {
     const { error } = await auth.client.auth.updateUser({ password });
     if (error) return result(400, "We could not update the password. Request a new link and try again.");
-    cookieStore.delete(RECOVERY_COOKIE);
-    const { error: signOutError } = await auth.client.auth.signOut({ scope: "local" });
-    if (signOutError) return result(503, "Password changed, but sign out could not be confirmed.");
-    return result(200, "Password updated. Sign in with your new password.");
   } catch {
     return result(503, "The authentication service could not be reached. Try again later.");
+  }
+
+  try {
+    cookieStore.delete(RECOVERY_COOKIE);
+    const { error: signOutError } = await auth.client.auth.signOut({ scope: "local" });
+    if (signOutError) return result(503, "Password changed, but sign out could not be confirmed.", "signout-unconfirmed");
+    return result(200, "Password updated. Sign in with your new password.");
+  } catch {
+    return result(503, "Password changed, but sign out could not be confirmed.", "signout-unconfirmed");
   }
 }

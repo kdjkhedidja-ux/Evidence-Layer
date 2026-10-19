@@ -67,4 +67,24 @@ describe("guarded password recovery", () => {
     expect(await response.text()).not.toContain("private detail");
     expect(mocks.signOut).not.toHaveBeenCalled();
   });
+
+  it("distinguishes a completed password update from a failed automatic sign-out", async () => {
+    mocks.signOut.mockResolvedValueOnce({ error: { message: "private sign-out detail" } });
+    const response = await POST(request());
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({
+      message: "Password changed, but sign out could not be confirmed.",
+      code: "signout-unconfirmed",
+    });
+    expect(mocks.updateUser).toHaveBeenCalledOnce();
+    expect(mocks.deleteCookie).toHaveBeenCalledWith("evidence-layer-recovery");
+  });
+
+  it("reports a completed password update when automatic sign-out throws", async () => {
+    mocks.signOut.mockRejectedValueOnce(new Error("private transport detail"));
+    const response = await POST(request());
+    expect(response.status).toBe(503);
+    expect((await response.json()).code).toBe("signout-unconfirmed");
+    expect(mocks.updateUser).toHaveBeenCalledOnce();
+  });
 });
