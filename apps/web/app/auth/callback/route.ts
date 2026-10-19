@@ -11,6 +11,43 @@ function failure(request: Request, reason: string): NextResponse {
   return response;
 }
 
+function implicitRecoveryPage(): NextResponse {
+  const response = new NextResponse(`<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Verify recovery link · Evidence Layer</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; }
+    body { min-height: 100vh; margin: 0; display: grid; place-items: center; background: #0d141a; color: #ecf1f2; }
+    main { box-sizing: border-box; width: min(100%, 28rem); padding: 2.5rem 1.5rem; }
+    p { color: #b7c5ca; line-height: 1.6; }
+    a { color: #80d8bb; }
+  </style>
+  <script src="/recovery-complete.js" defer></script>
+</head>
+<body>
+  <main>
+    <h1>Verifying your recovery link</h1>
+    <p>Please wait while we open the password reset page.</p>
+    <p>If this page does not continue, <a href="/forgot-password">request a new link</a>.</p>
+  </main>
+</body>
+</html>`, {
+    status: 200,
+    headers: {
+      "Cache-Control": "private, no-store",
+      "Content-Type": "text/html; charset=utf-8",
+      "Content-Security-Policy": "default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'",
+      "Referrer-Policy": "no-referrer",
+      "X-Content-Type-Options": "nosniff",
+      "X-Robots-Tag": "noindex, nofollow",
+    },
+  });
+  return response;
+}
+
 export async function GET(request: Request): Promise<NextResponse> {
   const url = new URL(request.url);
   const codeValues = url.searchParams.getAll("code");
@@ -23,6 +60,18 @@ export async function GET(request: Request): Promise<NextResponse> {
   const otpType = typeValues[0];
   const providerError = url.searchParams.get("error");
   const errorCode = url.searchParams.get("error_code");
+
+  // The default Supabase email template verifies the link before redirecting
+  // here. Implicit recovery tokens arrive in the URL fragment, unseen by this
+  // server route; a same-origin browser script hands them to the guarded API.
+  if (
+    url.searchParams.size === 1 &&
+    url.searchParams.get("next") === "/reset-password" &&
+    codeValues.length === 0 && flowIdValues.length === 0 &&
+    tokenHashValues.length === 0 && typeValues.length === 0
+  ) {
+    return implicitRecoveryPage();
+  }
 
   const hasCode = codeValues.length === 1 && Boolean(code);
   const hasOtp = tokenHashValues.length === 1 && Boolean(tokenHash) &&

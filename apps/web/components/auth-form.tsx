@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState, type FormEvent } from "react";
 import { createSupabaseBrowserClient } from "../lib/supabase/client";
+import { createSupabaseRecoveryRequestClient } from "../lib/supabase/recovery-request";
 import { getSupabasePublicConfig } from "../lib/supabase/config";
 import { authCallbackUrl, safeInternalPath } from "../lib/supabase/redirect";
 
@@ -144,7 +145,7 @@ export default function AuthForm({
       }
 
       if (mode === "forgot-password") {
-        const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+        const { error } = await createSupabaseRecoveryRequestClient().auth.resetPasswordForEmail(normalizedEmail, {
           redirectTo: authCallbackUrl(window.location.origin, "/reset-password"),
         });
         if (error) {
