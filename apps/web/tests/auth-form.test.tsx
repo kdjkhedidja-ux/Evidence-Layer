@@ -214,6 +214,18 @@ describe("Supabase Auth forms", () => {
     );
     expect(mocks.auth.resetPasswordForEmail.mock.calls[0][1].redirectTo).toContain("next=%2Freset-password");
     expect(mocks.createRecoveryClient).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("button", { name: "Send reset link" })).not.toBeInTheDocument();
+  });
+
+  it("explains recovery rate limiting and prevents immediate repeated requests", async () => {
+    mocks.auth.resetPasswordForEmail.mockResolvedValueOnce({ error: { status: 429 } });
+    const user = userEvent.setup();
+    render(<AuthForm mode="forgot-password" />);
+    await user.type(screen.getByLabelText("Email"), "user@example.test");
+    await user.click(screen.getByRole("button", { name: "Send reset link" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Too many reset requests");
+    expect(screen.queryByRole("button", { name: "Send reset link" })).not.toBeInTheDocument();
+    expect(mocks.auth.resetPasswordForEmail).toHaveBeenCalledOnce();
   });
 
   it("submits the new password only through the guarded recovery endpoint", async () => {
