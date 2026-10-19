@@ -1,21 +1,52 @@
 # apps/web
 
-Minimal Next.js (App Router, TypeScript) skeleton intended for Vercel later.
-It renders a single static page. There is no auth, Supabase client, API route,
-Stripe, external asset, or environment variable usage yet.
+Next.js (App Router, TypeScript) interface for the synthetic Evidence Explorer
+and the Supabase Auth personal-workspace foundation. Supabase Auth is the only
+identity provider. The app uses cookie-backed PKCE sessions through
+`@supabase/ssr`; it does not implement passwords, JWT signing, or a second
+identity system.
 
-Dependencies are not installed and nothing is deployed or linked to Vercel.
+The Evidence Explorer continues to display local synthetic evidence. The
+sidebar separately reads the signed-in user's authorized workspace list from
+the Evidence Service and provisions a personal workspace when needed.
+There is no evidence retrieval or AI answer generation in this frontend.
 
 ## Vercel
 
-When a Vercel project is created later, set **Root Directory** to `apps/web`.
-Only public variables (`NEXT_PUBLIC_*`) may ever be configured there; see
-[docs/ENVIRONMENT_AND_SECRETS.md](../../docs/ENVIRONMENT_AND_SECRETS.md).
+Set **Root Directory** to `apps/web`. Configure `NEXT_PUBLIC_SUPABASE_URL` and
+`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` as public frontend values and
+`EVIDENCE_SERVICE_URL` as a server-only value. Do not add Supabase secret or
+service-role keys to this app. See
+[docs/ENVIRONMENT_AND_SECRETS.md](../../docs/ENVIRONMENT_AND_SECRETS.md) for
+the external Supabase Auth and Resend setup that remains manual.
 
-## Local development (later)
+## Local development
 
 ```bash
 cd apps/web
 npm install
 npm run dev
 ```
+
+The web app uses the values in `.env.example`; copy them to an ignored local
+`.env.local` and fill them using non-production test credentials. Keep email
+confirmation enabled in Supabase Auth. The app deliberately signs a user out
+if sign-up unexpectedly returns an active session, rather than bypassing email
+verification.
+
+## Checks
+
+```bash
+npm test
+npm run typecheck
+npm run lint
+npm run build
+npm run test:integration:local
+```
+
+Auth callback URL: `/auth/callback`. Set the Supabase Site URL and exact full
+callback URLs (including `?next=%2F` or `?next=%2Freset-password`) in the Auth
+URL Configuration. Email confirmation and password reset both return through
+this PKCE callback.
+The integration command requires the local Supabase stack started from the
+repository root; it reads CLI status and uses only local Mailpit messages.

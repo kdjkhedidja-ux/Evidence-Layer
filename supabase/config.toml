@@ -27,7 +27,7 @@ enabled = false
 enabled = false
 
 [local_smtp]
-enabled = false
+enabled = true
 
 [storage]
 enabled = false
@@ -35,5 +35,16 @@ enabled = false
 [auth]
 enabled = true
 site_url = "http://127.0.0.1:3000"
-enable_signup = false
+additional_redirect_urls = [
+  "http://127.0.0.1:3000/auth/callback?next=%2F",
+  "http://127.0.0.1:3000/auth/callback?next=%2Freset-password",
+]
+enable_signup = true
 enable_anonymous_sign_ins = false
+
+[auth.email]
+enable_confirmations = true
+max_frequency = "1s"
+
+[auth.rate_limit]
+email_sent = 100

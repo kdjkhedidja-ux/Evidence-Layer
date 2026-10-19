@@ -39,6 +39,7 @@ def test_service_routes_are_limited_and_docs_are_disabled() -> None:
     assert routes == {
         ("GET", "/healthz"),
         ("GET", "/v1/me"),
+        ("PUT", "/v1/me/personal-workspace"),
         ("GET", "/v1/workspaces/{workspace_id}"),
         ("GET", "/v1/workspaces/{workspace_id}/evidence"),
         ("POST", "/v1/workspaces/{workspace_id}/evidence"),
@@ -51,6 +52,7 @@ def test_service_routes_are_limited_and_docs_are_disabled() -> None:
         for path in ("/", "/docs", "/redoc", "/openapi.json", "/retrieve_evidence"):
             assert client.get(path).status_code == 404
         assert client.get("/v1/me").status_code == 401
+        assert client.put("/v1/me/personal-workspace").status_code == 401
         assert client.post("/healthz").status_code in {404, 405}
         assert client.head("/healthz").status_code in {404, 405}
 

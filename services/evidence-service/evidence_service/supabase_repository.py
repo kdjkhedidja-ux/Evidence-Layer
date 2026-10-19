@@ -6,9 +6,13 @@ from uuid import UUID
 
 import httpx
 
-from evidence_service.auth import Principal
+from evidence_service.auth import AuthenticationRejected, Principal
 from evidence_service.config import SupabaseSettings
-from evidence_service.tenant_context import WorkspaceDirectory, WorkspaceMembership
+from evidence_service.tenant_context import (
+    WorkspaceAccessDenied,
+    WorkspaceDirectory,
+    WorkspaceMembership,
+)
 
 
 class WorkspaceDataUnavailable(Exception):
@@ -24,6 +28,35 @@ class SupabaseWorkspaceRepository(WorkspaceDirectory):
     ) -> None:
         self._settings = settings
         self._transport = transport
+
+    async def ensure_personal_workspace(
+        self, principal: Principal, access_token: str
+    ) -> WorkspaceMembership:
+        rows = await self._request_personal_workspace(access_token)
+        if len(rows) != 1:
+            raise WorkspaceDataUnavailable
+
+        row = rows[0]
+        try:
+            user_id = UUID(str(row["user_id"]))
+            workspace_id = UUID(str(row["workspace_id"]))
+            workspace_name = row["workspace_name"]
+            role = row["role"]
+            if (
+                user_id != principal.subject
+                or not isinstance(workspace_name, str)
+                or not workspace_name.strip()
+                or role != "owner"
+            ):
+                raise ValueError
+        except (KeyError, TypeError, ValueError, AttributeError) as exc:
+            raise WorkspaceDataUnavailable from exc
+
+        return WorkspaceMembership(
+            workspace_id=workspace_id,
+            workspace_name=workspace_name,
+            role="owner",
+        )
 
     async def list_memberships(
         self, principal: Principal, access_token: str
@@ -89,6 +122,56 @@ class SupabaseWorkspaceRepository(WorkspaceDirectory):
         if not isinstance(payload, list) or any(not isinstance(row, dict) for row in payload):
             raise WorkspaceDataUnavailable
         return payload
+
+    async def _request_personal_workspace(
+        self, access_token: str
+    ) -> list[dict[str, object]]:
+        headers = {
+            "apikey": self._settings.publishable_key,
+            "Authorization": f"Bearer {access_token}",
+            "Accept": "application/json",
+        }
+        try:
+            async with httpx.AsyncClient(
+                timeout=self._settings.timeout_seconds,
+                transport=self._transport,
+            ) as client:
+                response = await client.post(
+                    self._settings.personal_workspace_rpc_url,
+                    json={},
+                    headers=headers,
+                )
+            if response.status_code != 200:
+                error_code = self._postgrest_error_code(response)
+                if response.status_code == 401 and error_code in {
+                    "PGRST301",
+                    "PGRST303",
+                    "PT401",
+                }:
+                    raise AuthenticationRejected
+                if response.status_code == 403 and error_code == "PT403":
+                    raise WorkspaceAccessDenied
+                raise WorkspaceDataUnavailable
+            payload = response.json()
+        except (httpx.HTTPError, ValueError, TypeError) as exc:
+            raise WorkspaceDataUnavailable from exc
+        if not isinstance(payload, list) or any(
+            not isinstance(row, dict) for row in payload
+        ):
+            raise WorkspaceDataUnavailable
+        return payload
+
+    @staticmethod
+    def _postgrest_error_code(response: httpx.Response) -> str | None:
+        """Return only a structured error code; never expose provider details."""
+        try:
+            payload = response.json()
+        except (ValueError, TypeError):
+            return None
+        if not isinstance(payload, dict):
+            return None
+        code = payload.get("code")
+        return code if isinstance(code, str) else None
 
     @staticmethod
     def _parse_row(
