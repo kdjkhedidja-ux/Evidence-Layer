@@ -49,7 +49,9 @@ filenames and SHA-256 hashes, remote applied versions, pending versions, and
 the observed recovery point. The preflight compares remote history to the
 reviewed migration prefix and checks the corresponding catalog state. The
 second job waits for its own `Production` environment approval after the plan
-artifact exists. Immediately before applying, it recomputes the plan and
+artifact exists. Its approval request names the target ref and plan digest;
+the reviewer must compare both with the same-run artifact. Immediately before
+applying, it recomputes the plan and
 requires an exact match. A new remote change, backup state, or migration file
 changes the digest and blocks application. A manual apply additionally
 requires the dispatcher to type the target ref. Automatic runs require the

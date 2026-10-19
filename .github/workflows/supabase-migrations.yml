@@ -99,7 +99,7 @@ jobs:
     # Disabled until Production requires per-run reviewers and main-only
     # deployments. The approver must inspect this run's plan artifact first.
     if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.operation == 'apply') && false }}
-    name: Apply Evidence-test migrations after reviewing ${{ needs.production-plan.outputs.digest }}
+    name: Approve Evidence-test (ayrtyjgqlgtuiwuyigbz) plan ${{ needs.production-plan.outputs.digest }}
     runs-on: ubuntu-latest
     environment: Production
     env:
