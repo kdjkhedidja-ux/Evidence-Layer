@@ -182,4 +182,16 @@ describe("Supabase PKCE callback", () => {
     const unconfigured = await GET(new Request("https://app.example/auth/callback?code=synthetic-code"));
     expect(unconfigured.headers.get("location")).toBe("https://app.example/auth/error?reason=configuration");
   });
+
+  it("serves the isolated implicit recovery handoff for the exact reset callback", async () => {
+    const response = await GET(new Request("https://app.example/auth/callback?next=%2Freset-password"));
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(response.headers.get("content-security-policy")).toContain("script-src 'self'");
+    expect(await response.text()).toContain("/recovery-complete.js");
+    expect(mocks.exchangeCodeForSession).not.toHaveBeenCalled();
+
+    const extra = await GET(new Request("https://app.example/auth/callback?next=%2Freset-password&next=%2F"));
+    expect(extra.headers.get("location")).toBe("https://app.example/auth/error?reason=invalid-link");
+  });
 });
