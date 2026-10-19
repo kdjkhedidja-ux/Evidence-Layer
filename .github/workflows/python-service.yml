@@ -10,6 +10,25 @@ permissions:
   contents: read
 
 jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - name: Install web dependencies
+        working-directory: apps/web
+        run: npm ci
+      - name: Test, typecheck, and lint web app
+        working-directory: apps/web
+        run: npm test && npm run typecheck && npm run lint
+      - name: Build web app
+        working-directory: apps/web
+        run: npm run build
+
   test-and-build:
     runs-on: ubuntu-latest
     steps:
@@ -33,12 +52,23 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: 2.121.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
       - name: Start the local Supabase stack
         run: supabase start
       - name: Apply migrations to the local database
         run: supabase db reset --local
       - name: Run Postgres RLS integration tests
         run: supabase test db --local
+      - name: Install web dependencies
+        working-directory: apps/web
+        run: npm ci
+      - name: Run local Auth and database integration test
+        working-directory: apps/web
+        run: npm run test:integration:local
       - name: Stop the local Supabase stack
         if: always()
         run: supabase stop --no-backup

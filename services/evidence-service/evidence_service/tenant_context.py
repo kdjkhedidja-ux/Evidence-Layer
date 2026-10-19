@@ -30,6 +30,10 @@ class WorkspaceAccessDenied(Exception):
 
 
 class WorkspaceDirectory(Protocol):
+    async def ensure_personal_workspace(
+        self, principal: Principal, access_token: str
+    ) -> WorkspaceMembership: ...
+
     async def list_memberships(
         self, principal: Principal, access_token: str
     ) -> list[WorkspaceMembership]: ...

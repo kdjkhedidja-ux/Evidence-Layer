@@ -21,17 +21,84 @@
 
 | Platform | Allowed variables | Examples |
 |---|---|---|
-| Vercel (frontend) | Public only | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (later) |
-| Railway (health-only service; persistent MCP later) | `PORT` is non-secret; future server-only credentials | `SUPABASE_SERVICE_ROLE_KEY`, `JEV_API_KEY` (planned) |
+| Web app (for example Vercel) | Public project settings plus a private service URL | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, server-only `EVIDENCE_SERVICE_URL` |
+| Supabase Auth dashboard | Hosted Auth SMTP configuration only | Resend SMTP password/API key, SMTP sender address; never place these in the web app |
+| Evidence Service runtime | Server-only Supabase Data API/JWT verification settings | Existing `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_JWT_*` variables from its service `.env.example` |
 | GitHub Codespaces | Encrypted Codespaces secrets | provider keys used for local work |
 
-The Supabase service role key must never reach the frontend, a `NEXT_PUBLIC_*`
-variable, or client-side code.
+Supabase secret and service-role keys must never reach the frontend, a
+`NEXT_PUBLIC_*` variable, or client-side code. Resend credentials belong only
+in Supabase Auth's SMTP password field. This application does not call the
+Resend API.
+
+## Supabase Auth and Resend setup (manual)
+
+No hosted Supabase Auth or Resend configuration is established by this code.
+An authorized operator must configure it in the Supabase and Resend dashboards:
+
+1. In Resend, add and verify the sending domain intended for authentication
+mail, including the required DNS records. Use an address on that verified
+domain, for example `Evidence Layer <no-reply@auth.your-verified-domain>`;
+replace this placeholder with the domain the owner actually controls.
+2. In Supabase **Authentication → SMTP Settings**, enable custom SMTP and set
+   host `smtp.resend.com`, port `465` (SSL), username `resend`, and the Resend
+   API key as the SMTP password. Set the sender email to the verified address
+   and a suitable sender name. Keep the Resend API key only in this hosted
+   secret field; do not copy it to this repository or an app environment.
+3. In **Authentication → Providers → Email**, enable email/password sign-in
+   and require email confirmation. The app fails closed if sign-up returns an
+   active session before confirmation.
+4. Use a separate non-production Supabase project for the first hosted test.
+   In **Authentication → URL Configuration**, set that project's Site URL to
+   the local or staging app origin and add only the matching non-production
+   callback URLs (the `next` query string is part of the redirect target):
+   `http://localhost:3000/auth/callback?next=%2F`,
+   `http://localhost:3000/auth/callback?next=%2Freset-password`,
+   `https://<staging-app-host>/auth/callback?next=%2F`, and
+   `https://<staging-app-host>/auth/callback?next=%2Freset-password`. Replace
+   `<staging-app-host>` with the approved non-production hostname. Do not add
+   production URLs to this test project or use an unbounded redirect wildcard;
+   configure production separately after review and approval.
+5. Keep the confirmation and password recovery templates routed through
+   Supabase's `{{ .ConfirmationURL }}` so Supabase verifies the one-time link
+   and redirects back to the configured app callback. Do not expose raw OTPs
+   or credentials in app logs.
+
+Resend supports SMTP with host `smtp.resend.com`, username `resend`, and an API
+key as its password; its current SMTP documentation recommends port 465 for
+SSL. Verify these values against the Resend account before configuring a
+project. The sender domain/address and app production origin are intentionally
+not guessed here.
+
+The checked-in `supabase/config.toml` enables local signup and email
+confirmation through the local Mailpit capture server. Its higher email rate
+limit is for the disposable local stack only. CI exercises signup, confirmation,
+recovery, login, personal-workspace provisioning, and database isolation there.
+Use the isolated hosted non-production project for a real Resend delivery check;
+local Mailpit results do not establish hosted SMTP delivery.
+
+## Web app variables
+
+| Variable | Exposure | Purpose |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Public | Supabase project API URL |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Public | `sb_publishable_...` key used by Supabase Auth SDK |
+| `EVIDENCE_SERVICE_URL` | Server-only | Evidence Service base URL used by same-origin Next.js route handlers |
+
+Copy placeholders from `apps/web/.env.example`. The Resend SMTP password is
+not an application variable. The service keeps its separate required JWT and
+Data API configuration documented in
+`services/evidence-service/.env.example`.
+Set both `NEXT_PUBLIC_*` values in the app's build environment before building:
+Next.js embeds public-prefixed variables in the browser bundle at build time.
 
 ## Status
 
-The synthetic-only Evidence Explorer prototype is deployed from `main` on
-Vercel. The health-only Python service is deployed on Railway and reads the
-non-secret `PORT` setting (default `8000`). Neither provides customer-data
-operations or uses hosted database or provider credentials. The hosted backend
-and its production identity/authorization boundary remain unimplemented.
+The repository now contains the local Supabase Auth frontend flow and an
+Evidence Service identity/workspace boundary backed by Supabase Postgres RLS
+migrations. The Explorer's evidence remains synthetic. This change does not
+configure or verify a hosted Supabase project, SMTP delivery, production app
+URLs, real confirmation/reset email delivery, or an authenticated hosted
+end-to-end flow. The actual sender domain, callback allowlist, and active
+Supabase JWT signing configuration must be confirmed by an authorized
+operator before hosted verification.
