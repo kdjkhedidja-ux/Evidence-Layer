@@ -27,6 +27,29 @@ function safeWorkspace(value: unknown): WorkspaceSummary | null {
   return { id: candidate.id, name: candidate.name, role: candidate.role };
 }
 
+export async function provisionPersonalWorkspaceForSession(accessToken: string): Promise<boolean> {
+  const serviceUrl = getEvidenceServiceBaseUrl();
+  if (!serviceUrl || !accessToken.trim()) return false;
+
+  try {
+    const response = await fetch(`${serviceUrl}/v1/me/personal-workspace`, {
+      method: "PUT",
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      cache: "no-store",
+      redirect: "manual",
+    });
+    if (response.status !== 200) return false;
+
+    const workspace = safeWorkspace(await response.json());
+    return workspace?.role === "owner";
+  } catch {
+    return false;
+  }
+}
+
 function sameOrigin(request: Request): boolean {
   const origin = request.headers.get("origin");
   if (!origin) return false;

@@ -50,6 +50,15 @@ describe("browser-side Supabase callback error fragments", () => {
     expect(window.location.search).toBe("?reason=configuration");
   });
 
+  it("shows a safe provisioning failure after account confirmation", () => {
+    window.history.replaceState({}, "", "/auth/error?reason=workspace-provisioning");
+
+    render(<AuthErrorMessage initialReason="workspace-provisioning" />);
+
+    expect(screen.getByRole("heading", { name: "Your account is confirmed, but setup is incomplete" })).toBeInTheDocument();
+    expect(screen.getByText(/could not prepare your personal workspace/)).toBeInTheDocument();
+  });
+
   it("treats missing or malformed error details safely and never adopts token fragments as a session", async () => {
     window.history.replaceState({}, "", "/auth/error#%E0%A4%A&access_token=synthetic-token");
 

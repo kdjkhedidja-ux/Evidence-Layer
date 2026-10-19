@@ -241,6 +241,28 @@ def test_personal_workspace_bootstrap_uses_verified_subject_and_token() -> None:
     assert directory.calls == []
 
 
+def test_personal_workspace_bootstrap_is_repeatable_for_the_same_session() -> None:
+    key = new_signing_key()
+    directory = DirectorySpy()
+    feed = JwksFeed([{"keys": [jwk_for(key, "key-1")]}])
+    token = token_for(key)
+
+    with make_client(feed, directory) as client:
+        first = client.put(
+            "/v1/me/personal-workspace",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        second = client.put(
+            "/v1/me/personal-workspace",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+    expected = {"id": str(WORKSPACE_A), "name": "A primary", "role": "owner"}
+    assert first.status_code == second.status_code == 200
+    assert first.json() == second.json() == expected
+    assert directory.personal_calls == [(SUBJECT_A, token), (SUBJECT_A, token)]
+
+
 @pytest.mark.parametrize(
     ("directory_error", "expected_status"),
     [

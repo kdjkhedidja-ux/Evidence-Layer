@@ -14,31 +14,30 @@ export default function AuthAccount() {
   const [message, setMessage] = useState("");
   const [pending, setPending] = useState(false);
 
-  const loadWorkspaces = useCallback(async () => {
+  const loadWorkspaces = useCallback(async (): Promise<Workspace[] | null> => {
     setState("loading");
     try {
       const response = await fetch("/api/evidence/me", { cache: "no-store" });
       if (response.status === 401) {
         setState("expired");
-        return;
+        return null;
       }
       if (!response.ok) {
         setState("unavailable");
-        return;
+        return null;
       }
       const payload = (await response.json()) as { workspaces?: Workspace[] };
-      setWorkspaces(Array.isArray(payload.workspaces) ? payload.workspaces : []);
+      const authorizedWorkspaces = Array.isArray(payload.workspaces) ? payload.workspaces : [];
+      setWorkspaces(authorizedWorkspaces);
       setState("ready");
+      return authorizedWorkspaces;
     } catch {
       setState("unavailable");
+      return null;
     }
   }, []);
 
-  useEffect(() => {
-    void loadWorkspaces();
-  }, [loadWorkspaces]);
-
-  async function createPersonalWorkspace() {
+  const createPersonalWorkspace = useCallback(async () => {
     setPending(true);
     setMessage("");
     try {
@@ -61,7 +60,20 @@ export default function AuthAccount() {
     } finally {
       setPending(false);
     }
-  }
+  }, [loadWorkspaces]);
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      const authorizedWorkspaces = await loadWorkspaces();
+      if (active && authorizedWorkspaces?.length === 0) {
+        await createPersonalWorkspace();
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [createPersonalWorkspace, loadWorkspaces]);
 
   async function openWorkspace(workspace: Workspace) {
     setPending(true);

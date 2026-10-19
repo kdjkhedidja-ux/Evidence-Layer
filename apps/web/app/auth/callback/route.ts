@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "../../../lib/supabase/server";
 import { callbackFailureReason, safeInternalPath } from "../../../lib/supabase/redirect";
 import { getSupabasePublicConfig } from "../../../lib/supabase/config";
+import { provisionPersonalWorkspaceForSession } from "../../../lib/evidence-api";
 
 function failure(request: Request, reason: string): NextResponse {
   return NextResponse.redirect(new URL(`/auth/error?reason=${reason}`, request.url));
@@ -20,13 +21,26 @@ export async function GET(request: Request): Promise<NextResponse> {
 
   try {
     const supabase = await createSupabaseServerClient();
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (error) return failure(request, "invalid-link");
+    const { data: exchangeData, error: exchangeError } =
+      await supabase.auth.exchangeCodeForSession(code);
+    if (exchangeError || !exchangeData?.session?.access_token) {
+      return failure(request, "invalid-link");
+    }
+    const session = exchangeData.session;
 
     const { data, error: userError } = await supabase.auth.getUser();
-    if (userError || !data.user) return failure(request, "invalid-link");
+    if (userError || !data.user || session.user.id !== data.user.id) {
+      return failure(request, "invalid-link");
+    }
 
     const target = safeInternalPath(url.searchParams.get("next"), "/");
+    if (
+      target !== "/reset-password" &&
+      !(await provisionPersonalWorkspaceForSession(session.access_token))
+    ) {
+      return failure(request, "workspace-provisioning");
+    }
+
     return NextResponse.redirect(new URL(target, url.origin));
   } catch {
     return failure(request, "invalid-link");

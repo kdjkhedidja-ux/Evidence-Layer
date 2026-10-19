@@ -70,10 +70,12 @@ SSL. Verify these values against the Resend account before configuring a
 project. The sender domain/address and app production origin are intentionally
 not guessed here.
 
-The checked-in `supabase/config.toml` disables local signup and local SMTP.
-Use the isolated hosted non-production project for a real confirmation-email
-check; no local or production Auth settings are changed by this repository
-integration.
+The checked-in `supabase/config.toml` enables local signup and email
+confirmation through the local Mailpit capture server. Its higher email rate
+limit is for the disposable local stack only. CI exercises signup, confirmation,
+recovery, login, personal-workspace provisioning, and database isolation there.
+Use the isolated hosted non-production project for a real Resend delivery check;
+local Mailpit results do not establish hosted SMTP delivery.
 
 ## Web app variables
 

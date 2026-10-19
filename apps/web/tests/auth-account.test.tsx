@@ -28,7 +28,7 @@ describe("authenticated workspace controls", () => {
     expect(screen.queryByText("secret detail")).not.toBeInTheDocument();
   });
 
-  it("provisions only the signed-in user's personal workspace and verifies access", async () => {
+  it("automatically provisions an empty account and verifies its personal workspace", async () => {
     const workspace = {
       id: "10000000-0000-4000-8000-000000000001",
       name: "Personal workspace",
@@ -42,13 +42,28 @@ describe("authenticated workspace controls", () => {
     vi.stubGlobal("fetch", fetchMock);
     const user = userEvent.setup();
     render(<AuthAccount />);
-    await user.click(await screen.findByRole("button", { name: "Create personal workspace" }));
+    await screen.findByRole("button", { name: "Verify access" });
     expect(fetchMock.mock.calls[1][0]).toBe("/api/evidence/personal-workspace");
     expect(fetchMock.mock.calls[1][1]).toMatchObject({ method: "PUT" });
     expect(fetchMock.mock.calls[1][1]).not.toHaveProperty("body");
     await user.click(await screen.findByRole("button", { name: "Verify access" }));
     expect(await screen.findByRole("status")).toHaveTextContent("Access verified");
     expect(fetchMock.mock.calls[3][0]).toContain("/api/evidence/workspaces/");
+  });
+
+  it("does not provision a second personal workspace when memberships already exist", async () => {
+    const workspace = {
+      id: "10000000-0000-4000-8000-000000000001",
+      name: "Personal workspace",
+      role: "owner",
+    };
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ workspaces: [workspace] }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<AuthAccount />);
+
+    await screen.findByRole("button", { name: "Verify access" });
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock).toHaveBeenCalledWith("/api/evidence/me", { cache: "no-store" });
   });
 
   it("signs out through Supabase Auth", async () => {

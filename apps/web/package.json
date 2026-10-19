@@ -7,13 +7,14 @@
     "build": "next build",
     "start": "next start",
     "test": "vitest run",
+    "test:integration:local": "node tests/auth-db.integration.mjs",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "lint": "biome lint components lib middleware.ts app/page.tsx app/api app/auth app/login app/signup app/forgot-password app/reset-password tests"
   },
   "dependencies": {
-    "@supabase/ssr": "^0.12.7",
-    "@supabase/supabase-js": "^2.118.0",
+    "@supabase/ssr": "0.12.7",
+    "@supabase/supabase-js": "2.118.0",
     "next": "^15.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

@@ -8,7 +8,7 @@ identity system.
 
 The Evidence Explorer continues to display local synthetic evidence. The
 sidebar separately reads the signed-in user's authorized workspace list from
-the Evidence Service and offers explicit personal-workspace provisioning.
+the Evidence Service and provisions a personal workspace when needed.
 There is no evidence retrieval or AI answer generation in this frontend.
 
 ## Vercel
@@ -41,9 +41,12 @@ npm test
 npm run typecheck
 npm run lint
 npm run build
+npm run test:integration:local
 ```
 
 Auth callback URL: `/auth/callback`. Set the Supabase Site URL and exact full
 callback URLs (including `?next=%2F` or `?next=%2Freset-password`) in the Auth
 URL Configuration. Email confirmation and password reset both return through
 this PKCE callback.
+The integration command requires the local Supabase stack started from the
+repository root; it reads CLI status and uses only local Mailpit messages.

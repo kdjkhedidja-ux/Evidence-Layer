@@ -2,10 +2,16 @@
 
 import { useEffect, useState } from "react";
 
-type ErrorReason = "expired-link" | "invalid-link" | "configuration";
+type ErrorReason = "expired-link" | "invalid-link" | "configuration" | "workspace-provisioning";
 
 function normalizeReason(reason: string | undefined): ErrorReason {
-  if (reason === "expired-link" || reason === "configuration") return reason;
+  if (
+    reason === "expired-link" ||
+    reason === "configuration" ||
+    reason === "workspace-provisioning"
+  ) {
+    return reason;
+  }
   return "invalid-link";
 }
 
@@ -39,6 +45,11 @@ function contentFor(reason: ErrorReason): { title: string; description: string }
       return {
         title: "Authentication is unavailable",
         description: "The application does not have its required Supabase public configuration.",
+      };
+    case "workspace-provisioning":
+      return {
+        title: "Your account is confirmed, but setup is incomplete",
+        description: "We could not prepare your personal workspace. Please try signing in again later.",
       };
     default:
       return {

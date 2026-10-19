@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GET as getMe } from "../app/api/evidence/me/route";
 import { PUT as putPersonalWorkspace } from "../app/api/evidence/personal-workspace/route";
 import { GET as getWorkspace } from "../app/api/evidence/workspaces/[workspaceId]/route";
+import { provisionPersonalWorkspaceForSession } from "../lib/evidence-api";
 
 const mocks = vi.hoisted(() => ({
   getAuth: vi.fn(),
@@ -101,6 +102,35 @@ describe("same-origin Evidence Service proxy", () => {
     expect(url).toBe("https://evidence.example/v1/me/personal-workspace");
     expect(init?.method).toBe("PUT");
     expect(init).not.toHaveProperty("body");
+  });
+
+  it("uses the confirmed session token and accepts repeated idempotent provisioning", async () => {
+    const workspace = { id: WORKSPACE_ID, name: "Personal", role: "owner" };
+    const fetchMock = vi.mocked(fetch).mockImplementation(async () => Response.json(workspace));
+
+    expect(await provisionPersonalWorkspaceForSession("synthetic-session-token")).toBe(true);
+    expect(await provisionPersonalWorkspaceForSession("synthetic-session-token")).toBe(true);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    for (const [url, init] of fetchMock.mock.calls) {
+      expect(url).toBe("https://evidence.example/v1/me/personal-workspace");
+      expect(init?.method).toBe("PUT");
+      expect(init).not.toHaveProperty("body");
+      expect(new Headers(init?.headers).get("Authorization")).toBe(
+        "Bearer synthetic-session-token",
+      );
+    }
+  });
+
+  it("fails closed on provisioning transport, service, or malformed-response failures", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(Response.json({ detail: "private" }, { status: 503 }));
+    expect(await provisionPersonalWorkspaceForSession("synthetic-session-token")).toBe(false);
+
+    vi.mocked(fetch).mockResolvedValueOnce(Response.json({ id: "not-a-uuid", role: "owner" }));
+    expect(await provisionPersonalWorkspaceForSession("synthetic-session-token")).toBe(false);
+
+    vi.mocked(fetch).mockRejectedValueOnce(new Error("private network detail"));
+    expect(await provisionPersonalWorkspaceForSession("synthetic-session-token")).toBe(false);
   });
 
   it("preserves workspace non-disclosure and strips provider errors", async () => {

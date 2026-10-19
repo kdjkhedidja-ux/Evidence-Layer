@@ -56,6 +56,13 @@ shared-workspace membership assignment, or role changes. The Supabase `service_r
 privileged administrative role that bypasses RLS and is not used by this
 service's user request path.
 
+**Temporary MVP compromise:** every active workspace member currently has
+select, insert, update, and delete access to every evidence record in that
+workspace. This is not a pre-production or public-launch security posture.
+Before either gate, replace this broad member-level write policy with an
+owner-reviewed least-privilege role/capability model and add pgTAP coverage
+proving which roles may read, create, edit, and delete evidence.
+
 ## Local configuration
 
 Use `.env.example` as a template and export the variables through your local

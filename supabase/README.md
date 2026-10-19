@@ -22,9 +22,9 @@ adds workspace and membership tables, grants, and default-deny RLS policies.
 personal-owner key per workspace and a narrowly granted
 `ensure_personal_workspace()` function. The function takes no identity
 arguments and derives the owner from the authenticated Supabase request.
-The local `config.toml` is only for the Supabase development stack and disables
-signup, anonymous sign-in, Studio, and Storage. It does not configure or link a
-remote project.
+The local `config.toml` enables email signup and confirmation with captured
+test email so the full Auth flow can be exercised. It keeps anonymous sign-in,
+Studio, and Storage disabled. It does not configure or link a remote project.
 
 Run the RLS tests against a local database only:
 
@@ -32,6 +32,7 @@ Run the RLS tests against a local database only:
 supabase start
 supabase db reset --local
 supabase test db --local
+(cd apps/web && npm ci && npm run test:integration:local)
 supabase stop --no-backup
 ```
 
@@ -39,3 +40,7 @@ The tests create synthetic users and assert row visibility, write denial, and
 personal-workspace idempotence while executing as Supabase's `authenticated`
 and `anon` Postgres roles. They do not use production credentials or claim
 that a hosted project's RLS setup has been verified.
+The local Auth integration test uses a fresh synthetic email address and
+Mailpit's captured messages to check signup, confirmation, password recovery,
+sign-in, workspace provisioning, and cross-workspace evidence access. It reads
+only CLI local-stack values and does not contact Resend or a hosted project.
