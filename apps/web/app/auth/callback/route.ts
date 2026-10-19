@@ -3,26 +3,43 @@ import { createSupabaseServerClient } from "../../../lib/supabase/server";
 import { callbackFailureReason, safeInternalPath } from "../../../lib/supabase/redirect";
 import { getSupabasePublicConfig } from "../../../lib/supabase/config";
 import { provisionPersonalWorkspaceForSession } from "../../../lib/evidence-api";
+import { RECOVERY_COOKIE, recoveryProof } from "../../../lib/supabase/recovery";
 
 function failure(request: Request, reason: string): NextResponse {
-  return NextResponse.redirect(new URL(`/auth/error?reason=${reason}`, request.url));
+  const response = NextResponse.redirect(new URL(`/auth/error?reason=${reason}`, request.url));
+  response.headers.set("Cache-Control", "no-store");
+  return response;
 }
 
 export async function GET(request: Request): Promise<NextResponse> {
   const url = new URL(request.url);
-  const code = url.searchParams.get("code");
+  const codeValues = url.searchParams.getAll("code");
+  const tokenHashValues = url.searchParams.getAll("token_hash");
+  const typeValues = url.searchParams.getAll("type");
+  const code = codeValues[0];
+  const tokenHash = tokenHashValues[0];
+  const otpType = typeValues[0];
   const providerError = url.searchParams.get("error");
   const errorCode = url.searchParams.get("error_code");
 
-  if (providerError || errorCode || !code) {
+  const hasCode = codeValues.length === 1 && Boolean(code);
+  const hasOtp = tokenHashValues.length === 1 && Boolean(tokenHash) &&
+    (otpType === "email" || otpType === "recovery") && typeValues.length === 1;
+  const isCodeFlow = hasCode && tokenHashValues.length === 0 && typeValues.length === 0;
+  const isOtpFlow = hasOtp && codeValues.length === 0;
+  if (providerError || errorCode || isCodeFlow === isOtpFlow) {
     return failure(request, callbackFailureReason(providerError, errorCode));
   }
   if (!getSupabasePublicConfig()) return failure(request, "configuration");
 
   try {
     const supabase = await createSupabaseServerClient();
-    const { data: exchangeData, error: exchangeError } =
-      await supabase.auth.exchangeCodeForSession(code);
+    const { data: exchangeData, error: exchangeError } = hasCode
+      ? await supabase.auth.exchangeCodeForSession(code ?? "")
+      : await supabase.auth.verifyOtp({
+        token_hash: tokenHash ?? "",
+        type: otpType as "email" | "recovery",
+      });
     if (exchangeError || !exchangeData?.session?.access_token) {
       return failure(request, "invalid-link");
     }
@@ -33,7 +50,9 @@ export async function GET(request: Request): Promise<NextResponse> {
       return failure(request, "invalid-link");
     }
 
-    const target = safeInternalPath(url.searchParams.get("next"), "/");
+    const target = hasOtp && otpType === "recovery"
+      ? "/reset-password"
+      : safeInternalPath(url.searchParams.get("next"), "/");
     if (
       target !== "/reset-password" &&
       !(await provisionPersonalWorkspaceForSession(session.access_token))
@@ -41,7 +60,18 @@ export async function GET(request: Request): Promise<NextResponse> {
       return failure(request, "workspace-provisioning");
     }
 
-    return NextResponse.redirect(new URL(target, url.origin));
+    const response = NextResponse.redirect(new URL(target, url.origin));
+    response.headers.set("Cache-Control", "no-store");
+    if (target === "/reset-password") {
+      response.cookies.set(RECOVERY_COOKIE, recoveryProof(session.access_token), {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        path: "/",
+        maxAge: 600,
+      });
+    }
+    return response;
   } catch {
     return failure(request, "invalid-link");
   }

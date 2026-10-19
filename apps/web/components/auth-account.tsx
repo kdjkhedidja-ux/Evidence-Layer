@@ -7,7 +7,7 @@ import { createSupabaseBrowserClient } from "../lib/supabase/client";
 type Workspace = { id: string; name: string; role: "owner" | "member" };
 type PanelState = "loading" | "ready" | "expired" | "unavailable";
 
-export default function AuthAccount() {
+export default function AuthAccount({ userId, email }: { userId: string; email: string }) {
   const router = useRouter();
   const [state, setState] = useState<PanelState>("loading");
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
@@ -26,7 +26,13 @@ export default function AuthAccount() {
         setState("unavailable");
         return null;
       }
-      const payload = (await response.json()) as { workspaces?: Workspace[] };
+      const payload = (await response.json()) as { user_id?: string; workspaces?: Workspace[] };
+      if (payload.user_id !== userId) {
+        setWorkspaces([]);
+        setState("expired");
+        router.refresh();
+        return null;
+      }
       const authorizedWorkspaces = Array.isArray(payload.workspaces) ? payload.workspaces : [];
       setWorkspaces(authorizedWorkspaces);
       setState("ready");
@@ -35,7 +41,7 @@ export default function AuthAccount() {
       setState("unavailable");
       return null;
     }
-  }, []);
+  }, [router, userId]);
 
   const createPersonalWorkspace = useCallback(async () => {
     setPending(true);
@@ -48,14 +54,17 @@ export default function AuthAccount() {
       if (response.status === 401) {
         setState("expired");
       } else if (response.status === 403) {
+        setState("unavailable");
         setMessage("A personal workspace is unavailable for this account.");
       } else if (!response.ok) {
+        setState("unavailable");
         setMessage("The workspace could not be created. Try again later.");
       } else {
         await loadWorkspaces();
         setMessage("Your personal workspace is ready.");
       }
     } catch {
+      setState("unavailable");
       setMessage("The workspace service could not be reached. Try again later.");
     } finally {
       setPending(false);
@@ -63,17 +72,21 @@ export default function AuthAccount() {
   }, [loadWorkspaces]);
 
   useEffect(() => {
-    let active = true;
-    void (async () => {
-      const authorizedWorkspaces = await loadWorkspaces();
-      if (active && authorizedWorkspaces?.length === 0) {
-        await createPersonalWorkspace();
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, [createPersonalWorkspace, loadWorkspaces]);
+    void createPersonalWorkspace();
+  }, [createPersonalWorkspace]);
+
+  useEffect(() => {
+    const { data: { subscription } } = createSupabaseBrowserClient().auth.onAuthStateChange(
+      (event, session) => {
+        if (event === "SIGNED_OUT" || (event === "SIGNED_IN" && session?.user.id !== userId)) {
+          setWorkspaces([]);
+          setState("expired");
+          router.refresh();
+        }
+      },
+    );
+    return () => subscription.unsubscribe();
+  }, [router, userId]);
 
   async function openWorkspace(workspace: Workspace) {
     setPending(true);
@@ -108,6 +121,8 @@ export default function AuthAccount() {
         setMessage("Sign out could not be confirmed. Try again.");
         return;
       }
+      setWorkspaces([]);
+      setState("expired");
       router.replace("/login?reason=signed-out");
       router.refresh();
     } catch {
@@ -118,13 +133,14 @@ export default function AuthAccount() {
   }
 
   return (
-    <section className="account-panel" aria-labelledby="account-heading">
+    <section className="account-panel" id="account-panel" aria-labelledby="account-heading">
       <div className="account-panel-heading">
         <span className="sidebar-label" id="account-heading">ACCOUNT WORKSPACE</span>
         <button className="account-signout" type="button" onClick={signOut} disabled={pending}>
           Sign out
         </button>
       </div>
+      <p className="account-email">{email}</p>
       {state === "loading" && <p role="status">Checking workspace access…</p>}
       {state === "expired" && (
         <p role="alert">Your session expired. <a href="/login?reason=session-expired">Sign in again</a>.</p>

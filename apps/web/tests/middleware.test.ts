@@ -22,10 +22,9 @@ describe("server route protection and session refresh", () => {
     mocks.error = null;
   });
 
-  it("redirects an unauthenticated request before serving the Explorer", async () => {
+  it("allows the public synthetic Explorer without an account", async () => {
     const response = await middleware(new NextRequest("https://app.example/"));
-    expect(response.status).toBe(307);
-    expect(response.headers.get("location")).toBe("https://app.example/login?reason=sign-in");
+    expect(response.headers.get("x-middleware-next")).toBe("1");
   });
 
   it("allows a server-verified session to reach the Explorer", async () => {
@@ -39,13 +38,13 @@ describe("server route protection and session refresh", () => {
     expect(reset.headers.get("location")).toBe("https://app.example/auth/error?reason=expired-link");
 
     mocks.error = { name: "AuthRetryableFetchError" };
-    const explorer = await middleware(new NextRequest("https://app.example/"));
-    expect(explorer.headers.get("location")).toBe("https://app.example/login?reason=session-check");
+    const recovery = await middleware(new NextRequest("https://app.example/reset-password"));
+    expect(recovery.headers.get("location")).toBe("https://app.example/auth/error?reason=configuration");
   });
 
-  it("does not expose protected content when Supabase config is missing", async () => {
+  it("keeps recovery protected when Supabase config is missing", async () => {
     mocks.config.mockReturnValue(null);
-    const response = await middleware(new NextRequest("https://app.example/"));
-    expect(response.headers.get("location")).toBe("https://app.example/login?reason=configuration");
+    const response = await middleware(new NextRequest("https://app.example/reset-password"));
+    expect(response.headers.get("location")).toBe("https://app.example/auth/error?reason=configuration");
   });
 });

@@ -2,18 +2,24 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabasePublicConfig } from "./lib/supabase/config";
 
-function redirectTo(request: NextRequest, path: string): NextResponse {
-  return NextResponse.redirect(new URL(path, request.url));
+function redirectTo(request: NextRequest, path: string, source?: NextResponse): NextResponse {
+  const redirected = NextResponse.redirect(new URL(path, request.url));
+  if (source) {
+    for (const cookie of source.cookies.getAll()) redirected.cookies.set(cookie);
+    for (const header of ["cache-control", "expires", "pragma"]) {
+      const value = source.headers.get(header);
+      if (value) redirected.headers.set(header, value);
+    }
+  }
+  return redirected;
 }
 
 export async function middleware(request: NextRequest): Promise<NextResponse> {
   const pathname = request.nextUrl.pathname;
-  const protectedExplorer = pathname === "/";
   const protectedReset = pathname === "/reset-password";
   const config = getSupabasePublicConfig();
 
   if (!config) {
-    if (protectedExplorer) return redirectTo(request, "/login?reason=configuration");
     if (protectedReset) return redirectTo(request, "/auth/error?reason=configuration");
     return NextResponse.next({ request });
   }
@@ -30,11 +36,15 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
       getAll() {
         return request.cookies.getAll();
       },
-      setAll(cookiesToSet) {
+      setAll(cookiesToSet, cacheHeaders) {
         for (const { name, value } of cookiesToSet) request.cookies.set(name, value);
         response = NextResponse.next({ request });
         for (const { name, value, options } of cookiesToSet) {
           response.cookies.set(name, value, options);
+        }
+        for (const header of ["cache-control", "expires", "pragma"] as const) {
+          const value = cacheHeaders?.[header];
+          if (value) response.headers.set(header, value);
         }
       },
     },
@@ -44,22 +54,18 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   let verificationFailed = false;
   try {
     const result = await supabase.auth.getUser();
-    user = result.data.user;
+    user = result.error ? null : result.data.user;
     verificationFailed = Boolean(result.error?.name === "AuthRetryableFetchError");
   } catch {
     verificationFailed = true;
   }
 
-  if (protectedExplorer && !user) {
-    return redirectTo(
-      request,
-      verificationFailed ? "/login?reason=session-check" : "/login?reason=sign-in",
-    );
-  }
   if (protectedReset && !user) {
-    return redirectTo(request, "/auth/error?reason=expired-link");
+    return redirectTo(request, verificationFailed
+      ? "/auth/error?reason=configuration" : "/auth/error?reason=expired-link", response);
   }
 
+  if (user) response.headers.set("Cache-Control", "private, no-store");
   return response;
 }
 

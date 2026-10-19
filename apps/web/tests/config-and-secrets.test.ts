@@ -47,4 +47,12 @@ describe("public configuration and secret boundaries", () => {
     expect(example).toContain("EVIDENCE_SERVICE_URL=http://localhost:8000");
     expect(example).not.toMatch(/RESEND_API_KEY|smtp_pass|SUPABASE_SERVICE_ROLE_KEY|SUPABASE_SECRET_KEY/i);
   });
+
+  it("keeps local email confirmation redirects aligned with the callback route", () => {
+    const localAuth = readFileSync(resolve(process.cwd(), "../../supabase/config.toml"), "utf8");
+    expect(localAuth).toContain('site_url = "http://127.0.0.1:3000"');
+    expect(localAuth).toContain('"http://127.0.0.1:3000/auth/callback?next=%2F"');
+    expect(localAuth).toContain('"http://127.0.0.1:3000/auth/callback?next=%2Freset-password"');
+    expect(localAuth).toContain("enable_confirmations = true");
+  });
 });

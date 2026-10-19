@@ -452,6 +452,51 @@ select:focus-visible,
   transition: color 160ms ease;
 }
 
+.sidebar-controls {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 4px;
+  margin-top: 14px;
+}
+
+.sidebar-controls .theme-toggle {
+  margin: 0;
+}
+
+.account-toggle {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--sidebar-ink);
+  cursor: pointer;
+  text-decoration: none;
+  transition: color 160ms ease;
+}
+
+.account-toggle:hover {
+  color: var(--forest);
+}
+
+.account-toggle:focus-visible {
+  outline: 2px solid var(--sidebar-focus);
+  outline-offset: 3px;
+}
+
+.account-icon {
+  width: 21px;
+  height: 21px;
+}
+
+:root[data-theme="dark"] .account-toggle {
+  color: var(--mint);
+}
+
 .theme-toggle:hover {
   color: var(--forest);
 }
@@ -2275,6 +2320,12 @@ select:focus-visible,
   line-height: 1.6;
 }
 
+.auth-password-hint {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .auth-form {
   display: grid;
   gap: 16px;
@@ -2408,6 +2459,13 @@ select:focus-visible,
 
 .account-panel p a {
   color: var(--sidebar-ink);
+}
+
+.account-panel .account-email {
+  margin: 0 0 10px;
+  overflow-wrap: anywhere;
+  color: var(--sidebar-ink);
+  font-size: 11px;
 }
 
 .account-workspaces {

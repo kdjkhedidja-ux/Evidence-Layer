@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
   getPublicConfig: vi.fn(),
   exchangeCodeForSession: vi.fn(),
+  verifyOtp: vi.fn(),
   getUser: vi.fn(),
   provisionPersonalWorkspace: vi.fn(),
 }));
@@ -23,9 +24,14 @@ describe("Supabase PKCE callback", () => {
       error: null,
     });
     mocks.getUser.mockResolvedValue({ data: { user: { id: "synthetic-user" } }, error: null });
+    mocks.verifyOtp.mockResolvedValue({
+      data: { session: { access_token: "synthetic-session-token", user: { id: "synthetic-user" } } },
+      error: null,
+    });
     mocks.provisionPersonalWorkspace.mockResolvedValue(true);
     mocks.createClient.mockResolvedValue({ auth: {
       exchangeCodeForSession: mocks.exchangeCodeForSession,
+      verifyOtp: mocks.verifyOtp,
       getUser: mocks.getUser,
     } });
   });
@@ -52,6 +58,30 @@ describe("Supabase PKCE callback", () => {
     ));
     expect(response.headers.get("location")).toBe("https://app.example/reset-password");
     expect(mocks.provisionPersonalWorkspace).not.toHaveBeenCalled();
+    expect(response.cookies.get("evidence-layer-recovery")?.httpOnly).toBe(true);
+    expect(response.cookies.get("evidence-layer-recovery")?.value).not.toContain("synthetic-session-token");
+  });
+
+  it("accepts a one-time recovery token hash and rejects malformed token links", async () => {
+    const response = await GET(new Request(
+      "https://app.example/auth/callback?token_hash=synthetic-hash&type=recovery&next=https%3A%2F%2Foutside.example",
+    ));
+    expect(response.headers.get("location")).toBe("https://app.example/reset-password");
+    expect(mocks.verifyOtp).toHaveBeenCalledWith({ token_hash: "synthetic-hash", type: "recovery" });
+    const malformed = await GET(new Request(
+      "https://app.example/auth/callback?token_hash=synthetic-hash&type=invite",
+    ));
+    expect(malformed.headers.get("location")).toBe("https://app.example/auth/error?reason=invalid-link");
+
+    const conflicting = await GET(new Request(
+      "https://app.example/auth/callback?code=synthetic-code&token_hash=synthetic-hash&type=recovery",
+    ));
+    const duplicated = await GET(new Request(
+      "https://app.example/auth/callback?code=first&code=second",
+    ));
+    expect(conflicting.headers.get("location")).toBe("https://app.example/auth/error?reason=invalid-link");
+    expect(duplicated.headers.get("location")).toBe("https://app.example/auth/error?reason=invalid-link");
+    expect(mocks.exchangeCodeForSession).not.toHaveBeenCalled();
   });
 
   it("repeats provisioning safely for repeated confirmed callbacks", async () => {
@@ -101,6 +131,7 @@ describe("Supabase PKCE callback", () => {
     const invalid = await GET(new Request("https://app.example/auth/callback?code=invalid-synthetic-code"));
     expect(invalid.headers.get("location")).toBe("https://app.example/auth/error?reason=invalid-link");
     expect(invalid.headers.get("location")).not.toContain("synthetic provider secret");
+    expect(invalid.headers.get("cache-control")).toBe("no-store");
   });
 
   it("rejects callbacks with no code and handles missing configuration", async () => {

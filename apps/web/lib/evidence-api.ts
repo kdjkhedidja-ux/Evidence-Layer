@@ -141,7 +141,7 @@ export async function proxyEvidenceRequest({
   if (workspaces.some((workspace) => workspace === null)) {
     return json(502, { error: "Evidence service returned an invalid response." });
   }
-  return json(200, { workspaces });
+  return json(200, { user_id: auth.user.id, workspaces });
 }
 
 export function isUuid(value: string): boolean {

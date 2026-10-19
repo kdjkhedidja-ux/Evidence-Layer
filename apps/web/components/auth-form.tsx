@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { createSupabaseBrowserClient } from "../lib/supabase/client";
 import { getSupabasePublicConfig } from "../lib/supabase/config";
 import { safeInternalPath } from "../lib/supabase/redirect";
@@ -56,18 +56,30 @@ export default function AuthForm({
   const [password, setPassword] = useState("");
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
   const [pending, setPending] = useState(false);
+  const submitting = useRef(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
+  const [completed, setCompleted] = useState(false);
   const content = CONTENT[mode];
   const hasConfiguration = Boolean(getSupabasePublicConfig());
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submitting.current || completed) return;
     setErrorMessage("");
     setStatusMessage("");
 
     if (!hasConfiguration) {
       setErrorMessage("Authentication is not configured for this application yet.");
+      return;
+    }
+    const normalizedEmail = email.trim();
+    if (mode !== "reset-password" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      setErrorMessage("Enter a valid email address.");
+      return;
+    }
+    if (mode !== "login" && mode !== "forgot-password" && password.length < 12) {
+      setErrorMessage("Use a password of at least 12 characters.");
       return;
     }
     if (mode === "signup" && password !== passwordConfirmation) {
@@ -79,15 +91,25 @@ export default function AuthForm({
       return;
     }
 
+    submitting.current = true;
     setPending(true);
     try {
       const supabase = createSupabaseBrowserClient();
       if (mode === "login") {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password });
         if (error) {
           setErrorMessage("We could not sign you in. Check your details or try again later.");
           return;
         }
+        const workspaceResponse = await fetch("/api/evidence/personal-workspace", {
+          method: "PUT",
+          cache: "no-store",
+        });
+        if (!workspaceResponse.ok) {
+          setErrorMessage("Your account is signed in, but your workspace could not be opened. Try again later.");
+          return;
+        }
+        setStatusMessage("Signed in. Opening your workspace…");
         router.replace(safeInternalPath(returnTo));
         router.refresh();
         return;
@@ -95,7 +117,7 @@ export default function AuthForm({
 
       if (mode === "signup") {
         const { data, error } = await supabase.auth.signUp({
-          email,
+          email: normalizedEmail,
           password,
           options: { emailRedirectTo: confirmationUrl("/") },
         });
@@ -104,8 +126,10 @@ export default function AuthForm({
           return;
         }
         if (data.session) {
-          await supabase.auth.signOut();
-          setErrorMessage("Email confirmation is required but is not enabled in the Auth project.");
+          const { error: signOutError } = await supabase.auth.signOut();
+          setErrorMessage(signOutError
+            ? "Email confirmation is not enabled and the session could not be cleared. Sign out before continuing."
+            : "Email confirmation is required but is not enabled in the Auth project.");
           return;
         }
         setStatusMessage("Check your email for a confirmation link. You can sign in after confirming your address.");
@@ -113,7 +137,7 @@ export default function AuthForm({
       }
 
       if (mode === "forgot-password") {
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
           redirectTo: confirmationUrl("/reset-password"),
         });
         if (error) {
@@ -124,17 +148,26 @@ export default function AuthForm({
         return;
       }
 
-      const { error } = await supabase.auth.updateUser({ password });
-      if (error) {
-        setErrorMessage("We could not update the password. The reset link may have expired; request a new one.");
+      const response = await fetch("/api/auth/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+        cache: "no-store",
+      });
+      if (!response.ok) {
+        setErrorMessage(response.status === 401 || response.status === 403
+          ? "The reset link is invalid or expired. Request a new link."
+          : "We could not update the password. Try again or request a new link.");
         return;
       }
-      setStatusMessage("Password updated. Opening your workspace…");
-      router.replace("/");
-      router.refresh();
+      setPassword("");
+      setPasswordConfirmation("");
+      setCompleted(true);
+      setStatusMessage("Password updated. Sign in with your new password.");
     } catch {
       setErrorMessage("The authentication service could not be reached. Try again later.");
     } finally {
+      submitting.current = false;
       setPending(false);
     }
   }
@@ -158,7 +191,7 @@ export default function AuthForm({
         {errorMessage && <p className="auth-error" role="alert">{errorMessage}</p>}
         {statusMessage && <p className="auth-notice" role="status">{statusMessage}</p>}
 
-        <form className="auth-form" onSubmit={submit}>
+        {!completed && <form className="auth-form" onSubmit={submit} aria-busy={pending}>
           {(mode === "login" || mode === "signup" || mode === "forgot-password") && (
             <label>
               <span>Email</span>
@@ -166,6 +199,7 @@ export default function AuthForm({
                 autoComplete="email"
                 autoCapitalize="none"
                 type="email"
+                maxLength={254}
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 required
@@ -178,6 +212,8 @@ export default function AuthForm({
               <input
                 autoComplete={mode === "login" ? "current-password" : "new-password"}
                 type="password"
+                minLength={mode === "login" ? undefined : 12}
+                maxLength={1024}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 required
@@ -190,6 +226,8 @@ export default function AuthForm({
               <input
                 autoComplete="new-password"
                 type="password"
+                minLength={12}
+                maxLength={1024}
                 value={passwordConfirmation}
                 onChange={(event) => setPasswordConfirmation(event.target.value)}
                 required
@@ -199,7 +237,11 @@ export default function AuthForm({
           <button className="auth-submit" type="submit" disabled={pending || !hasConfiguration}>
             {pending ? "Please wait…" : content.button}
           </button>
-        </form>
+        </form>}
+
+        {(mode === "signup" || mode === "reset-password") && (
+          <p className="auth-password-hint">Use at least 12 characters.</p>
+        )}
 
         <nav className="auth-links" aria-label="Account options">
           {mode === "login" && <Link href="/forgot-password">Forgot password?</Link>}
