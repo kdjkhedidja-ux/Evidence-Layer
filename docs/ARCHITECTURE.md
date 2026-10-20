@@ -36,7 +36,7 @@ Railway: persistent MCP server
        |       documents, chunks, tenant data, usage
        |
         +---- Source routing (planned)
-        |       deterministic routing; Decisions API for complex queries
+        |       deterministic baseline; Decisions option under evaluation
         |       authorization-filtered source catalog
         |
         +---- Retrieval and evidence scoring
@@ -133,12 +133,14 @@ document data or scorer behavior.
 
 ### Source-routing intelligence (planned; not implemented)
 
-- For complex queries, the required OpenAI Decisions API analyzes the query and
-  selects a routing strategy and candidate sources from a trusted catalog that
-  has already been filtered by authorization.
-- Deterministic routing may handle queries classified as simple without a
-  Decisions call. Decisions is required for complex routing, not for every
-  query.
+- Deterministic routing is the baseline. The OpenAI Decisions API is an
+  experimental option for complex queries and must be evaluated against
+  deterministic routing using independently labeled multi-source questions.
+  Propose it as a production default only if that evaluation demonstrates
+  acceptable routing quality, total cost, and latency.
+- Decisions is not required or an approved production default. Any future use
+  must select candidates from a trusted catalog already filtered by
+  authorization.
 - Before transferring query text to Decisions, require separate trusted
   server-side authorization for that provider transfer; permission to access a
   source alone is insufficient. The trusted server must have valid, explicit
@@ -181,14 +183,16 @@ document data or scorer behavior.
    authorization.
 3. A future router filters the trusted source catalog by authorization before
    routing. Permission to access a source does not authorize transferring query
-   text to Decisions. It uses Decisions for complex queries only when the trusted
-   server has valid, explicit authorization for that specific transfer; if
-   authorization is absent, unclear, or invalid, it does not call Decisions.
-   It sends only minimum query and source metadata. Deterministic routing may
-   proceed without a Decisions call only when both the route and eligible source
-   set can be established safely and independently authorized. Otherwise the
-   request stops rather than guessing, broadening access, or bypassing
-   authorization.
+   text to Decisions. Decisions remains an experimental option for complex
+   routing; a production-default change requires independent multi-source
+   evaluation of quality, total cost, and latency. Any Decisions call during an
+   evaluation or future use requires valid, explicit authorization for that
+   provider transfer; if authorization is absent, unclear, or invalid, it does
+   not call Decisions. It sends only minimum query and source metadata.
+   Deterministic routing may proceed without a Decisions call only when both the
+   route and eligible source set can be established safely and independently
+   authorized. Otherwise the request stops rather than guessing, broadening
+   access, or bypassing authorization.
 4. Retrieval queries only independently authorized sources selected by the
    routing strategy.
 5. Use JEV only when explicitly enabled and permitted by policy and its query
@@ -285,8 +289,9 @@ implemented.
 - Supabase: backend services and data.
 - Railway: health-only service deployed; persistent MCP service remains planned.
 - TypeSafe: external JEV evidence-scoring API.
-- OpenAI Decisions API: planned source-routing intelligence for complex
-  queries; not a scorer or answer generator.
+- OpenAI Decisions API: experimental source-routing option for complex
+  queries, evaluated against the deterministic baseline before any proposed
+  production-default change; not a scorer or answer generator.
 
 Vercel currently hosts the synthetic-only Evidence Explorer prototype from
 `main`; Railway hosts the separate health-only service. These deployments do
