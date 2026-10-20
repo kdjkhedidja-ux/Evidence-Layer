@@ -156,6 +156,7 @@ does not mean wired into any service or enabled.
 | Fail-closed pipeline: deterministic fallback or safe stop | Implemented in #37; an empty primary selection stops unless fallback is opted in |
 | Results as `(tenant_id, source_id)` pairs | Implemented in #37 |
 | Clock not injectable through the public API | Implemented in #37 |
+| Refusing to use a routing result after its context expires | **Not implemented**: a result carries no expiry, so the consumer must check the context |
 | Tenant binding from a verified `WorkspaceContext` (decision 1) | **Not implemented**; #37 takes the context as given and documents this |
 | Trusted context constructor with bounded lifetime and membership check | **Not implemented** |
 | Re-verification at the source-read boundary | **Not implemented** (no reader integration) |
