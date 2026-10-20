@@ -1,6 +1,8 @@
 # ADR 0003 — Cost- and context-optimization layer: multi-source routing, isolation, and evaluation
 
-- Status: Proposed (design draft for review; nothing here is implemented)
+- Status: Proposed (design draft for review). On `main` nothing here is
+  implemented. A first local, unwired slice is proposed separately in PR #37
+  (not merged); see "Implementation status" below for exactly what it covers.
 - Scope: design only. This ADR does not authorize code, evaluation data,
   provider calls, production changes, or a change of any default.
 
@@ -70,6 +72,14 @@ that lowers tokens but weakens quality or authorization is rejected.
    model output. Membership and source authorization are re-verified at the
    source-read boundary. Automated tests must show that changing `workspace_id`
    or passing another workspace's source identifier reads nothing.
+   **Mechanism.** Python cannot make a dataclass unforgeable, so the mechanism
+   is a single trusted constructor: the only code allowed to build a
+   `SourceRequestContext` takes a verified `WorkspaceContext` plus the
+   authenticated `Principal`, binds the tenant to that membership, and sets a
+   bounded lifetime; the host-owned policy independently checks membership.
+   Any other construction site is a review failure. Until that constructor
+   exists, **no allowing source policy may be shipped or wired**; the default
+   policy denies everything.
 2. **Default-deny transfer grants.** Source access does not authorize
    sending query text or source metadata to an external provider; these are
    separate decisions. A per-operation grant contract names provider, purpose,
@@ -78,12 +88,19 @@ that lowers tokens but weakens quality or authorization is rejected.
 3. **Small, versioned source contract.** Freeze identity fields now (source
    id, workspace, type, status, access-policy reference, sensitivity,
    capabilities) with a contract version. Description, tags, language,
-   freshness, and token estimates evolve with the first connector.
+   freshness, and token estimates evolve with the first connector. Source
+   identifiers are opaque but **not assumed unique across workspaces**: a
+   routed source is always a `(tenant_id, source_id)` pair, and a consumer must
+   never look a source up by its id alone. Store output is untrusted: only
+   exact descriptor types with re-validated identifiers are accepted, and the
+   amount read from a store or a policy is bounded.
 4. **Deterministic router first.** It is the first default and the safe
    fallback. Keywords are a starting point, not evidence of sufficient routing:
    cases cover one source, several sources, and stopping when evidence is
    insufficient. No router changes access rights or opens a blocked source;
-   outputs are validated and authorization is re-checked at read time.
+   outputs are validated and authorization is re-checked at read time. A
+   routing result is a recommendation, not an authorization, and is not used
+   after its context expires.
 5. **Success criteria are three independent conditions:** routing quality
    (with a guard on recall of required sources), zero accepted authorization
    violations after final verification, and lower total cost without task
@@ -120,8 +137,33 @@ Deferred decisions must not change after final-test results are seen.
 | Transfer grants | [verified] deny-all; provider `jev`, purpose `evidence_scoring` only | Extended provider/purpose and a trusted issuer |
 | Source reads | [verified] deny-all boundary | Trusted boundary verifying access before opening |
 | Provider policy | [verified] lexical default; live JEV disabled | JEV primary once a trusted host exists |
-| Source registry, router, validator, connectors | Absent | Sections below |
+| Source registry, router, validator, connectors | Absent on `main`. PR #37 (unmerged) proposes a local, unwired library: source contract, authorization filter, deterministic router, output validator, pipeline. A registry and connectors remain absent. | Sections below |
 | Evaluation | [verified] JEV/lexical ranking only (5A/5B) | Independent security, routing, and cost evaluation |
+
+## Implementation status
+
+Status of each decision and control relative to PR #37, which is a draft and
+not merged. "Implemented in #37" means present in that branch and tested; it
+does not mean wired into any service or enabled.
+
+| Item | Status |
+|---|---|
+| Source contract: opaque ids, closed enums, bounded untrusted text, version | Implemented in #37 |
+| Authorization filter: tenant, routable status, trusted policy, ambiguity | Implemented in #37 |
+| Untrusted store output: exact types, re-validated ids, bounded reads | Implemented in #37 |
+| Deterministic router (tags, alias, description tokens only; ties by id) | Implemented in #37; `type` and `language` are not used yet |
+| Output validator: exact types, one snapshot, subset of the sent catalog, no duplicates, cap | Implemented in #37; source status is enforced by the catalog filter, not the validator |
+| Fail-closed pipeline: deterministic fallback or safe stop | Implemented in #37; an empty primary selection stops unless fallback is opted in |
+| Results as `(tenant_id, source_id)` pairs | Implemented in #37 |
+| Clock not injectable through the public API | Implemented in #37 |
+| Tenant binding from a verified `WorkspaceContext` (decision 1) | **Not implemented**; #37 takes the context as given and documents this |
+| Trusted context constructor with bounded lifetime and membership check | **Not implemented** |
+| Re-verification at the source-read boundary | **Not implemented** (no reader integration) |
+| Timeouts around router or provider calls | **Not implemented** |
+| Observability (counts, structured events) | **Not implemented** |
+| Demo-data isolation and its property test | **Not implemented** |
+| Use of `capabilities`, `sensitivity`, `access_policy_ref` by any logic | **Not implemented** |
+| Transfer grants for routing, Decisions client, evaluation data, connectors | **Not implemented** |
 
 ## Trust boundaries and data flow (target design, not implemented)
 
@@ -179,17 +221,27 @@ before choosing a strategy and measures each strategy's cost and quality
 independently.
 
 Deterministic router [proposed]: inputs are the query and the authorized
-catalog; output is an ordered source list from scope tags, type, language, and
-keywords in alias/description, with a fixed order and ties broken by source id
-ascending. Same inputs, same outputs.
+catalog; output is an ordered source list from weighted token overlap between
+the query and each source's scope tags, alias, and description (tags weigh
+most, then alias, then the tenant-controlled description), with a fixed order
+and ties broken by source id ascending. Same inputs, same outputs. Matching on
+source `type` and `language` is intended but not yet implemented, and
+tokenization is ASCII-only, so a non-ASCII (for example Arabic) query finds no
+match and stops safely.
 
-Output validator (applies to every router, none exempt): every returned id is
-in the sent catalog, which is a subset of the authorized set; no duplicates and
-a cap on count; the source status is explicitly allowed; any invented or
-blocked id rejects the whole output (no partial cleaning). On malformed output,
-refusal, timeout, or provider error: deterministic fallback over provably
-eligible sources, else a safe stop with a clear message. The routing fallback
-is separate from the lexical scoring fallback (PRD).
+Output validator (applies to every router, none exempt): only an exact `list`
+or `tuple` is accepted and it is copied once before any check; every returned
+id is in the sent catalog, which is a subset of the authorized set; no
+duplicates and a cap on count; any invented or blocked id rejects the whole
+output (no partial cleaning). A source's status is enforced earlier, by the
+authorization filter, so the catalog never contains a non-routable source. On
+malformed output or a router error: deterministic fallback over provably
+eligible sources, else a safe stop with a clear message. An empty primary
+selection stops by default; falling back on empty is an explicit opt-in. A
+timeout or provider error follows the same fallback path once those calls
+exist, but **no timeout mechanism exists yet** and one is required before any
+network-backed router is wired in. The routing fallback is separate from the
+lexical scoring fallback (PRD).
 
 | Access strategy | Position | Condition or risk |
 |---|---|---|
@@ -211,20 +263,29 @@ primary source.
 
 ## Threat model
 
-| Threat | Controls |
-|---|---|
-| Forged tenant context | Trusted context from membership; no tenant from client or model; RLS; isolation tests |
-| Invented or cross-tenant source id | Output validator; re-check at the read boundary; opaque ids |
-| Instruction injection in descriptions | Data not instructions; length limits; constrained outputs; adversarial tests; the validator protects authorization even if routing is misled |
-| Confused deputy (router "grants") | Routers never grant; permissions come from policy; routing output is ordering only |
-| ACL change between filtering and read | Re-verify at open against the same source version |
-| Grant replay | Per-operation grant with reserve/validate/finish and expiry |
-| Metadata leakage to a provider | Minimum data, aliases, sensitivity classes, no documents, separate grant |
-| Demo leakage into production | Separate demo tenant; property test on the production path |
-| Cross-tenant or stale cache | Key with tenant, ACL and source versions; invalidate on revoke |
-| Connector token theft | Server-side only, minimum scope, immediate revocation, no logging |
-| Cost exhaustion, agent loops | Caps on requests, rounds, budget; usage metering |
-| Log leakage | Identifiers and digests only |
+The "Status" column is relative to PR #37 (a draft). A control marked "Not
+implemented" is design only.
+
+| Threat | Controls | Status |
+|---|---|---|
+| Forged or minted tenant context (any caller can build a `SourceRequestContext`) | Single trusted constructor from a verified `WorkspaceContext` and `Principal`, bounded lifetime, membership-aware policy; no tenant from client or model; RLS; isolation tests | Constructor not implemented; #37 documents and tests the assumption; default policy denies all |
+| Clock injection reviving an expired context | No clock parameter in the public API | Implemented in #37 |
+| Invented or cross-tenant source id | Output validator; re-check at the read boundary; opaque ids | Validator implemented in #37; read-boundary re-check not implemented |
+| Non-unique source ids across workspaces | Results are `(tenant_id, source_id)` pairs; never look up by id alone | Implemented in #37 |
+| Untrusted store output (subclassed or malformed descriptors, endless or huge iterables) | Exact types, re-validated identifiers, bounded reads, failure is a safe stop, module defects not masked | Implemented in #37 |
+| Truncated or stale store data (for example a cached `active` status for a revoked source) | Re-verification at the read boundary against the same source version | Not implemented |
+| Instruction injection in descriptions | Data not instructions; length limits; constrained outputs; adversarial tests; the validator protects authorization even if routing is misled | Implemented in #37 for the deterministic router |
+| Confused deputy (router "grants") | Routers never grant; permissions come from policy; routing output is ordering only | Implemented in #37 |
+| Router that tampers with its output while it is validated | Exact types and a single snapshot | Implemented in #37 |
+| Slow or hung router, policy, or store | Timeouts and bounds | Bounds implemented in #37; timeouts not implemented |
+| ACL change between filtering and read | Re-verify at open against the same source version | Not implemented |
+| Grant replay | Per-operation grant with reserve/validate/finish and expiry | Not implemented for routing |
+| Metadata leakage to a provider | Minimum data, aliases, sensitivity classes, no documents, separate grant | Not implemented |
+| Demo leakage into production | Separate demo tenant; property test on the production path | Not implemented |
+| Cross-tenant or stale cache | Key with tenant, ACL and source versions; invalidate on revoke | Not implemented |
+| Connector token theft | Server-side only, minimum scope, immediate revocation, no logging | Not implemented |
+| Cost exhaustion, agent loops | Caps on requests, rounds, budget; usage metering | Not implemented |
+| Log leakage | Identifiers and digests only | Implemented in #37 for routing results (no query text, descriptions, or error messages) |
 
 ## Evaluation framework
 
