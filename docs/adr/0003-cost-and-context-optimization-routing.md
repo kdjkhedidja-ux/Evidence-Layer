@@ -1,8 +1,9 @@
 # ADR 0003 — Cost- and context-optimization layer: multi-source routing, isolation, and evaluation
 
-- Status: Proposed (design draft for review). On `main` nothing here is
-  implemented. A first local, unwired slice is proposed separately in PR #37
-  (not merged); see "Implementation status" below for exactly what it covers.
+- Status: Proposed (design draft for review). The local deterministic routing
+  library merged by PR #37 is present on `main` but remains unwired. It does
+  not provide production source-registry or source-reader integration; see
+  "Implementation status" below for exactly what it covers.
 - Scope: design only. This ADR does not authorize code, evaluation data,
   provider calls, production changes, or a change of any default.
 
@@ -137,19 +138,21 @@ Deferred decisions must not change after final-test results are seen.
 | Transfer grants | [verified] deny-all; provider `jev`, purpose `evidence_scoring` only | Extended provider/purpose and a trusted issuer |
 | Source reads | [verified] deny-all boundary | Trusted boundary verifying access before opening |
 | Provider policy | [verified] lexical default; live JEV disabled | JEV primary once a trusted host exists |
-| Source registry, router, validator, connectors | Absent on `main`. PR #37 (unmerged) proposes a local, unwired library: source contract, authorization filter, deterministic router, output validator, pipeline. A registry and connectors remain absent. | Sections below |
-| Evaluation | [verified] JEV/lexical ranking only (5A/5B) | Independent security, routing, and cost evaluation |
+| Production source registry, integrated router, source reader, connectors | PR #37 merged a local, unwired library with a source contract, authorization filter, deterministic router, output validator, and pipeline; production source-registry, source-reader, and connector integrations remain absent. | Sections below |
+| Evaluation | [verified] JEV/lexical ranking only (5A/5B); routing evaluation not run | Independent security and multi-source routing evaluation of quality, cost, and latency before any routing-default change |
 
 ## Implementation status
 
-Status of each decision and control relative to PR #37, which is a draft and
-not merged. "Implemented in #37" means present in that branch and tested; it
-does not mean wired into any service or enabled.
+Status of each decision and control after PR #37 merged. "Implemented in #37"
+means present in the local routing library on `main`; it does not mean
+production-integrated, authorized for live source access or provider transfer,
+wired into a service, or enabled by default.
 
 | Item | Status |
 |---|---|
 | Source contract: opaque ids, closed enums, bounded untrusted text, version | Implemented in #37 |
 | Authorization filter: tenant, routable status, trusted policy, ambiguity | Implemented in #37 |
+| Tenant-scoped source discovery | **Not implemented**: the library filters caller-supplied candidates; it provides no tenant-scoped source-registry or store query |
 | Untrusted store output: exact types, re-validated ids, bounded reads | Implemented in #37 |
 | Deterministic router (tags, alias, description tokens only; ties by id) | Implemented in #37; `type` and `language` are not used yet |
 | Output validator: exact types, one snapshot, subset of the sent catalog, no duplicates, cap | Implemented in #37; source status is enforced by the catalog filter, not the validator |
@@ -159,7 +162,7 @@ does not mean wired into any service or enabled.
 | Refusing to use a routing result after its context expires | **Not implemented**: a result carries no expiry, so the consumer must check the context |
 | Tenant binding from a verified `WorkspaceContext` (decision 1) | **Not implemented**; #37 takes the context as given and documents this |
 | Trusted context constructor with bounded lifetime and membership check | **Not implemented** |
-| Re-verification at the source-read boundary | **Not implemented** (no reader integration) |
+| Authorization and revocation re-verification at the source-read boundary | **Not implemented** (no production reader integration) |
 | Timeouts around router or provider calls | **Not implemented** |
 | Observability (counts, structured events) | **Not implemented** |
 | Demo-data isolation and its property test | **Not implemented** |
@@ -264,8 +267,10 @@ primary source.
 
 ## Threat model
 
-The "Status" column is relative to PR #37 (a draft). A control marked "Not
-implemented" is design only.
+The "Status" column describes the local routing library merged by PR #37, not
+production integration. "Implemented in #37" means present in that local
+library on `main`; it does not establish production authorization or source
+access. A control marked "Not implemented" is design only.
 
 | Threat | Controls | Status |
 |---|---|---|
