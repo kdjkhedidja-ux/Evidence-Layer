@@ -1,5 +1,10 @@
 begin;
 
+-- Supabase CLI uses a temporary login role for hosted tests. Run fixtures as
+-- postgres, then switch explicitly to anon/authenticated for RLS assertions.
+set local role postgres;
+set local search_path = public, extensions;
+
 create extension if not exists pgtap with schema extensions;
 
 select plan(24);
@@ -160,7 +165,7 @@ begin
     insert into pg_temp.evidence_rls_observations values ('a_update_own', affected::text);
 end $$;
 
-reset role;
+set local role postgres;
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '20000000-0000-4000-8000-000000000002', true);
@@ -217,7 +222,7 @@ begin
     end;
 end $$;
 
-reset role;
+set local role postgres;
 
 -- Keep A's fixture until B's cross-workspace UPDATE and DELETE assertions have
 -- run, so a zero affected-row count proves RLS rather than a missing record.
@@ -237,7 +242,7 @@ begin
     get diagnostics affected = row_count;
     insert into pg_temp.evidence_rls_observations values ('a_delete_own', affected::text);
 end $$;
-reset role;
+set local role postgres;
 
 select is((select value from evidence_rls_observations where name = 'a_read_own'), '1', 'A reads evidence in an active workspace');
 select is((select value from evidence_rls_observations where name = 'a_read_b'), '0', 'A with inactive membership cannot read B workspace evidence');
