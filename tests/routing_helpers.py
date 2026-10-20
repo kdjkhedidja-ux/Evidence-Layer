@@ -5,18 +5,33 @@ from __future__ import annotations
 from collections.abc import Iterable, Sequence
 from datetime import datetime, timedelta, timezone
 
+import pytest
+
 from evidence_layer.routing import (
     AuthorizedCatalog,
     Capability,
     RoutingRequest,
+    RoutingResult,
     Sensitivity,
     SourceDescriptor,
     SourceStatus,
     SourceType,
 )
+from evidence_layer.routing import catalog as _catalog
 from evidence_layer.source_access import SourceRequestContext
 
 NOW = datetime(2026, 10, 20, 12, 0, tzinfo=timezone.utc)
+
+
+@pytest.fixture
+def frozen_clock(monkeypatch: pytest.MonkeyPatch) -> datetime:
+    """Freeze the catalog clock; the public API deliberately has no ``now``."""
+    monkeypatch.setattr(_catalog, "_now", lambda: NOW)
+    return NOW
+
+
+def ids(result: RoutingResult) -> tuple[str, ...]:
+    return tuple(source.source_id for source in result.sources)
 
 
 def make_source(

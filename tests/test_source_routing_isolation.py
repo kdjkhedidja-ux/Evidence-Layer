@@ -4,6 +4,10 @@ The core invariant: whatever a policy, store, or router returns, a routing
 result only ever names sources that belong to the caller's workspace, are
 routable, and were allowed by the trusted policy. Randomized and mutation tests
 check that the invariant holds and that this harness would notice a violation.
+
+These tests assume a well-formed, trusted ``SourceRequestContext``; see
+``test_source_routing_boundaries.py`` for what is and is not defended when the
+context itself is forged.
 """
 
 from __future__ import annotations
@@ -18,26 +22,30 @@ from evidence_layer.routing import (
     CatalogDenialReason,
     DenyAllSourcePolicy,
     DeterministicRouter,
+    Rejected,
+    RejectionReason,
     RoutingOutcome,
     SourceStatus,
     StopReason,
     filter_authorized_catalog,
+    pipeline,
     route_query,
 )
-from evidence_layer.routing import pipeline
-from evidence_layer.routing import Rejected, RejectionReason
 from evidence_layer.routing.validation import Accepted
 
 from routing_helpers import (
-    NOW,
     AllowAllPolicy,
     AllowListPolicy,
     FakeRouter,
     RaisingPolicy,
+    frozen_clock,
+    ids,
     make_context,
     make_request,
     make_source,
 )
+
+pytestmark = pytest.mark.usefixtures("frozen_clock")
 
 A_SOURCES = [
     make_source("a-1", "tenant-a", tags={"billing"}),
@@ -57,23 +65,22 @@ def test_default_policy_denies_everything() -> None:
         MIXED_STORE,
         DenyAllSourcePolicy(),
         DeterministicRouter(),
-        now=NOW,
     )
     assert result.outcome is RoutingOutcome.SAFE_STOP
     assert result.stop_reason is StopReason.NO_AUTHORIZED_SOURCES
-    assert result.source_ids == ()
+    assert result.sources == ()
 
 
 def test_foreign_workspace_sources_are_dropped_even_when_policy_allows_them() -> None:
     filtered = filter_authorized_catalog(
-        make_context("tenant-a"), MIXED_STORE, AllowAllPolicy(extra_ids=["b-1", "b-2"]), now=NOW
+        make_context("tenant-a"), MIXED_STORE, AllowAllPolicy(extra_ids=["b-1", "b-2"])
     )
     assert filtered.catalog.source_ids == {"a-1", "a-2"}
 
 
 def test_changing_the_tenant_never_exposes_the_other_tenants_sources() -> None:
-    a = filter_authorized_catalog(make_context("tenant-a"), MIXED_STORE, AllowAllPolicy(), now=NOW)
-    b = filter_authorized_catalog(make_context("tenant-b"), MIXED_STORE, AllowAllPolicy(), now=NOW)
+    a = filter_authorized_catalog(make_context("tenant-a"), MIXED_STORE, AllowAllPolicy())
+    b = filter_authorized_catalog(make_context("tenant-b"), MIXED_STORE, AllowAllPolicy())
     assert a.catalog.source_ids == {"a-1", "a-2"}
     assert b.catalog.source_ids == {"b-1", "b-2"}
     assert a.catalog.source_ids.isdisjoint(b.catalog.source_ids)
@@ -81,14 +88,14 @@ def test_changing_the_tenant_never_exposes_the_other_tenants_sources() -> None:
 
 def test_policy_allow_list_cannot_widen_beyond_the_tenant() -> None:
     filtered = filter_authorized_catalog(
-        make_context("tenant-a"), MIXED_STORE, AllowListPolicy(["b-1", "a-1", "ghost"]), now=NOW
+        make_context("tenant-a"), MIXED_STORE, AllowListPolicy(["b-1", "a-1", "ghost"])
     )
     assert filtered.catalog.source_ids == {"a-1"}
 
 
 def test_unknown_tenant_gets_nothing() -> None:
     filtered = filter_authorized_catalog(
-        make_context("tenant-z"), MIXED_STORE, AllowAllPolicy(), now=NOW
+        make_context("tenant-z"), MIXED_STORE, AllowAllPolicy()
     )
     assert filtered.catalog.sources == ()
     assert filtered.denial is CatalogDenialReason.NO_AUTHORIZED_SOURCES
@@ -101,33 +108,24 @@ def test_router_returning_another_tenants_source_is_rejected_then_falls_back() -
         MIXED_STORE,
         AllowAllPolicy(),
         FakeRouter(["b-1"]),
-        now=NOW,
     )
     assert result.outcome is RoutingOutcome.FALLBACK_ROUTED
-    assert result.source_ids == ("a-1",)
+    assert ids(result) == ("a-1",)
 
 
 @pytest.mark.parametrize("status", [SourceStatus.REVOKED, SourceStatus.DISCONNECTED])
 def test_unroutable_statuses_are_excluded_regardless_of_policy(status: SourceStatus) -> None:
     store = [make_source("a-gone", "tenant-a", status=status, tags={"billing"}), *A_SOURCES]
     filtered = filter_authorized_catalog(
-        make_context(), store, AllowAllPolicy(extra_ids=["a-gone"]), now=NOW
+        make_context(), store, AllowAllPolicy(extra_ids=["a-gone"])
     )
     assert "a-gone" not in filtered.catalog.source_ids
 
 
 def test_degraded_sources_remain_routable() -> None:
     store = [make_source("a-slow", "tenant-a", status=SourceStatus.DEGRADED, tags={"billing"})]
-    filtered = filter_authorized_catalog(make_context(), store, AllowAllPolicy(), now=NOW)
+    filtered = filter_authorized_catalog(make_context(), store, AllowAllPolicy())
     assert filtered.catalog.source_ids == {"a-slow"}
-
-
-def test_ambiguous_duplicate_source_ids_are_dropped() -> None:
-    twin = make_source("a-1", "tenant-a", tags={"payroll"})
-    filtered = filter_authorized_catalog(
-        make_context(), [*A_SOURCES, twin], AllowAllPolicy(), now=NOW
-    )
-    assert filtered.catalog.source_ids == {"a-2"}
 
 
 def test_policy_error_fails_closed_without_leaking_the_error() -> None:
@@ -137,17 +135,16 @@ def test_policy_error_fails_closed_without_leaking_the_error() -> None:
         MIXED_STORE,
         RaisingPolicy(),
         DeterministicRouter(),
-        now=NOW,
     )
     assert result.stop_reason is StopReason.POLICY_ERROR
-    assert result.source_ids == ()
+    assert result.sources == ()
     assert "secret-policy-detail" not in repr(result)
 
 
 def test_expired_context_stops_before_any_policy_call() -> None:
     expired = make_context(expires_in=timedelta(seconds=-1))
     result = route_query(
-        make_request(), expired, MIXED_STORE, RaisingPolicy(), DeterministicRouter(), now=NOW
+        make_request(), expired, MIXED_STORE, RaisingPolicy(), DeterministicRouter()
     )
     assert result.stop_reason is StopReason.CONTEXT_EXPIRED
 
@@ -157,7 +154,6 @@ def test_non_string_policy_ids_are_ignored() -> None:
         make_context(),
         A_SOURCES,
         AllowListPolicy([1, None, ("a-1",), "a-1"]),  # type: ignore[list-item]
-        now=NOW,
     )
     assert filtered.catalog.source_ids == {"a-1"}
 
@@ -175,18 +171,24 @@ def test_authorized_catalog_rejects_foreign_or_unroutable_sources() -> None:
         AuthorizedCatalog("tenant-a", "v1", (A_SOURCES[0], A_SOURCES[0]))
 
 
+def test_ambiguous_duplicate_source_ids_are_dropped() -> None:
+    twin = make_source("a-1", "tenant-a", tags={"payroll"})
+    filtered = filter_authorized_catalog(
+        make_context(), [*A_SOURCES, twin], AllowAllPolicy()
+    )
+    assert filtered.catalog.source_ids == {"a-2"}
+
+
 def test_same_tenant_duplicate_id_is_ambiguous_even_when_one_copy_is_revoked() -> None:
     stale = make_source("a-1", "tenant-a", status=SourceStatus.REVOKED, tags={"billing"})
-    filtered = filter_authorized_catalog(
-        make_context(), [*A_SOURCES, stale], AllowAllPolicy(), now=NOW
-    )
+    filtered = filter_authorized_catalog(make_context(), [*A_SOURCES, stale], AllowAllPolicy())
     assert filtered.catalog.source_ids == {"a-2"}
 
 
 def test_foreign_duplicate_id_does_not_make_the_tenants_source_ambiguous() -> None:
     foreign_twin = make_source("a-1", "tenant-b", tags={"billing"})
     filtered = filter_authorized_catalog(
-        make_context(), [*A_SOURCES, foreign_twin], AllowAllPolicy(), now=NOW
+        make_context(), [*A_SOURCES, foreign_twin], AllowAllPolicy()
     )
     assert filtered.catalog.source_ids == {"a-1", "a-2"}
 
@@ -199,12 +201,10 @@ def _failing_store():
 @pytest.mark.parametrize("store", [_failing_store, lambda: [A_SOURCES[0], {"source_id": "a-9"}]])
 def test_failing_or_malformed_candidate_store_is_a_safe_stop(store) -> None:
     spy = FakeRouter(["a-1"])
-    result = route_query(
-        make_request(), make_context(), store(), AllowAllPolicy(), spy, now=NOW
-    )
+    result = route_query(make_request(), make_context(), store(), AllowAllPolicy(), spy)
     assert result.outcome is RoutingOutcome.SAFE_STOP
     assert result.stop_reason is StopReason.SOURCE_STORE_ERROR
-    assert result.source_ids == ()
+    assert result.sources == ()
     assert spy.seen_catalogs == []
     assert "secret-store-detail" not in repr(result)
 
@@ -222,12 +222,10 @@ def test_failing_or_malformed_candidate_store_is_a_safe_stop(store) -> None:
 )
 def test_malformed_context_is_a_safe_stop_and_never_echoed(context) -> None:
     spy = FakeRouter(["a-1"])
-    result = route_query(
-        make_request(), context, MIXED_STORE, AllowAllPolicy(), spy, now=NOW
-    )
+    result = route_query(make_request(), context, MIXED_STORE, AllowAllPolicy(), spy)
     assert result.outcome is RoutingOutcome.SAFE_STOP
     assert result.stop_reason is StopReason.INVALID_CONTEXT
-    assert result.source_ids == ()
+    assert result.sources == ()
     assert (result.tenant_id, result.request_id, result.operation_id, result.policy_version) == (
         None,
         None,
@@ -261,9 +259,9 @@ def _universe(rng: random.Random) -> list:
 
 
 def _hostile_output(rng: random.Random, universe: list, allowed: set[str]):
-    ids = [s.source_id for s in universe] + ["ghost", "", "../x"]
+    ids_ = [s.source_id for s in universe] + ["ghost", "", "../x"]
     kind = rng.randrange(10)
-    picks = [rng.choice(ids) for _ in range(rng.randint(0, 6))]
+    picks = [rng.choice(ids_) for _ in range(rng.randint(0, 6))]
     if kind == 0:
         return picks
     if kind == 1:
@@ -334,22 +332,32 @@ def _run_fuzz(seed: int, iterations: int) -> list[str]:
             policy,
             router,
             fallback_on_empty=rng.random() < 0.5,
-            now=NOW,
         )
-        ids = result.source_ids
-        if not set(ids) <= allowed:
-            violations.append(f"unauthorized ids {set(ids) - allowed}")
-        if len(set(ids)) != len(ids):
+        got = ids(result)
+        if not set(got) <= allowed:
+            violations.append(f"unauthorized ids {set(got) - allowed}")
+        if len(set(got)) != len(got):
             violations.append("duplicate ids")
-        if len(ids) > max_sources:
+        if len(got) > max_sources:
             violations.append("too many ids")
-        if result.outcome is RoutingOutcome.SAFE_STOP and ids:
+        if result.outcome is RoutingOutcome.SAFE_STOP and got:
             violations.append("safe stop with ids")
-        if result.outcome is not RoutingOutcome.SAFE_STOP and not ids:
+        if result.outcome is not RoutingOutcome.SAFE_STOP and not got:
             violations.append("routed with no ids")
         if result.tenant_id != tenant:
             violations.append("tenant mismatch")
+        if any(source.tenant_id != tenant for source in result.sources):
+            violations.append("source qualified with another tenant")
     return violations
+
+
+def _fuzz_detects_a_violation(seed: int, iterations: int) -> bool:
+    """True if the fuzz run reports a violation or the pipeline refuses to build
+    a result (``RoutedSource`` independently rejects malformed identifiers)."""
+    try:
+        return _run_fuzz(seed, iterations) != []
+    except ValueError:
+        return True
 
 
 def test_invariant_holds_under_randomized_hostile_inputs() -> None:
@@ -363,7 +371,7 @@ def test_harness_detects_a_validator_that_stops_validating(monkeypatch) -> None:
         "validate_router_output",
         lambda output, **kwargs: Accepted(tuple(output) if output else ()),
     )
-    assert _run_fuzz(20261020, 400) != []
+    assert _fuzz_detects_a_violation(20261020, 400)
 
 
 def test_harness_detects_a_validator_that_ignores_the_source_cap(monkeypatch) -> None:
@@ -378,7 +386,7 @@ def test_harness_detects_a_validator_that_ignores_the_source_cap(monkeypatch) ->
         )
 
     monkeypatch.setattr(pipeline, "validate_router_output", lenient)
-    assert _run_fuzz(20261020, 400) != []
+    assert _fuzz_detects_a_violation(20261020, 400)
 
 
 def test_harness_detects_the_original_iteration_tampering_flaw(monkeypatch) -> None:
@@ -398,4 +406,4 @@ def test_harness_detects_the_original_iteration_tampering_flaw(monkeypatch) -> N
         return Accepted(tuple(output))
 
     monkeypatch.setattr(pipeline, "validate_router_output", original)
-    assert _run_fuzz(20261020, 400) != []
+    assert _fuzz_detects_a_violation(20261020, 400)

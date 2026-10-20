@@ -10,14 +10,17 @@ Order of operations:
 5. If no safe selection exists, stop; never widen the catalog or retry blindly.
 
 Results carry identifiers and categories only: no query text, source
-descriptions, or exception messages.
+descriptions, or exception messages. Routed sources are ``(tenant_id,
+source_id)`` pairs: a source id need not be unique across workspaces, so a
+consumer must never look a source up by id alone. A result is a routing
+recommendation, not an authorization: the source-read boundary must still
+re-verify access, and the result must not be used after the context expires.
 """
 
 from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import datetime
 from enum import Enum
 
 from evidence_layer.routing.catalog import (
@@ -27,7 +30,7 @@ from evidence_layer.routing.catalog import (
     context_is_well_formed,
     filter_authorized_catalog,
 )
-from evidence_layer.routing.contract import SourceDescriptor
+from evidence_layer.routing.contract import SourceDescriptor, validate_identifier
 from evidence_layer.routing.router import DeterministicRouter, Router, RoutingRequest
 from evidence_layer.routing.validation import (
     Accepted,
@@ -48,6 +51,7 @@ class StopReason(str, Enum):
     CONTEXT_EXPIRED = "context_expired"
     POLICY_ERROR = "policy_error"
     SOURCE_STORE_ERROR = "source_store_error"
+    CANDIDATE_LIMIT_EXCEEDED = "candidate_limit_exceeded"
     NO_AUTHORIZED_SOURCES = "no_authorized_sources"
     NO_MATCHING_SOURCE = "no_matching_source"
     NO_SAFE_FALLBACK = "no_safe_fallback"
@@ -63,14 +67,27 @@ _CATALOG_STOP = {
     CatalogDenialReason.CONTEXT_EXPIRED: StopReason.CONTEXT_EXPIRED,
     CatalogDenialReason.POLICY_ERROR: StopReason.POLICY_ERROR,
     CatalogDenialReason.SOURCE_STORE_ERROR: StopReason.SOURCE_STORE_ERROR,
+    CatalogDenialReason.CANDIDATE_LIMIT_EXCEEDED: StopReason.CANDIDATE_LIMIT_EXCEEDED,
     CatalogDenialReason.NO_AUTHORIZED_SOURCES: StopReason.NO_AUTHORIZED_SOURCES,
 }
 
 
 @dataclass(frozen=True)
+class RoutedSource:
+    """A selected source, always qualified by the workspace it belongs to."""
+
+    tenant_id: str
+    source_id: str
+
+    def __post_init__(self) -> None:
+        validate_identifier("tenant_id", self.tenant_id)
+        validate_identifier("source_id", self.source_id)
+
+
+@dataclass(frozen=True)
 class RoutingResult:
     outcome: RoutingOutcome
-    source_ids: tuple[str, ...]
+    sources: tuple[RoutedSource, ...]
     router: str
     tenant_id: str | None
     request_id: str | None
@@ -90,12 +107,13 @@ def route_query(
     *,
     fallback: Router | None = None,
     fallback_on_empty: bool = False,
-    now: datetime | None = None,
 ) -> RoutingResult:
     """Select sources for ``request`` or stop safely.
 
     ``fallback`` defaults to ``DeterministicRouter``. A deterministic primary
     router has no separate fallback: its failure or empty result is a stop.
+    There is no timeout around router calls yet; one is required before any
+    network-backed router (such as a Decisions client) is wired in.
     """
     well_formed = context_is_well_formed(context)
     provenance = (
@@ -119,7 +137,10 @@ def route_query(
     ) -> RoutingResult:
         return RoutingResult(
             outcome=outcome,
-            source_ids=source_ids,
+            sources=tuple(
+                RoutedSource(provenance[0], source_id)  # type: ignore[arg-type]
+                for source_id in source_ids
+            ),
             router=router_name,
             tenant_id=provenance[0],
             request_id=provenance[1],
@@ -137,7 +158,7 @@ def route_query(
             stop_reason=StopReason.INVALID_CONTEXT,
         )
 
-    filtered = filter_authorized_catalog(context, candidates, policy, now=now)
+    filtered = filter_authorized_catalog(context, candidates, policy)
     catalog = filtered.catalog
 
     if filtered.denial is not None:

@@ -23,6 +23,7 @@ from evidence_layer.routing.contract import (
 )
 from evidence_layer.routing.pipeline import (
     FallbackReason,
+    RoutedSource,
     RoutingOutcome,
     RoutingResult,
     StopReason,
@@ -48,6 +49,7 @@ __all__ = [
     "FallbackReason",
     "Rejected",
     "RejectionReason",
+    "RoutedSource",
     "Router",
     "RoutingOutcome",
     "RoutingRequest",

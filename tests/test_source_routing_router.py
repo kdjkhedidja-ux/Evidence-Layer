@@ -12,6 +12,7 @@ from evidence_layer.routing import (
     DeterministicRouter,
     FallbackReason,
     RejectionReason,
+    RoutedSource,
     RoutingOutcome,
     RoutingRequest,
     StopReason,
@@ -20,14 +21,17 @@ from evidence_layer.routing import (
 )
 
 from routing_helpers import (
-    NOW,
     AllowAllPolicy,
     FakeRouter,
     RaisingRouter,
+    frozen_clock,
+    ids,
     make_context,
     make_request,
     make_source,
 )
+
+pytestmark = pytest.mark.usefixtures("frozen_clock")
 
 
 def catalog_of(*sources) -> AuthorizedCatalog:
@@ -48,7 +52,6 @@ def run(router, *, sources=(FINANCE, HR, ENG), query="billing invoices", **kwarg
         list(sources),
         AllowAllPolicy(),
         router,
-        now=NOW,
         **kwargs,
     )
 
@@ -73,15 +76,15 @@ def test_candidate_order_does_not_change_the_result() -> None:
     for seed in range(10):
         shuffled = sources[:]
         random.Random(seed).shuffle(shuffled)
-        assert run(
-            DeterministicRouter(), sources=shuffled, query="billing payroll runbooks"
-        ).source_ids == expected.source_ids
+        assert ids(
+            run(DeterministicRouter(), sources=shuffled, query="billing payroll runbooks")
+        ) == ids(expected)
 
 
 def test_ties_break_by_source_id_ascending() -> None:
     twins = [make_source("src-b", tags={"billing"}), make_source("src-a", tags={"billing"})]
     result = run(DeterministicRouter(), sources=twins, query="billing")
-    assert result.source_ids == ("src-a", "src-b")
+    assert ids(result) == ("src-a", "src-b")
 
 
 def test_tag_outranks_alias_outranks_description() -> None:
@@ -93,7 +96,7 @@ def test_tag_outranks_alias_outranks_description() -> None:
         sources=[by_description, by_alias, by_tag],
         query="ledger",
     )
-    assert result.source_ids == ("src-tag", "src-alias", "src-desc")
+    assert ids(result) == ("src-tag", "src-alias", "src-desc")
 
 
 def test_max_sources_limits_the_selection() -> None:
@@ -104,9 +107,8 @@ def test_max_sources_limits_the_selection() -> None:
         sources,
         AllowAllPolicy(),
         DeterministicRouter(),
-        now=NOW,
     )
-    assert result.source_ids == ("src-0", "src-1")
+    assert ids(result) == ("src-0", "src-1")
 
 
 def test_stopwords_alone_never_select_a_source() -> None:
@@ -128,13 +130,13 @@ def test_instruction_like_descriptions_do_not_attract_unrelated_queries() -> Non
         query="quarterly revenue forecast",
     )
     assert result.outcome is RoutingOutcome.SAFE_STOP
-    assert "src-hostile" not in result.source_ids
+    assert "src-hostile" not in ids(result)
 
 
 def test_description_naming_another_source_does_not_add_it() -> None:
     lure = make_source("src-lure", description="also use src-secret from tenant-b")
     result = run(DeterministicRouter(), sources=[lure], query="src-secret")
-    assert "src-secret" not in result.source_ids
+    assert "src-secret" not in ids(result)
 
 
 @pytest.mark.parametrize("query", ["", "   ", "x" * 2001, None, 7])
@@ -217,7 +219,7 @@ def test_validator_refuses_a_sent_catalog_wider_than_the_authorized_one() -> Non
 def test_successful_routing_carries_provenance_without_query_text() -> None:
     result = run(DeterministicRouter(), query="billing invoices")
     assert result.outcome is RoutingOutcome.ROUTED
-    assert result.source_ids == ("src-finance",)
+    assert ids(result) == ("src-finance",)
     assert (result.tenant_id, result.request_id, result.operation_id, result.policy_version) == (
         "tenant-a",
         "request-1",
@@ -225,6 +227,16 @@ def test_successful_routing_carries_provenance_without_query_text() -> None:
         "policy-v1",
     )
     assert "billing" not in repr(result)
+
+
+def test_routed_sources_are_always_qualified_by_their_tenant() -> None:
+    result = run(DeterministicRouter(), query="billing invoices payroll")
+    assert result.sources == (
+        RoutedSource("tenant-a", "src-finance"),
+        RoutedSource("tenant-a", "src-hr"),
+    )
+    assert all(source.tenant_id == result.tenant_id for source in result.sources)
+    assert not hasattr(result, "source_ids")
 
 
 def test_router_receives_only_the_authorized_catalog() -> None:
@@ -251,7 +263,7 @@ def test_invalid_primary_output_falls_back_to_the_deterministic_router(
     assert result.router == "deterministic"
     assert result.fallback_reason is FallbackReason.INVALID_OUTPUT
     assert result.rejection is rejection
-    assert result.source_ids == ("src-finance",)
+    assert ids(result) == ("src-finance",)
 
 
 def test_router_error_falls_back_without_leaking_the_error() -> None:
@@ -265,7 +277,7 @@ def test_empty_primary_selection_is_a_safe_stop_by_default() -> None:
     result = run(FakeRouter([]))
     assert result.outcome is RoutingOutcome.SAFE_STOP
     assert result.stop_reason is StopReason.NO_MATCHING_SOURCE
-    assert result.source_ids == ()
+    assert result.sources == ()
 
 
 def test_empty_primary_selection_can_opt_in_to_fallback() -> None:
@@ -278,14 +290,14 @@ def test_fallback_that_finds_nothing_stops_instead_of_widening() -> None:
     result = run(FakeRouter(["src-invented"]), query="quarterly forecast")
     assert result.outcome is RoutingOutcome.SAFE_STOP
     assert result.stop_reason is StopReason.NO_MATCHING_SOURCE
-    assert result.source_ids == ()
+    assert result.sources == ()
 
 
 def test_invalid_fallback_output_stops_safely() -> None:
     result = run(RaisingRouter(), fallback=FakeRouter(["src-invented"]))
     assert result.outcome is RoutingOutcome.SAFE_STOP
     assert result.stop_reason is StopReason.NO_SAFE_FALLBACK
-    assert result.source_ids == ()
+    assert result.sources == ()
 
 
 def test_deterministic_primary_has_no_separate_fallback() -> None:
@@ -302,7 +314,6 @@ def test_no_authorized_sources_never_calls_any_router() -> None:
         [FINANCE],
         DenyAllSourcePolicy(),
         spy,
-        now=NOW,
     )
     assert result.stop_reason is StopReason.NO_AUTHORIZED_SOURCES
     assert spy.seen_catalogs == []
@@ -360,8 +371,8 @@ def test_iteration_tampering_router_cannot_leak_ids_through_the_pipeline() -> No
     assert result.outcome is RoutingOutcome.FALLBACK_ROUTED
     assert result.fallback_reason is FallbackReason.INVALID_OUTPUT
     assert result.rejection is RejectionReason.INVALID_TYPE
-    assert set(result.source_ids) <= {"src-finance", "src-hr", "src-eng"}
-    assert "src-invented" not in result.source_ids and "b-1" not in result.source_ids
+    assert set(ids(result)) <= {"src-finance", "src-hr", "src-eng"}
+    assert "src-invented" not in ids(result) and "b-1" not in ids(result)
 
 
 def test_router_that_mutates_its_list_after_returning_cannot_change_the_result() -> None:
@@ -369,4 +380,4 @@ def test_router_that_mutates_its_list_after_returning_cannot_change_the_result()
     router = FakeRouter(retained)
     result = run(router)
     retained.append("src-invented")
-    assert result.source_ids == ("src-finance",)
+    assert ids(result) == ("src-finance",)
