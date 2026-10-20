@@ -97,13 +97,20 @@ data. Phase 6 adds advanced team management, workspaces, broader collaboration,
 and billing; it does not defer the Phase 5 isolation requirement. Phase 5 usage
 metering and free-tier safety limits are separate from payment collection.
 
-Production source routing and the Decisions API client are planned work, not
-implemented; a local deterministic routing foundation (source contract,
-authorization filter, router, output validator, isolation tests) now exists.
-Their separate future scope is authorization-filtered catalog construction,
-selective routing policy, minimal metadata serialization, Decisions output
-validation, deterministic routing fallback, and isolated fake-based tests.
-Keep that scope separate from PR #12's JEV provider-selection policy.
+The local deterministic routing library in
+`src/evidence_layer/routing/` defines a source contract, filters candidate
+catalogs through a policy interface (the shipped default denies all), routes
+deterministically, validates router output, and provides deterministic fallback.
+Fake-based tests cover these local behaviors; they do not establish production
+authorization. The library is not wired into a production service.
+
+Production integration still requires trusted context construction from
+verified identity and membership, tenant-scoped catalog queries, source-read
+reauthorization and revocation checks, transfer authorization, and a timeout
+before adding a network-backed router. A Decisions client and selective-call
+policy remain unimplemented; evaluate Decisions against deterministic routing
+before proposing a production default. Keep this work separate from PR #12's
+JEV provider-selection policy.
 
 See [Architecture](ARCHITECTURE.md) for boundaries and the planned request
 flow.

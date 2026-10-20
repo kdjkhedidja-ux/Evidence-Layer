@@ -190,11 +190,15 @@ and source metadata sent for routing; never send complete source documents.
 Decisions unavailability, timeout, or invalid output uses the same safe
 deterministic fallback. This is distinct from JEV's lexical scoring fallback.
 
-Production source routing and the Decisions API client do not yet exist; a
-local deterministic routing library does. Their
-authorization-filtered catalog, selective call policy, minimal input, validated
-output, deterministic fallback, and fake-based tests are planned separately
-from the current PR #12 JEV provider-selection scope.
+A local deterministic routing library exists with catalog filtering,
+deterministic routing, output validation, deterministic fallback, and
+fake-based tests. It remains unwired; these capabilities are not integrated
+into production. Production work still requires trusted context construction,
+tenant-scoped catalog queries, source-read reauthorization and revocation
+checks, transfer authorization, and a timeout before adding a network-backed
+router. A Decisions client and selective-call policy remain unimplemented;
+evaluate Decisions against deterministic routing before proposing a production
+default. Keep this work separate from PR #12's JEV provider-selection scope.
 
 ### Managed keys
 
