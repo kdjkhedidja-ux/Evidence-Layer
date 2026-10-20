@@ -150,6 +150,20 @@ def test_context_subclasses_are_rejected() -> None:
     assert spy.seen_catalogs == []
 
 
+@pytest.mark.usefixtures("frozen_clock")
+@pytest.mark.parametrize("expires_at", [None, "2099-01-01", 4102444800, object()])
+def test_non_datetime_expiry_is_a_safe_stop_not_an_exception(expires_at: object) -> None:
+    ctx = SourceRequestContext(
+        "request-1", "operation-1", "principal-1", "tenant-a", "policy-v1", expires_at  # type: ignore[arg-type]
+    )
+    spy = FakeRouter(["a-1"])
+    result = route_query(make_request("billing"), ctx, [A], AllowAllPolicy(), spy)
+    assert result.outcome is RoutingOutcome.SAFE_STOP
+    assert result.stop_reason is StopReason.INVALID_CONTEXT
+    assert result.tenant_id is None
+    assert spy.seen_catalogs == []
+
+
 # --- untrusted store output ------------------------------------------------------
 
 

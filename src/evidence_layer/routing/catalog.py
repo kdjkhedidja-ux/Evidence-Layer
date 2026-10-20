@@ -79,6 +79,8 @@ def context_is_well_formed(context: object) -> bool:
     """
     if type(context) is not SourceRequestContext:
         return False
+    if not isinstance(context.expires_at, datetime):
+        return False
     try:
         for name in ("tenant_id", "request_id", "operation_id", "policy_version"):
             validate_identifier(name, getattr(context, name))
