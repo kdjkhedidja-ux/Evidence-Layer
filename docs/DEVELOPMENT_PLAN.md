@@ -25,8 +25,9 @@ already present.
 - **A local stdio MCP server is implemented** and exposes `retrieve_evidence`.
   Hosted HTTP MCP, hosted authentication and tenant-isolation enforcement,
   production database/RLS, hosted provider-transfer authorization, SaaS
-  dashboard capabilities, billing, production connectors, source router, and
-  Decisions API client do not yet exist in this repository. A synthetic-only
+  dashboard capabilities, billing, production connectors, production source
+  routing, and the Decisions API client do not yet exist in this repository
+  (only a local deterministic routing library, not wired into any service). A synthetic-only
   Next.js Evidence Explorer prototype exists at `apps/web/` and its production
   deployment from `main` on Vercel is confirmed; it has no backend integration
   or customer operations. Final answer generation remains with the caller's
@@ -96,7 +97,9 @@ data. Phase 6 adds advanced team management, workspaces, broader collaboration,
 and billing; it does not defer the Phase 5 isolation requirement. Phase 5 usage
 metering and free-tier safety limits are separate from payment collection.
 
-The source router and Decisions API client are planned work, not implemented.
+Production source routing and the Decisions API client are planned work, not
+implemented; a local deterministic routing foundation (source contract,
+authorization filter, router, output validator, isolation tests) now exists.
 Their separate future scope is authorization-filtered catalog construction,
 selective routing policy, minimal metadata serialization, Decisions output
 validation, deterministic routing fallback, and isolated fake-based tests.

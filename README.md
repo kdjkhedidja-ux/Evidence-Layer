@@ -38,8 +38,12 @@ service at `services/evidence-service/` is deployed on Railway and exposes only
 `GET /healthz`; it does not perform customer operations or read evidence. The
 planned target architecture is Vercel/Next.js for the frontend, Supabase for
 backend services, Railway for the persistent HTTP MCP server, JEV for evidence
-scoring, and the OpenAI Decisions API for complex source routing. The source
-router and Decisions client are planned work and do not exist yet. This is a
+scoring, and the OpenAI Decisions API for complex source routing. A local
+deterministic routing foundation (source contract, authorization filter,
+deterministic router, and output validator in `src/evidence_layer/routing/`)
+exists as an unwired library with no allowing authorization policy; the
+Decisions client and production routing are planned work and do not exist yet.
+This is a
 target design, not a description of completed SaaS capabilities. Decisions is required
 for complex routing; simple queries may route deterministically. Router and
 Decisions can select only from the authorized source catalog and cannot grant

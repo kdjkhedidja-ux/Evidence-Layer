@@ -8,8 +8,10 @@ evaluation scripts, dataset artifacts, a JEV scorer, a local stdio MCP server
 (`retrieve_evidence`), and a synthetic-only Next.js Evidence Explorer
 prototype. The prototype's production deployment from `main` on Vercel is
 confirmed; it is not an authenticated SaaS dashboard or customer-data service.
-The repository does not contain a source router, Decisions API client, or the
-SaaS backend described below.
+The repository does not contain a production source router, a Decisions API
+client, or the SaaS backend described below; it has only a local deterministic
+routing library (`src/evidence_layer/routing/`) that is not wired into any
+service.
 
 The health-only FastAPI service at `services/evidence-service/` is deployed on
 Railway and exposes only `GET /healthz`; it does not read corpus content,

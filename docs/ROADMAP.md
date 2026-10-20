@@ -48,7 +48,8 @@ User query
 - **Evidence-Layer** returns selected/ranked evidence, provenance, and relevant
   metadata for the caller's model.
 
-The source router and Decisions API client are planned, not implemented. Build
+Production source routing and the Decisions API client are planned, not
+implemented (only a local deterministic routing library exists). Build
 the authorized source catalog before routing and re-enforce authorization before
 source access. Permission to access a source does not authorize transferring
 query text to Decisions. The trusted server must have valid, explicit
@@ -189,7 +190,8 @@ and source metadata sent for routing; never send complete source documents.
 Decisions unavailability, timeout, or invalid output uses the same safe
 deterministic fallback. This is distinct from JEV's lexical scoring fallback.
 
-The source router and Decisions API client do not yet exist. Their
+Production source routing and the Decisions API client do not yet exist; a
+local deterministic routing library does. Their
 authorization-filtered catalog, selective call policy, minimal input, validated
 output, deterministic fallback, and fake-based tests are planned separately
 from the current PR #12 JEV provider-selection scope.

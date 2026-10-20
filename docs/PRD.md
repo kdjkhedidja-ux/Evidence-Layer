@@ -78,8 +78,11 @@ whose eligibility and authorization can be established safely. If no safe
 eligible source set can be established, stop the request. This routing fallback
 is separate from JEV's whole-request lexical scoring fallback.
 
-Source routing and its Decisions API client are planned work, not current
-repository functionality. The caller's model remains responsible for final
+Production source routing and the Decisions API client are planned work, not
+current repository functionality; only a local deterministic routing foundation
+(source contract, authorization filter, router, and output validator) exists as
+an unwired library with no allowing policy. The caller's model remains
+responsible for final
 answer generation.
 
 ## MVP Non-Goals
@@ -205,8 +208,9 @@ appropriately scoped authorization boundary. The hosted HTTP MCP service,
 hosted authentication or tenant-isolation enforcement, production database or
 RLS, hosted provider-transfer authorization, production connectors, SaaS
 dashboard capabilities, billing, and Google Drive connector are not
-implemented. The source router and Decisions API client are planned work, not
-implemented. The health-only FastAPI service at `services/evidence-service/`
+implemented. Production source routing and the Decisions API client are planned
+work, not implemented; a local deterministic routing library exists but is not
+wired into any service. The health-only FastAPI service at `services/evidence-service/`
 is deployed on Railway and exposes only `GET /healthz`; it has no customer
 operations. The current corpus retriever denies source reads by default, and
 live JEV transfer is hard-denied on supported package paths. Final answer
