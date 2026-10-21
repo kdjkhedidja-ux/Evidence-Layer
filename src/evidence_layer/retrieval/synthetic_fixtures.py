@@ -18,6 +18,7 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import TextIO
 
+from evidence_layer.runtime_policy import require_synthetic_fixture_opt_in
 from evidence_layer.source_access import (
     SourceReadDenial,
     SourceReadDenialReason,
@@ -132,6 +133,7 @@ class SyntheticFixtureReadBoundary:
         context: SourceRequestContext,
         intents: Sequence[SourceReadIntent],
     ) -> SourceReadResult:
+        require_synthetic_fixture_opt_in()
         denial = self._validate_scope(context, intents)
         if denial is not None:
             return denial
@@ -141,7 +143,33 @@ class SyntheticFixtureReadBoundary:
         entry = _SYNTHETIC_SOURCE_CATALOG[intent.source_id]
         descriptor: int | None = None
         try:
-            descriptor = self._open_fixed_fixture(entry.filename)
+            # Keep the only fixture-open path inside this guarded operation.
+            # Platforms without no-follow, directory, or nonblocking flags
+            # fail closed before opening any fixture data.
+            nofollow = getattr(os, "O_NOFOLLOW", None)
+            directory_flag = getattr(os, "O_DIRECTORY", None)
+            nonblocking = getattr(os, "O_NONBLOCK", None)
+            if (
+                nofollow is None
+                or directory_flag is None
+                or nonblocking is None
+                or not nonblocking
+                or entry.filename != _FIXTURE_FILENAME
+            ):
+                raise OSError("safe fixture open is unavailable")
+
+            common_flags = os.O_RDONLY | nofollow | getattr(os, "O_CLOEXEC", 0)
+            directory_fd = os.open(
+                os.fspath(_FIXTURE_DIRECTORY), common_flags | directory_flag
+            )
+            try:
+                descriptor = os.open(
+                    entry.filename,
+                    common_flags | nonblocking,
+                    dir_fd=directory_fd,
+                )
+            finally:
+                os.close(directory_fd)
             info = os.fstat(descriptor)
             if not stat.S_ISREG(info.st_mode) or info.st_size > _MAX_FIXTURE_BYTES:
                 os.close(descriptor)
@@ -226,33 +254,3 @@ class SyntheticFixtureReadBoundary:
         ):
             return SourceReadDenial(SourceReadDenialReason.SCOPE_MISMATCH)
         return None
-
-    @staticmethod
-    def _open_fixed_fixture(filename: str) -> int:
-        """Open only the fixed file, rejecting symlinks and blocking targets.
-
-        Platforms without the required no-follow, directory, or nonblocking
-        flags fail closed before opening the fixture.
-        """
-        nofollow = getattr(os, "O_NOFOLLOW", None)
-        directory_flag = getattr(os, "O_DIRECTORY", None)
-        nonblocking = getattr(os, "O_NONBLOCK", None)
-        if (
-            nofollow is None
-            or directory_flag is None
-            or nonblocking is None
-            or not nonblocking
-            or filename != _FIXTURE_FILENAME
-        ):
-            raise OSError("safe fixture open is unavailable")
-
-        common_flags = os.O_RDONLY | nofollow | getattr(os, "O_CLOEXEC", 0)
-        directory_fd = os.open(
-            os.fspath(_FIXTURE_DIRECTORY), common_flags | directory_flag
-        )
-        try:
-            return os.open(
-                filename, common_flags | nonblocking, dir_fd=directory_fd
-            )
-        finally:
-            os.close(directory_fd)

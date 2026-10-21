@@ -21,6 +21,12 @@ from evidence_layer.source_access import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _explicit_test_fixture_opt_in(monkeypatch):
+    monkeypatch.setenv("EVIDENCE_LAYER_RUNTIME_MODE", "test")
+    monkeypatch.setenv("EVIDENCE_LAYER_ALLOW_SYNTHETIC_FIXTURE", "true")
+
+
 def _context(**changes):
     values = {
         "request_id": "fixture-request",
@@ -357,6 +363,8 @@ print("bounded denial")
         cwd=os.path.dirname(os.path.dirname(__file__)),
         env={
             **os.environ,
+            "EVIDENCE_LAYER_RUNTIME_MODE": "test",
+            "EVIDENCE_LAYER_ALLOW_SYNTHETIC_FIXTURE": "true",
             "PYTHONPATH": os.pathsep.join(
                 item
                 for item in (

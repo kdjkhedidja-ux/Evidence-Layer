@@ -36,9 +36,11 @@ def _context(**changes):
 
 
 @pytest.fixture
-def retrieval_setup():
+def retrieval_setup(monkeypatch):
     # Explicit opt-in to one built-in unprotected fixture. This context is test
     # metadata, not proof of trusted identity or authorization for real data.
+    monkeypatch.setenv("EVIDENCE_LAYER_RUNTIME_MODE", "test")
+    monkeypatch.setenv("EVIDENCE_LAYER_ALLOW_SYNTHETIC_FIXTURE", "true")
     return LocalCorpusRetriever.for_synthetic_development_fixture(), _context()
 
 
@@ -237,6 +239,8 @@ def test_lexical_scorer_and_select_top_k_unchanged():
 def test_construction_performs_zero_content_opens(monkeypatch):
     from evidence_layer.retrieval import synthetic_fixtures
 
+    monkeypatch.setenv("EVIDENCE_LAYER_RUNTIME_MODE", "test")
+    monkeypatch.setenv("EVIDENCE_LAYER_ALLOW_SYNTHETIC_FIXTURE", "true")
     opens = []
     monkeypatch.setattr(synthetic_fixtures.os, "open", lambda *a, **k: opens.append(a))
     LocalCorpusRetriever((SYNTHETIC_SOURCE_ID,))

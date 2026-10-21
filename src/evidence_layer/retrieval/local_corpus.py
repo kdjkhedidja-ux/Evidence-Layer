@@ -28,6 +28,7 @@ from evidence_layer.schemas import EvidenceCandidate
 from evidence_layer.scoring.lexical import LexicalScorer
 from evidence_layer.scoring.policy import ProviderSelectionPolicy, ScoringOutcome
 from evidence_layer.selection import select_top_k_scored
+from evidence_layer.runtime_policy import require_synthetic_fixture_opt_in
 from evidence_layer.source_access import (
     AuthorizedSourceReader,
     DenyAllSourceReadBoundary,
@@ -139,6 +140,7 @@ class LocalCorpusRetriever:
         It is not used by standard MCP or the HTTP service, and it does not
         establish authorization for real or protected data.
         """
+        require_synthetic_fixture_opt_in()
         from evidence_layer.retrieval.synthetic_fixtures import (
             SYNTHETIC_SOURCE_ID,
             SyntheticFixtureReadBoundary,
