@@ -9,7 +9,7 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 import httpx
 import jwt
@@ -48,11 +48,22 @@ class AuthenticatedRequest:
     access_token: str = field(repr=False)
 
 
+@runtime_checkable
 class TokenVerifier(Protocol):
+    """Compatibility interface for request authentication."""
+
     async def verify(self, token: str) -> Principal: ...
 
 
-class VerifiedTokenVerifier(Protocol):
+@runtime_checkable
+class VerifiedTokenVerifier(TokenVerifier, Protocol):
+    """Token verifier contract for contexts that must also bind token expiry.
+
+    ``verify`` remains available to existing request-authentication adapters.
+    Source-context issuance requires ``verify_access_token`` so it can bind
+    expiry as well as identity to the issued context.
+    """
+
     async def verify_access_token(self, token: str) -> VerifiedAccessToken: ...
 
 

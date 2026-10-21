@@ -16,6 +16,7 @@ from evidence_service.auth import (
     AuthenticationUnavailable,
     SupabaseTokenVerifier,
     TokenVerifier,
+    VerifiedTokenVerifier,
 )
 from evidence_service.config import ConfigurationError, SupabaseSettings
 from evidence_service.evidence_repository import (
@@ -105,6 +106,68 @@ def _settings_for(request: Request) -> SupabaseSettings:
     return settings
 
 
+def _token_verifier(request: Request) -> TokenVerifier:
+    verifier = request.app.state.token_verifier
+    if verifier is None:
+        verifier = SupabaseTokenVerifier(_settings_for(request))
+        request.app.state.token_verifier = verifier
+    return verifier
+
+
+class SourceContextDependencyUnavailable(Exception):
+    """Server identity dependencies cannot safely issue a source context."""
+
+
+def _trusted_source_context_issuer(request: Request):
+    """Lazily compose the issuer from server-owned identity dependencies.
+
+    This is an internal composition hook, not an HTTP endpoint. Legacy
+    principal-only verifiers continue to authenticate existing routes, but are
+    not sufficient to issue an expiry-bound source context.
+    """
+    issuer = request.app.state.trusted_source_context_issuer
+    if issuer is not None:
+        return issuer
+
+    verifier, directory = _trusted_source_identity_dependencies(request)
+
+    # source_context imports the core source contract. Keep it lazy so the
+    # health-only app still starts without loading source integrations.
+    from evidence_service.source_context import TrustedSourceContextIssuer
+
+    issuer = TrustedSourceContextIssuer(verifier, directory)
+    request.app.state.trusted_source_context_issuer = issuer
+    return issuer
+
+
+def _trusted_source_identity_dependencies(
+    request: Request,
+) -> tuple[VerifiedTokenVerifier, WorkspaceDirectory]:
+    verifier = _token_verifier(request)
+    if not isinstance(verifier, VerifiedTokenVerifier):
+        raise SourceContextDependencyUnavailable(
+            "A verified token with expiry claims is required"
+        )
+    return verifier, _workspace_directory(request)
+
+
+def _trusted_source_read_boundary(
+    request: Request,
+    auth: AuthenticatedRequest,
+    workspace_id: UUID,
+):
+    """Compose a request-scoped async boundary from trusted app dependencies."""
+    verifier, directory = _trusted_source_identity_dependencies(request)
+    from evidence_service.source_read_boundary import AsyncTrustedSourceReadBoundary
+
+    return AsyncTrustedSourceReadBoundary(
+        verifier,
+        directory,
+        authenticated_request=auth,
+        workspace_id=workspace_id,
+    )
+
+
 async def require_authenticated_request(
     request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
@@ -116,11 +179,7 @@ async def require_authenticated_request(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    settings = _settings_for(request)
-    verifier = request.app.state.token_verifier
-    if verifier is None:
-        verifier = SupabaseTokenVerifier(settings)
-        request.app.state.token_verifier = verifier
+    verifier = _token_verifier(request)
 
     try:
         principal = await verifier.verify(credentials.credentials)
@@ -202,6 +261,7 @@ def create_app(
     application.state.token_verifier = token_verifier
     application.state.workspace_directory = workspace_directory
     application.state.evidence_repository = evidence_repository
+    application.state.trusted_source_context_issuer = None
 
     @application.api_route(
         "/healthz", methods=["GET"], status_code=200, include_in_schema=False

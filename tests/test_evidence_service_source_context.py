@@ -9,8 +9,14 @@ import httpx
 import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
+from fastapi import Request
 from jwt.utils import to_base64url_uint
 
+from evidence_service.app import (
+    SourceContextDependencyUnavailable,
+    _trusted_source_context_issuer,
+    create_app,
+)
 from evidence_service.auth import (
     Principal,
     SupabaseTokenVerifier,
@@ -165,6 +171,52 @@ def test_issuer_derives_identity_from_verified_token_and_active_membership():
     assert membership_request.url.params["status"] == "eq.active"
     assert membership_request.headers["authorization"] == f"Bearer {token}"
     assert membership_request.headers["apikey"] == settings().publishable_key
+
+
+def test_app_composes_source_issuer_from_its_server_owned_verifier_and_directory():
+    key = signing_key()
+    token = signed_token(key)
+    configured_issuer, observed = issuer_for(
+        key, membership_payload=[membership_row()]
+    )
+    app = create_app(
+        settings(),
+        token_verifier=configured_issuer._verifier,
+        workspace_directory=configured_issuer._directory,
+    )
+    request = Request({"type": "http", "app": app, "headers": []})
+
+    source_issuer = _trusted_source_context_issuer(request)
+    context = asyncio.run(source_issuer.issue(token, WORKSPACE_A))
+
+    assert source_issuer._verifier is app.state.token_verifier
+    assert source_issuer._directory is app.state.workspace_directory
+    assert _trusted_source_context_issuer(request) is source_issuer
+    assert app.state.trusted_source_context_issuer is source_issuer
+    assert context.principal_id == str(SUBJECT_A)
+    assert context.tenant_id == str(WORKSPACE_A)
+    assert [request.url.path for request in observed] == [
+        "/auth/v1/.well-known/jwks.json",
+        "/rest/v1/workspace_memberships",
+    ]
+
+
+def test_principal_only_verifier_remains_usable_for_auth_but_cannot_issue_context():
+    class PrincipalOnlyVerifier:
+        async def verify(self, token: str) -> Principal:
+            return Principal(ISSUER, SUBJECT_A)
+
+    app = create_app(
+        settings(),
+        token_verifier=PrincipalOnlyVerifier(),  # type: ignore[arg-type]
+        workspace_directory=object(),  # type: ignore[arg-type]
+    )
+    request = Request({"type": "http", "app": app, "headers": []})
+
+    with pytest.raises(SourceContextDependencyUnavailable):
+        _trusted_source_context_issuer(request)
+
+    assert app.state.trusted_source_context_issuer is None
 
 
 def test_modified_or_unverifiable_bearer_is_rejected_before_membership_lookup():
