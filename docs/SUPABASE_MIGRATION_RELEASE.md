@@ -80,13 +80,46 @@ migration with its `sha256` and a `provenance` note. `validate` only proves that
 the directory matches that manifest and that the bytes are unchanged. It says
 nothing about whether a migration is safe to deploy.
 
-Static SQL review is a separate, explicitly limited heuristic (`classify`). It is
-a line-oriented pattern match, not a PostgreSQL parser: it cannot see statements
-inside dollar-quoted bodies, cannot tell which object, role or privilege a
-`GRANT`/`REVOKE` affects, and does not distinguish `DROP ... IF EXISTS`. Its
-findings are inputs for human review and it is not wired into `validate`.
-Replacing it with a tokenizer plus a per-statement approval ledger is the next
-phase, and no approval entry may make a hard-denied construct acceptable.
+Static SQL review is a separate control (`classify`), and since 2026-10-27 it is
+a real statement splitter rather than a line-oriented regex. It is still not a
+PostgreSQL parser, and it does not try to be: it answers one question per
+statement, "is this exact statement approved?", and it fails closed when it
+cannot.
+
+`scripts/sql_statement.py` lexes the migration text with a state machine that
+understands line comments, nested block comments, single-quoted strings with
+doubled quotes, `E'...'` escapes when the `E` is adjacent, quoted identifiers,
+and dollar-quoted bodies carrying any tag. Every statement is then placed in one
+of three tiers:
+
+| Tier | Meaning | Control |
+| --- | --- | --- |
+| 0 | Never acceptable in a migration | Blocked outright; no ledger entry can approve it |
+| 1 | Needs an explicit, written approval | Must appear in `supabase/migrations.statements.json` |
+| 2 | Reviewed shape, no approval needed | `CREATE TABLE`/`INDEX`/`SCHEMA`/`EXTENSION`/`TRIGGER`/temp table, `COMMENT ON`, `SET`/`RESET`, `ANALYZE` |
+
+Tier 0 covers `SET ROLE`, `DROP SCHEMA`, disabling or un-forcing row level
+security, `SUPERUSER`/`BYPASSRLS`/`REPLICATION`, `GRANT ... TO PUBLIC`, and
+`SECURITY DEFINER` without a pinned `SET search_path`. Anything the lexer cannot
+close - an unterminated string, identifier, block comment or dollar-quoted body -
+or cannot classify is a blocking failure, never a default allow.
+
+The ledger keys each Tier 1 statement by `sha256(file + normalised statement)`,
+so changing the object, the privilege, the grantee list or the statement order
+inside a file invalidates the approval and forces a written rationale for the
+new statement. Each entry points at a rationale in the same file that states
+what the statement does and what independently pins it (the pgTAP policy
+signature assertions, the ACL probes, the identity suite).
+
+Known limits, recorded rather than hidden:
+
+* a `DO` block body is opaque to the statement lexer. `DO` is therefore Tier 1
+  and approved as a single unit, which is exactly why it is gated: it is the one
+  construct that can wrap arbitrary statements behind an innocuous verb.
+* the ledger is scoped per file, not per database object, so a reviewer must
+  still read what the statement touches.
+* nothing here inspects the remote project. `validate` and `classify` speak only
+  about the reviewed bytes.
 
 Release planning remains a distinct step. `plan` is read-only against the
 project; `assert-plan` re-verifies that neither the reviewed bytes nor the remote
@@ -97,3 +130,8 @@ re-approves `20261019135502_personal_workspace_bootstrap.sql` explicitly after
 its rename from `20261017100000_personal_workspace_bootstrap.sql`: the content is
 byte-identical, but a matching hash proves identity, not that the earlier
 approval still applies.
+
+As of 2026-10-27 the statement ledger covers those eleven files: 191 top-level
+statements, 155 of them Tier 1 with a written rationale and 0 Tier 0. The count
+is a measured output of `classify`, not an estimate; re-run it after any
+migration change.

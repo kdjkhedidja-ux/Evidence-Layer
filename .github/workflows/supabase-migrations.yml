@@ -3,10 +3,10 @@ name: Supabase migration validation and release
 on:
   pull_request:
     branches: [main]
-    paths: ['supabase/**', 'scripts/supabase_migration_guard.py', 'tests/test_supabase_migration_guard.py', '.github/workflows/supabase-migrations.yml']
+    paths: ['supabase/**', 'scripts/supabase_migration_guard.py', 'scripts/sql_statement.py', 'tests/test_supabase_migration_guard.py', '.github/workflows/supabase-migrations.yml']
   push:
     branches: [main]
-    paths: ['supabase/**', 'scripts/supabase_migration_guard.py', 'tests/test_supabase_migration_guard.py', '.github/workflows/supabase-migrations.yml']
+    paths: ['supabase/**', 'scripts/supabase_migration_guard.py', 'scripts/sql_statement.py', 'tests/test_supabase_migration_guard.py', '.github/workflows/supabase-migrations.yml']
   workflow_dispatch:
     inputs:
       operation:
@@ -38,6 +38,7 @@ jobs:
       - name: Validate reviewed migration inventory and guard tests
         run: |
           python scripts/supabase_migration_guard.py validate
+          python scripts/supabase_migration_guard.py classify
           python -m unittest discover -s tests -p 'test_supabase_migration_guard.py'
       - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
         with:

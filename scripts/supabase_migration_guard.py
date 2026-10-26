@@ -26,10 +26,16 @@ import sys
 import urllib.error
 import urllib.request
 
+try:  # imported as a package from tests
+    from scripts import sql_statement as sql
+except ModuleNotFoundError:  # executed directly as a script
+    import sql_statement as sql  # type: ignore[no-redef]
+
 
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATIONS = ROOT / "supabase" / "migrations"
 MANIFEST = ROOT / "supabase" / "migrations.manifest.json"
+LEDGER = ROOT / "supabase" / "migrations.statements.json"
 PROJECT_REF = "ayrtyjgqlgtuiwuyigbz"
 PROJECT_NAME = "Evidence-test"
 
@@ -42,17 +48,6 @@ V_PERSONAL = "20261019135502"
 
 VERSION_RE = re.compile(r"^[0-9]{14}_[a-z0-9_]+\.sql$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
-
-# LIMITATION: this is a line-oriented heuristic, not a PostgreSQL parser. It
-# cannot see statements nested in dollar-quoted bodies, cannot tell which object,
-# role or privilege a GRANT/REVOKE affects, and treats `IF EXISTS` exactly like
-# a plain DROP. Its findings are advisory input for a human review, so it is
-# deliberately NOT wired into `validate`. Replacing it with a real tokenizer and
-# an approval ledger is tracked as the next phase.
-DESTRUCTIVE_RE = re.compile(
-    r"(?im)^\s*(?:drop\s|truncate\s|delete\s+from\b|update\s|"
-    r"alter\s+table\b[^;]*\bdrop\b)"
-)
 
 
 class GuardError(Exception):
@@ -112,15 +107,112 @@ def local_inventory() -> list[dict[str, str]]:
     return inventory
 
 
-def static_findings() -> list[dict[str, str]]:
-    """Heuristic findings only; see the DESTRUCTIVE_RE limitation note."""
-    findings: list[dict[str, str]] = []
+def analyse_migrations() -> tuple[list[dict], list[str]]:
+    """Lex and classify every reviewed migration statement.
+
+    Returns the per-statement records plus a list of blocking findings (lexing
+    errors, ambiguous statements, hard-denied constructs).
+    """
+    records: list[dict] = []
+    findings: list[str] = []
     for entry in local_inventory():
-        content = (MIGRATIONS / entry["file"]).read_text(encoding="utf-8")
-        without_comments = re.sub(r"/\*.*?\*/|--[^\n]*", "", content, flags=re.S)
-        for match in DESTRUCTIVE_RE.finditer(without_comments):
-            findings.append({"file": entry["file"], "match": match.group(0).strip()})
-    return findings
+        text = (MIGRATIONS / entry["file"]).read_text(encoding="utf-8")
+        try:
+            parsed = sql.split_statements(text)
+        except sql.SqlLexError as error:
+            findings.append(f"{entry['file']}: {error}")
+            continue
+        for statement in parsed:
+            try:
+                tier, reason = sql.classify(statement)
+            except sql.SqlLexError as error:
+                findings.append(f"{entry['file']}:{statement.line}: {error}")
+                continue
+            digest = hashlib.sha256(
+                f"{entry['file']}\n{statement.normalised}".encode("utf-8")
+            ).hexdigest()[:16]
+            records.append({
+                "id": digest,
+                "file": entry["file"],
+                "line": statement.line,
+                "verb": statement.verb,
+                "tier": tier,
+                "reason": reason,
+                "text": statement.normalised,
+            })
+            if tier == sql.TIER_HARD_DENY:
+                findings.append(
+                    f"{entry['file']}:{statement.line}: hard-denied statement ({reason})"
+                )
+    return records, findings
+
+
+def load_ledger() -> dict:
+    try:
+        label = LEDGER.relative_to(ROOT)
+    except ValueError:
+        label = LEDGER
+    require(LEDGER.is_file(), f"Missing statement approval ledger: {label}")
+    try:
+        document = json.loads(LEDGER.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as error:
+        raise GuardError(f"Statement approval ledger is not valid JSON: {error}") from error
+    require(isinstance(document, dict), "Statement approval ledger must be a JSON object")
+    rationales = document.get("rationales")
+    require(isinstance(rationales, dict) and bool(rationales), "Ledger has no rationale library")
+    entries = document.get("entries")
+    require(isinstance(entries, list), "Ledger has no entries list")
+    for ref, text in rationales.items():
+        require(isinstance(text, str) and text.strip(), f"Empty rationale: {ref}")
+    for entry in entries:
+        require(isinstance(entry, dict), f"Ledger entry must be an object: {entry!r}")
+        for field in ("id", "file", "verb", "rationale_ref"):
+            value = entry.get(field)
+            require(isinstance(value, str) and value.strip(),
+                    f"Ledger entry is missing {field}: {entry!r}")
+        require(entry["rationale_ref"] in rationales,
+                f"Ledger entry references an unknown rationale: {entry['rationale_ref']}")
+    return document
+
+
+def assert_ledger(records: list[dict]) -> None:
+    """Every registry-tier statement must be approved, in order, per file."""
+    ledger = load_ledger()
+    current: dict[str, list[str]] = {}
+    for record in records:
+        if record["tier"] == sql.TIER_REGISTRY:
+            current.setdefault(record["file"], []).append(record["id"])
+    approved: dict[str, list[str]] = {}
+    for entry in ledger["entries"]:
+        approved.setdefault(entry["file"], []).append(entry["id"])
+    for name in sorted(set(approved) - set(current)):
+        raise GuardError(
+            f"Ledger records statements for {name} that are no longer registry-gated; "
+            "remove or re-approve them"
+        )
+    for name in sorted(current):
+        if approved.get(name, []) != current[name]:
+            raise GuardError(
+                f"Registry-gated statements changed in {name}: "
+                f"{len(current[name])} present, {len(approved.get(name, []))} approved; "
+                "re-run --emit-ledger and review the new statements"
+            )
+
+
+def emit_ledger(records: list[dict]) -> dict:
+    """Build a ledger skeleton for the current registry-tier statements."""
+    entries = []
+    for record in records:
+        if record["tier"] != sql.TIER_REGISTRY:
+            continue
+        entries.append({
+            "id": record["id"],
+            "file": record["file"],
+            "line": record["line"],
+            "verb": record["verb"],
+            "rationale_ref": "",
+        })
+    return {"schema": 1, "rationales": {}, "entries": entries}
 
 
 class Supabase:
@@ -293,25 +385,35 @@ def build_plan(api: Supabase, inventory: list[dict[str, str]], require_recovery:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("mode", choices=("validate", "classify", "audit", "plan", "assert-plan", "verify"))
+    parser.add_argument("mode", choices=("validate", "classify", "emit-ledger", "audit", "plan", "assert-plan", "verify"))
     parser.add_argument("--plan-file", type=Path)
     args = parser.parse_args()
     inventory = local_inventory()
     if args.mode == "validate":
         print(f"Manifest conforms to the reviewed inventory ({len(inventory)} files); "
-              "static SQL safety is evaluated separately by 'classify'")
+              "static SQL analysis is a separate control ('classify')")
         return 0
-    if args.mode == "classify":
-        findings = static_findings()
-        for finding in findings:
-            print(f"{finding['file']}: {finding['match']}")
+    if args.mode in ("classify", "emit-ledger"):
+        records, findings = analyse_migrations()
         if findings:
-            print(f"Heuristic scan reported {len(findings)} statement(s) across "
-                  f"{len(inventory)} files. This is a lexical heuristic, not a "
-                  "PostgreSQL parser: confirm each finding against the object, "
-                  "role and privilege involved.", file=sys.stderr)
+            for message in findings:
+                print(f"blocked: {message}", file=sys.stderr)
+            if args.mode == "emit-ledger":
+                print("Refusing to emit an approval ledger: the inventory could not be "
+                      "analyzed in full, so any skeleton would be incomplete.",
+                      file=sys.stderr)
             return 1
-        print(f"Heuristic scan reported no findings across {len(inventory)} files.")
+        if args.mode == "emit-ledger":
+            print(json.dumps(emit_ledger(records), indent=2))
+            return 0
+        try:
+            assert_ledger(records)
+        except GuardError as error:
+            print(f"blocked: {error}", file=sys.stderr)
+            return 1
+        registry = sum(1 for record in records if record["tier"] == sql.TIER_REGISTRY)
+        print(f"Static analysis passed: {len(records)} statements across "
+              f"{len(inventory)} files, {registry} registry-approved, 0 hard-denied.")
         return 0
     api = Supabase()
     if args.mode in ("audit", "plan"):
