@@ -53,6 +53,14 @@ async def resolve_workspace_context(
     membership = await directory.get_membership(principal, access_token, workspace_id)
     if membership is None:
         raise WorkspaceAccessDenied
+    if (
+        type(membership) is not WorkspaceMembership
+        or membership.workspace_id != workspace_id
+        or membership.role not in {"owner", "member"}
+        or not isinstance(membership.workspace_name, str)
+        or not membership.workspace_name.strip()
+    ):
+        raise WorkspaceAccessDenied
     return WorkspaceContext(
         workspace_id=membership.workspace_id,
         workspace_name=membership.workspace_name,

@@ -23,8 +23,41 @@ personal-owner key per workspace and a narrowly granted
 `ensure_personal_workspace()` function. The function takes no identity
 arguments and derives the owner from the authenticated Supabase request.
 The local `config.toml` enables email signup and confirmation with captured
-test email so the full Auth flow can be exercised. It keeps anonymous sign-in,
-Studio, and Storage disabled. It does not configure or link a remote project.
+test email so the full Auth flow can be exercised. It keeps anonymous sign-in
+and Studio disabled and enables Storage only for the private `source-snapshots`
+bucket created by `migrations/20261022110000_source_snapshot_storage_policies.sql`.
+It does not configure or link a remote project.
+
+`migrations/20261022100000_source_snapshot_catalog.sql` adds the snapshot
+catalog (`source_snapshots`) and explicit per-source read grants
+(`source_grants`). Clients can only stage a version. Publication goes through
+the two RPCs of `migrations/20261022120000_snapshot_verifier_identity.sql`,
+callable only by an Auth user listed on the workspace-scoped, empty-by-default
+`private.snapshot_verifier_allowlist` for the snapshot's workspace; the older
+direct-UPDATE route of the `snapshot_verifier` role is closed by that migration.
+A publication must match the staged claim and the stored object (a trigger also
+requires the uploaded object to exist with the declared size). Reading a
+published version needs an active membership and a read grant; ownership
+implies neither. The Storage policies allow INSERT and SELECT only, so
+overwrite (`x-upsert`) and delete are denied.
+
+Limits: **publication is closed by default.** The allowlist is empty and the
+legacy `snapshot_verifier` role is unassignable to any API role and holds no
+UPDATE privilege. A JWT naming a database role proves who called, not that an
+object's SHA-256 was verified, so it is never treated as verification evidence.
+PostgreSQL also cannot recompute an object's SHA-256: it enforces that the
+caller is a listed verifier for that workspace, that the evidence matches the
+staged claim and the Storage object's identity and size, not that the evidence
+is honest. A dishonest or compromised verifier (or any RLS-bypassing
+credential) can publish bytes that do not match the catalog digest; the read
+path therefore re-verifies size and SHA-256 before returning bytes. An
+unpublished object stays in Storage unreadable by clients; there is no
+automatic cleanup. These migrations and tests have not been run against a
+database yet.
+
+Run the snapshot Storage checks against an isolated local stack only (they need
+the stack's signing key and `supabase_db_*` container name, see the test
+docstring): `tests/integration/test_local_storage_snapshot_policies.py`.
 
 Run the RLS tests against a local database only:
 
@@ -44,3 +77,47 @@ The local Auth integration test uses a fresh synthetic email address and
 Mailpit's captured messages to check signup, confirmation, password recovery,
 sign-in, workspace provisioning, and cross-workspace evidence access. It reads
 only CLI local-stack values and does not contact Resend or a hosted project.
+
+## Snapshot verifier administration and audit
+
+The forward-only migration `20261023150000_snapshot_verifier_admin_audit_guards.sql`
+defines separate `NOLOGIN` control roles: `snapshot_verifier_allowlist_owner`,
+`snapshot_verifier_allowlist_manager`, and `snapshot_verifier_audit_owner`.
+These names are local design constants following the existing role naming
+convention. The migration does not assign a human or operator identity and does
+not add an administrative RPC. The allowlist owner owns the allowlist and its
+private policy baseline; the publisher function owner receives read access only.
+The manager receives only column-level `SELECT`/`INSERT` on the user and
+workspace keys plus `DELETE` on the allowlist, and `SELECT` on the audit log.
+It receives no table ownership, DDL, `UPDATE`, or `TRUNCATE` rights. API,
+verifier, publisher, and control roles remain separate, with no membership
+assigned to an operator by this migration. Provisioning an individually
+auditable manager identity requires a separately reviewed administrative step.
+
+Allowlist `INSERT` and `DELETE` events are written by a private trigger into a
+forced-RLS audit table. Its `session_user` field identifies the PostgreSQL
+session login, not the human behind shared credentials or a connection pool.
+The audit row is in the same database transaction as the allowlist change, so a
+rollback also removes that event; failed attempts are not recorded there. Use
+an externally controlled audit stream if the operator needs stronger human
+attribution or records of failed attempts.
+
+The migration requires the complete prior verifier guard state and aborts on
+unknown policies, unexpected ownership/ACLs, or partial objects. It retains
+`source_snapshots_published_verifier_binding` without running
+`VALIDATE CONSTRAINT`; legacy published rows receive no invented binding. The
+final ownership/grant/revoke sequence is inside one PostgreSQL `DO` statement,
+but the complete migration file has not been proven atomic under the installed
+Supabase migration runner. Earlier statements can leave private control objects
+if a later statement fails. A retry can reuse safe `NOLOGIN` roles if those are
+the only objects left; if helper objects were created, preflight deliberately
+rejects that partial state for operator review rather than cleaning it
+automatically. Before applying this migration, verify failure rollback at each
+critical boundary using the actual local Supabase CLI version and PostgreSQL 17
+in a disposable stack.
+
+The Python migration guard checks below are source-text checks only. pgTAP
+assertions need an isolated local database and are not evidence about Supabase
+Storage API versioning or hosted project permissions. No migration or test in
+this section is considered run until a separately approved local validation is
+completed. Production and `Evidence-test` remain outside this local workflow.

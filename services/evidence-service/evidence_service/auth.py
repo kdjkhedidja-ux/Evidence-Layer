@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import math
 import time
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Protocol
+from datetime import datetime, timezone
+from typing import Protocol, runtime_checkable
 
 import httpx
 import jwt
@@ -32,14 +34,37 @@ class Principal:
     subject: uuid.UUID
 
 
+@dataclass(frozen=True)
+class VerifiedAccessToken:
+    """Claims retained only after signature, issuer, audience, and time checks."""
+
+    principal: Principal
+    expires_at: datetime
+
+
 @dataclass(frozen=True, repr=False)
 class AuthenticatedRequest:
     principal: Principal
     access_token: str = field(repr=False)
 
 
+@runtime_checkable
 class TokenVerifier(Protocol):
+    """Compatibility interface for request authentication."""
+
     async def verify(self, token: str) -> Principal: ...
+
+
+@runtime_checkable
+class VerifiedTokenVerifier(TokenVerifier, Protocol):
+    """Token verifier contract for contexts that must also bind token expiry.
+
+    ``verify`` remains available to existing request-authentication adapters.
+    Source-context issuance requires ``verify_access_token`` so it can bind
+    expiry as well as identity to the issued context.
+    """
+
+    async def verify_access_token(self, token: str) -> VerifiedAccessToken: ...
 
 
 class SupabaseTokenVerifier:
@@ -62,6 +87,9 @@ class SupabaseTokenVerifier:
         self._lock = asyncio.Lock()
 
     async def verify(self, token: str) -> Principal:
+        return (await self.verify_access_token(token)).principal
+
+    async def verify_access_token(self, token: str) -> VerifiedAccessToken:
         try:
             header = jwt.get_unverified_header(token)
         except (jwt.PyJWTError, TypeError, ValueError) as exc:
@@ -99,12 +127,31 @@ class SupabaseTokenVerifier:
 
         if claims.get("role") != "authenticated" or claims.get("is_anonymous") is not False:
             raise AuthenticationRejected
+
+        raw_expiry = claims.get("exp")
+        if (
+            isinstance(raw_expiry, bool)
+            or not isinstance(raw_expiry, (int, float))
+            or not math.isfinite(raw_expiry)
+        ):
+            raise AuthenticationRejected
+        try:
+            expires_at = datetime.fromtimestamp(float(raw_expiry), timezone.utc)
+        except (OverflowError, OSError, ValueError) as exc:
+            raise AuthenticationRejected from exc
+
         try:
             subject = uuid.UUID(claims["sub"])
         except (KeyError, TypeError, ValueError, AttributeError) as exc:
             raise AuthenticationRejected from exc
 
-        return Principal(issuer=claims["iss"], subject=subject)
+        issuer = claims.get("iss")
+        if not isinstance(issuer, str) or not issuer:
+            raise AuthenticationRejected
+        return VerifiedAccessToken(
+            principal=Principal(issuer=issuer, subject=subject),
+            expires_at=expires_at,
+        )
 
     async def _key_for(self, kid: str, algorithm: str) -> object:
         now = self._clock()
