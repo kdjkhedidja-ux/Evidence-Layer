@@ -1,7 +1,16 @@
 """Read-only release planning and catalog checks for the existing Supabase project.
 
-The allowed migration inventory is intentional: a new migration needs a reviewed
-update to this manifest before it can be considered for production.
+Three controls are deliberately separate and must never be conflated:
+
+* ``validate`` - the migration directory matches the reviewed manifest and every
+  file hash is unchanged. This proves the *identity* of the reviewed bytes only.
+* ``classify`` - a best-effort heuristic listing of statements worth a human
+  look. It is not a parser and not an approval.
+* ``plan`` / ``assert-plan`` / ``verify`` - read-only remote inspection and
+  post-apply checks. ``plan`` never writes to the project.
+
+None of these asserts that a migration is safe to deploy; that stays a human
+release decision, recorded in the manifest provenance.
 """
 
 from __future__ import annotations
@@ -20,21 +29,26 @@ import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATIONS = ROOT / "supabase" / "migrations"
+MANIFEST = ROOT / "supabase" / "migrations.manifest.json"
 PROJECT_REF = "ayrtyjgqlgtuiwuyigbz"
 PROJECT_NAME = "Evidence-test"
-EXPECTED_FILES = (
-    "20261007170000_platform_baseline.sql",
-    "20261016100000_saas_identity_workspace_boundary.sql",
-    "20261017100000_personal_workspace_bootstrap.sql",
-    "20261018150000_workspace_scoped_evidence_records.sql",
-)
-EXPECTED_HASHES = {
-    "20261007170000_platform_baseline.sql": "de057b2e76b1a0e14cbeb5e54e5f281b26a1a5ef71e7977eb4513fd301042af4",
-    "20261016100000_saas_identity_workspace_boundary.sql": "1eae97b07caf88eaec5f13c980e26be29d547221725a829b251662f68bf5a27b",
-    "20261017100000_personal_workspace_bootstrap.sql": "16fd91767300c19d22a9fd6138ef7bbdc00610dc667a82c78f478ff99cc407a6",
-    "20261018150000_workspace_scoped_evidence_records.sql": "dd16b90d2cacf9d4d08478094431e3e01cef9f853de07d155aa2f1da4a87a200",
-}
+
+# Version checks reference migrations by name, never by position in a tuple:
+# appending a migration must not silently re-point an existing expectation.
+V_PLATFORM = "20261007170000"
+V_IDENTITY = "20261016100000"
+V_EVIDENCE = "20261018150000"
+V_PERSONAL = "20261019135502"
+
 VERSION_RE = re.compile(r"^[0-9]{14}_[a-z0-9_]+\.sql$")
+SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+
+# LIMITATION: this is a line-oriented heuristic, not a PostgreSQL parser. It
+# cannot see statements nested in dollar-quoted bodies, cannot tell which object,
+# role or privilege a GRANT/REVOKE affects, and treats `IF EXISTS` exactly like
+# a plain DROP. Its findings are advisory input for a human review, so it is
+# deliberately NOT wired into `validate`. Replacing it with a real tokenizer and
+# an approval ledger is tracked as the next phase.
 DESTRUCTIVE_RE = re.compile(
     r"(?im)^\s*(?:drop\s|truncate\s|delete\s+from\b|update\s|"
     r"alter\s+table\b[^;]*\bdrop\b)"
@@ -50,21 +64,63 @@ def require(condition: bool, message: str) -> None:
         raise GuardError(message)
 
 
+def load_manifest() -> list[dict[str, str]]:
+    try:
+        label = MANIFEST.relative_to(ROOT)
+    except ValueError:  # manifest patched to a path outside the repository
+        label = MANIFEST
+    require(MANIFEST.is_file(), f"Missing reviewed migration manifest: {label}")
+    try:
+        document = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as error:
+        raise GuardError(f"Reviewed migration manifest is not valid JSON: {error}") from error
+    require(isinstance(document, dict), "Reviewed migration manifest must be a JSON object")
+    entries = document.get("migrations")
+    require(isinstance(entries, list) and bool(entries), "Reviewed migration manifest has no migrations list")
+    seen: set[str] = set()
+    for entry in entries:
+        require(isinstance(entry, dict), f"Manifest entry must be an object: {entry!r}")
+        for field in ("file", "version", "sha256", "provenance"):
+            value = entry.get(field)
+            require(isinstance(value, str) and value.strip() != "",
+                    f"Manifest entry is missing {field}: {entry!r}")
+        require(bool(VERSION_RE.fullmatch(entry["file"])), f"Invalid migration filename in manifest: {entry['file']}")
+        require(entry["version"] == entry["file"][:14],
+                f"Manifest version does not match its filename: {entry['file']}")
+        require(bool(SHA256_RE.fullmatch(entry["sha256"])), f"Invalid sha256 in manifest: {entry['file']}")
+        require(entry["version"] not in seen, f"Duplicate migration version in manifest: {entry['version']}")
+        seen.add(entry["version"])
+    return entries
+
+
 def local_inventory() -> list[dict[str, str]]:
-    names = sorted(path.name for path in MIGRATIONS.iterdir() if path.is_file())
-    require(tuple(names) == EXPECTED_FILES, "Migration inventory changed; review and update the guarded manifest")
+    entries = load_manifest()
+    reviewed = {entry["file"] for entry in entries}
+    present = {path.name for path in MIGRATIONS.iterdir() if path.is_file()}
+    require(reviewed == present,
+            "Migration inventory drifted from the reviewed manifest: "
+            f"reviewed but absent {sorted(reviewed - present)}; present but unreviewed {sorted(present - reviewed)}")
     inventory = []
-    for name in names:
-        require(bool(VERSION_RE.fullmatch(name)), f"Invalid migration filename: {name}")
+    for entry in sorted(entries, key=lambda item: item["file"]):
+        name = entry["file"]
         content = (MIGRATIONS / name).read_text(encoding="utf-8")
         require(content.strip() != "", f"Empty migration: {name}")
-        without_comments = re.sub(r"/\*.*?\*/|--[^\n]*", "", content, flags=re.S)
-        require(not DESTRUCTIVE_RE.search(without_comments), f"Potentially destructive SQL requires a separate release review: {name}")
         digest = hashlib.sha256(content.encode()).hexdigest()
-        require(digest == EXPECTED_HASHES[name], f"Reviewed migration contents changed: {name}")
-        inventory.append({"version": name[:14], "file": name, "sha256": digest})
+        require(digest == entry["sha256"], f"Reviewed migration contents changed: {name}")
+        inventory.append({"version": entry["version"], "file": name, "sha256": digest})
     require(len({entry["version"] for entry in inventory}) == len(inventory), "Duplicate migration version")
     return inventory
+
+
+def static_findings() -> list[dict[str, str]]:
+    """Heuristic findings only; see the DESTRUCTIVE_RE limitation note."""
+    findings: list[dict[str, str]] = []
+    for entry in local_inventory():
+        content = (MIGRATIONS / entry["file"]).read_text(encoding="utf-8")
+        without_comments = re.sub(r"/\*.*?\*/|--[^\n]*", "", content, flags=re.S)
+        for match in DESTRUCTIVE_RE.finditer(without_comments):
+            findings.append({"file": entry["file"], "match": match.group(0).strip()})
+    return findings
 
 
 class Supabase:
@@ -134,9 +190,9 @@ class Supabase:
 
 def expected_catalog(versions: list[str]) -> dict:
     present = set(versions)
-    identity = EXPECTED_FILES[1][:14] in present
-    personal = EXPECTED_FILES[2][:14] in present
-    evidence = EXPECTED_FILES[3][:14] in present
+    identity = V_IDENTITY in present
+    personal = V_PERSONAL in present
+    evidence = V_EVIDENCE in present
     tables = {"workspaces", "workspace_memberships"} if identity else set()
     if evidence:
         tables.add("evidence_records")
@@ -157,7 +213,7 @@ def expected_catalog(versions: list[str]) -> dict:
     return {"tables": tables, "indexes": indexes, "policies": policies, "foreign_keys": foreign_keys,
             "triggers": {"evidence_records_protect_workspace_ownership"} if evidence else set(),
             "functions": ({"public.ensure_personal_workspace"} if personal else set()) | ({"private.protect_evidence_record"} if evidence else set()),
-            "extensions": {"vector"} if EXPECTED_FILES[0][:14] in present else set()}
+            "extensions": {"vector"} if V_PLATFORM in present else set()}
 
 
 def assert_catalog(actual: dict, versions: list[str]) -> None:
@@ -173,7 +229,7 @@ def assert_catalog(actual: dict, versions: list[str]) -> None:
 
 def assert_grants(api: Supabase, versions: list[str]) -> None:
     present = set(versions)
-    if EXPECTED_FILES[1][:14] in present:
+    if V_IDENTITY in present:
         rows = api.query("select "
             "has_column_privilege('authenticated','public.workspaces','id','SELECT') as workspace_id_select, "
             "has_column_privilege('authenticated','public.workspaces','name','UPDATE') as workspace_name_update, "
@@ -181,13 +237,13 @@ def assert_grants(api: Supabase, versions: list[str]) -> None:
             "not has_table_privilege('anon','public.workspaces','SELECT') as anon_workspace_denied, "
             "not has_table_privilege('authenticated','public.workspace_memberships','INSERT') as membership_insert_denied")
         require(len(rows) == 1 and all(value is True for value in rows[0].values()), "Workspace grants differ from the migration manifest")
-    if EXPECTED_FILES[2][:14] in present:
+    if V_PERSONAL in present:
         rows = api.query("select "
             "not has_column_privilege('authenticated','public.workspaces','personal_owner_id','SELECT') as owner_key_private, "
             "has_function_privilege('authenticated','public.ensure_personal_workspace()','EXECUTE') as authenticated_rpc, "
             "not has_function_privilege('anon','public.ensure_personal_workspace()','EXECUTE') as anon_rpc_denied")
         require(len(rows) == 1 and all(value is True for value in rows[0].values()), "Personal workspace grants differ from the migration manifest")
-    if EXPECTED_FILES[3][:14] in present:
+    if V_EVIDENCE in present:
         rows = api.query("select "
             "has_table_privilege('authenticated','public.evidence_records','SELECT') as evidence_select, "
             "has_column_privilege('authenticated','public.evidence_records','content','INSERT') as evidence_insert, "
@@ -237,12 +293,25 @@ def build_plan(api: Supabase, inventory: list[dict[str, str]], require_recovery:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("mode", choices=("validate", "audit", "plan", "assert-plan", "verify"))
+    parser.add_argument("mode", choices=("validate", "classify", "audit", "plan", "assert-plan", "verify"))
     parser.add_argument("--plan-file", type=Path)
     args = parser.parse_args()
     inventory = local_inventory()
     if args.mode == "validate":
-        print(f"Validated {len(inventory)} reviewed migration files; no destructive statements detected")
+        print(f"Manifest conforms to the reviewed inventory ({len(inventory)} files); "
+              "static SQL safety is evaluated separately by 'classify'")
+        return 0
+    if args.mode == "classify":
+        findings = static_findings()
+        for finding in findings:
+            print(f"{finding['file']}: {finding['match']}")
+        if findings:
+            print(f"Heuristic scan reported {len(findings)} statement(s) across "
+                  f"{len(inventory)} files. This is a lexical heuristic, not a "
+                  "PostgreSQL parser: confirm each finding against the object, "
+                  "role and privilege involved.", file=sys.stderr)
+            return 1
+        print(f"Heuristic scan reported no findings across {len(inventory)} files.")
         return 0
     api = Supabase()
     if args.mode in ("audit", "plan"):

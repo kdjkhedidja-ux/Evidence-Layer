@@ -72,3 +72,28 @@ recovery point, while reverting application code does not revert database
 state. Only the project owner may authorize a restore after checking the
 actual recovery point and expected data loss. The workflow never restores or
 deletes production data.
+
+## Reviewed manifest and validation controls (2026-10-26)
+
+`supabase/migrations.manifest.json` is the reviewed inventory: one entry per
+migration with its `sha256` and a `provenance` note. `validate` only proves that
+the directory matches that manifest and that the bytes are unchanged. It says
+nothing about whether a migration is safe to deploy.
+
+Static SQL review is a separate, explicitly limited heuristic (`classify`). It is
+a line-oriented pattern match, not a PostgreSQL parser: it cannot see statements
+inside dollar-quoted bodies, cannot tell which object, role or privilege a
+`GRANT`/`REVOKE` affects, and does not distinguish `DROP ... IF EXISTS`. Its
+findings are inputs for human review and it is not wired into `validate`.
+Replacing it with a tokenizer plus a per-statement approval ledger is the next
+phase, and no approval entry may make a hard-denied construct acceptable.
+
+Release planning remains a distinct step. `plan` is read-only against the
+project; `assert-plan` re-verifies that neither the reviewed bytes nor the remote
+state changed; `verify` runs only after an approved apply.
+
+As of 2026-10-26 the repository carries eleven migrations. The manifest
+re-approves `20261019135502_personal_workspace_bootstrap.sql` explicitly after
+its rename from `20261017100000_personal_workspace_bootstrap.sql`: the content is
+byte-identical, but a matching hash proves identity, not that the earlier
+approval still applies.

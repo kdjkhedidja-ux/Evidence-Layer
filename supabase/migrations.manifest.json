@@ -1,0 +1,73 @@
+{
+  "schema": 1,
+  "approved_at": "2026-10-26",
+  "note": "Integrity manifest only. A match proves the migration bytes are the reviewed ones; it does NOT prove they are safe to deploy. Static SQL review and release planning are separate steps.",
+  "migrations": [
+    {
+      "file": "20261007170000_platform_baseline.sql",
+      "version": "20261007170000",
+      "sha256": "de057b2e76b1a0e14cbeb5e54e5f281b26a1a5ef71e7977eb4513fd301042af4",
+      "provenance": "Historical platform baseline, predates the guarded manifest."
+    },
+    {
+      "file": "20261008000000_rls_auto_enable_prerequisite.sql",
+      "version": "20261008000000",
+      "sha256": "963bce35d9e1d575ff2f5bab168941342323f436f1d9918f4d1faaf3560b33e3",
+      "provenance": "RLS auto-enable reconciliation, merged to main via PR #34 (f1be152)."
+    },
+    {
+      "file": "20261016100000_saas_identity_workspace_boundary.sql",
+      "version": "20261016100000",
+      "sha256": "1eae97b07caf88eaec5f13c980e26be29d547221725a829b251662f68bf5a27b",
+      "provenance": "Historical SaaS identity boundary, predates the guarded manifest."
+    },
+    {
+      "file": "20261018150000_workspace_scoped_evidence_records.sql",
+      "version": "20261018150000",
+      "sha256": "dd16b90d2cacf9d4d08478094431e3e01cef9f853de07d155aa2f1da4a87a200",
+      "provenance": "Historical workspace-scoped evidence records, predates the guarded manifest."
+    },
+    {
+      "file": "20261019135502_personal_workspace_bootstrap.sql",
+      "version": "20261019135502",
+      "sha256": "16fd91767300c19d22a9fd6138ef7bbdc00610dc667a82c78f478ff99cc407a6",
+      "provenance": "Renamed from 20261017100000_personal_workspace_bootstrap.sql. Content is byte-identical (same sha256), but the rename was re-approved explicitly on 2026-10-26 rather than carried over automatically: a matching hash proves identity, not that the earlier approval still applies."
+    },
+    {
+      "file": "20261019152707_restrict_rls_auto_enable_execution.sql",
+      "version": "20261019152707",
+      "sha256": "ea4df54f98cec7d64b7593c6f9b5ab03f572979a19b76d64502b112ec025df18",
+      "provenance": "Tightens EXECUTE on rls_auto_enable, merged to main via PR #34 (f1be152)."
+    },
+    {
+      "file": "20261022100000_source_snapshot_catalog.sql",
+      "version": "20261022100000",
+      "sha256": "ca9bb354e8534a8030494a612b3922fd24e7849b1bc464c80d4e568be7b573a7",
+      "provenance": "Merged to main via PR #38 (squash ea2062e); reviewed in that PR."
+    },
+    {
+      "file": "20261022110000_source_snapshot_storage_policies.sql",
+      "version": "20261022110000",
+      "sha256": "11f02e4f3c808682a56c674ecf453f6064ca47e5506608060464973c011b110d",
+      "provenance": "Merged to main via PR #38 (squash ea2062e); reviewed in that PR."
+    },
+    {
+      "file": "20261022120000_snapshot_verifier_identity.sql",
+      "version": "20261022120000",
+      "sha256": "1fca6b04c9238782aff53a0c0b5e84e285ba3358d0efad14c9d783d3de0f7ddc",
+      "provenance": "Merged to main via PR #38 (squash ea2062e); reviewed in that PR."
+    },
+    {
+      "file": "20261022130000_snapshot_verifier_fail_closed_guards.sql",
+      "version": "20261022130000",
+      "sha256": "c44a9e74993d0463ede04779c98826248df77359a1a7f8455999d4c120f3a989",
+      "provenance": "Merged to main via PR #38 (squash ea2062e); reviewed in that PR."
+    },
+    {
+      "file": "20261023150000_snapshot_verifier_admin_audit_guards.sql",
+      "version": "20261023150000",
+      "sha256": "82a265291d5781127780fb450b6faa689aa8b28ef5737382aa4749f491f25e7b",
+      "provenance": "Merged to main via PR #38 (squash ea2062e); reviewed in that PR."
+    }
+  ]
+}
