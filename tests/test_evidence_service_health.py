@@ -104,9 +104,16 @@ def test_startup_needs_no_credentials_and_does_not_load_integrations(
     monkeypatch.setattr(socket.socket, "connect_ex", deny_network)
     monkeypatch.setattr(socket, "create_connection", deny_network)
 
-    reloaded_app = importlib.reload(service_app)
-    with TestClient(reloaded_app.app) as client:
-        assert client.get("/healthz").status_code == 200
+    # reload rebinds module-level classes; restore them so other tests that
+    # imported the original exception types keep matching.
+    original_namespace = dict(service_app.__dict__)
+    try:
+        reloaded_app = importlib.reload(service_app)
+        with TestClient(reloaded_app.app) as client:
+            assert client.get("/healthz").status_code == 200
+    finally:
+        service_app.__dict__.clear()
+        service_app.__dict__.update(original_namespace)
 
     assert attempted_imports == []
 

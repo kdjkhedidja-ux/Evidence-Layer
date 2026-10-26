@@ -39,4 +39,4 @@ evidence_layer = ["retrieval/_fixtures/*.jsonl"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
-pythonpath = ["src", "services/evidence-service"]
+pythonpath = ["src", "services/evidence-service", "services/snapshot-verifier"]
