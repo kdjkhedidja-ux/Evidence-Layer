@@ -1,5 +1,10 @@
 begin;
 
+-- Supabase CLI uses a temporary login role for hosted tests. Run fixtures as
+-- postgres, then switch explicitly to anon/authenticated for RLS assertions.
+set local role postgres;
+set local search_path = public, extensions;
+
 create extension if not exists pgtap with schema extensions;
 
 select plan(29);
@@ -124,7 +129,7 @@ insert into pg_temp.personal_workspace_observations (
 )
 select 'a_repeat', workspace_id, workspace_name, user_id, role
 from public.ensure_personal_workspace();
-reset role;
+set local role postgres;
 
 select is(
     (select role from personal_workspace_observations where label = 'a_first'),
@@ -174,7 +179,7 @@ select throws_ok(
     null,
     'authenticated cannot read personal_owner_id even on a visible workspace'
 );
-reset role;
+set local role postgres;
 
 update public.workspace_memberships
 set status = 'inactive'
@@ -193,7 +198,7 @@ select throws_ok(
     'Personal workspace membership unavailable',
     'a user cannot reactivate an inactive personal membership through bootstrap'
 );
-reset role;
+set local role postgres;
 select is(
     (select status
      from public.workspace_memberships
@@ -219,7 +224,7 @@ select throws_ok(
     'Personal workspace membership unavailable',
     'a missing personal membership is not recreated by bootstrap'
 );
-reset role;
+set local role postgres;
 select is(
     (select count(*)::text
      from public.workspace_memberships
@@ -241,7 +246,7 @@ insert into pg_temp.personal_workspace_observations (
 )
 select 'b_first', workspace_id, workspace_name, user_id, role
 from public.ensure_personal_workspace();
-reset role;
+set local role postgres;
 
 select is(
     (select role from personal_workspace_observations where label = 'b_first'),
@@ -298,7 +303,7 @@ select throws_ok(
     'Authentication required',
     'authenticated requests without a subject are rejected'
 );
-reset role;
+set local role postgres;
 
 select * from finish();
 rollback;

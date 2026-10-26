@@ -59,10 +59,20 @@ replace this placeholder with the domain the owner actually controls.
    `<staging-app-host>` with the approved non-production hostname. Do not add
    production URLs to this test project or use an unbounded redirect wildcard;
    configure production separately after review and approval.
-5. Keep the confirmation and password recovery templates routed through
-   Supabase's `{{ .ConfirmationURL }}` so Supabase verifies the one-time link
-   and redirects back to the configured app callback. Do not expose raw OTPs
-   or credentials in app logs.
+5. Keep the confirmation template routed through Supabase's
+   `{{ .ConfirmationURL }}`. On free-tier projects using Supabase's default
+   email provider, the recovery template must also remain at
+   `{{ .ConfirmationURL }}`: template edits are rejected by the hosted API.
+   The web app requests recovery using an isolated implicit flow so the email
+   can open in a different mobile browser. The existing callback receives the
+   recovery session in the URL fragment and transfers it through a same-origin
+   request before opening `/reset-password`. If a custom SMTP provider permits
+   editing the template, the preferred recovery link is
+   `https://evidence-layer.vercel.app/auth/recovery?token_hash={{ .TokenHash }}`.
+   That page requires a button press before `/auth/callback` verifies the
+   one-time token with `type=recovery`, limiting link-preview consumption. Use
+   the approved app origin for each non-production project. Do not expose raw
+   OTPs, token hashes, session tokens, or credentials in app logs.
 
 Resend supports SMTP with host `smtp.resend.com`, username `resend`, and an API
 key as its password; its current SMTP documentation recommends port 465 for

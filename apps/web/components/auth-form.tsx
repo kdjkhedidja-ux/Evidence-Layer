@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState, type FormEvent } from "react";
 import { createSupabaseBrowserClient } from "../lib/supabase/client";
+import { createSupabaseRecoveryRequestClient } from "../lib/supabase/recovery-request";
 import { getSupabasePublicConfig } from "../lib/supabase/config";
 import { authCallbackUrl, safeInternalPath } from "../lib/supabase/redirect";
 
@@ -144,13 +145,19 @@ export default function AuthForm({
       }
 
       if (mode === "forgot-password") {
-        const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+        const { error } = await createSupabaseRecoveryRequestClient().auth.resetPasswordForEmail(normalizedEmail, {
           redirectTo: authCallbackUrl(window.location.origin, "/reset-password"),
         });
         if (error) {
-          setErrorMessage("We could not request a reset email. Try again later.");
+          if (error.status === 429) {
+            setCompleted(true);
+            setErrorMessage("Too many reset requests. Please wait before requesting another email.");
+          } else {
+            setErrorMessage("We could not request a reset email. Try again later.");
+          }
           return;
         }
+        setCompleted(true);
         setStatusMessage("If an account matches that address, a reset link will arrive by email.");
         return;
       }

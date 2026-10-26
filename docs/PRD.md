@@ -63,8 +63,11 @@ isolation. Usage limits and metering are distinct from payment and billing.
 Paid plans, Stripe subscriptions, payment collection, and credit packs belong
 to Phase 6 under the canonical roadmap, not the Phase 5 beta MVP.
 
-Complex source-routing decisions use the OpenAI Decisions API in the approved
-target architecture. Simple queries may use deterministic routing. Filter the
+Complex source routing evaluates the OpenAI Decisions API as an experimental
+option against deterministic routing. The deterministic router is the baseline;
+Decisions is not required or an approved production default. Propose it as a
+production default only after independent labeled multi-source evaluation
+demonstrates acceptable routing quality, total cost, and latency. Filter the
 trusted source catalog by authorization before routing and independently
 enforce authorization before source access. Source access does not authorize
 transferring query text to Decisions: the trusted server must separately
@@ -78,8 +81,11 @@ whose eligibility and authorization can be established safely. If no safe
 eligible source set can be established, stop the request. This routing fallback
 is separate from JEV's whole-request lexical scoring fallback.
 
-Source routing and its Decisions API client are planned work, not current
-repository functionality. The caller's model remains responsible for final
+Production source routing and the Decisions API client are planned work, not
+current repository functionality; only a local deterministic routing foundation
+(source contract, authorization filter, router, and output validator) exists as
+an unwired library with no allowing policy. The caller's model remains
+responsible for final
 answer generation.
 
 ## MVP Non-Goals
@@ -110,11 +116,14 @@ answer generation.
   invalid, or incomplete scores, or any result that fails validation or cannot
   be used safely—recompute the entire candidate set lexically. Never combine
   JEV and lexical scores or rankings.
-- Route complex source-selection queries through the planned Decisions API;
-  deterministic routing may handle simple queries and is the fallback for
-  missing, timed-out, unavailable, or invalid Decisions results. Fallback may
-  use only safely eligible and authorized sources; it must not widen access or
-  grant permissions, and must stop if no safe source set can be established.
+- Keep deterministic routing as the baseline and fallback for an
+  experimental Decisions option on complex source-selection queries. Evaluate
+  Decisions against independent labeled multi-source questions; a
+  production-default change requires acceptable quality, total cost, and
+  latency. If an evaluated Decisions call is missing, timed out, unavailable,
+  or invalid, deterministic fallback may use only safely eligible and
+  authorized sources; it must not widen access or grant permissions, and must
+  stop if no safe source set can be established.
 - Filter the trusted source catalog by authorization before Decisions and
   independently enforce authorization before source access. Router and
   Decisions cannot add sources, grant or expand permissions, bypass tenant
@@ -170,8 +179,9 @@ answer generation.
 - Secrets stored only in an approved secret-management facility; never in
   source, reports, client-visible errors, or logs.
 - Whole-request lexical scoring remains usable if JEV scoring fails.
-- Deterministic source routing remains usable if the Decisions API is
-  unavailable, times out, or returns invalid output.
+- Deterministic source routing is the baseline and remains the fallback if
+  an evaluated Decisions call is unavailable, times out, or returns invalid
+  output.
 - Provider failures are explicit, sanitized, and never converted into
   success-shaped relevance scores.
 - Record provenance, model identity, SDK version, timestamps, and request
@@ -205,8 +215,9 @@ appropriately scoped authorization boundary. The hosted HTTP MCP service,
 hosted authentication or tenant-isolation enforcement, production database or
 RLS, hosted provider-transfer authorization, production connectors, SaaS
 dashboard capabilities, billing, and Google Drive connector are not
-implemented. The source router and Decisions API client are planned work, not
-implemented. The health-only FastAPI service at `services/evidence-service/`
+implemented. Production source routing and the Decisions API client are planned
+work, not implemented; a local deterministic routing library exists but is not
+wired into any service. The health-only FastAPI service at `services/evidence-service/`
 is deployed on Railway and exposes only `GET /healthz`; it has no customer
 operations. The current corpus retriever denies source reads by default, and
 live JEV transfer is hard-denied on supported package paths. Final answer
@@ -216,8 +227,8 @@ or generalization claim is established.
 ## Open Product Decisions
 
 - Meilisearch or Postgres full-text search for lexical retrieval?
-- Which pre-specified query classes require a Decisions API call, and which
-  source metadata is minimally sufficient for those decisions?
+- Whether any pre-specified query classes justify evaluating a Decisions API
+  call, and which source metadata is minimally sufficient for that evaluation?
 - Exact definitions and periods for request/Jev-token quotas and credit packs?
 - Which A/B configurations may users compare, and how is comparison consent
   and customer-data retention handled?
