@@ -1,9 +1,14 @@
 name: Supabase migration validation and release
 
 on:
+  # `paths:` is intentionally NOT applied to pull_request: `local-validation` is a
+  # required status check in the `main-protection` ruleset, so GitHub needs a
+  # result for that context on every pull request head commit. A workflow filtered
+  # out by `paths:` never starts and therefore never reports the check.
+  # The filter is kept on `push`: the (disabled) production plan should only wake
+  # up for changes that can actually affect the migration state.
   pull_request:
     branches: [main]
-    paths: ['supabase/**', 'scripts/supabase_migration_guard.py', 'scripts/sql_statement.py', 'tests/test_supabase_migration_guard.py', '.github/workflows/supabase-migrations.yml']
   push:
     branches: [main]
     paths: ['supabase/**', 'scripts/supabase_migration_guard.py', 'scripts/sql_statement.py', 'tests/test_supabase_migration_guard.py', '.github/workflows/supabase-migrations.yml']
