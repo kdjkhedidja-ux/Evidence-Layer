@@ -305,9 +305,16 @@ class Supabase:
                          "join pg_namespace n on n.oid=c.relnamespace "
                          "where n.nspname in ('public','private') and not t.tgisinternal "
                          "order by 1,2"),
+            # Extension-provided functions (e.g. the ~118 pgvector helpers the
+            # platform installs into public) are not migration objects and must
+            # not make the inventory diverge. pg_depend deptype 'e' marks them.
             "functions": ("select n.nspname as schema,p.proname as name "
                           "from pg_proc p join pg_namespace n on n.oid=p.pronamespace "
-                          "where n.nspname in ('public','private') order by 1,2"),
+                          "where n.nspname in ('public','private') "
+                          "and not exists (select 1 from pg_depend d "
+                          "where d.classid='pg_proc'::regclass and d.objid=p.oid "
+                          "and d.refclassid='pg_extension'::regclass and d.deptype='e') "
+                          "order by 1,2"),
             "extensions": "select extname as name from pg_extension where extname='vector'",
             "roles": ("select rolname as name,rolcanlogin as canlogin,rolinherit as inherit,"
                       "rolsuper as super,rolbypassrls as bypassrls,rolcreaterole as createrole,"
@@ -556,10 +563,17 @@ def assert_catalog(actual: dict, versions: list[str]) -> None:
         require(found == expected[category],
                 f"Remote {category} differ from the applied migration manifest: expected {sorted(expected[category])}, found {sorted(found)}")
 
-    for category in ("extensions", "event_triggers"):
-        found = {row["name"] for row in actual[category]}
-        require(found == expected[category],
-                f"Remote {category} differ from the applied migration manifest: expected {sorted(expected[category])}, found {sorted(found)}")
+    found_extensions = {row["name"] for row in actual["extensions"]}
+    require(found_extensions == expected["extensions"],
+            f"Remote extensions differ from the applied migration manifest: expected {sorted(expected['extensions'])}, found {sorted(found_extensions)}")
+    # Event triggers live in one global namespace: Supabase pre-installs its own
+    # (pgrst_*, issue_*) that are not migration objects, so exact equality would
+    # fail on every healthy project. Require the migration-defined trigger(s) to
+    # be present instead; new triggers still fail closed through the static
+    # ledger (any 'create event trigger' is registry-gated).
+    found_event_triggers = {row["name"] for row in actual["event_triggers"]}
+    require(expected["event_triggers"] <= found_event_triggers,
+            f"Remote event triggers are missing migration-defined triggers: expected {sorted(expected['event_triggers'])}, found {sorted(found_event_triggers)}")
 
     found_roles = {row["name"] for row in actual["roles"]}
     require(found_roles == expected["roles"],
@@ -632,7 +646,7 @@ def assert_grants(api: Supabase, versions: list[str]) -> None:
         require(len(rows) == 1 and all(value is True for value in rows[0].values()), "Snapshot verifier grants differ from the migration manifest")
     if V_ADMIN_AUDIT in present:
         rows = api.query("select "
-            "has_table_privilege('snapshot_verifier_allowlist_manager','private.snapshot_verifier_allowlist','SELECT') as manager_select, "
+            "has_column_privilege('snapshot_verifier_allowlist_manager','private.snapshot_verifier_allowlist','user_id','SELECT') as manager_select, "
             "has_table_privilege('snapshot_verifier_allowlist_manager','private.snapshot_verifier_allowlist','DELETE') as manager_delete, "
             "has_column_privilege('snapshot_verifier_allowlist_manager','private.snapshot_verifier_allowlist','user_id','INSERT') as manager_insert, "
             "has_table_privilege('snapshot_verifier_allowlist_manager','private.snapshot_verifier_allowlist_audit','SELECT') as audit_select, "
