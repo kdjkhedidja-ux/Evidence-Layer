@@ -40,18 +40,11 @@ jobs:
           python scripts/supabase_migration_guard.py validate
           python scripts/supabase_migration_guard.py classify
           python -m unittest discover -s tests -p 'test_supabase_migration_guard.py'
-      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
-        with:
-          version: 2.121.0
-      - name: Start local Supabase
-        run: supabase start
-      - name: Apply migrations to local database
-        run: supabase db reset --local
-      - name: Test local database policies
-        run: supabase test db --local
-      - name: Stop local Supabase
-        if: always()
-        run: supabase stop --no-backup
+      # The database itself is validated by the workspace-rls job in
+      # python-service.yml, which runs supabase start + db reset --local +
+      # supabase test db --local on every pull request to main (no paths
+      # filter). Duplicating that stack here would re-run the same minutes.
+
 
   production-plan:
     needs: local-validation

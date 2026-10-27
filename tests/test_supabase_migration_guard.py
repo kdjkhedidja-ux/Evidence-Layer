@@ -4,6 +4,7 @@ import io
 import json
 import os
 from pathlib import Path
+import re
 import sys
 import tempfile
 import unittest
@@ -25,7 +26,7 @@ class FakeProject:
         return self.remote_history
 
     def catalog(self):
-        return {key: [] for key in ("tables", "indexes", "foreign_keys", "policies", "triggers", "functions", "extensions")}
+        return {key: [] for key in ("tables", "indexes", "foreign_keys", "policies", "triggers", "functions", "extensions", "roles", "event_triggers")}
 
     def backup(self):
         return self.recovery
@@ -493,6 +494,136 @@ class ClassifyCommandTests(unittest.TestCase):
             )
         self.assertEqual(code, 1)
         self.assertIn("Missing statement approval ledger", stderr)
+
+
+class CatalogCompletenessTests(unittest.TestCase):
+    """Every object a reviewed migration creates must be named in the catalog model.
+
+    These tests re-derive the object inventory from the migration SQL itself, so
+    a migration that adds a table, policy, trigger, function, role, index,
+    extension, or event trigger without extending ``expected_catalog`` fails
+    here instead of passing a silently incomplete post-apply verification.
+    """
+
+    @staticmethod
+    def _body():
+        versions = [entry["version"] for entry in guard.local_inventory()]
+        expected = guard.expected_catalog(versions)
+        text = {}
+        for entry in guard.local_inventory():
+            text[entry["file"]] = (guard.MIGRATIONS / entry["file"]).read_text(encoding="utf-8")
+        return expected, text
+
+    @staticmethod
+    def _join(body):
+        return "\n".join(body.values())
+
+    def test_every_created_table_is_catalogued(self):
+        expected, body = self._body()
+        pattern = re.compile(
+            r"\bcreate\s+table\s+(?:if\s+not\s+exists\s+)?([a-z_][a-z0-9_]*\.)?([a-z_][a-z0-9_]*)\s*\(",
+            re.I,
+        )
+        found = set()
+        for match in pattern.finditer(self._join(body)):
+            schema = match.group(1).rstrip(".") if match.group(1) else "public"
+            if schema == "pg_temp":
+                continue
+            found.add(f"{schema}.{match.group(2)}")
+        self.assertEqual(found, set(expected["tables"]))
+
+    def test_every_created_policy_is_catalogued(self):
+        expected, body = self._body()
+        pattern = re.compile(
+            r"\bcreate\s+policy\s+([a-z_][a-z0-9_]*)\s+on\s+([a-z_][a-z0-9_]*\.)?([a-z_][a-z0-9_]*)",
+            re.I,
+        )
+        found = set()
+        for match in pattern.finditer(self._join(body)):
+            schema = match.group(2).rstrip(".") if match.group(2) else "public"
+            if schema == "pg_temp":
+                continue
+            found.add(f"{schema}.{match.group(1)}")
+        self.assertEqual(found, expected["policies"])
+
+    def test_every_created_trigger_is_catalogued(self):
+        expected, body = self._body()
+        pattern = re.compile(
+            r"\bcreate\s+trigger\s+([a-z_][a-z0-9_]*)[^;]*?\bon\s+([a-z_][a-z0-9_]*\.)?([a-z_][a-z0-9_]*)",
+            re.I,
+        )
+        found = set()
+        for match in pattern.finditer(self._join(body)):
+            schema = match.group(2).rstrip(".") if match.group(2) else "public"
+            if schema == "pg_temp":
+                continue
+            found.add(f"{schema}.{match.group(1)}")
+        self.assertEqual(found, expected["triggers"])
+
+    def test_every_created_function_is_catalogued(self):
+        expected, body = self._body()
+        pattern = re.compile(
+            r"\bcreate\s+(?:or\s+replace\s+)?function\s+([a-z_][a-z0-9_]*\.)?([a-z_][a-z0-9_]*)\s*\(",
+            re.I,
+        )
+        found = set()
+        for match in pattern.finditer(self._join(body)):
+            schema = match.group(1).rstrip(".") if match.group(1) else "public"
+            found.add(f"{schema}.{match.group(2)}")
+        self.assertEqual(found, expected["functions"])
+
+    def test_every_created_role_is_catalogued(self):
+        expected, body = self._body()
+        joined = self._join(body)
+        create_role = re.compile(r"\bcreate\s+role\s+([a-z_][a-z0-9_]*)\s+(?=nologin\b)", re.I)
+        array_role = re.compile(r"foreach\s+role_name\s+in\s+array\s+array\[([^\]]*)\]", re.I)
+        found = {match.group(1) for match in create_role.finditer(joined)}
+        for match in array_role.finditer(joined):
+            for quoted in re.findall(r"'([a-z_][a-z0-9_]*)'", match.group(1)):
+                if quoted.startswith("snapshot_"):
+                    found.add(quoted)
+        self.assertEqual(found, expected["roles"])
+
+    def test_every_created_index_is_catalogued(self):
+        expected, body = self._body()
+        joined = self._join(body)
+        create_index = re.compile(
+            r"\bcreate\s+(?:unique\s+)?index\s+([a-z_][a-z0-9_]*)\s+on\s+([a-z_][a-z0-9_]*\.)?([a-z_][a-z0-9_]*)",
+            re.I,
+        )
+        pkey = re.compile(
+            r"\bcreate\s+table\s+(?:if\s+not\s+exists\s+)?([a-z_][a-z0-9_]*\.)?([a-z_][a-z0-9_]*)\s*\([^;]*?\bprimary\s+key",
+            re.I,
+        )
+        unique_constraint = re.compile(
+            r"\bcreate\s+table\s+(?:if\s+not\s+exists\s+)?([a-z_][a-z0-9_]*\.)?([a-z_][a-z0-9_]*)\s*\([^;]*?constraint\s+([a-z_][a-z0-9_]*)\s+unique\b",
+            re.I,
+        )
+        found = set()
+        for match in create_index.finditer(joined):
+            schema = match.group(2).rstrip(".") if match.group(2) else "public"
+            if schema == "pg_temp":
+                continue
+            found.add(f"{schema}.{match.group(1)}")
+        for match in pkey.finditer(joined):
+            schema = match.group(1).rstrip(".") if match.group(1) else "public"
+            if schema == "pg_temp":
+                continue
+            found.add(f"{schema}.{match.group(2)}_pkey")
+        for match in unique_constraint.finditer(joined):
+            schema = match.group(1).rstrip(".") if match.group(1) else "public"
+            if schema == "pg_temp":
+                continue
+            found.add(f"{schema}.{match.group(3)}")
+        self.assertEqual(found, expected["indexes"])
+
+    def test_every_extension_and_event_trigger_is_catalogued(self):
+        expected, body = self._body()
+        joined = self._join(body)
+        extension = re.compile(r"\bcreate\s+extension\s+(?:if\s+not\s+exists\s+)?([a-z_][a-z0-9_]*)", re.I)
+        event_trigger = re.compile(r"\bcreate\s+event\s+trigger\s+([a-z_][a-z0-9_]*)", re.I)
+        self.assertEqual({match.group(1) for match in extension.finditer(joined)}, expected["extensions"])
+        self.assertEqual({match.group(1) for match in event_trigger.finditer(joined)}, expected["event_triggers"])
 
 
 if __name__ == "__main__":

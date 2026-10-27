@@ -42,9 +42,16 @@ PROJECT_NAME = "Evidence-test"
 # Version checks reference migrations by name, never by position in a tuple:
 # appending a migration must not silently re-point an existing expectation.
 V_PLATFORM = "20261007170000"
+V_RLS_AUTO = "20261008000000"
 V_IDENTITY = "20261016100000"
 V_EVIDENCE = "20261018150000"
 V_PERSONAL = "20261019135502"
+V_RLS_RESTRICT = "20261019152707"
+V_SOURCE_CATALOG = "20261022100000"
+V_SNAPSHOT_STORAGE = "20261022110000"
+V_VERIFIER_IDENTITY = "20261022120000"
+V_FAIL_CLOSED = "20261022130000"
+V_ADMIN_AUDIT = "20261023150000"
 
 VERSION_RE = re.compile(r"^[0-9]{14}_[a-z0-9_]+\.sql$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -268,55 +275,303 @@ class Supabase:
                 "physical_backup_data": data.get("physical_backup_data") or {}}
 
     def catalog(self) -> dict:
+        # Schemas are explicit in every query so a new object can never be
+        # silently adopted: anything outside public/private/storage is ignored,
+        # and the expected inventory below must name it explicitly.
         queries = {
-            "tables": "select c.relname as name,c.relrowsecurity as rls,c.relforcerowsecurity as force_rls from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind in ('r','p') order by c.relname",
-            "indexes": "select indexname as name from pg_indexes where schemaname='public' order by indexname",
-            "foreign_keys": "select co.conrelid::regclass::text as source,co.confrelid::regclass::text as target,co.confdeltype::text as on_delete from pg_constraint co where co.contype='f' and co.connamespace='public'::regnamespace order by 1,2",
-            "policies": "select policyname as name from pg_policies where schemaname='public' order by policyname",
-            "triggers": "select t.tgname as name from pg_trigger t join pg_class c on c.oid=t.tgrelid join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and not t.tgisinternal order by t.tgname",
-            "functions": "select n.nspname||'.'||p.proname as name from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname in ('public','private') order by 1",
+            "tables": ("select n.nspname as schema,c.relname as name,"
+                       "c.relrowsecurity as rls,c.relforcerowsecurity as force_rls "
+                       "from pg_class c join pg_namespace n on n.oid=c.relnamespace "
+                       "where n.nspname in ('public','private') and c.relkind in ('r','p') "
+                       "order by 1,2"),
+            "indexes": ("select schemaname as schema,indexname as name from pg_indexes "
+                        "where schemaname in ('public','private') order by 1,2"),
+            "foreign_keys": ("select co.conname as name,"
+                             "sn.nspname||'.'||sc.relname as source,"
+                             "tn.nspname||'.'||tc.relname as target,"
+                             "co.confdeltype::text as on_delete "
+                             "from pg_constraint co "
+                             "join pg_class sc on sc.oid=co.conrelid "
+                             "join pg_namespace sn on sn.oid=sc.relnamespace "
+                             "join pg_class tc on tc.oid=co.confrelid "
+                             "join pg_namespace tn on tn.oid=tc.relnamespace "
+                             "where co.contype='f' and sn.nspname in ('public','private') "
+                             "order by 1"),
+            "policies": ("select schemaname as schema,policyname as name from pg_policies "
+                         "where schemaname in ('public','private','storage') order by 1,2"),
+            "triggers": ("select n.nspname as schema,t.tgname as name "
+                         "from pg_trigger t "
+                         "join pg_class c on c.oid=t.tgrelid "
+                         "join pg_namespace n on n.oid=c.relnamespace "
+                         "where n.nspname in ('public','private') and not t.tgisinternal "
+                         "order by 1,2"),
+            "functions": ("select n.nspname as schema,p.proname as name "
+                          "from pg_proc p join pg_namespace n on n.oid=p.pronamespace "
+                          "where n.nspname in ('public','private') order by 1,2"),
             "extensions": "select extname as name from pg_extension where extname='vector'",
+            "roles": ("select rolname as name,rolcanlogin as canlogin,rolinherit as inherit,"
+                      "rolsuper as super,rolbypassrls as bypassrls,rolcreaterole as createrole,"
+                      "rolcreatedb as createdb,rolreplication as replication "
+                      "from pg_roles where rolname like 'snapshot\\_%' order by rolname"),
+            "event_triggers": "select evtname as name from pg_event_trigger order by evtname",
         }
         return {name: self.query(sql) for name, sql in queries.items()}
 
 
+def expected_roles(versions: list[str]) -> set[str]:
+    present = set(versions)
+    roles: set[str] = set()
+    if V_SOURCE_CATALOG in present:
+        roles.add("snapshot_verifier")
+    if V_VERIFIER_IDENTITY in present:
+        roles.add("snapshot_publisher_owner")
+    if V_ADMIN_AUDIT in present:
+        roles.update({
+            "snapshot_verifier_allowlist_owner",
+            "snapshot_verifier_allowlist_manager",
+            "snapshot_verifier_audit_owner",
+        })
+    return roles
+
+
 def expected_catalog(versions: list[str]) -> dict:
     present = set(versions)
+    rls_auto = V_RLS_AUTO in present
     identity = V_IDENTITY in present
     personal = V_PERSONAL in present
     evidence = V_EVIDENCE in present
-    tables = {"workspaces", "workspace_memberships"} if identity else set()
+    source = V_SOURCE_CATALOG in present
+    storage = V_SNAPSHOT_STORAGE in present
+    verifier = V_VERIFIER_IDENTITY in present
+    fences = V_FAIL_CLOSED in present
+    admin = V_ADMIN_AUDIT in present
+
+    # schema.name -> (rls_required, force_rls_required). A table listed with
+    # False/False (the read-policy baseline) must NOT have RLS enabled.
+    tables: dict[str, tuple[bool, bool]] = {}
+    if identity:
+        tables["public.workspaces"] = (True, True)
+        tables["public.workspace_memberships"] = (True, True)
     if evidence:
-        tables.add("evidence_records")
-    indexes = {"workspaces_pkey", "workspace_memberships_workspace_user_key", "workspace_memberships_user_status_workspace_idx"} if identity else set()
+        tables["public.evidence_records"] = (True, True)
+    if source:
+        tables["public.source_snapshots"] = (True, True)
+        tables["public.source_grants"] = (True, True)
+    if verifier:
+        tables["private.snapshot_verifier_allowlist"] = (True, True)
+    if admin:
+        tables["private.snapshot_verifier_read_policy_baseline"] = (False, False)
+        tables["private.snapshot_verifier_allowlist_audit"] = (True, True)
+
+    indexes: set[str] = set()
+    if identity:
+        indexes.update({
+            "public.workspaces_pkey",
+            "public.workspace_memberships_workspace_user_key",
+            "public.workspace_memberships_user_status_workspace_idx",
+        })
+    if evidence:
+        indexes.update({"public.evidence_records_pkey", "public.evidence_records_workspace_created_idx"})
     if personal:
-        indexes.add("workspaces_personal_owner_unique")
+        indexes.add("public.workspaces_personal_owner_unique")
+    if source:
+        indexes.update({
+            "public.source_snapshots_pkey",
+            "public.source_snapshots_object_key_key",
+            "public.source_grants_pkey",
+            "public.source_grants_principal_idx",
+        })
+    if verifier:
+        indexes.add("private.snapshot_verifier_allowlist_pkey")
+    if admin:
+        indexes.update({
+            "private.snapshot_verifier_read_policy_baseline_pkey",
+            "private.snapshot_verifier_allowlist_audit_pkey",
+        })
+
+    policies: set[str] = set()
+    if identity:
+        policies.update({
+            "public.workspaces_select_active_members",
+            "public.workspaces_update_active_owners",
+            "public.workspaces_client_insert_denied",
+            "public.workspaces_client_delete_denied",
+            "public.workspace_memberships_select_own_active",
+            "public.workspace_memberships_client_insert_denied",
+            "public.workspace_memberships_client_update_denied",
+            "public.workspace_memberships_client_delete_denied",
+        })
     if evidence:
-        indexes.update({"evidence_records_pkey", "evidence_records_workspace_created_idx"})
-    policies = {"workspaces_select_active_members", "workspaces_update_active_owners", "workspaces_client_insert_denied", "workspaces_client_delete_denied",
-                "workspace_memberships_select_own_active", "workspace_memberships_client_insert_denied", "workspace_memberships_client_update_denied", "workspace_memberships_client_delete_denied"} if identity else set()
+        policies.update({
+            "public.evidence_records_select_active_members",
+            "public.evidence_records_insert_active_members",
+            "public.evidence_records_update_active_members",
+            "public.evidence_records_delete_active_members",
+        })
+    if source:
+        policies.update({
+            "public.source_snapshots_select_granted_published_or_own_staged",
+            "public.source_snapshots_insert_active_owners",
+            "public.source_grants_select_own_or_owner",
+            "public.source_grants_insert_active_owners",
+            "public.source_grants_delete_active_owners",
+        })
+    if storage:
+        policies.update({
+            "storage.source_snapshots_objects_insert_staged_by_owner",
+            "storage.source_snapshots_objects_select_granted_published",
+        })
+    if verifier:
+        policies.update({
+            "public.source_snapshots_select_publisher_owner",
+            "public.source_snapshots_update_publisher_owner",
+            "storage.source_snapshots_objects_select_publisher_owner",
+            "storage.source_snapshots_objects_select_allowlisted_verifier",
+            "private.snapshot_verifier_allowlist_select_owner",
+        })
+    if fences:
+        policies.update({
+            "public.source_snapshots_select_verifier_role_gate_restrictive_fence",
+            "public.source_snapshots_select_authenticated_restrictive_fence",
+            "public.source_snapshots_select_publisher_owner_restrictive_fence",
+            "storage.source_snapshots_objects_verifier_role_gate_restrictive_fence",
+            "storage.source_snapshots_objects_select_authenticated_restrictive_fence",
+            "storage.source_snapshots_objects_publisher_owner_restrictive_fence",
+        })
+    if admin:
+        policies.update({
+            "private.snapshot_verifier_allowlist_select_manager",
+            "private.snapshot_verifier_allowlist_insert_manager",
+            "private.snapshot_verifier_allowlist_delete_manager",
+            "private.snapshot_verifier_allowlist_audit_insert_owner",
+            "private.snapshot_verifier_allowlist_audit_select_manager",
+        })
+
+    triggers: set[str] = set()
     if evidence:
-        policies.update({"evidence_records_select_active_members", "evidence_records_insert_active_members", "evidence_records_update_active_members", "evidence_records_delete_active_members"})
-    foreign_keys = {("public.workspace_memberships", "public.workspaces", "c"), ("public.workspace_memberships", "auth.users", "c")} if identity else set()
+        triggers.add("public.evidence_records_protect_workspace_ownership")
+    if source:
+        triggers.update({
+            "public.source_snapshots_protect_immutability",
+            "public.source_snapshots_reject_delete",
+        })
+    if storage:
+        triggers.add("public.source_snapshots_require_stored_object")
+    if verifier:
+        triggers.add("public.source_snapshots_require_verification_binding")
+    if admin:
+        triggers.add("private.snapshot_verifier_allowlist_audit_changes")
+
+    functions: set[str] = set()
+    if rls_auto:
+        functions.add("public.rls_auto_enable")
     if personal:
-        foreign_keys.add(("public.workspaces", "auth.users", "c"))
+        functions.add("public.ensure_personal_workspace")
     if evidence:
-        foreign_keys.add(("public.evidence_records", "public.workspaces", "c"))
-    return {"tables": tables, "indexes": indexes, "policies": policies, "foreign_keys": foreign_keys,
-            "triggers": {"evidence_records_protect_workspace_ownership"} if evidence else set(),
-            "functions": ({"public.ensure_personal_workspace"} if personal else set()) | ({"private.protect_evidence_record"} if evidence else set()),
-            "extensions": {"vector"} if V_PLATFORM in present else set()}
+        functions.add("private.protect_evidence_record")
+    if source:
+        functions.update({
+            "private.assert_snapshot_role_safe",
+            "private.protect_source_snapshot",
+            "private.reject_source_snapshot_delete",
+        })
+    if storage:
+        functions.update({
+            "private.ensure_snapshot_bucket",
+            "private.require_stored_snapshot_object",
+        })
+    if verifier:
+        functions.update({
+            "private.verified_user_id",
+            "private.require_verification_binding",
+            "private.assert_snapshot_verifier_function_acl_safe",
+            "public.verifier_may_read_staged_object",
+            "public.begin_snapshot_verification",
+            "public.publish_verified_snapshot",
+        })
+    if fences:
+        functions.update({
+            "private.assert_snapshot_verifier_allowlist_shape",
+            "private.assert_snapshot_api_role_cannot_assume",
+            "private.assert_snapshot_read_policy_inventory",
+        })
+    if admin:
+        functions.update({
+            "private.assert_snapshot_read_policy_inventory_v2",
+            "private.assert_snapshot_verifier_allowlist_admin_shape",
+            "private.audit_snapshot_verifier_allowlist_change",
+        })
+
+    foreign_keys: set[tuple[str, str, str, str]] = set()
+    if identity:
+        foreign_keys.update({
+            ("workspace_memberships_workspace_id_fkey", "public.workspace_memberships", "public.workspaces", "c"),
+            ("workspace_memberships_user_id_fkey", "public.workspace_memberships", "auth.users", "c"),
+        })
+    if personal:
+        foreign_keys.add(("workspaces_personal_owner_id_fkey", "public.workspaces", "auth.users", "c"))
+    if evidence:
+        foreign_keys.add(("evidence_records_workspace_id_fkey", "public.evidence_records", "public.workspaces", "c"))
+    if source:
+        foreign_keys.update({
+            ("source_snapshots_workspace_id_fkey", "public.source_snapshots", "public.workspaces", "r"),
+            ("source_snapshots_created_by_fkey", "public.source_snapshots", "auth.users", "a"),
+            ("source_grants_member_fkey", "public.source_grants", "public.workspace_memberships", "c"),
+            ("source_grants_granted_by_fkey", "public.source_grants", "auth.users", "a"),
+        })
+    if verifier:
+        foreign_keys.update({
+            ("source_snapshots_verified_by_fkey", "public.source_snapshots", "auth.users", "a"),
+            ("snapshot_verifier_allowlist_user_id_fkey", "private.snapshot_verifier_allowlist", "auth.users", "c"),
+            ("snapshot_verifier_allowlist_workspace_id_fkey", "private.snapshot_verifier_allowlist", "public.workspaces", "c"),
+        })
+
+    return {
+        "tables": tables,
+        "indexes": indexes,
+        "policies": policies,
+        "triggers": triggers,
+        "functions": functions,
+        "foreign_keys": foreign_keys,
+        "extensions": {"vector"} if V_PLATFORM in present else set(),
+        "roles": expected_roles(versions),
+        "event_triggers": {"ensure_rls"} if rls_auto else set(),
+    }
 
 
 def assert_catalog(actual: dict, versions: list[str]) -> None:
     expected = expected_catalog(versions)
-    for category in ("tables", "indexes", "policies", "triggers", "functions", "extensions"):
-        found = {row["name"] for row in actual[category]}
-        require(found == expected[category], f"Remote {category} differ from the applied migration manifest: expected {sorted(expected[category])}, found {sorted(found)}")
-    found_fks = {(row["source"], row["target"], row["on_delete"]) for row in actual["foreign_keys"]}
-    require(found_fks == expected["foreign_keys"], "Remote foreign keys differ from the applied migration manifest")
+
+    found_tables = {f"{row['schema']}.{row['name']}" for row in actual["tables"]}
+    require(found_tables == set(expected["tables"]),
+            f"Remote tables differ from the applied migration manifest: expected {sorted(expected['tables'])}, found {sorted(found_tables)}")
     for row in actual["tables"]:
-        require(row["rls"] is True and row["force_rls"] is True, f"RLS is not enabled and forced on {row['name']}")
+        qualified = f"{row['schema']}.{row['name']}"
+        rls_required, force_required = expected["tables"][qualified]
+        require(row["rls"] is rls_required and row["force_rls"] is force_required,
+                f"RLS state differs from the manifest on {qualified}: expected rls={rls_required} force={force_required}, found rls={row['rls']} force={row['force_rls']}")
+
+    for category in ("indexes", "policies", "triggers", "functions"):
+        found = {f"{row['schema']}.{row['name']}" for row in actual[category]}
+        require(found == expected[category],
+                f"Remote {category} differ from the applied migration manifest: expected {sorted(expected[category])}, found {sorted(found)}")
+
+    for category in ("extensions", "event_triggers"):
+        found = {row["name"] for row in actual[category]}
+        require(found == expected[category],
+                f"Remote {category} differ from the applied migration manifest: expected {sorted(expected[category])}, found {sorted(found)}")
+
+    found_roles = {row["name"] for row in actual["roles"]}
+    require(found_roles == expected["roles"],
+            f"Remote snapshot roles differ from the applied migration manifest: expected {sorted(expected['roles'])}, found {sorted(found_roles)}")
+    for row in actual["roles"]:
+        for attribute in ("canlogin", "inherit", "super", "bypassrls", "createrole", "createdb", "replication"):
+            require(row[attribute] is False, f"Snapshot role {row['name']} has an unsafe attribute: {attribute}")
+
+    found_fks = {(row["name"], row["source"], row["target"], row["on_delete"]) for row in actual["foreign_keys"]}
+    require(found_fks == expected["foreign_keys"],
+            "Remote foreign keys differ from the applied migration manifest: "
+            f"expected {sorted(expected['foreign_keys'])}, found {sorted(found_fks)}")
 
 
 def assert_grants(api: Supabase, versions: list[str]) -> None:
@@ -344,6 +599,47 @@ def assert_grants(api: Supabase, versions: list[str]) -> None:
             "not has_table_privilege('anon','public.evidence_records','SELECT') as anon_evidence_denied, "
             "not has_table_privilege('service_role','public.evidence_records','SELECT') as service_evidence_denied")
         require(len(rows) == 1 and all(value is True for value in rows[0].values()), "Evidence grants differ from the migration manifest")
+    if V_SOURCE_CATALOG in present:
+        rows = api.query("select "
+            "has_table_privilege('authenticated','public.source_snapshots','SELECT') as snapshots_select, "
+            "has_column_privilege('authenticated','public.source_snapshots','object_key','INSERT') as snapshots_insert_staged, "
+            "not has_column_privilege('authenticated','public.source_snapshots','published_at','INSERT') as snapshots_publish_denied, "
+            "not has_table_privilege('authenticated','public.source_snapshots','UPDATE') as snapshots_update_denied, "
+            "not has_table_privilege('authenticated','public.source_snapshots','DELETE') as snapshots_delete_denied, "
+            "not has_table_privilege('anon','public.source_snapshots','SELECT') as anon_snapshots_denied, "
+            "not has_table_privilege('service_role','public.source_snapshots','SELECT') as service_snapshots_denied, "
+            "has_table_privilege('authenticated','public.source_grants','SELECT') as grants_select, "
+            "has_table_privilege('authenticated','public.source_grants','DELETE') as grants_delete, "
+            "has_column_privilege('authenticated','public.source_grants','granted_by','INSERT') as grants_insert, "
+            "not has_table_privilege('authenticated','public.source_grants','UPDATE') as grants_update_denied, "
+            "not has_table_privilege('anon','public.source_grants','SELECT') as anon_grants_denied, "
+            "not has_table_privilege('service_role','public.source_grants','SELECT') as service_grants_denied")
+        require(len(rows) == 1 and all(value is True for value in rows[0].values()), "Source snapshot grants differ from the migration manifest")
+    if V_VERIFIER_IDENTITY in present:
+        rows = api.query("select "
+            "has_function_privilege('authenticated','public.begin_snapshot_verification(uuid,uuid,uuid)','EXECUTE') as begin_rpc, "
+            "has_function_privilege('authenticated','public.publish_verified_snapshot(uuid,uuid,uuid,text,bigint,uuid,text)','EXECUTE') as publish_rpc, "
+            "has_function_privilege('authenticated','public.verifier_may_read_staged_object(text)','EXECUTE') as staged_read_rpc, "
+            "not has_function_privilege('anon','public.begin_snapshot_verification(uuid,uuid,uuid)','EXECUTE') as anon_begin_denied, "
+            "not has_function_privilege('anon','public.publish_verified_snapshot(uuid,uuid,uuid,text,bigint,uuid,text)','EXECUTE') as anon_publish_denied, "
+            "has_table_privilege('snapshot_publisher_owner','public.source_snapshots','SELECT') as owner_catalog_select, "
+            "has_table_privilege('snapshot_publisher_owner','storage.objects','SELECT') as owner_storage_select, "
+            "has_table_privilege('snapshot_publisher_owner','private.snapshot_verifier_allowlist','SELECT') as owner_allowlist_select, "
+            "has_function_privilege('snapshot_publisher_owner','private.verified_user_id()','EXECUTE') as owner_uid_rpc, "
+            "not has_table_privilege('snapshot_publisher_owner','private.snapshot_verifier_allowlist','INSERT') as owner_allowlist_insert_denied, "
+            "not has_table_privilege('snapshot_publisher_owner','private.snapshot_verifier_allowlist','UPDATE') as owner_allowlist_update_denied, "
+            "not has_table_privilege('snapshot_publisher_owner','private.snapshot_verifier_allowlist','DELETE') as owner_allowlist_delete_denied")
+        require(len(rows) == 1 and all(value is True for value in rows[0].values()), "Snapshot verifier grants differ from the migration manifest")
+    if V_ADMIN_AUDIT in present:
+        rows = api.query("select "
+            "has_table_privilege('snapshot_verifier_allowlist_manager','private.snapshot_verifier_allowlist','SELECT') as manager_select, "
+            "has_table_privilege('snapshot_verifier_allowlist_manager','private.snapshot_verifier_allowlist','DELETE') as manager_delete, "
+            "has_column_privilege('snapshot_verifier_allowlist_manager','private.snapshot_verifier_allowlist','user_id','INSERT') as manager_insert, "
+            "has_table_privilege('snapshot_verifier_allowlist_manager','private.snapshot_verifier_allowlist_audit','SELECT') as audit_select, "
+            "has_column_privilege('snapshot_verifier_audit_owner','private.snapshot_verifier_allowlist_audit','operation','INSERT') as audit_insert, "
+            "not has_table_privilege('authenticated','private.snapshot_verifier_allowlist','SELECT') as authenticated_allowlist_denied, "
+            "not has_table_privilege('snapshot_publisher_owner','private.snapshot_verifier_allowlist_audit','SELECT') as owner_audit_denied")
+        require(len(rows) == 1 and all(value is True for value in rows[0].values()), "Snapshot allowlist administration grants differ from the migration manifest")
 
 
 def recovery_is_recent(backup: dict) -> bool:
