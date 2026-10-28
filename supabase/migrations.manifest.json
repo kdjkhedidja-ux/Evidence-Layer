@@ -68,6 +68,12 @@
       "version": "20261023150000",
       "sha256": "82a265291d5781127780fb450b6faa689aa8b28ef5737382aa4749f491f25e7b",
       "provenance": "Merged to main via PR #38 (squash ea2062e); reviewed in that PR."
+    },
+    {
+      "file": "20261028120000_rls_auto_enable_fail_closed.sql",
+      "version": "20261028120000",
+      "sha256": "ee94c96220a1e3170b05bb26a31dd387b1ec0ce940983ab4fa7772a26c5963a0",
+      "provenance": "Fail-closed RLS bootstrap. Merged after PR #28 introduced the reviewed manifest; the migration replaces the log-and-continue body and re-verifies signature, owner, SECURITY DEFINER, fixed search_path, ACL, and the ensure_rls event trigger."
     }
   ]
 }

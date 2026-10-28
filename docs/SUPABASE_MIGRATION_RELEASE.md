@@ -125,13 +125,13 @@ Release planning remains a distinct step. `plan` is read-only against the
 project; `assert-plan` re-verifies that neither the reviewed bytes nor the remote
 state changed; `verify` runs only after an approved apply.
 
-As of 2026-10-26 the repository carries eleven migrations. The manifest
+As of 2026-10-28 the repository carries twelve migrations. The manifest
 re-approves `20261019135502_personal_workspace_bootstrap.sql` explicitly after
 its rename from `20261017100000_personal_workspace_bootstrap.sql`: the content is
 byte-identical, but a matching hash proves identity, not that the earlier
 approval still applies.
 
-As of 2026-10-27 the statement ledger covers those eleven files: 191 top-level
-statements, 155 of them Tier 1 with a written rationale and 0 Tier 0. The count
+As of 2026-10-28 the statement ledger covers those twelve files: 192 top-level
+statements, 156 of them Tier 1 with a written rationale and 0 Tier 0. The count
 is a measured output of `classify`, not an estimate; re-run it after any
 migration change.

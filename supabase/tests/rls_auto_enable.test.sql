@@ -7,7 +7,7 @@ set local search_path = public, extensions;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(14);
+select plan(18);
 
 select is(pg_get_userbyid(p.proowner), 'postgres', 'function owner is postgres')
 from pg_proc as p where p.oid = 'public.rls_auto_enable()'::regprocedure;
@@ -39,6 +39,22 @@ from pg_event_trigger as e where e.evtname = 'ensure_rls';
 
 select ok(e.evtenabled = 'O' and e.evtfoid = 'public.rls_auto_enable()'::regprocedure, 'event trigger is enabled and points to the function')
 from pg_event_trigger as e where e.evtname = 'ensure_rls';
+
+-- Fail-closed contract, added by 20261028120000_rls_auto_enable_fail_closed.sql.
+-- A superuser executor cannot make "enable row level security" fail, so the
+-- raising path itself is exercised by the disposable-stack probe documented in
+-- supabase/README.md; these assertions stop a silent revert to log-and-continue.
+select ok(strpos(p.prosrc, 'failed to enable row level security on') > 0, 'fail-closed: an ALTER failure is re-raised with the table identity')
+from pg_proc as p where p.oid = 'public.rls_auto_enable()'::regprocedure;
+
+select ok(strpos(p.prosrc, 'row level security is not enabled on') > 0, 'fail-closed: pg_class.relrowsecurity is checked after the ALTER')
+from pg_proc as p where p.oid = 'public.rls_auto_enable()'::regprocedure;
+
+select ok(strpos(p.prosrc, 'RAISE LOG ''rls_auto_enable: failed to enable RLS on %''') = 0, 'fail-closed: the historical log-and-continue handler is gone')
+from pg_proc as p where p.oid = 'public.rls_auto_enable()'::regprocedure;
+
+select ok(p.prosrc ~ 'EXCEPTION[[:space:]]+WHEN OTHERS THEN[[:space:]]+RAISE EXCEPTION', 'fail-closed: the exception handler raises instead of logging')
+from pg_proc as p where p.oid = 'public.rls_auto_enable()'::regprocedure;
 
 create table public.rls_auto_enable_probe (id integer);
 select ok((select relrowsecurity from pg_class where oid = 'public.rls_auto_enable_probe'::regclass), 'new public table has RLS enabled');
