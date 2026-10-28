@@ -14,7 +14,8 @@
     "procedural-block": "DO block, i.e. server-side procedural SQL. Its body is a single opaque unit for the statement lexer, which is precisely why DO is registry-gated: it is the only construct that can wrap arbitrary statements behind an innocuous verb. Each block is approved as a whole, so adding one is always a visible ledger change.",
     "catalog-seed-write": "INSERT ... SELECT into a reviewed catalogue table (the read-policy baseline). Values come from pg_catalog and pg_policies, not from user input; the row set is what the inventory guard diffs against later.",
     "temp-relation-cleanup": "DROP TABLE on a pg_temp relation created earlier in the same file by the admin-audit guard. Scoped to the migration session; nothing outside pg_temp is touched.",
-    "catalog-assertion-call": "Calls a private.* assertion or seeding function (assert_snapshot_role_safe, assert_snapshot_verifier_function_acl_safe, assert_snapshot_verifier_allowlist_shape, ensure_snapshot_bucket). These are fail-closed self-checks and idempotent catalogue seeds defined by reviewed migrations; they take literal arguments, never user input."
+    "catalog-assertion-call": "Calls a private.* assertion or seeding function (assert_snapshot_role_safe, assert_snapshot_verifier_function_acl_safe, assert_snapshot_verifier_allowlist_shape, ensure_snapshot_bucket). These are fail-closed self-checks and idempotent catalogue seeds defined by reviewed migrations; they take literal arguments, never user input.",
+    "fail-closed-rls-bootstrap": "DO block that replaces public.rls_auto_enable() with the reviewed fail-closed body. It refuses to replace a body that is neither the reviewed fail-open nor the reviewed fail-closed definition, re-raises ALTER failures with the table identity and the original SQLSTATE, asserts pg_class.relrowsecurity afterwards, and re-verifies the signature, owner, SECURITY DEFINER flag, fixed search_path, ACL and the ensure_rls event trigger. supabase/tests/rls_auto_enable.test.sql (plan 18) pins the observable contract and stops a silent revert to log-and-continue."
   },
   "entries": [
     {
@@ -1256,6 +1257,14 @@
       "verb": "drop table",
       "statement": "drop table pg_temp . source_snapshots",
       "rationale_ref": "temp-relation-cleanup"
+    },
+    {
+      "id": "946313e75c3f1a1d",
+      "file": "20261028120000_rls_auto_enable_fail_closed.sql",
+      "line": 24,
+      "verb": "do",
+      "statement": "do $migration$ declare expected_source text := $expected_function$ ; ... $migration$",
+      "rationale_ref": "fail-closed-rls-bootstrap"
     }
   ]
 }
