@@ -48,8 +48,7 @@ create schema if not exists private;
 do $$
 begin
     if not exists (select 1 from pg_roles where rolname = 'snapshot_publisher_owner') then
-        create role snapshot_publisher_owner
-            nologin noinherit nobypassrls nosuperuser nocreatedb nocreaterole noreplication;
+        execute 'create role snapshot_publisher_owner nologin noinherit nobypassrls nosuperuser nocreatedb nocreaterole noreplication';
     end if;
 end
 $$;

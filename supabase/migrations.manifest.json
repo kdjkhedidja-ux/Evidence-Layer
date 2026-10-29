@@ -42,7 +42,7 @@
     {
       "file": "20261022100000_source_snapshot_catalog.sql",
       "version": "20261022100000",
-      "sha256": "ca9bb354e8534a8030494a612b3922fd24e7849b1bc464c80d4e568be7b573a7",
+      "sha256": "89ebb42e2076a508be6c61d698f8c7641bb9aa05ea39ae5dee1782d86b59addc",
       "provenance": "Merged to main via PR #38 (squash ea2062e); reviewed in that PR."
     },
     {
@@ -54,7 +54,7 @@
     {
       "file": "20261022120000_snapshot_verifier_identity.sql",
       "version": "20261022120000",
-      "sha256": "1fca6b04c9238782aff53a0c0b5e84e285ba3358d0efad14c9d783d3de0f7ddc",
+      "sha256": "677608a10f0b8d82f35cddd0e40702df95425f5c92d08800600f64216133c741",
       "provenance": "Merged to main via PR #38 (squash ea2062e); reviewed in that PR."
     },
     {

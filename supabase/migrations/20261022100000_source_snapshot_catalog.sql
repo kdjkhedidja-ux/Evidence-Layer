@@ -132,8 +132,7 @@ revoke all on function private.assert_snapshot_role_safe(name)
 do $$
 begin
     if not exists (select 1 from pg_catalog.pg_roles where rolname = 'snapshot_verifier') then
-        create role snapshot_verifier
-            nologin noinherit nobypassrls nosuperuser nocreatedb nocreaterole noreplication;
+        execute 'create role snapshot_verifier nologin noinherit nobypassrls nosuperuser nocreatedb nocreaterole noreplication';
     end if;
 end
 $$;
