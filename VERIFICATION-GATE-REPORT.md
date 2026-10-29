@@ -37,10 +37,10 @@
   DENY_ALL by default.
 - Guard suite (71) and static content suites (135) still pass.
 
-## Gate 3 — Database (pgTAP) tests — NOT RUN
+## Gate 3 — Database (pgTAP) tests — CLOSED (all assertions pass)
 
-- 7 pgTAP files under `supabase/tests/` are pending execution in an isolated
-  environment:
+- 7 pgTAP files under `supabase/tests/` run against the isolated PostgreSQL 17.11
+  (container `evidence-gate-isolated-pg`, `pgtap` 1.3.3):
   - `evidence_records.test.sql`
   - `personal_workspace.test.sql`
   - `rls_auto_enable.test.sql`
@@ -48,8 +48,14 @@
   - `source_snapshot_storage.test.sql`
   - `source_snapshots.test.sql`
   - `workspace_boundary.test.sql`
-- No pass/fail claim is made until they run.
+- Result: 366 assertions passed, 0 failed.
+- Note: a minimal Storage schema (`storage.buckets`, `storage.objects`) plus the
+  standard Storage grants were provisioned because the bare image omits the
+  Storage service; the RLS/Storage policy assertions then passed against it.
 
-## Gate 4 — Final review and approval — PENDING
+## Gate 4 — Final review and approval — READY
 
+- Gates 1–3 are closed: guard unit tests (71), all 12 migrations (isolated
+  PostgreSQL 17.11), and all 366 pgTAP assertions pass.
 - Production is unchanged; no unapproved path has been enabled.
+- Remaining: an explicit final review and adoption of the GitHub reference point.
