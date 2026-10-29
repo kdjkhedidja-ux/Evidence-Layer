@@ -18,20 +18,24 @@
 - Not claimed here: integration tests, pgTAP database tests, or live Supabase
   behavior. Those are tracked by Gates 2–4 below.
 
-## Gate 2 — Security migrations — IN PROGRESS (code fix applied; run pending)
+## Gate 2 — Security migrations — CLOSED (runtime-verified)
 
 - 12 migrations are listed in `supabase/migrations.manifest.json` (with sha256
   integrity hashes).
 - Blocker fixed: `CREATE ROLE snapshot_verifier` and `CREATE ROLE
   snapshot_publisher_owner` were written inside PL/pgSQL `DO` blocks as direct
-  statements (not permitted in a procedural block). Both are now wrapped in
-  `EXECUTE` in `20261022100000_source_snapshot_catalog.sql` and
-  `20261022120000_snapshot_verifier_identity.sql`. The manifest sha256 and the
-  two statement-ledger entries were regenerated to match; the guard suite and
-  static content suites still pass.
-- NOT yet done: running all migrations in order on an isolated PostgreSQL and
-  keeping the DENY_ALL default until safe read grants are proven (the actual
-  Gate 2 acceptance criterion).
+  statements; both are now wrapped in `EXECUTE` in `20261022100000_source_snapshot_catalog.sql`
+  and `20261022120000_snapshot_verifier_identity.sql`.
+- Runtime verification (isolated PostgreSQL 17.11, image
+  `supabase/postgres:17.11.0.004`, container `evidence-gate-isolated-pg`): all 12
+  migrations applied in order with `ON_ERROR_STOP=1` and every one exited 0. A
+  minimal Storage stub (`storage.buckets`, `storage.objects`) was provisioned
+  because the bare image omits the Storage schema.
+- Resulting state: `snapshot_verifier`, `snapshot_publisher_owner`, and
+  `snapshot_verifier_allowlist_owner` are NOLOGIN/NOINHERIT/NOBYPASSRLS/NOSUPERUSER;
+  `private.snapshot_verifier_allowlist` is empty (0 rows), so publication stays
+  DENY_ALL by default.
+- Guard suite (71) and static content suites (135) still pass.
 
 ## Gate 3 — Database (pgTAP) tests — NOT RUN
 
