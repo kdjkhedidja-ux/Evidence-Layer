@@ -53,9 +53,30 @@
   standard Storage grants were provisioned because the bare image omits the
   Storage service; the RLS/Storage policy assertions then passed against it.
 
-## Gate 4 — Final review and approval — READY
+## Gate 4 — Final review and approval — CLOSED
 
-- Gates 1–3 are closed: guard unit tests (71), all 12 migrations (isolated
-  PostgreSQL 17.11), and all 366 pgTAP assertions pass.
-- Production is unchanged; no unapproved path has been enabled.
-- Remaining: an explicit final review and adoption of the GitHub reference point.
+- Reference point adopted: `e8d5c122cc794d555076ce754f5995dfe7e8c5a8`
+  (branch `fix/rls-auto-enable-fail-closed`, synced with `origin`).
+
+### Verified (passed)
+- Migration guard unit tests: 71 passed.
+- All 12 migrations apply in order on isolated PostgreSQL 17.11; verifier roles are
+  NOLOGIN/NOINHERIT/NOBYPASSRLS/NOSUPERUSER and the allowlist is empty (DENY_ALL).
+- pgTAP: 366 assertions passed, 0 failed (tenant isolation, RLS/Storage policies,
+  source_snapshots catalog, source_grants, verifier identity, negative/deny cases).
+- Static content suites: 135 passed.
+
+### Not tested / documented exceptions
+- Live Supabase Storage service: verifier RPCs and the "storage.objects.version
+  changes on every upload" assumption were exercised against a minimal Storage
+  schema, not a running Storage service.
+- Live Supabase Auth: JWT claims were simulated via set_config, not a running
+  GoTrue service.
+- Hosted Supabase project (PROJECT_REF ayrtyjgqlgtuiwuyigbz): no plan/verify/apply
+  was run; production is unchanged.
+- Full local Supabase stack integration tests (Auth + Storage services) were not
+  run because those services are unhealthy in this Codespace.
+
+### Production
+- No production migration, hosted database operation, or unapproved path was
+  performed or enabled.
