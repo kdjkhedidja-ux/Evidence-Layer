@@ -774,7 +774,9 @@ def test_older_pgtap_files_publish_only_through_the_scoped_rpc(path):
 
 def test_live_test_lists_the_verifier_per_workspace_and_keeps_the_legacy_route_denied():
     text = (_ROOT / "tests/integration/test_local_storage_snapshot_policies.py").read_text()
+    helpers = (_ROOT / "tests/integration/conftest.py").read_text()
+    text += helpers
     assert "set_verifier_enabled" not in text
     assert "private.snapshot_verifier_allowlist (user_id, workspace_id)" in text
-    assert "test_verifier_scope_is_limited_to_its_listed_workspace" in text
-    assert "test_legacy_role_route_is_closed_even_if_the_role_were_assumable" in text
+    assert "test_verifier_scope_is_limited_to_its_allowlisted_workspace" in text
+    assert "test_legacy_direct_publication_route_is_closed_for_auth_users" in text

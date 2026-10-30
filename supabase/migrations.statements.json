@@ -355,11 +355,11 @@
       "rationale_ref": "privilege-revoke"
     },
     {
-      "id": "691a745b292a09c3",
+      "id": "a7d5b762e27b89e8",
       "file": "20261022100000_source_snapshot_catalog.sql",
       "line": 132,
       "verb": "do",
-      "statement": "do $$\nbegin\n    if not exists (select 1 from pg_catalog.pg_roles where rolname = 'snapshot_verifier') then\n        create role snapshot_verifier\n            nol",
+      "statement": "do $$\nbegin\n    if not exists (select 1 from pg_catalog.pg_roles where rolname = 'snapshot_verifier') then\n        execute 'create role snapshot_verifier nologin noinherit nobypassrls nosuperuser nocreatedb nocreaterole noreplication';\n    end if;\nend\n$$",
       "rationale_ref": "procedural-block"
     },
     {
@@ -603,11 +603,11 @@
       "rationale_ref": "procedural-block"
     },
     {
-      "id": "1d17654ca0f64e0f",
+      "id": "0ea0f93e799c3cb8",
       "file": "20261022120000_snapshot_verifier_identity.sql",
       "line": 48,
       "verb": "do",
-      "statement": "do $$\nbegin\n    if not exists (select 1 from pg_roles where rolname = 'snapshot_publisher_owner') then\n        create role snapshot_publisher_owner\n            ",
+      "statement": "do $$\nbegin\n    if not exists (select 1 from pg_roles where rolname = 'snapshot_publisher_owner') then\n        execute 'create role snapshot_publisher_owner nologin noinherit nobypassrls nosuperuser nocreatedb nocreaterole noreplication';\n    end if;\nend\n$$",
       "rationale_ref": "procedural-block"
     },
     {

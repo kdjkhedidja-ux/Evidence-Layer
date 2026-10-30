@@ -242,14 +242,39 @@ class Supabase:
         try:
             with urllib.request.urlopen(request, timeout=25) as response:
                 return json.load(response)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            raise GuardError(f"Supabase {path} returned invalid JSON") from None
         except urllib.error.HTTPError as error:
             raise GuardError(f"Supabase {path} returned HTTP {error.code}") from None
-        except urllib.error.URLError:
+        except (urllib.error.URLError, TimeoutError, OSError):
             raise GuardError(f"Supabase {path} could not be reached") from None
 
-    def query(self, sql: str) -> list[dict]:
-        rows = self.request("/database/query", {"query": sql, "read_only": True})
+    def query(
+        self,
+        sql: str,
+        expected_columns: dict[str, type | tuple[type, ...]],
+    ) -> list[dict]:
+        rows = self.request("/database/query/read-only", {"query": sql})
         require(isinstance(rows, list), "Unexpected read-only SQL response")
+        require(bool(expected_columns), "Read-only SQL response schema is unavailable")
+        expected_names = set(expected_columns)
+        for index, row in enumerate(rows):
+            require(isinstance(row, dict), f"Unexpected read-only SQL row at index {index}")
+            actual_names = set(row)
+            missing = expected_names - actual_names
+            unexpected = actual_names - expected_names
+            require(
+                not missing and not unexpected,
+                "Unexpected read-only SQL columns at row "
+                f"{index}: missing={sorted(missing)}, unexpected={sorted(unexpected)}",
+            )
+            for name, expected_type in expected_columns.items():
+                require(
+                    type(row[name]) in (
+                        expected_type if isinstance(expected_type, tuple) else (expected_type,)
+                    ),
+                    f"Unexpected read-only SQL value type for column {name} at row {index}",
+                )
         return rows
 
     def target(self) -> None:
@@ -260,11 +285,19 @@ class Supabase:
         require(project.get("status") == "ACTIVE_HEALTHY", "Target project is not healthy")
 
     def history(self) -> list[str]:
-        rows = self.query("select to_regclass('supabase_migrations.schema_migrations')::text as table_name")
+        rows = self.query(
+            "select pg_catalog.to_regclass('supabase_migrations.schema_migrations')::pg_catalog.text as table_name",
+            {"table_name": (str, type(None))},
+        )
         require(len(rows) == 1, "Could not determine remote migration history")
-        if rows[0]["table_name"] is None:
-            return []
-        versions = self.query("select version::text from supabase_migrations.schema_migrations order by version")
+        require(
+            rows[0]["table_name"] is not None,
+            "Remote migration history table is missing",
+        )
+        versions = self.query(
+            "select version::pg_catalog.text from supabase_migrations.schema_migrations order by version",
+            {"version": str},
+        )
         return [str(row["version"]) for row in versions]
 
     def backup(self) -> dict:
@@ -279,50 +312,133 @@ class Supabase:
         # silently adopted: anything outside public/private/storage is ignored,
         # and the expected inventory below must name it explicitly.
         queries = {
-            "tables": ("select n.nspname as schema,c.relname as name,"
-                       "c.relrowsecurity as rls,c.relforcerowsecurity as force_rls "
-                       "from pg_class c join pg_namespace n on n.oid=c.relnamespace "
-                       "where n.nspname in ('public','private') and c.relkind in ('r','p') "
-                       "order by 1,2"),
-            "indexes": ("select schemaname as schema,indexname as name from pg_indexes "
-                        "where schemaname in ('public','private') order by 1,2"),
-            "foreign_keys": ("select co.conname as name,"
-                             "sn.nspname||'.'||sc.relname as source,"
-                             "tn.nspname||'.'||tc.relname as target,"
-                             "co.confdeltype::text as on_delete "
-                             "from pg_constraint co "
-                             "join pg_class sc on sc.oid=co.conrelid "
-                             "join pg_namespace sn on sn.oid=sc.relnamespace "
-                             "join pg_class tc on tc.oid=co.confrelid "
-                             "join pg_namespace tn on tn.oid=tc.relnamespace "
-                             "where co.contype='f' and sn.nspname in ('public','private') "
-                             "order by 1"),
-            "policies": ("select schemaname as schema,policyname as name from pg_policies "
-                         "where schemaname in ('public','private','storage') order by 1,2"),
-            "triggers": ("select n.nspname as schema,t.tgname as name "
-                         "from pg_trigger t "
-                         "join pg_class c on c.oid=t.tgrelid "
-                         "join pg_namespace n on n.oid=c.relnamespace "
-                         "where n.nspname in ('public','private') and not t.tgisinternal "
-                         "order by 1,2"),
+            "tables": (
+                "select n.nspname as schema,c.relname as name,"
+                "c.relrowsecurity as rls,c.relforcerowsecurity as force_rls "
+                "from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid=c.relnamespace "
+                "where n.nspname in ('public','private') and c.relkind in ('r','p') "
+                "order by 1,2",
+                {"schema": str, "name": str, "rls": bool, "force_rls": bool},
+            ),
+            "indexes": (
+                "select schemaname as schema,indexname as name from pg_catalog.pg_indexes "
+                "where schemaname in ('public','private') order by 1,2",
+                {"schema": str, "name": str},
+            ),
+            "foreign_keys": (
+                "select co.conname as name,"
+                "sn.nspname||'.'||sc.relname as source,"
+                "tn.nspname||'.'||tc.relname as target,"
+                "co.confdeltype::pg_catalog.text as on_delete "
+                "from pg_catalog.pg_constraint co "
+                "join pg_catalog.pg_class sc on sc.oid=co.conrelid "
+                "join pg_catalog.pg_namespace sn on sn.oid=sc.relnamespace "
+                "join pg_catalog.pg_class tc on tc.oid=co.confrelid "
+                "join pg_catalog.pg_namespace tn on tn.oid=tc.relnamespace "
+                "where co.contype='f' and sn.nspname in ('public','private') "
+                "order by 1",
+                {"name": str, "source": str, "target": str, "on_delete": str},
+            ),
+            "policies": (
+                "select schemaname as schema,tablename as table,policyname as name "
+                "from pg_catalog.pg_policies "
+                "where schemaname in ('public','private','storage') order by 1,2",
+                {"schema": str, "table": str, "name": str},
+            ),
+            "triggers": (
+                "select n.nspname as schema,t.tgname as name "
+                "from pg_catalog.pg_trigger t "
+                "join pg_catalog.pg_class c on c.oid=t.tgrelid "
+                "join pg_catalog.pg_namespace n on n.oid=c.relnamespace "
+                "where n.nspname in ('public','private') and not t.tgisinternal "
+                "order by 1,2",
+                {"schema": str, "name": str},
+            ),
             # Extension-provided functions (e.g. the ~118 pgvector helpers the
             # platform installs into public) are not migration objects and must
             # not make the inventory diverge. pg_depend deptype 'e' marks them.
-            "functions": ("select n.nspname as schema,p.proname as name "
-                          "from pg_proc p join pg_namespace n on n.oid=p.pronamespace "
-                          "where n.nspname in ('public','private') "
-                          "and not exists (select 1 from pg_depend d "
-                          "where d.classid='pg_proc'::regclass and d.objid=p.oid "
-                          "and d.refclassid='pg_extension'::regclass and d.deptype='e') "
-                          "order by 1,2"),
-            "extensions": "select extname as name from pg_extension where extname='vector'",
-            "roles": ("select rolname as name,rolcanlogin as canlogin,rolinherit as inherit,"
-                      "rolsuper as super,rolbypassrls as bypassrls,rolcreaterole as createrole,"
-                      "rolcreatedb as createdb,rolreplication as replication "
-                      "from pg_roles where rolname like 'snapshot\\_%' order by rolname"),
-            "event_triggers": "select evtname as name from pg_event_trigger order by evtname",
+            "functions": (
+                "select n.nspname as schema,p.proname as name "
+                "from pg_catalog.pg_proc p join pg_catalog.pg_namespace n on n.oid=p.pronamespace "
+                "where n.nspname in ('public','private') "
+                "and not exists (select 1 from pg_catalog.pg_depend d "
+                "where d.classid='pg_catalog.pg_proc'::pg_catalog.regclass and d.objid=p.oid "
+                "and d.refclassid='pg_catalog.pg_extension'::pg_catalog.regclass and d.deptype='e') "
+                "order by 1,2",
+                {"schema": str, "name": str},
+            ),
+            "extensions": (
+                "select extname as name from pg_catalog.pg_extension where extname='vector'",
+                {"name": str},
+            ),
+            "roles": (
+                "select rolname as name,rolcanlogin as canlogin,rolinherit as inherit,"
+                "rolsuper as super,rolbypassrls as bypassrls,rolcreaterole as createrole,"
+                "rolcreatedb as createdb,rolreplication as replication "
+                "from pg_catalog.pg_roles where rolname like 'snapshot\\_%' order by rolname",
+                {
+                    "name": str,
+                    "canlogin": bool,
+                    "inherit": bool,
+                    "super": bool,
+                    "bypassrls": bool,
+                    "createrole": bool,
+                    "createdb": bool,
+                    "replication": bool,
+                },
+            ),
+            "role_memberships": (
+                "select role_row.rolname as name,"
+                "count(membership.roleid)::pg_catalog.int8 as membership_count,"
+                "count(membership.roleid) filter (where "
+                "membership.roleid=role_row.oid "
+                "and membership.member=current_user::pg_catalog.regrole "
+                "and membership.admin_option "
+                "and not membership.set_option "
+                "and not membership.inherit_option"
+                ")::pg_catalog.int8 as allowed_admin_memberships "
+                "from pg_catalog.pg_roles as role_row "
+                "left join pg_catalog.pg_auth_members as membership "
+                "on membership.roleid=role_row.oid or membership.member=role_row.oid "
+                "where role_row.rolname like 'snapshot\\_%' "
+                "group by role_row.oid,role_row.rolname order by role_row.rolname",
+                {
+                    "name": str,
+                    "membership_count": int,
+                    "allowed_admin_memberships": int,
+                },
+            ),
+            "event_triggers": (
+                "select evtname as name from pg_catalog.pg_event_trigger order by evtname",
+                {"name": str},
+            ),
         }
-        return {name: self.query(sql) for name, sql in queries.items()}
+        catalog_probe = self.query(
+            "select count(*)::pg_catalog.int8 as visible_catalog_relations "
+            "from pg_catalog.pg_class "
+            "where oid in ("
+            "'pg_catalog.pg_class'::pg_catalog.regclass,"
+            "'pg_catalog.pg_namespace'::pg_catalog.regclass,"
+            "'pg_catalog.pg_indexes'::pg_catalog.regclass,"
+            "'pg_catalog.pg_constraint'::pg_catalog.regclass,"
+            "'pg_catalog.pg_policies'::pg_catalog.regclass,"
+            "'pg_catalog.pg_trigger'::pg_catalog.regclass,"
+            "'pg_catalog.pg_proc'::pg_catalog.regclass,"
+            "'pg_catalog.pg_depend'::pg_catalog.regclass,"
+            "'pg_catalog.pg_extension'::pg_catalog.regclass,"
+            "'pg_catalog.pg_roles'::pg_catalog.regclass,"
+            "'pg_catalog.pg_auth_members'::pg_catalog.regclass,"
+            "'pg_catalog.pg_event_trigger'::pg_catalog.regclass)",
+            {"visible_catalog_relations": int},
+        )
+        require(
+            len(catalog_probe) == 1 and catalog_probe[0]["visible_catalog_relations"] == 12,
+            "Read-only SQL role cannot verify all required PostgreSQL catalog relations",
+        )
+        return {
+            name: self.query(query, expected_columns)
+            for name, (query, expected_columns) in queries.items()
+        }
 
 
 def expected_roles(versions: list[str]) -> set[str]:
@@ -339,6 +455,25 @@ def expected_roles(versions: list[str]) -> set[str]:
             "snapshot_verifier_audit_owner",
         })
     return roles
+
+
+def expected_policy_identity(policy: str) -> str:
+    schema, name = policy.split(".", 1)
+    relation_prefixes = (
+        ("source_snapshots_objects_", "storage", "objects"),
+        ("workspace_memberships_", "public", "workspace_memberships"),
+        ("workspaces_", "public", "workspaces"),
+        ("evidence_records_", "public", "evidence_records"),
+        ("source_snapshots_", "public", "source_snapshots"),
+        ("source_grants_", "public", "source_grants"),
+        ("snapshot_verifier_allowlist_audit_", "private", "snapshot_verifier_allowlist_audit"),
+        ("snapshot_verifier_allowlist_", "private", "snapshot_verifier_allowlist"),
+    )
+    for prefix, expected_schema, table in relation_prefixes:
+        if name.startswith(prefix):
+            require(schema == expected_schema, f"Policy {policy} has an unexpected schema")
+            return f"{schema}.{table}.{name}"
+    raise GuardError(f"Policy {policy} has no reviewed relation mapping")
 
 
 def expected_catalog(versions: list[str]) -> dict:
@@ -558,10 +693,14 @@ def assert_catalog(actual: dict, versions: list[str]) -> None:
         require(row["rls"] is rls_required and row["force_rls"] is force_required,
                 f"RLS state differs from the manifest on {qualified}: expected rls={rls_required} force={force_required}, found rls={row['rls']} force={row['force_rls']}")
 
-    for category in ("indexes", "policies", "triggers", "functions"):
+    for category in ("indexes", "triggers", "functions"):
         found = {f"{row['schema']}.{row['name']}" for row in actual[category]}
         require(found == expected[category],
                 f"Remote {category} differ from the applied migration manifest: expected {sorted(expected[category])}, found {sorted(found)}")
+
+    # The catalog guard pins policy identity to its target relation. pgTAP
+    # checks policy commands, roles, predicates, and RLS behavior.
+    assert_policy_inventory(actual["policies"], expected["policies"])
 
     found_extensions = {row["name"] for row in actual["extensions"]}
     require(found_extensions == expected["extensions"],
@@ -581,6 +720,7 @@ def assert_catalog(actual: dict, versions: list[str]) -> None:
     for row in actual["roles"]:
         for attribute in ("canlogin", "inherit", "super", "bypassrls", "createrole", "createdb", "replication"):
             require(row[attribute] is False, f"Snapshot role {row['name']} has an unsafe attribute: {attribute}")
+    assert_role_memberships(actual["role_memberships"], expected["roles"])
 
     found_fks = {(row["name"], row["source"], row["target"], row["on_delete"]) for row in actual["foreign_keys"]}
     require(found_fks == expected["foreign_keys"],
@@ -588,71 +728,181 @@ def assert_catalog(actual: dict, versions: list[str]) -> None:
             f"expected {sorted(expected['foreign_keys'])}, found {sorted(found_fks)}")
 
 
+def assert_role_memberships(actual: list[dict], expected_roles: set[str]) -> None:
+    found: dict[str, dict] = {}
+    for index, row in enumerate(actual):
+        require(isinstance(row, dict), f"Unexpected role membership row at index {index}")
+        require(
+            set(row) == {"name", "membership_count", "allowed_admin_memberships"},
+            f"Unexpected role membership columns at index {index}",
+        )
+        require(
+            isinstance(row["name"], str)
+            and type(row["membership_count"]) is int
+            and type(row["allowed_admin_memberships"]) is int,
+            f"Unexpected role membership value type at index {index}",
+        )
+        require(row["name"] not in found, f"Duplicate role membership audit row for {row['name']}")
+        found[row["name"]] = row
+
+    require(
+        set(found) == expected_roles,
+        "Snapshot role membership audit is incomplete or contains unexpected roles",
+    )
+    for role_name, row in found.items():
+        membership_count = row["membership_count"]
+        allowed_count = row["allowed_admin_memberships"]
+        require(
+            membership_count >= 0 and allowed_count in (0, 1)
+            and membership_count == allowed_count,
+            f"Snapshot role {role_name} has an unexpected direct or transitive membership",
+        )
+
+
+def assert_policy_inventory(actual: list[dict], expected: set[str]) -> None:
+    found: set[str] = set()
+    for index, row in enumerate(actual):
+        require(isinstance(row, dict), f"Unexpected policy row at index {index}")
+        require(
+            set(row) == {"schema", "table", "name"}
+            and all(isinstance(row[field], str) for field in ("schema", "table", "name")),
+            f"Unexpected policy catalog columns or value types at index {index}",
+        )
+        identity = f"{row['schema']}.{row['table']}.{row['name']}"
+        require(identity not in found, f"Duplicate policy catalog row for {identity}")
+        found.add(identity)
+
+    expected_identities = {expected_policy_identity(policy) for policy in expected}
+    require(
+        found == expected_identities,
+        "Remote policies differ from the migration manifest: "
+        f"expected {sorted(expected_identities)}, found {sorted(found)}",
+    )
+
+
 def assert_grants(api: Supabase, versions: list[str]) -> None:
     present = set(versions)
     if V_IDENTITY in present:
         rows = api.query("select "
-            "has_column_privilege('authenticated','public.workspaces','id','SELECT') as workspace_id_select, "
-            "has_column_privilege('authenticated','public.workspaces','name','UPDATE') as workspace_name_update, "
-            "has_table_privilege('authenticated','public.workspace_memberships','SELECT') as membership_select, "
-            "not has_table_privilege('anon','public.workspaces','SELECT') as anon_workspace_denied, "
-            "not has_table_privilege('authenticated','public.workspace_memberships','INSERT') as membership_insert_denied")
+            "pg_catalog.has_column_privilege('authenticated','public.workspaces','id','SELECT') as workspace_id_select, "
+            "pg_catalog.has_column_privilege('authenticated','public.workspaces','name','UPDATE') as workspace_name_update, "
+            "pg_catalog.has_table_privilege('authenticated','public.workspace_memberships','SELECT') as membership_select, "
+            "not pg_catalog.has_table_privilege('anon','public.workspaces','SELECT') as anon_workspace_denied, "
+            "not pg_catalog.has_table_privilege('authenticated','public.workspace_memberships','INSERT') as membership_insert_denied",
+            {
+                "workspace_id_select": bool,
+                "workspace_name_update": bool,
+                "membership_select": bool,
+                "anon_workspace_denied": bool,
+                "membership_insert_denied": bool,
+            })
         require(len(rows) == 1 and all(value is True for value in rows[0].values()), "Workspace grants differ from the migration manifest")
     if V_PERSONAL in present:
         rows = api.query("select "
-            "not has_column_privilege('authenticated','public.workspaces','personal_owner_id','SELECT') as owner_key_private, "
-            "has_function_privilege('authenticated','public.ensure_personal_workspace()','EXECUTE') as authenticated_rpc, "
-            "not has_function_privilege('anon','public.ensure_personal_workspace()','EXECUTE') as anon_rpc_denied")
+            "not pg_catalog.has_column_privilege('authenticated','public.workspaces','personal_owner_id','SELECT') as owner_key_private, "
+            "pg_catalog.has_function_privilege('authenticated','public.ensure_personal_workspace()','EXECUTE') as authenticated_rpc, "
+            "not pg_catalog.has_function_privilege('anon','public.ensure_personal_workspace()','EXECUTE') as anon_rpc_denied",
+            {
+                "owner_key_private": bool,
+                "authenticated_rpc": bool,
+                "anon_rpc_denied": bool,
+            })
         require(len(rows) == 1 and all(value is True for value in rows[0].values()), "Personal workspace grants differ from the migration manifest")
     if V_EVIDENCE in present:
         rows = api.query("select "
-            "has_table_privilege('authenticated','public.evidence_records','SELECT') as evidence_select, "
-            "has_column_privilege('authenticated','public.evidence_records','content','INSERT') as evidence_insert, "
-            "has_column_privilege('authenticated','public.evidence_records','content','UPDATE') as evidence_update, "
-            "has_table_privilege('authenticated','public.evidence_records','DELETE') as evidence_delete, "
-            "not has_table_privilege('anon','public.evidence_records','SELECT') as anon_evidence_denied, "
-            "not has_table_privilege('service_role','public.evidence_records','SELECT') as service_evidence_denied")
+            "pg_catalog.has_table_privilege('authenticated','public.evidence_records','SELECT') as evidence_select, "
+            "pg_catalog.has_column_privilege('authenticated','public.evidence_records','content','INSERT') as evidence_insert, "
+            "pg_catalog.has_column_privilege('authenticated','public.evidence_records','content','UPDATE') as evidence_update, "
+            "pg_catalog.has_table_privilege('authenticated','public.evidence_records','DELETE') as evidence_delete, "
+            "not pg_catalog.has_table_privilege('anon','public.evidence_records','SELECT') as anon_evidence_denied, "
+            "not pg_catalog.has_table_privilege('service_role','public.evidence_records','SELECT') as service_evidence_denied",
+            {
+                "evidence_select": bool,
+                "evidence_insert": bool,
+                "evidence_update": bool,
+                "evidence_delete": bool,
+                "anon_evidence_denied": bool,
+                "service_evidence_denied": bool,
+            })
         require(len(rows) == 1 and all(value is True for value in rows[0].values()), "Evidence grants differ from the migration manifest")
     if V_SOURCE_CATALOG in present:
         rows = api.query("select "
-            "has_table_privilege('authenticated','public.source_snapshots','SELECT') as snapshots_select, "
-            "has_column_privilege('authenticated','public.source_snapshots','object_key','INSERT') as snapshots_insert_staged, "
-            "not has_column_privilege('authenticated','public.source_snapshots','published_at','INSERT') as snapshots_publish_denied, "
-            "not has_table_privilege('authenticated','public.source_snapshots','UPDATE') as snapshots_update_denied, "
-            "not has_table_privilege('authenticated','public.source_snapshots','DELETE') as snapshots_delete_denied, "
-            "not has_table_privilege('anon','public.source_snapshots','SELECT') as anon_snapshots_denied, "
-            "not has_table_privilege('service_role','public.source_snapshots','SELECT') as service_snapshots_denied, "
-            "has_table_privilege('authenticated','public.source_grants','SELECT') as grants_select, "
-            "has_table_privilege('authenticated','public.source_grants','DELETE') as grants_delete, "
-            "has_column_privilege('authenticated','public.source_grants','granted_by','INSERT') as grants_insert, "
-            "not has_table_privilege('authenticated','public.source_grants','UPDATE') as grants_update_denied, "
-            "not has_table_privilege('anon','public.source_grants','SELECT') as anon_grants_denied, "
-            "not has_table_privilege('service_role','public.source_grants','SELECT') as service_grants_denied")
+            "pg_catalog.has_table_privilege('authenticated','public.source_snapshots','SELECT') as snapshots_select, "
+            "pg_catalog.has_column_privilege('authenticated','public.source_snapshots','object_key','INSERT') as snapshots_insert_staged, "
+            "not pg_catalog.has_column_privilege('authenticated','public.source_snapshots','published_at','INSERT') as snapshots_publish_denied, "
+            "not pg_catalog.has_table_privilege('authenticated','public.source_snapshots','UPDATE') as snapshots_update_denied, "
+            "not pg_catalog.has_table_privilege('authenticated','public.source_snapshots','DELETE') as snapshots_delete_denied, "
+            "not pg_catalog.has_table_privilege('anon','public.source_snapshots','SELECT') as anon_snapshots_denied, "
+            "not pg_catalog.has_table_privilege('service_role','public.source_snapshots','SELECT') as service_snapshots_denied, "
+            "pg_catalog.has_table_privilege('authenticated','public.source_grants','SELECT') as grants_select, "
+            "pg_catalog.has_table_privilege('authenticated','public.source_grants','DELETE') as grants_delete, "
+            "pg_catalog.has_column_privilege('authenticated','public.source_grants','granted_by','INSERT') as grants_insert, "
+            "not pg_catalog.has_table_privilege('authenticated','public.source_grants','UPDATE') as grants_update_denied, "
+            "not pg_catalog.has_table_privilege('anon','public.source_grants','SELECT') as anon_grants_denied, "
+            "not pg_catalog.has_table_privilege('service_role','public.source_grants','SELECT') as service_grants_denied",
+            {
+                "snapshots_select": bool,
+                "snapshots_insert_staged": bool,
+                "snapshots_publish_denied": bool,
+                "snapshots_update_denied": bool,
+                "snapshots_delete_denied": bool,
+                "anon_snapshots_denied": bool,
+                "service_snapshots_denied": bool,
+                "grants_select": bool,
+                "grants_delete": bool,
+                "grants_insert": bool,
+                "grants_update_denied": bool,
+                "anon_grants_denied": bool,
+                "service_grants_denied": bool,
+            })
         require(len(rows) == 1 and all(value is True for value in rows[0].values()), "Source snapshot grants differ from the migration manifest")
     if V_VERIFIER_IDENTITY in present:
         rows = api.query("select "
-            "has_function_privilege('authenticated','public.begin_snapshot_verification(uuid,uuid,uuid)','EXECUTE') as begin_rpc, "
-            "has_function_privilege('authenticated','public.publish_verified_snapshot(uuid,uuid,uuid,text,bigint,uuid,text)','EXECUTE') as publish_rpc, "
-            "has_function_privilege('authenticated','public.verifier_may_read_staged_object(text)','EXECUTE') as staged_read_rpc, "
-            "not has_function_privilege('anon','public.begin_snapshot_verification(uuid,uuid,uuid)','EXECUTE') as anon_begin_denied, "
-            "not has_function_privilege('anon','public.publish_verified_snapshot(uuid,uuid,uuid,text,bigint,uuid,text)','EXECUTE') as anon_publish_denied, "
-            "has_table_privilege('snapshot_publisher_owner','public.source_snapshots','SELECT') as owner_catalog_select, "
-            "has_table_privilege('snapshot_publisher_owner','storage.objects','SELECT') as owner_storage_select, "
-            "has_table_privilege('snapshot_publisher_owner','private.snapshot_verifier_allowlist','SELECT') as owner_allowlist_select, "
-            "has_function_privilege('snapshot_publisher_owner','private.verified_user_id()','EXECUTE') as owner_uid_rpc, "
-            "not has_table_privilege('snapshot_publisher_owner','private.snapshot_verifier_allowlist','INSERT') as owner_allowlist_insert_denied, "
-            "not has_table_privilege('snapshot_publisher_owner','private.snapshot_verifier_allowlist','UPDATE') as owner_allowlist_update_denied, "
-            "not has_table_privilege('snapshot_publisher_owner','private.snapshot_verifier_allowlist','DELETE') as owner_allowlist_delete_denied")
+            "pg_catalog.has_function_privilege('authenticated','public.begin_snapshot_verification(uuid,uuid,uuid)','EXECUTE') as begin_rpc, "
+            "pg_catalog.has_function_privilege('authenticated','public.publish_verified_snapshot(uuid,uuid,uuid,text,bigint,uuid,text)','EXECUTE') as publish_rpc, "
+            "pg_catalog.has_function_privilege('authenticated','public.verifier_may_read_staged_object(text)','EXECUTE') as staged_read_rpc, "
+            "not pg_catalog.has_function_privilege('anon','public.begin_snapshot_verification(uuid,uuid,uuid)','EXECUTE') as anon_begin_denied, "
+            "not pg_catalog.has_function_privilege('anon','public.publish_verified_snapshot(uuid,uuid,uuid,text,bigint,uuid,text)','EXECUTE') as anon_publish_denied, "
+            "pg_catalog.has_table_privilege('snapshot_publisher_owner','public.source_snapshots','SELECT') as owner_catalog_select, "
+            "pg_catalog.has_table_privilege('snapshot_publisher_owner','storage.objects','SELECT') as owner_storage_select, "
+            "pg_catalog.has_table_privilege('snapshot_publisher_owner','private.snapshot_verifier_allowlist','SELECT') as owner_allowlist_select, "
+            "pg_catalog.has_function_privilege('snapshot_publisher_owner','private.verified_user_id()','EXECUTE') as owner_uid_rpc, "
+            "not pg_catalog.has_table_privilege('snapshot_publisher_owner','private.snapshot_verifier_allowlist','INSERT') as owner_allowlist_insert_denied, "
+            "not pg_catalog.has_table_privilege('snapshot_publisher_owner','private.snapshot_verifier_allowlist','UPDATE') as owner_allowlist_update_denied, "
+            "not pg_catalog.has_table_privilege('snapshot_publisher_owner','private.snapshot_verifier_allowlist','DELETE') as owner_allowlist_delete_denied",
+            {
+                "begin_rpc": bool,
+                "publish_rpc": bool,
+                "staged_read_rpc": bool,
+                "anon_begin_denied": bool,
+                "anon_publish_denied": bool,
+                "owner_catalog_select": bool,
+                "owner_storage_select": bool,
+                "owner_allowlist_select": bool,
+                "owner_uid_rpc": bool,
+                "owner_allowlist_insert_denied": bool,
+                "owner_allowlist_update_denied": bool,
+                "owner_allowlist_delete_denied": bool,
+            })
         require(len(rows) == 1 and all(value is True for value in rows[0].values()), "Snapshot verifier grants differ from the migration manifest")
     if V_ADMIN_AUDIT in present:
         rows = api.query("select "
-            "has_column_privilege('snapshot_verifier_allowlist_manager','private.snapshot_verifier_allowlist','user_id','SELECT') as manager_select, "
-            "has_table_privilege('snapshot_verifier_allowlist_manager','private.snapshot_verifier_allowlist','DELETE') as manager_delete, "
-            "has_column_privilege('snapshot_verifier_allowlist_manager','private.snapshot_verifier_allowlist','user_id','INSERT') as manager_insert, "
-            "has_table_privilege('snapshot_verifier_allowlist_manager','private.snapshot_verifier_allowlist_audit','SELECT') as audit_select, "
-            "has_column_privilege('snapshot_verifier_audit_owner','private.snapshot_verifier_allowlist_audit','operation','INSERT') as audit_insert, "
-            "not has_table_privilege('authenticated','private.snapshot_verifier_allowlist','SELECT') as authenticated_allowlist_denied, "
-            "not has_table_privilege('snapshot_publisher_owner','private.snapshot_verifier_allowlist_audit','SELECT') as owner_audit_denied")
+            "pg_catalog.has_column_privilege('snapshot_verifier_allowlist_manager','private.snapshot_verifier_allowlist','user_id','SELECT') as manager_select, "
+            "pg_catalog.has_table_privilege('snapshot_verifier_allowlist_manager','private.snapshot_verifier_allowlist','DELETE') as manager_delete, "
+            "pg_catalog.has_column_privilege('snapshot_verifier_allowlist_manager','private.snapshot_verifier_allowlist','user_id','INSERT') as manager_insert, "
+            "pg_catalog.has_table_privilege('snapshot_verifier_allowlist_manager','private.snapshot_verifier_allowlist_audit','SELECT') as audit_select, "
+            "pg_catalog.has_column_privilege('snapshot_verifier_audit_owner','private.snapshot_verifier_allowlist_audit','operation','INSERT') as audit_insert, "
+            "not pg_catalog.has_table_privilege('authenticated','private.snapshot_verifier_allowlist','SELECT') as authenticated_allowlist_denied, "
+            "not pg_catalog.has_table_privilege('snapshot_publisher_owner','private.snapshot_verifier_allowlist_audit','SELECT') as owner_audit_denied",
+            {
+                "manager_select": bool,
+                "manager_delete": bool,
+                "manager_insert": bool,
+                "audit_select": bool,
+                "audit_insert": bool,
+                "authenticated_allowlist_denied": bool,
+                "owner_audit_denied": bool,
+            })
         require(len(rows) == 1 and all(value is True for value in rows[0].values()), "Snapshot allowlist administration grants differ from the migration manifest")
 
 

@@ -168,6 +168,44 @@ def _trusted_source_read_boundary(
     )
 
 
+def _secure_snapshot_read_path(request: Request, auth: AuthenticatedRequest):
+    """Compose the trusted, fail-closed snapshot read path for one request.
+
+    The verified bearer token is bound only here, inside the trusted composition
+    root. The catalog and ACL adapters are request-scoped and never accept an
+    identity, boundary, catalog, ACL, or store from the caller.
+    """
+    if request.app.state.source_read_path is not None:
+        return request.app.state.source_read_path
+
+    verifier, directory = _trusted_source_identity_dependencies(request)
+    settings = _settings_for(request)
+
+    from evidence_service.secure_snapshot_read import (
+        LocalSupabaseStorageObjectStore,
+        SecureSnapshotReadPath,
+    )
+    from evidence_service.supabase_source_catalog import (
+        SupabaseSnapshotCatalog,
+        SupabaseSourceAccessPolicy,
+    )
+
+    catalog = SupabaseSnapshotCatalog(settings, auth.access_token)
+    acl = SupabaseSourceAccessPolicy(settings, auth.access_token)
+    store = LocalSupabaseStorageObjectStore(
+        base_url=settings.supabase_url,
+        bucket="source-snapshots",
+        publishable_key=settings.publishable_key,
+    )
+    return SecureSnapshotReadPath(
+        verifier=verifier,
+        workspace_directory=directory,
+        catalog=catalog,
+        acl=acl,
+        store=store,
+    )
+
+
 async def require_authenticated_request(
     request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
@@ -243,12 +281,32 @@ def _evidence_data_error(exc: EvidenceDataUnavailable) -> HTTPException:
     )
 
 
+def _source_read_error(exc) -> HTTPException:
+    from evidence_layer.source_access import SourceReadDenialReason
+
+    reason = exc.denial.reason
+    if reason in {
+        SourceReadDenialReason.UNKNOWN_SOURCE,
+        SourceReadDenialReason.VERSION_MISMATCH,
+    }:
+        return HTTPException(status_code=404, detail="Source version not found")
+    if reason in {
+        SourceReadDenialReason.STORAGE_FAILURE,
+        SourceReadDenialReason.INVALID_SOURCE_DATA,
+    }:
+        return HTTPException(
+            status_code=503, detail="Source storage is unavailable"
+        )
+    return HTTPException(status_code=403, detail="Source read is not authorized")
+
+
 def create_app(
     settings: SupabaseSettings | None = None,
     *,
     token_verifier: TokenVerifier | None = None,
     workspace_directory: WorkspaceDirectory | None = None,
     evidence_repository: EvidenceRepository | None = None,
+    source_read_path=None,
 ) -> FastAPI:
     """Create the service app; optional integrations are initialized on demand."""
     application = FastAPI(
@@ -262,6 +320,7 @@ def create_app(
     application.state.workspace_directory = workspace_directory
     application.state.evidence_repository = evidence_repository
     application.state.trusted_source_context_issuer = None
+    application.state.source_read_path = source_read_path
 
     @application.api_route(
         "/healthz", methods=["GET"], status_code=200, include_in_schema=False
@@ -470,6 +529,46 @@ def create_app(
         if not deleted:
             raise HTTPException(status_code=404, detail="Evidence record not found")
         return Response(status_code=204)
+
+    @application.get(
+        "/v1/workspaces/{workspace_id}/sources/{source_id}/versions/{version_id}/content",
+        response_class=Response,
+    )
+    async def get_source_content(
+        workspace_id: UUID,
+        source_id: UUID,
+        version_id: UUID,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> Response:
+        from evidence_layer.source_access import SourceReadError
+
+        # Membership is checked once here (a non-member sees 404) and re-checked
+        # inside the read path before the object is opened and before delivery.
+        await _resolve_workspace_or_404(request, auth, workspace_id)
+
+        try:
+            path = _secure_snapshot_read_path(request, auth)
+            snapshot = await path.read(
+                auth,
+                workspace_id=workspace_id,
+                source_id=source_id,
+                version_id=version_id,
+            )
+        except SourceReadError as exc:
+            raise _source_read_error(exc) from exc
+        except ValueError as exc:
+            # The local Storage adapter is loopback-only; a hosted URL is not a
+            # supported read target yet and fails closed as unavailable.
+            raise HTTPException(
+                status_code=503, detail="Source storage is unavailable"
+            ) from exc
+
+        return Response(
+            content=snapshot.content,
+            media_type="application/octet-stream",
+            headers={"Content-Digest": f"sha-256=:{snapshot.manifest.sha256}:"},
+        )
 
     return application
 

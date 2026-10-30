@@ -8,6 +8,8 @@ import re
 import sys
 import tempfile
 import unittest
+from urllib.error import HTTPError, URLError
+from urllib.request import Request
 from unittest.mock import patch
 
 from scripts import sql_statement
@@ -26,7 +28,7 @@ class FakeProject:
         return self.remote_history
 
     def catalog(self):
-        return {key: [] for key in ("tables", "indexes", "foreign_keys", "policies", "triggers", "functions", "extensions", "roles", "event_triggers")}
+        return {key: [] for key in ("tables", "indexes", "foreign_keys", "policies", "triggers", "functions", "extensions", "roles", "role_memberships", "event_triggers")}
 
     def backup(self):
         return self.recovery
@@ -62,6 +64,369 @@ class MigrationGuardTests(unittest.TestCase):
                     self.inventory,
                     require_recovery=False,
                 )
+
+
+class ReadOnlyManagementApiTests(unittest.TestCase):
+    def setUp(self):
+        self.credentials = patch.dict(os.environ, {"SUPABASE_ACCESS_TOKEN": "test-token"})
+        self.credentials.start()
+        self.addCleanup(self.credentials.stop)
+        self.api = guard.Supabase()
+
+    @staticmethod
+    def response(payload):
+        return io.BytesIO(json.dumps(payload).encode("utf-8"))
+
+    def assert_from_join_references_qualified(self, query):
+        references = re.findall(
+            r"\b(from|join)\s+([A-Za-z_][\w$.]*)",
+            query,
+            re.I,
+        )
+        for clause, reference in references:
+            self.assertIn(
+                ".",
+                reference,
+                f"Unqualified {clause.upper()} relation {reference!r} in: {query}",
+            )
+        return references
+
+    def test_from_and_join_references_must_each_be_schema_qualified(self):
+        references = self.assert_from_join_references_qualified(
+            "select * from public.items i join pg_catalog.pg_class c on true"
+        )
+        self.assertEqual(
+            references,
+            [("from", "public.items"), ("join", "pg_catalog.pg_class")],
+        )
+
+        unqualified_from = (
+            "select pg_catalog.current_database() "
+            "from schema_migrations m join pg_catalog.pg_class c on true"
+        )
+        unqualified_join = (
+            "select pg_catalog.current_database() "
+            "from public.items i join schema_migrations m on true"
+        )
+        for query in (unqualified_from, unqualified_join):
+            with self.subTest(query=query), self.assertRaisesRegex(
+                AssertionError, "Unqualified (FROM|JOIN) relation"
+            ):
+                self.assert_from_join_references_qualified(query)
+
+    def test_query_uses_the_dedicated_read_only_endpoint_and_request_shape(self):
+        with patch(
+            "scripts.supabase_migration_guard.urllib.request.urlopen",
+            return_value=self.response([{"value": 1}]),
+        ) as urlopen:
+            self.assertEqual(
+                self.api.query("select 1", {"value": int}),
+                [{"value": 1}],
+            )
+
+        actual = urlopen.call_args.args[0]
+        self.assertIsInstance(actual, Request)
+        self.assertTrue(actual.full_url.endswith("/database/query/read-only"))
+        self.assertEqual(actual.get_method(), "POST")
+        self.assertEqual(json.loads(actual.data), {"query": "select 1"})
+
+    def test_history_relation_name_allows_null_only_as_declared(self):
+        with patch(
+            "scripts.supabase_migration_guard.urllib.request.urlopen",
+            return_value=self.response([{"table_name": None}]),
+        ):
+            rows = self.api.query(
+                "select pg_catalog.to_regclass('supabase_migrations.schema_migrations')"
+                "::pg_catalog.text as table_name",
+                {"table_name": (str, type(None))},
+            )
+        self.assertEqual(rows, [{"table_name": None}])
+
+    def test_catalog_history_and_grant_queries_use_qualified_entities(self):
+        queries = []
+
+        def record_query(query, expected_columns):
+            queries.append(query)
+            if "to_regclass" in query:
+                return [{"table_name": "schema_migrations"}]
+            if "select version::pg_catalog.text" in query:
+                return [{"version": guard.V_PLATFORM}]
+            if "visible_catalog_relations" in query:
+                return [{"visible_catalog_relations": 12}]
+            if "has_" in query:
+                return [{name: True for name in expected_columns}]
+            return []
+
+        with patch.object(self.api, "query", side_effect=record_query):
+            self.api.history()
+            self.api.catalog()
+            guard.assert_grants(
+                self.api,
+                [item["version"] for item in guard.local_inventory()],
+            )
+
+        self.assertGreater(len(queries), 10)
+        for query in queries:
+            self.assert_from_join_references_qualified(query)
+            self.assertNotRegex(
+                query,
+                r"(?<![\w.])(?:to_regclass|has_column_privilege|"
+                r"has_table_privilege|has_function_privilege)\s*\(",
+            )
+            self.assertNotRegex(query, r"::\s*(?:regclass|text)\b")
+        self.assertTrue(any("supabase_migrations.schema_migrations" in query for query in queries))
+        self.assertTrue(any("pg_catalog.pg_class" in query for query in queries))
+        self.assertTrue(any("pg_catalog.pg_auth_members" in query for query in queries))
+        self.assertTrue(any("pg_catalog.has_table_privilege" in query for query in queries))
+
+    def test_every_sql_query_uses_the_dedicated_read_only_endpoint(self):
+        requests = []
+
+        def respond(request, timeout):
+            requests.append(request)
+            sql = json.loads(request.data)["query"]
+            if "to_regclass" in sql:
+                return self.response([{"table_name": "schema_migrations"}])
+            if "select version::pg_catalog.text" in sql:
+                return self.response([{"version": "20261007170000"}])
+            if "visible_catalog_relations" in sql:
+                return self.response([{"visible_catalog_relations": 12}])
+            if "from pg_catalog.pg_class c join" in sql:
+                row = {"schema": "public", "name": "table", "rls": True, "force_rls": False}
+            elif "from pg_catalog.pg_indexes" in sql:
+                row = {"schema": "public", "name": "index"}
+            elif "from pg_catalog.pg_constraint" in sql:
+                row = {"name": "fk", "source": "public.source", "target": "public.target", "on_delete": "a"}
+            elif "from pg_catalog.pg_policies" in sql:
+                row = {"schema": "public", "table": "workspaces", "name": "policy"}
+            elif "from pg_catalog.pg_trigger" in sql:
+                row = {"schema": "public", "name": "trigger"}
+            elif "from pg_catalog.pg_proc" in sql:
+                row = {"schema": "public", "name": "function"}
+            elif "from pg_catalog.pg_extension" in sql:
+                row = {"name": "vector"}
+            elif "left join pg_catalog.pg_auth_members" in sql:
+                row = {
+                    "name": "snapshot_test",
+                    "membership_count": 0,
+                    "allowed_admin_memberships": 0,
+                }
+            elif "from pg_catalog.pg_roles" in sql:
+                row = {
+                    "name": "snapshot_test",
+                    "canlogin": False,
+                    "inherit": False,
+                    "super": False,
+                    "bypassrls": False,
+                    "createrole": False,
+                    "createdb": False,
+                    "replication": False,
+                }
+            elif "from pg_catalog.pg_event_trigger" in sql:
+                row = {"name": "ensure_rls"}
+            elif "has_" in sql:
+                names = re.findall(r"\bas\s+([a-z_]+)", sql, re.I)
+                row = {name: True for name in names}
+            else:
+                self.fail(f"Unrecognized guard SQL query: {sql}")
+            return self.response([row])
+
+        with patch(
+            "scripts.supabase_migration_guard.urllib.request.urlopen",
+            side_effect=respond,
+        ):
+            self.api.history()
+            self.api.catalog()
+            guard.assert_grants(
+                self.api,
+                [item["version"] for item in guard.local_inventory()],
+            )
+
+        self.assertEqual(len(requests), 19)
+        for request in requests:
+            self.assertTrue(request.full_url.endswith("/database/query/read-only"))
+            self.assertEqual(request.get_method(), "POST")
+            self.assertEqual(set(json.loads(request.data)), {"query"})
+        history_queries = [
+            json.loads(request.data)["query"]
+            for request in requests
+            if "schema_migrations" in json.loads(request.data)["query"]
+        ]
+        self.assertTrue(any("select version::pg_catalog.text" in query for query in history_queries))
+        membership_queries = [
+            json.loads(request.data)["query"]
+            for request in requests
+            if "left join pg_catalog.pg_auth_members" in json.loads(request.data)["query"]
+        ]
+        self.assertEqual(len(membership_queries), 1)
+        self.assertIn("membership.admin_option", membership_queries[0])
+        self.assertIn("membership.set_option", membership_queries[0])
+        self.assertIn("membership.inherit_option", membership_queries[0])
+        self.assertIn("membership.member=current_user::pg_catalog.regrole", membership_queries[0])
+        self.assertIn("and not membership.set_option", membership_queries[0])
+        self.assertIn("and not membership.inherit_option", membership_queries[0])
+
+    def test_missing_migration_history_table_fails_closed(self):
+        with patch.object(self.api, "query", return_value=[{"table_name": None}]):
+            with self.assertRaisesRegex(guard.GuardError, "migration history table is missing"):
+                self.api.history()
+
+    def test_unreadable_catalog_probe_blocks_empty_catalog_results(self):
+        with patch.object(
+            self.api,
+            "query",
+            return_value=[{"visible_catalog_relations": 0}],
+        ) as query:
+            with self.assertRaisesRegex(guard.GuardError, "cannot verify all required"):
+                self.api.catalog()
+        self.assertEqual(query.call_count, 1)
+
+    def test_empty_rows_do_not_bypass_catalog_or_grant_checks(self):
+        versions = [item["version"] for item in guard.local_inventory()]
+        empty_catalog = {
+            key: []
+            for key in (
+                "tables",
+                "indexes",
+                "foreign_keys",
+                "policies",
+                "triggers",
+                "functions",
+                "extensions",
+                "roles",
+                "role_memberships",
+                "event_triggers",
+            )
+        }
+        with self.assertRaises(guard.GuardError):
+            guard.assert_catalog(empty_catalog, versions)
+
+        with patch.object(self.api, "query", return_value=[]):
+            with self.assertRaises(guard.GuardError):
+                guard.assert_grants(self.api, [guard.V_IDENTITY])
+
+    def test_query_auth_and_transport_failures_do_not_fall_back_to_write_endpoint(self):
+        failures = (
+            HTTPError("https://api.supabase.com/test", 401, "unauthorized", None, None),
+            URLError("unavailable"),
+            TimeoutError("request timed out"),
+        )
+        for failure in failures:
+            with self.subTest(failure=type(failure).__name__):
+                with patch(
+                    "scripts.supabase_migration_guard.urllib.request.urlopen",
+                    side_effect=failure,
+                ) as urlopen:
+                    with self.assertRaises(guard.GuardError):
+                        self.api.query("select 1", {"value": int})
+                self.assertEqual(urlopen.call_count, 1)
+                self.assertTrue(
+                    urlopen.call_args.args[0].full_url.endswith("/database/query/read-only")
+                )
+
+    def test_invalid_or_unexpected_query_responses_fail_closed(self):
+        responses = (
+            (io.BytesIO(b"not-json"), {"value": int}),
+            (self.response({"rows": []}), {"value": int}),
+            (self.response([{}]), {"value": bool}),
+            (self.response([{"value": None}]), {"value": bool}),
+            (self.response([{"value": "true"}]), {"value": bool}),
+            (self.response([{"value": 1}]), {"value": bool}),
+            (
+                self.response([{"value": True}]),
+                {"value": bool, "required": str},
+            ),
+            (self.response([{"value": True, "extra": 1}]), {"value": bool}),
+            (self.response([True]), {"value": bool}),
+        )
+        for response, expected_columns in responses:
+            with self.subTest(response=type(response).__name__, columns=expected_columns):
+                with patch(
+                    "scripts.supabase_migration_guard.urllib.request.urlopen",
+                    return_value=response,
+                ):
+                    with self.assertRaises(guard.GuardError):
+                        self.api.query("select 1", expected_columns)
+
+    def test_role_membership_audit_rejects_unexpected_edges_and_incomplete_rows(self):
+        guard.assert_role_memberships(
+            [{"name": "snapshot_verifier", "membership_count": 0, "allowed_admin_memberships": 0}],
+            {"snapshot_verifier"},
+        )
+        guard.assert_role_memberships(
+            [{"name": "snapshot_verifier", "membership_count": 1, "allowed_admin_memberships": 1}],
+            {"snapshot_verifier"},
+        )
+        invalid_rows = (
+            [],
+            [{"name": "snapshot_verifier", "membership_count": 1, "allowed_admin_memberships": 0}],
+            [{"name": "snapshot_verifier", "membership_count": 2, "allowed_admin_memberships": 1}],
+            [{"name": "snapshot_verifier", "membership_count": 0, "allowed_admin_memberships": True}],
+            [
+                {"name": "snapshot_verifier", "membership_count": 0, "allowed_admin_memberships": 0},
+                {"name": "snapshot_verifier", "membership_count": 0, "allowed_admin_memberships": 0},
+            ],
+        )
+        for rows in invalid_rows:
+            with self.subTest(rows=rows), self.assertRaises(guard.GuardError):
+                guard.assert_role_memberships(rows, {"snapshot_verifier"})
+
+    def test_policy_inventory_rejects_missing_or_misplaced_policy(self):
+        expected = {"storage.source_snapshots_objects_select_granted_published"}
+        valid = [{
+            "schema": "storage",
+            "table": "objects",
+            "name": "source_snapshots_objects_select_granted_published",
+        }]
+        guard.assert_policy_inventory(valid, expected)
+
+        misplaced = [{
+            "schema": "storage",
+            "table": "buckets",
+            "name": "source_snapshots_objects_select_granted_published",
+        }]
+        with self.assertRaisesRegex(guard.GuardError, "Remote policies differ"):
+            guard.assert_policy_inventory(misplaced, expected)
+        with self.assertRaises(guard.GuardError):
+            guard.assert_policy_inventory([], expected)
+
+    def test_plan_stops_after_read_only_query_auth_transport_or_response_failure(self):
+        project = {
+            "ref": guard.PROJECT_REF,
+            "name": guard.PROJECT_NAME,
+            "status": "ACTIVE_HEALTHY",
+        }
+        failures = (
+            HTTPError("https://api.supabase.com/test", 401, "unauthorized", None, None),
+            URLError("unavailable"),
+            TimeoutError("request timed out"),
+            io.BytesIO(b"not-json"),
+            self.response({"unexpected": "shape"}),
+        )
+        with patch.dict(
+            os.environ,
+            {
+                "SUPABASE_PROJECT_REF": guard.PROJECT_REF,
+                "GITHUB_SHA": "a" * 40,
+            },
+        ):
+            for failure in failures:
+                with self.subTest(failure=type(failure).__name__):
+                    with patch(
+                        "scripts.supabase_migration_guard.urllib.request.urlopen",
+                        side_effect=[self.response(project), failure],
+                    ) as urlopen:
+                        with self.assertRaises(guard.GuardError):
+                            guard.build_plan(
+                                self.api,
+                                guard.local_inventory(),
+                                require_recovery=True,
+                            )
+                    self.assertEqual(urlopen.call_count, 2)
+                    self.assertEqual(
+                        urlopen.call_args_list[-1].args[0].full_url.split("/projects/")[1].split("/")[1:],
+                        ["database", "query", "read-only"],
+                    )
 
 
 class ManifestIntegrityTests(unittest.TestCase):
@@ -543,8 +908,15 @@ class CatalogCompletenessTests(unittest.TestCase):
             schema = match.group(2).rstrip(".") if match.group(2) else "public"
             if schema == "pg_temp":
                 continue
-            found.add(f"{schema}.{match.group(1)}")
-        self.assertEqual(found, expected["policies"])
+            table = match.group(3)
+            found.add(f"{schema}.{table}.{match.group(1)}")
+        self.assertEqual(
+            found,
+            {
+                guard.expected_policy_identity(policy)
+                for policy in expected["policies"]
+            },
+        )
 
     def test_every_created_trigger_is_catalogued(self):
         expected, body = self._body()
