@@ -466,12 +466,13 @@ def _project_directory(root: Path, project_id: str, port: int) -> Path:
         config,
         count=1,
     )
+    config = re.sub(
+        r"(?m)^\[local_smtp\]$",
+        f"[local_smtp]\nport = {port + 4}",
+        config,
+        count=1,
+    )
     config += (
-        "\n[inbucket]\n"
-        "enabled = true\n"
-        f"port = {port + 4}\n"
-        f"smtp_port = {port + 5}\n"
-        f"pop3_port = {port + 6}\n"
         "\n[analytics]\n"
         "enabled = false\n"
         "\n[edge_runtime]\n"
@@ -488,9 +489,7 @@ def _project_directory(root: Path, project_id: str, port: int) -> Path:
         parsed.get("api", {}).get("port") != port + 1
         or parsed.get("db", {}).get("port") != port + 2
         or parsed.get("db", {}).get("shadow_port") != port
-        or parsed.get("inbucket", {}).get("port") != port + 4
-        or parsed.get("inbucket", {}).get("smtp_port") != port + 5
-        or parsed.get("inbucket", {}).get("pop3_port") != port + 6
+        or parsed.get("local_smtp", {}).get("port") != port + 4
         or parsed.get("db", {}).get("pooler", {}).get("enabled") is not False
         or parsed.get("analytics", {}).get("enabled") is not False
         or parsed.get("edge_runtime", {}).get("enabled") is not False
