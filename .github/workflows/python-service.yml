@@ -68,6 +68,21 @@ jobs:
       - name: Build service image without publishing
         run: docker build -f services/evidence-service/Dockerfile -t evidence-service:ci .
 
+  live-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install core, test, and service dependencies
+        run: python -m pip install -e ".[dev,service]"
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.121.0
+      - name: Run live Supabase integration tests on a disposable isolated stack
+        run: PYTHONDONTWRITEBYTECODE=1 python tests/integration/run_local_supabase.py
+
   workspace-rls:
     runs-on: ubuntu-latest
     steps:
