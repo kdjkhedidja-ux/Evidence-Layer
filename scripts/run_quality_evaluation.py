@@ -221,6 +221,7 @@ def _evaluate_extension(scorer: LexicalScorer) -> dict:
         for name in sorted({row["case_type"] for row in rows})  # noqa: C401
     }
     return {
+        "benchmark_kind": "synthetic extension benchmark (fictional publishers; reported separately from the baseline)",
         "cases": len(extension),
         "dev_cases": len(ext_dev),
         "held_out_cases": len(ext_test),

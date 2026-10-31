@@ -42,14 +42,36 @@ The 100-case baseline was profiled before any expansion:
 | Relevance | binary gold only | no partial relevance; distractors are random passages, never crafted near-ties (base-set lexical ranking is near ceiling: mean gold-vs-best-distractor gap 0.107, 27/100 accidental hard cases) |
 | Coverage | 74 cases with 1 gold, 26 with 2 | no case needs 3+ evidence passages |
 
-## Targeted extension set (51 cases, seed-pinned split 40/11)
+## Targeted extension set — Synthetic Extension Benchmark (51 cases, seed-pinned split 40/11)
 
-`scripts/build_extension_dataset.py` builds 51 cases over a new original
-corpus (`data/corpus/extension_passages.jsonl`, 64 authored passages across
-three fictional publishers). Extension gold passages are disjoint from the
-base set by construction; the base set and its split are untouched. The
-extension splits with the same component-disjoint algorithm under its own
-pinned seed (20261031), so its 11 held-out cases stay fixed.
+**Classification: synthetic benchmark.** `scripts/build_extension_dataset.py`
+builds 51 cases over a new original corpus
+(`data/corpus/extension_passages.jsonl`, 64 authored passages across three
+fictional publishers; see `data/corpus/NOTICE.md`). It controls difficulty and
+publisher diversity by construction but does **not** evidence retrieval quality
+on real-world documents; its results are always reported separately from the
+PostgreSQL baseline, and a real-world document benchmark remains future work.
+Extension gold passages are disjoint from the base set by construction; the
+base set and its split are untouched. The extension splits with the same
+component-disjoint algorithm under its own pinned seed (20261031), so its 11
+held-out cases stay fixed.
+
+### Hardness audit (measured, `scripts/audit_extension_hardness.py`)
+
+The audit proves the crafted cases are hard rather than hard in name only,
+under the frozen lexical scorer, and fails CI if the properties regress:
+
+| Property | Threshold | Measured |
+|---|---|---|
+| Gold not top-ranked (flip rate) | [0.375, 0.75] — neither lexical-favored nor lexical-hostile | 0.625 (10/16) |
+| Confuser query-term coverage vs gold | ≥ 0.8 | 0.993 |
+| Median gold-vs-confuser score gap | ≤ 0.05 (half the base set's 0.107 mean gap) | 0.049 |
+| Max gap (no runaway) | ≤ 0.15 | 0.120 |
+| Partial (grade 1) outscores fillers | ≥ 8/10 cases | 9/10 |
+
+Judgments were authored from corpus facts before any scorer ran on them; the
+flip band above rejects construction tuned for or against either scorer.
+Reproduce: `python scripts/audit_extension_hardness.py` (exit 1 on failure).
 
 | Case type | n | Gap targeted | Lexical result |
 |---|---|---|---|
