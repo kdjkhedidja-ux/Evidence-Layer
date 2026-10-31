@@ -8,6 +8,7 @@ from evidence_layer.metrics import (
     context_reduction_ratio,
     estimated_context_units,
     full_evidence_rate,
+    graded_ndcg_at_k,
     mrr_at_k,
     ndcg_at_k,
     precision_at_k,
@@ -118,4 +119,23 @@ def test_ndcg_at_k_multiple_golds_ideal_first():
 def test_ndcg_at_k_zero_denominators():
     assert ndcg_at_k([], ["a"], 3) == 0.0
     assert ndcg_at_k(["a"], ["a"], 0) == 0.0
+
+
+def test_graded_ndcg_at_k_exact():
+    import math
+
+    gains = {"full": 2.0, "part": 1.0}
+    # Ideal order is [full, part]; any other order scores below 1.
+    assert graded_ndcg_at_k(gains, ["full", "part", "x"], 2) == 1.0
+    value = graded_ndcg_at_k(gains, ["part", "full", "x"], 2)
+    ideal = 2.0 + 1.0 / math.log2(3)
+    assert value == pytest.approx((1.0 + 2.0 / math.log2(3)) / ideal)
+    # Unranked relevant candidates count as zero gain positions.
+    assert graded_ndcg_at_k(gains, ["x", "y"], 2) == 0.0
+
+
+def test_graded_ndcg_at_k_zero_denominators():
+    assert graded_ndcg_at_k({}, ["a"], 3) == 0.0
+    assert graded_ndcg_at_k({"a": 0.0}, ["a"], 3) == 0.0
+    assert graded_ndcg_at_k({"a": 1.0}, ["a"], 0) == 0.0
 

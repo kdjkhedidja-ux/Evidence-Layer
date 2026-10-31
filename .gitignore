@@ -24,6 +24,10 @@ htmlcov/
 data/dev/*.jsonl
 data/test/*.jsonl
 
+# Generated extension splits (regenerate with scripts/build_extension_dataset.py)
+data/extension_dev/*.jsonl
+data/extension_test/*.jsonl
+
 # Phase 2 evaluation reports (regenerate with scripts/run_evaluation.py)
 reports/
 

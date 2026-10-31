@@ -104,8 +104,19 @@ def test_main_runs_offline_and_writes_report(tmp_path, monkeypatch):
     qe.main()
 
     report = json.loads(output.read_text())
-    assert report["evaluation_set"]["unified_cases"] == 100
-    assert report["evaluation_set"]["held_out_cases"] == 22
+    assert report["baseline_set"]["unified_cases"] == 100
+    assert report["baseline_set"]["held_out_cases"] == 22
+    extension = report["extension_set"]
+    assert extension["cases"] == 51
+    assert extension["held_out_cases"] == 11
+    assert extension["publishers"] == ["cloudtier/4", "opsrunbook/2026", "streamspec/2.1"]
+    assert "pending" in extension["jev_status"]
+    # The extension's crafted hard negatives must be measurably harder for the
+    # lexical baseline than the base set's near-ceiling ranking.
+    hard = extension["lexical_by_case_type"]["hard_negative"]["lexical"]
+    assert hard["precision_at_1"] < 1.0
+    partial = extension["lexical_by_case_type"]["partial_relevance"]["lexical"]
+    assert partial["graded_ndcg_at_5"] > 0.0
     comparison = report["held_out_comparison"]
     assert set(comparison) >= {
         "average_precision",

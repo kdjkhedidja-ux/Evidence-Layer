@@ -31,6 +31,44 @@ was predeclared for either scorer.
 Reproduce: `python scripts/run_quality_evaluation.py` (offline; writes the
 gitignored `reports/phase6_quality_evaluation.json`).
 
+## Gap analysis of the base set (measured, 2026-10-31)
+
+The 100-case baseline was profiled before any expansion:
+
+| Dimension | Base set | Gap |
+|---|---|---|
+| Publishers | 490/500 candidates from one publisher (postgresql.org) | "multi-source" meant multiple sections of one documentation site |
+| Query shape | 5–20 words, single clause | no compound or context-dependent queries |
+| Relevance | binary gold only | no partial relevance; distractors are random passages, never crafted near-ties (base-set lexical ranking is near ceiling: mean gold-vs-best-distractor gap 0.107, 27/100 accidental hard cases) |
+| Coverage | 74 cases with 1 gold, 26 with 2 | no case needs 3+ evidence passages |
+
+## Targeted extension set (51 cases, seed-pinned split 40/11)
+
+`scripts/build_extension_dataset.py` builds 51 cases over a new original
+corpus (`data/corpus/extension_passages.jsonl`, 64 authored passages across
+three fictional publishers). Extension gold passages are disjoint from the
+base set by construction; the base set and its split are untouched. The
+extension splits with the same component-disjoint algorithm under its own
+pinned seed (20261031), so its 11 held-out cases stay fixed.
+
+| Case type | n | Gap targeted | Lexical result |
+|---|---|---|---|
+| hard_negative | 16 | crafted confusers sharing query vocabulary with wrong values (legacy versions, other tiers/components) | P@1 = 0.500 (chance level), MAP = 0.750 |
+| partial_relevance | 10 | graded relevance 0/1/2 with linear-gain nDCG | P@1 = 0.300 — lexical ranks partial answers above full ones; graded nDCG@5 = 0.831 vs binary 0.704 |
+| coverage | 10 | 3 gold passages required | MAP = 0.838 |
+| compound_query | 10 | multi-constraint questions | MAP = 0.928 |
+| context_dependent | 5 | answer depends on the version named in the query | MAP = 1.000 |
+
+Extension overall (lexical): MAP 0.798, P@1 0.667, R@5 1.000, nDCG@5 0.858,
+MRR 0.821 — versus near-ceiling lexical results on the base set, so the
+extension is where a JEV-vs-lexical difference can actually show.
+
+**JEV on the extension: pending.** No real JEV measurements exist for the
+extension cases, and none can be produced without opening provider egress,
+which stays closed. The extension is measurement-ready: the moment an
+authorized provider run is approved, the same script computes the paired
+comparison with the same protocol and seed discipline.
+
 ## Held-out comparison (22 records, both scorers)
 
 | Metric | Lexical | JEV | Δ (JEV − lexical) | 95% CI of Δ |

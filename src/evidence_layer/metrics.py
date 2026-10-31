@@ -7,6 +7,7 @@ not called a token count (no tokenizer is used).
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
 
 
 def estimated_context_units(text: str) -> int:
@@ -118,6 +119,36 @@ def ndcg_at_k(gold_ids: list[str], ranked_ids: list[str], k: int) -> float:
 
     ideal_hits = min(len(gold), k)
     ideal = sum(1.0 / math.log2(rank + 1) for rank in range(1, ideal_hits + 1))
+    if ideal == 0.0:
+        return 0.0
+    return dcg(ranked_ids) / ideal
+
+
+def graded_ndcg_at_k(
+    gains: Mapping[str, float], ranked_ids: list[str], k: int
+) -> float:
+    """Normalized DCG at ``k`` with graded linear gains.
+
+    ``gains`` maps candidate_id to a non-negative relevance grade (higher is
+    more relevant); unlisted candidates count as 0. The ideal ranking sorts
+    candidates by gain descending. Returns 0.0 when no candidate has a
+    positive grade or ``k`` is not positive.
+    """
+    if k <= 0 or not gains or not any(gain > 0 for gain in gains.values()):
+        return 0.0
+
+    def dcg(ids: list[str]) -> float:
+        return sum(
+            gains.get(candidate_id, 0.0) / math.log2(rank + 1)
+            for rank, candidate_id in enumerate(ids[:k], start=1)
+        )
+
+    ideal_order = sorted(gains, key=lambda cid: -gains[cid])[:k]
+    ideal = sum(
+        gains[cid] / math.log2(rank + 1)
+        for rank, cid in enumerate(ideal_order, start=1)
+        if gains[cid] > 0
+    )
     if ideal == 0.0:
         return 0.0
     return dcg(ranked_ids) / ideal

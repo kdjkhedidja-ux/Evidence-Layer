@@ -47,8 +47,10 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import build_dataset  # noqa: E402
+import build_extension_dataset  # noqa: E402
 from evidence_layer.metrics import (  # noqa: E402
     average_precision,
+    graded_ndcg_at_k,
     mrr_at_k,
     ndcg_at_k,
     precision_at_k,
@@ -168,6 +170,92 @@ def _breakdown(
     }
 
 
+def _evaluate_extension(scorer: LexicalScorer) -> dict:
+    """Lexical metrics over the targeted extension set (JEV run not authorized).
+
+    Graded nDCG@5 uses the extension's partial-relevance grades where present;
+    binary metrics always derive from gold ids, keeping comparability with the
+    base set.
+    """
+    ext_dev, ext_test = build_extension_dataset.build_extension_cases()
+    extension = ext_dev + ext_test
+    rows: list[dict] = []
+    for case in extension:
+        gold = list(case["gold_candidate_ids"])
+        scores = {
+            candidate["candidate_id"]: scorer.score(case["task"]["input"], candidate["text"])
+            for candidate in case["candidates"]
+        }
+        ranked = _rank_candidate_ids(scores)
+        metrics = _record_metrics(gold, ranked)
+        if case["relevance_scores"]:
+            metrics["graded_ndcg_at_5"] = graded_ndcg_at_k(
+                {cid: float(grade) for cid, grade in case["relevance_scores"].items()},
+                ranked,
+                5,
+            )
+        rows.append(
+            {
+                "case_id": case["case_id"],
+                "case_type": case["case_type"],
+                "source_bucket": _source_bucket(case),
+                "held_out": case in ext_test,
+                "lexical": metrics,
+            }
+        )
+
+    metric_names = sorted({metric for row in rows for metric in row["lexical"]})
+    by_type = {
+        name: {
+            "records": sum(1 for row in rows if row["case_type"] == name),
+            "lexical": {
+                metric: _mean(
+                    row["lexical"][metric]
+                    for row in rows
+                    if row["case_type"] == name and metric in row["lexical"]
+                )
+                for metric in metric_names
+                if any(metric in row["lexical"] for row in rows if row["case_type"] == name)
+            },
+        }
+        for name in sorted({row["case_type"] for row in rows})  # noqa: C401
+    }
+    return {
+        "cases": len(extension),
+        "dev_cases": len(ext_dev),
+        "held_out_cases": len(ext_test),
+        "split_seed": build_extension_dataset.EXTENSION_SPLIT_SEED,
+        "gap_targets": {
+            "hard_negative": "crafted near-tie confusers sharing query vocabulary with wrong values",
+            "partial_relevance": "graded relevance (full/partial/none) with linear-gain nDCG",
+            "coverage": "answers requiring 3 gold passages",
+            "compound_query": "multi-constraint questions",
+            "context_dependent": "answers that depend on the version in the query",
+        },
+        "publishers": sorted(
+            {
+                candidate["source_id"]
+                for case in extension
+                for candidate in case["candidates"]
+            }
+        ),
+        "lexical_summary": {
+            metric: _mean(row["lexical"][metric] for row in rows if metric in row["lexical"])
+            for metric in metric_names
+        },
+        "lexical_summary_coverage": {
+            metric: sum(1 for row in rows if metric in row["lexical"])
+            for metric in metric_names
+        },
+        "lexical_by_case_type": by_type,
+        "jev_status": (
+            "pending: no real JEV measurements exist for extension cases; "
+            "live JEV transfer is hard-denied and requires an authorized "
+            "provider run, which is a separate closed decision"
+        ),
+    }
+
+
 def main() -> None:
     dev, test = build_dataset.build_cases()
     unified = dev + test
@@ -252,7 +340,8 @@ def main() -> None:
         "schema_version": 1,
         "phase": "6-quality-evaluation",
         "network": "none (offline; live JEV transfer remains hard-denied)",
-        "evaluation_set": {
+        "baseline_set": {
+            "note": "Frozen Phase 5B-compatible baseline; never modified by extension work.",
             "unified_cases": len(unified),
             "dev_cases": len(dev),
             "held_out_cases": len(test),
@@ -262,6 +351,7 @@ def main() -> None:
             ),
             "case_types": sorted({case["case_type"] for case in unified}),
         },
+        "extension_set": _evaluate_extension(scorer),
         "jev_scores": {
             "source": "reports/phase5b_heldout_test_single_run.json (frozen real measurements)",
             "records_covered": len(jev_scores),
