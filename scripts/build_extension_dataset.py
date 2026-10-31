@@ -307,7 +307,9 @@ def build_extension_case(spec: dict, corpus_map: dict[str, dict], corpus: list[d
 
     relevance_scores: dict[str, int] = {}
     if spec["type"] == "partial_relevance":
-        relevance_scores = {cid: NONE for cid in taken}
+        # Deterministic key order: iterating a set would randomize JSON bytes
+        # across processes via PYTHONHASHSEED.
+        relevance_scores = {cid: NONE for cid in gold_ids + hard_ids + partial_ids}
         for gold in gold_ids:
             relevance_scores[gold] = FULL
         for partial in partial_ids:

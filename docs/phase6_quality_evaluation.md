@@ -91,6 +91,30 @@ which stays closed. The extension is measurement-ready: the moment an
 authorized provider run is approved, the same script computes the paired
 comparison with the same protocol and seed discipline.
 
+## Frozen reference (immutable)
+
+`data/phase6_freeze_manifest.json` pins the Phase 6 state: SHA-256 of every
+input artifact (corpora, builders, evaluation and audit scripts, metrics and
+schema modules, the frozen 5B JEV report), both split seeds and both pinned
+held-out memberships, the metric protocol, and the hardness thresholds.
+`python scripts/freeze_phase6_evaluation.py --verify` regenerates every
+artifact deterministically and exits 1 on any drift — this caught a real
+nondeterminism bug during freezing (relevance-score key order depended on
+`PYTHONHASHSEED`; fixed by deterministic key ordering). Guard tests:
+`tests/test_phase6_freeze.py`.
+
+The baseline's Phase 5B-derived values (MAP 0.9735 / 0.9924) are asserted
+unchanged by a dedicated test; the baseline set, its seed, and its results are
+untouched by all extension work.
+
+## What is NOT claimed
+
+* No JEV superiority: the only real JEV scores remain the 22-record frozen
+  set, whose intervals include or touch zero.
+* No real-world validity: the extension is a synthetic benchmark; a real-world
+  document benchmark (independent sources, independently authored queries and
+  relevance judgments) is the next step before any adoption decision.
+
 ## Held-out comparison (22 records, both scorers)
 
 | Metric | Lexical | JEV | Δ (JEV − lexical) | 95% CI of Δ |
