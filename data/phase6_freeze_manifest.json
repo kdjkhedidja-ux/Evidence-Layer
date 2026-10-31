@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "phase": "6-quality-evaluation-freeze",
+  "frozen_at_commit": "32007c50e11225dbd9dfe7cff1ab3dfc45f873ed",
+  "benchmarks": {
+    "baseline": {
+      "kind": "PostgreSQL documentation corpus (real documents; PostgreSQL License)",
+      "cases": 100,
+      "split_seed": 2,
+      "dev_fraction": 0.8
+    },
+    "synthetic_extension": {
+      "kind": "Synthetic extension benchmark: original authored passages, fictional publishers; controls difficulty and publisher diversity but does not evidence real-world retrieval quality",
+      "cases": 51,
+      "split_seed": 20261031,
+      "dev_fraction": 0.8
+    }
+  },
+  "input_sha256": {
+    "data/corpus/postgresql_passages.jsonl": "1f71573f3f6e4d7cb156f976a0087160491d5f7984955161c58dfd4eeb696138",
+    "data/corpus/extension_passages.jsonl": "f6bb7b823f8db7a1eeac7f4728b9cf7eff59a42890d979fa8a60375cccfbc266",
+    "data/corpus/NOTICE.md": "74615ad13dcf51ac47168a758cbd225fbec443b07439ca9be4fda6beee4b7b3e",
+    "scripts/build_dataset.py": "fd3c7240221e2a70c85f8df660c53a3faa3204e8ac11c9ca5ae615a3738d8269",
+    "scripts/build_extension_dataset.py": "f4d63c909fb412b90e51feb3bc0d3edcb9fc4fec727fe915e3a35919dd8f16a3",
+    "scripts/run_quality_evaluation.py": "2da8c95e858afdd0971ebffbe345e754f1adf845a5e2892e090b9bf768723682",
+    "scripts/audit_extension_hardness.py": "52395f7943c0e4cf0205dcf56bf978b045a5c8b9e45dc0148f01ecd1f6338003",
+    "src/evidence_layer/metrics.py": "dc90cac6e1a82c4c1db4fcbaebbf7414311dc9deb591dab11489121548012080",
+    "src/evidence_layer/schemas.py": "e59907e907b4d28ba2e0971558db56bbed706a196d67a476a26cedddce870a8e",
+    "reports/phase5b_heldout_test_single_run.json": "e87de6d9e4d444e83cf1178006c3f39f21aaf3260f8eac0befbd8099d195d398"
+  },
+  "generated_sha256": {
+    "data/dev/cases.jsonl": "b9d7890ed378bc5c83582a58d351d24770579db600b1b2f25f797e5b3f2fcf88",
+    "data/test/cases.jsonl": "341b0a3f5164f6a5a9af15cd77377215881c9eaa00d2647033e18bcf8160e312",
+    "data/extension_dev/cases.jsonl": "cdec90bc6c5477217b1b4cec0017bddbfd5d9c4d4b21fa6addd3f6d09467543b",
+    "data/extension_test/cases.jsonl": "1638b004f21bc1ed1a147a3f9ab15f901015aacc855063bf3c24efb849745eee",
+    "reports/phase6_quality_evaluation.json": "9b511fb1975c93caa4e420d853430f16e8d5151e1728f7e5a6ce5a09d99f71f6",
+    "reports/phase6_extension_hardness_audit.json": "2eec3d6b6a3647964c2c815cd5d656828663dacb5bad25ea09ee63851231b852"
+  },
+  "held_out_membership": {
+    "baseline": [
+      "case_0004",
+      "case_0008",
+      "case_0012",
+      "case_0013",
+      "case_0014",
+      "case_0016",
+      "case_0025",
+      "case_0026",
+      "case_0028",
+      "case_0030",
+      "case_0032",
+      "case_0046",
+      "case_0056",
+      "case_0057",
+      "case_0058",
+      "case_0059",
+      "case_0060",
+      "case_0061",
+      "case_0079",
+      "case_0086",
+      "case_0087",
+      "case_0096"
+    ],
+    "synthetic_extension": [
+      "xcase_0001",
+      "xcase_0008",
+      "xcase_0009",
+      "xcase_0012",
+      "xcase_0013",
+      "xcase_0024",
+      "xcase_0025",
+      "xcase_0032",
+      "xcase_0035",
+      "xcase_0045",
+      "xcase_0047"
+    ]
+  },
+  "metrics_protocol": {
+    "k_values": [
+      1,
+      3,
+      5
+    ],
+    "metrics": [
+      "precision_at_k",
+      "recall_at_k",
+      "ndcg_at_k",
+      "average_precision",
+      "mrr",
+      "graded_ndcg_at_k (partial_relevance cases)"
+    ],
+    "bootstrap": "paired record-level percentile, 10000 replicates, seed 20261031, linear interpolation",
+    "tie_break": "score descending, candidate_id ascending"
+  },
+  "hardness_audit_thresholds": {
+    "flip_rate_band": [
+      0.375,
+      0.75
+    ],
+    "min_confuser_query_coverage": 0.8,
+    "max_median_abs_gap": 0.05,
+    "max_abs_gap": 0.15,
+    "calibration": "base-set mean gold-vs-distractor gap 0.107"
+  },
+  "notes": "Baseline and synthetic extension are always reported separately. JEV coverage of the extension is pending an authorized provider run; live transfer remains hard-denied. Real-world benchmark is a separate later phase."
+}

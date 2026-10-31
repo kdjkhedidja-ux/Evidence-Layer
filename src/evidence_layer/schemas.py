@@ -39,6 +39,12 @@ CaseType = Literal[
     "false_premise",
     "ambiguous",
     "prompt_injection",
+    # Phase 6 targeted-extension types: crafted difficulty the base set lacks.
+    "hard_negative",
+    "partial_relevance",
+    "coverage",
+    "compound_query",
+    "context_dependent",
 ]
 
 
@@ -132,3 +138,22 @@ class EvaluationCase(BaseModel):
     required_facts: list[str]
     source_urls: list[str]
     untrusted_candidate_ids: list[str] = Field(default_factory=list)
+    # Graded relevance for the Phase 6 extension: candidate_id -> grade
+    # (0 = not relevant, 1 = partially relevant, 2 = fully relevant). Empty
+    # means binary labels derived from ``gold_candidate_ids`` (grade 2 for
+    # gold, 0 otherwise). Grades never replace the binary gold contract.
+    relevance_scores: dict[str, int] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _validate_relevance_scores(self) -> "EvaluationCase":
+        candidate_ids = {candidate.candidate_id for candidate in self.candidates}
+        for candidate_id, grade in self.relevance_scores.items():
+            if candidate_id not in candidate_ids:
+                raise ValueError("relevance grades must reference known candidates")
+            if grade not in (0, 1, 2):
+                raise ValueError("relevance grades must be 0, 1, or 2")
+        if self.relevance_scores:
+            for gold in self.gold_candidate_ids:
+                if self.relevance_scores.get(gold, 2) != 2:
+                    raise ValueError("gold candidates must be fully relevant (grade 2)")
+        return self
