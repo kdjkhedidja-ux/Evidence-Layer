@@ -4,10 +4,12 @@ import pytest
 
 from evidence_layer.metrics import (
     any_evidence_hit_rate,
+    average_precision,
     context_reduction_ratio,
     estimated_context_units,
     full_evidence_rate,
     mrr_at_k,
+    ndcg_at_k,
     precision_at_k,
     recall_at_k,
 )
@@ -73,4 +75,47 @@ def test_full_evidence_rate_below_gold_count_is_zero():
 
 def test_full_evidence_rate_zero_gold_denominator():
     assert full_evidence_rate([], ["a"]) == 0.0
+
+
+def test_average_precision_exact():
+    # gold at ranks 1 and 3: AP = (1/1 + 2/3) / 2
+    assert average_precision(["a", "b"], ["a", "c", "b"]) == pytest.approx(
+        (1.0 + 2 / 3) / 2
+    )
+    assert average_precision(["a"], ["a"]) == 1.0
+    assert average_precision(["a"], ["b", "c"]) == 0.0
+
+
+def test_average_precision_unranked_gold_counts_zero():
+    # One gold never appears in the ranking; the denominator still includes it.
+    assert average_precision(["a", "b"], ["a"]) == 0.5
+
+
+def test_average_precision_zero_gold_denominator():
+    assert average_precision([], ["a"]) == 0.0
+
+
+def test_ndcg_at_k_exact():
+    import math
+
+    # One gold at rank 2 within k=3; ideal puts it at rank 1.
+    value = ndcg_at_k(["a"], ["x", "a", "y"], 3)
+    assert value == pytest.approx(1.0 / math.log2(3))
+    assert ndcg_at_k(["a"], ["a", "x"], 1) == 1.0
+    assert ndcg_at_k(["a"], ["x", "a"], 1) == 0.0
+
+
+def test_ndcg_at_k_multiple_golds_ideal_first():
+    import math
+
+    # Two golds both inside k=2 in ideal order -> 1.0
+    assert ndcg_at_k(["a", "b"], ["a", "b", "x"], 2) == 1.0
+    # Only one of two golds inside k=2 -> half the ideal DCG.
+    ideal = 1.0 + 1.0 / math.log2(3)
+    assert ndcg_at_k(["a", "b"], ["a", "x", "b"], 2) == pytest.approx(1.0 / ideal)
+
+
+def test_ndcg_at_k_zero_denominators():
+    assert ndcg_at_k([], ["a"], 3) == 0.0
+    assert ndcg_at_k(["a"], ["a"], 0) == 0.0
 

@@ -6,6 +6,8 @@ not called a token count (no tokenizer is used).
 
 from __future__ import annotations
 
+import math
+
 
 def estimated_context_units(text: str) -> int:
     """Whitespace word count of ``text`` (an estimated context size, not tokens)."""
@@ -75,4 +77,48 @@ def full_evidence_rate(gold_ids: list[str], selected_ids: list[str]) -> float:
     if not gold:
         return 0.0
     return 1.0 if gold <= set(selected_ids) else 0.0
+
+
+def average_precision(gold_ids: list[str], ranked_ids: list[str]) -> float:
+    """Average precision over a full ranked candidate list (binary relevance).
+
+    Mean of precision@rank at every rank holding a gold candidate, divided by
+    the total number of gold candidates (golds never ranked count as zero).
+    Returns 0.0 when there is no gold evidence (zero denominator).
+    """
+    gold = set(gold_ids)
+    if not gold:
+        return 0.0
+    hits = 0
+    precision_sum = 0.0
+    for rank, candidate_id in enumerate(ranked_ids, start=1):
+        if candidate_id in gold:
+            hits += 1
+            precision_sum += hits / rank
+    return precision_sum / len(gold)
+
+
+def ndcg_at_k(gold_ids: list[str], ranked_ids: list[str], k: int) -> float:
+    """Normalized discounted cumulative gain at ``k`` with binary gains.
+
+    DCG uses gain 1 per gold candidate with a log2(rank+1) discount; the
+    ideal ranking places all golds first. Returns 0.0 when there is no gold
+    evidence or ``k`` is not positive (zero/invalid denominator).
+    """
+    gold = set(gold_ids)
+    if not gold or k <= 0:
+        return 0.0
+
+    def dcg(ids: list[str]) -> float:
+        return sum(
+            1.0 / math.log2(rank + 1)
+            for rank, candidate_id in enumerate(ids[:k], start=1)
+            if candidate_id in gold
+        )
+
+    ideal_hits = min(len(gold), k)
+    ideal = sum(1.0 / math.log2(rank + 1) for rank in range(1, ideal_hits + 1))
+    if ideal == 0.0:
+        return 0.0
+    return dcg(ranked_ids) / ideal
 
