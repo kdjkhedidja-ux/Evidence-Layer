@@ -12,7 +12,7 @@
     "test:integration:local": "node tests/auth-db.integration.mjs",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "lint": "biome lint components lib middleware.ts app/page.tsx app/api app/auth app/login app/signup app/forgot-password app/reset-password playwright.hosted.config.ts tests"
+    "lint": "biome lint components lib middleware.ts app/page.tsx app/api app/auth app/login app/signup app/forgot-password app/reset-password 'app/(public)' app/public-site-shell.tsx playwright.hosted.config.ts tests"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",

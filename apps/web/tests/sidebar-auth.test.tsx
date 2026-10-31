@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -51,6 +51,20 @@ describe("sidebar account control", () => {
     expect(styles).toMatch(/\.account-toggle:focus-visible\s*\{[\s\S]*?outline:\s*2px solid var\(--sidebar-focus\)/);
     expect(styles).toMatch(/:root\[data-theme="dark"\] \.account-toggle\s*\{[\s\S]*?color:\s*var\(--mint\)/);
     expect(styles).toMatch(/:root\[data-theme="dark"\] \.theme-toggle\s*\{[\s\S]*?color:\s*var\(--mint\)/);
+  });
+
+  it("links the workspace navigation to all public information pages", () => {
+    render(<EvidenceExplorer account={null} />);
+    const navigation = within(screen.getByRole("navigation", { name: "Primary navigation" }));
+
+    for (const [name, href] of [
+      ["Documentation", "/documentation"],
+      ["Cost & Performance", "/cost-performance"],
+      ["Privacy Policy", "/privacy"],
+      ["Terms of Use", "/terms"],
+    ]) {
+      expect(navigation.getByRole("link", { name })).toHaveAttribute("href", href);
+    }
   });
 
   it("opens the signed-in account panel from a keyboard-accessible button", async () => {

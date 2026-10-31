@@ -326,9 +326,17 @@ const NAVIGATION_SECTIONS = [
     items: [
       { kind: "planned", label: "Verification", glyph: "◇" },
       { kind: "planned", label: "Evaluation", glyph: "▤" },
-      { kind: "planned", label: "Cost & Performance", glyph: "↗" },
       { kind: "planned", label: "Integrations", glyph: "⇄" },
       { kind: "planned", label: "Settings & Access", glyph: "⚙" },
+    ],
+  },
+  {
+    label: "Public information",
+    items: [
+      { kind: "page", label: "Documentation", glyph: "≡", href: "/documentation" },
+      { kind: "page", label: "Cost & Performance", glyph: "↗", href: "/cost-performance" },
+      { kind: "page", label: "Privacy Policy", glyph: "◇", href: "/privacy" },
+      { kind: "page", label: "Terms of Use", glyph: "§", href: "/terms" },
     ],
   },
 ] as const;
@@ -654,6 +662,11 @@ export default function Home({ account }: { account: ExplorerAccount }) {
                   <span>{item.label}</span>
                   {"index" in item && <span className="nav-index">{item.index}</span>}
                 </a>
+              ) : item.kind === "page" ? (
+                <Link className="nav-link" href={item.href} key={item.href} onClick={() => setMenuOpen(false)}>
+                  <span className="nav-glyph" aria-hidden="true">{item.glyph}</span>
+                  <span>{item.label}</span>
+                </Link>
               ) : (
                 <div className="nav-link nav-link--planned" key={item.label}>
                   <span className="nav-glyph" aria-hidden="true">{item.glyph}</span>
@@ -985,6 +998,12 @@ export default function Home({ account }: { account: ExplorerAccount }) {
           <footer className="page-footer" id="prototype-notes">
             <span>Evidence Layer · Human Intelligence prototype</span>
             <span>Local synthetic evidence <i aria-hidden="true">·</i> Workspace identity is separate</span>
+            <nav aria-label="Public information" className="page-footer-links">
+              <Link href="/documentation">Documentation</Link>
+              <Link href="/cost-performance">Cost &amp; Performance</Link>
+              <Link href="/privacy">Privacy Policy</Link>
+              <Link href="/terms">Terms of Use</Link>
+            </nav>
           </footer>
         </main>
       </div>
