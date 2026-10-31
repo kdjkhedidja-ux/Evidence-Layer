@@ -1,0 +1,146 @@
+{
+  "schema_version": 1,
+  "benchmark": "phase7-real-world-v1-end-to-end-rag",
+  "manifest_kind": "independent Phase 7 manifest; does not modify Phase 6 or synthetic freeze artifacts",
+  "run_id": "45e479aa-3689-48ad-b555-1fb3452b9b3b",
+  "created_at_utc": "2026-10-31T15:58:14.492263+00:00",
+  "results_path": "reports/phase7_end_to_end_rag.json",
+  "results_sha256": "fb62fe152a8d843369d0d059cbac799a57e7931116920f5786574979928a1b3a",
+  "answers_sha256": "97beb4d96f47b0abf41a02313b10f23d8376b634a40d382bebbc8ca6a48c40b7",
+  "judge_outputs_sha256": "926b805b818ce3140b6c09f9df5325d7a069ba32ca33fc21a41a8aa98b6ca0fa",
+  "input_sha256": {
+    "data/real_world/passages.jsonl": "365f93b9195733c4c8ce373058a8fe9d38e568c710f22a52b11fd569fe50c1f4",
+    "data/real_world/manifest.json": "e476eb154a75ea441c3e0a77a1c90ee453016e5b68b9829da01a544199ac3dee",
+    "data/real_world/sources.json": "2e9d34f04c607cdc758690d33c52be05f658c0c2ffa254cd73122fa6d456ad83",
+    "data/real_world/NOTICE.md": "c2b8b30cdb4114b9a6becf4f86644ba085c38490046d8d27e234a76b0e197153",
+    "data/real_world/verification_manifest.json": "8181a5fd20aff70e0fe2410693460432f1ae1bc1b6234907c361da0a5be21624",
+    "data/real_world_dev/cases.jsonl": "f3225e6e8ae113daa8f37789c071bd220e330c37455e9469f5e47f4f3ab54094",
+    "data/real_world_validation/cases.jsonl": "2dd5758e38007ab6e926e102ca48c47b3f50069d17eb523734d35ae5cb56db12",
+    "data/real_world_test/cases.jsonl": "4993d9517e19e81ef69f5523b98f96d6501098c4896b95b5768e3a72556cf9fa",
+    "reports/phase6_real_world_jev.json": "607718aee6bda8a7526910fb27c574e370ce21fe00795a63c27c00a76489ccde",
+    "reports/phase6_real_world_jev_manifest.json": "cd411b9ad4593854e27f96b5ee9cd5a57e9ff2e30c37376be53f94d3d5e27f3e",
+    "reports/phase6_real_world_lexical.json": "dd1291efba06f5cc054bf0f62b1231189d54f258888ed260afbd2310adedffe1",
+    "data/phase6_freeze_manifest.json": "0082546fed1b623a89ab032fd39b5d9aca413817867d34690a1babaa51244f31",
+    "reports/phase6_quality_evaluation.json": "9b511fb1975c93caa4e420d853430f16e8d5151e1728f7e5a6ce5a09d99f71f6",
+    "scripts/build_real_world_dataset.py": "8442c675a88e64a0bd69c2bcc931a9bf1092cd0b14702f62505ef5b78773dff4",
+    "scripts/verify_real_world_benchmark.py": "627da3e731d1e8322376e99d5af3f547071c03ec3f345b2d813b7e761625b781",
+    "scripts/run_real_world_evaluation.py": "69fbcd7cc050f19ec5d65ffe75e18c3329fc3b0a5e8a4a893948c404c443b492",
+    "scripts/run_real_world_jev_evaluation.py": "303ce4e9b3ba49f13fe779956fd525d87f8b2a622d6290463063ea1e932bd522",
+    "scripts/verify_real_world_jev_results.py": "c66faeab65a711c4f459be64c194c4ee462cb6a71e764a7836337d90f0a31008",
+    "src/evidence_layer/scoring/lexical.py": "5ed574638ce1aca1782a4ca4f6a25a886ac27ed9cbe29a3e4f0eadd20928c651",
+    "services/evidence-service/evidence_service/secure_snapshot_read.py": "04ad752a63ec3502f55383d416c7db19eecfaab1a1e3a90f5d7b193842877fe4",
+    "tests/integration/test_phase7_real_world_snapshot.py": "142345fec227e86ff04c44f8ae2c65b47f39cb7accb08dd5e93cab6f9e935c62",
+    "scripts/run_phase7_end_to_end_rag.py": "750e6d7b7d18827bfd0dd3bfc2d340aa63002877633d9e02e66cfbcf9e6468c2",
+    "scripts/verify_phase7_end_to_end_rag.py": "484b8ac0c97bcc8cf1b89afb112a7533dc7fa1ed89aca48ea065f1569062bca8",
+    "tests/test_phase7_end_to_end_rag.py": "0d268a3f6b99c329a147268541b3d0b531bdfe2f1f830f5aa7385507f5b60fbb",
+    "docs/phase7_end_to_end_benchmark.md": "002072ff89100f64791a87388befb0d0bd0b05389fc38dce34036b3a3d7ce281"
+  },
+  "fixed_data_counts": {
+    "passages": 51,
+    "cases": 40,
+    "candidate_records": 200
+  },
+  "models": {
+    "openai": {
+      "provider": "openai",
+      "exact_model_id": "gpt-6.1-sol",
+      "account_model_listing_endpoint": "https://api.openai.com/v1/models",
+      "verified_available": true,
+      "model_id_count_in_account_listing": 134,
+      "checked_at_utc": "2026-10-31T15:58:15.537603+00:00",
+      "model_id": "gpt-6.1-sol",
+      "served_model_ids": [
+        "gpt-6.1-sol"
+      ],
+      "endpoint": "https://api.openai.com/v1/responses",
+      "authentication": "Bearer token from OPENAI_API_KEY; value omitted",
+      "sdk": "none; direct HTTPX transport",
+      "sdk_version": null,
+      "httpx_version": "0.28.1",
+      "parameters": {
+        "reasoning.effort": "low",
+        "max_output_tokens": 800,
+        "service_tier": "default",
+        "store": false,
+        "temperature": "not set"
+      },
+      "selection_reason": "Strong text-capable model; provider model endpoint verified it is enabled in this account; exact listed API ID was pinned for the run.",
+      "price": {
+        "input_usd_per_million": 2.0,
+        "cached_input_usd_per_million": 0.1,
+        "cache_write_usd_per_million": 2.5,
+        "output_usd_per_million": 10.0,
+        "source": "https://developers.openai.com/api/docs/models/gpt-6.1-sol",
+        "pricing_tier": "standard; prompts below 272K input tokens"
+      }
+    },
+    "deepseek": {
+      "provider": "deepseek",
+      "exact_model_id": "deepseek-v4-pro",
+      "account_model_listing_endpoint": "https://api.deepseek.com/models",
+      "verified_available": true,
+      "model_id_count_in_account_listing": 2,
+      "checked_at_utc": "2026-10-31T15:58:15.830420+00:00",
+      "model_id": "deepseek-v4-pro",
+      "served_model_ids": [
+        "deepseek-v4-pro"
+      ],
+      "official_model_version": "DeepSeek-V4-Pro-0813",
+      "endpoint": "https://api.deepseek.com/responses",
+      "authentication": "Bearer token from DEEPSEEK_API_KEY; value omitted",
+      "sdk": "none; direct HTTPX transport",
+      "sdk_version": null,
+      "httpx_version": "0.28.1",
+      "parameters": {
+        "reasoning.effort": "low",
+        "max_output_tokens": 800,
+        "store": false,
+        "temperature": "not set"
+      },
+      "selection_reason": "Strong text-capable versioned model served by a fixed API ID; provider model endpoint verified it is enabled in this account.",
+      "price": {
+        "input_usd_per_million": 0.66,
+        "cached_input_usd_per_million": 0.022,
+        "output_usd_per_million": 1.98,
+        "source": "https://api-docs.deepseek.com/quick_start/pricing/",
+        "pricing_tier": "off-peak; 2026-10-31 is Saturday UTC"
+      }
+    }
+  },
+  "prompt_versions": {
+    "answer": "phase7-rag-answer-v1",
+    "judge": "phase7-blind-paired-rubric-v1"
+  },
+  "generation_order_seed": 72031,
+  "citation_labels": "labels are generated per selected-context order and resolved to candidate/source metadata in each answer record",
+  "pricing_checked_at_utc": "2026-10-31T15:58:14.492263+00:00",
+  "phase6_jev_dependency": {
+    "results_path": "reports/phase6_real_world_jev.json",
+    "results_sha256": "607718aee6bda8a7526910fb27c574e370ce21fe00795a63c27c00a76489ccde",
+    "model_returned": "jev-1.14.0",
+    "sdk_version": "0.7.2",
+    "validated_candidate_scores": 200,
+    "new_calls": 0,
+    "financial_cost_usd": null
+  },
+  "nonclaims": [
+    "not blind; the held-out split was previously exposed",
+    "not independent scientific validation; relevance grades are developer-authored",
+    "LLM judge is automated, uses an evaluated model, and is not independent human review"
+  ],
+  "derived_latency_correction": "Phase 6 historical JEV timing applies only to Evidence Layer; traditional RAG has no JEV dependency.",
+  "derived_latency_recomputed_at_utc": "2026-10-31T16:04:27.343258+00:00",
+  "derived_metric_corrections": [
+    "Historical Phase 6 JEV latency is applied only to Evidence Layer, which depends on JEV; baseline RAG receives no JEV latency.",
+    "Automated judge scores are included in per-split/overall answer-quality metrics and paired bootstrap summaries.",
+    "Overall paired deltas aggregate all 40 cases rather than filtering for a split literally named overall."
+  ],
+  "derived_metrics_recomputed_at_utc": "2026-10-31T16:05:08.392537+00:00",
+  "model_listing_check_sessions": {
+    "sessions": 3,
+    "providers_checked_per_session": 2,
+    "basis": "initial generation session, generation-resume session, and judge-completion session; each checked both provider model-list endpoints"
+  },
+  "report_path": "docs/phase7_end_to_end_benchmark.md",
+  "report_sha256": "002072ff89100f64791a87388befb0d0bd0b05389fc38dce34036b3a3d7ce281"
+}
