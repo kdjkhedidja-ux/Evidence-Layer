@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -22,7 +23,33 @@ from run_real_world_jev_evaluation import (  # noqa: E402
 )
 
 
+def _ensure_generated_splits() -> None:
+    split_paths = [
+        ROOT / "data/real_world_dev/cases.jsonl",
+        ROOT / "data/real_world_validation/cases.jsonl",
+        ROOT / "data/real_world_test/cases.jsonl",
+    ]
+    missing = [path for path in split_paths if not path.is_file()]
+    if not missing:
+        return
+    if len(missing) != len(split_paths):
+        raise ValueError(
+            "generated split files are incomplete; review them and regenerate with "
+            "scripts/build_real_world_dataset.py"
+        )
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/build_real_world_dataset.py")],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0 or any(not path.is_file() for path in split_paths):
+        raise ValueError("could not materialize the ignored Real-World v1 split files")
+
+
 def verify_saved_run() -> dict:
+    _ensure_generated_splits()
     if not REPORT_PATH.is_file() or not MANIFEST_PATH.is_file():
         raise ValueError("saved JEV report or manifest is missing")
     report_bytes = REPORT_PATH.read_bytes()

@@ -102,17 +102,20 @@ does not contain API credentials or request/response bodies.
 
 After the live run, all recorded input fingerprints matched their pre-run
 values. The synthetic freeze manifest and synthetic results were not edited.
-The saved score outputs and all metrics can be checked offline:
+The saved score outputs and all metrics can be checked offline. In a fresh
+checkout, materialize the ignored deterministic splits first:
 
 ```bash
+python scripts/build_real_world_dataset.py
 python scripts/verify_real_world_jev_results.py --verify
 ```
 
 The API run itself is reproducible by installing the pinned optional `jev`
-extra and explicitly running
-`python scripts/run_real_world_jev_evaluation.py --run-authorized`. That
-command makes 200 provider requests. It refuses to overwrite the saved
-evidence.
+extra. In a fresh checkout, first run `python scripts/build_real_world_dataset.py`
+if the ignored split files are absent, then run
+`python scripts/run_real_world_jev_evaluation.py --run-authorized`. The builder
+writes only ignored derived split files. The API command makes 200 provider
+requests and refuses to overwrite the saved evidence.
 
 ## Scientific limits
 

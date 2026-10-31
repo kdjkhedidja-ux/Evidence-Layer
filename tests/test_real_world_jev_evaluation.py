@@ -1,11 +1,28 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
 from scripts import run_real_world_jev_evaluation as evaluation
 from scripts.verify_real_world_jev_results import verify_saved_run
+
+
+@pytest.fixture(scope="module", autouse=True)
+def materialize_ignored_real_world_splits():
+    split_paths = [
+        Path("data/real_world_dev/cases.jsonl"),
+        Path("data/real_world_validation/cases.jsonl"),
+        Path("data/real_world_test/cases.jsonl"),
+    ]
+    missing = [path for path in split_paths if not path.is_file()]
+    if len(missing) == len(split_paths):
+        import build_real_world_dataset as rw
+
+        rw.main()
+    elif missing:
+        pytest.fail("generated Real-World v1 split files are incomplete")
 
 
 @pytest.fixture(scope="module")
