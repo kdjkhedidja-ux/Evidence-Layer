@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "benchmark": "phase6-real-world-v1",
+  "created_at_utc": "2026-10-31",
+  "counts": {
+    "passages": 51,
+    "cases": 40,
+    "dev": 22,
+    "validation": 10,
+    "held_out_test": 8
+  },
+  "split": {
+    "seed": 20261101,
+    "dev_fraction": 0.6,
+    "validation_fraction": 0.2,
+    "discipline": "gold-passage component-disjoint across dev, validation, and exposed held-out splits"
+  },
+  "held_out_membership": [
+    "rw_0007",
+    "rw_0011",
+    "rw_0016",
+    "rw_0025",
+    "rw_0028",
+    "rw_0029",
+    "rw_0031",
+    "rw_0036"
+  ],
+  "validation_membership": [
+    "rw_0005",
+    "rw_0006",
+    "rw_0008",
+    "rw_0013",
+    "rw_0020",
+    "rw_0021",
+    "rw_0030",
+    "rw_0032",
+    "rw_0037",
+    "rw_0038"
+  ],
+  "file_sha256": {
+    "passages": "365f93b9195733c4c8ce373058a8fe9d38e568c710f22a52b11fd569fe50c1f4",
+    "sources": "2e9d34f04c607cdc758690d33c52be05f658c0c2ffa254cd73122fa6d456ad83",
+    "notice": "c2b8b30cdb4114b9a6becf4f86644ba085c38490046d8d27e234a76b0e197153",
+    "builder": "8442c675a88e64a0bd69c2bcc931a9bf1092cd0b14702f62505ef5b78773dff4"
+  },
+  "judgment_protocol": "0/1/2 relevance judgments are developer-authored. They were originally written before scorer output was consulted. Passage text and provenance were subsequently corrected during audit; the grades were carried forward and have not been independently reviewed or re-authored. Treat them as provisional.",
+  "held_out_status": "EXPOSED: case IDs and membership are published in this manifest, and lexical results are documented. It is not a blind test set.",
+  "usage": "Do not use the exposed held-out split as a blind test for a future JEV comparison or for tuning. Any future confirmatory JEV comparison requires a new, independently judged, previously unseen set under a frozen protocol."
+}

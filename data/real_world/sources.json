@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "benchmark": "Phase 6 real-world benchmark v1",
+  "collected_at_utc": "2026-10-31",
+  "sources": [
+    {
+      "source_id": "ietf-rfc/7515",
+      "publisher": "IETF RFC Editor",
+      "document": "RFC 7515 — JSON Web Signature (JWS)",
+      "url": "https://www.rfc-editor.org/rfc/rfc7515.txt",
+      "license": "IETF Trust Legal Provisions (TLP) — reproduction permitted with attribution",
+      "license_reference": "https://trustee.ietf.org/license-info/",
+      "fetched_at_utc": "2026-10-31"
+    },
+    {
+      "source_id": "ietf-rfc/7519",
+      "publisher": "IETF RFC Editor",
+      "document": "RFC 7519 — JSON Web Token (JWT)",
+      "url": "https://www.rfc-editor.org/rfc/rfc7519.txt",
+      "license": "IETF Trust Legal Provisions (TLP) — reproduction permitted with attribution",
+      "license_reference": "https://trustee.ietf.org/license-info/",
+      "fetched_at_utc": "2026-10-31"
+    },
+    {
+      "source_id": "supabase/docs",
+      "publisher": "Supabase",
+      "document": "Supabase documentation (Auth JWTs, Row Level Security guides)",
+      "url": "https://github.com/supabase/supabase/tree/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content",
+      "license": "Apache License 2.0 (supabase/supabase repository)",
+      "license_reference": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/LICENSE",
+      "fetched_at_utc": "2026-10-31",
+      "repository_revision": "783727708403b941fe5a59300b23c1c0711bd97b",
+      "revision_url": "https://github.com/supabase/supabase/tree/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content"
+    },
+    {
+      "source_id": "postgresql-docs/rls",
+      "publisher": "PostgreSQL Global Development Group",
+      "document": "PostgreSQL 18 documentation — Row Security Policies and related reference pages",
+      "url": "https://www.postgresql.org/docs/18/ddl-rowsecurity.html",
+      "license": "PostgreSQL License",
+      "license_reference": "https://www.postgresql.org/about/licence/",
+      "fetched_at_utc": "2026-10-31",
+      "version": "PostgreSQL 18 documentation, retrieved 2026-10-31"
+    }
+  ],
+  "passage_policy": "Every passage is labeled verbatim or paraphrase and carries its source URL, section, license, and license reference. Paraphrases include a note; they are not presented as quotations.",
+  "judgment_protocol": {
+    "grades": {
+      "0": "not relevant",
+      "1": "partially relevant",
+      "2": "fully/directly relevant"
+    },
+    "authorship": "Developer-authored at original dataset creation time, before scorer output; grades were carried forward after the source-text/provenance audit and not re-authored.",
+    "review_status": "Independent blind review has not occurred; grades carried forward after source-text/provenance corrections remain provisional.",
+    "scorer_independence": "The developer authored gold selection and grades before consulting scorer output; no provider output was consulted."
+  }
+}

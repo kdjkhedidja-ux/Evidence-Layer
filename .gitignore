@@ -28,8 +28,19 @@ data/test/*.jsonl
 data/extension_dev/*.jsonl
 data/extension_test/*.jsonl
 
+# Generated real-world benchmark splits (regenerate with scripts/verify_real_world_benchmark.py)
+data/real_world_dev/*.jsonl
+data/real_world_validation/*.jsonl
+data/real_world_test/*.jsonl
+
+# Private blind-review mappings and coordinator-only review records
+data/real_world/review-private/
+
 # Phase 2 evaluation reports (regenerate with scripts/run_evaluation.py)
 reports/
+!reports/
+reports/*
+!reports/phase6_real_world_lexical.json
 
 # Environment files (templates stay tracked)
 .env

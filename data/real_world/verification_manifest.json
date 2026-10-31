@@ -1,0 +1,177 @@
+{
+  "schema_version": 1,
+  "benchmark": "phase6-real-world-v1",
+  "manifest_kind": "independent deterministic verification",
+  "verified_content": {
+    "passages": 51,
+    "cases": 40,
+    "candidates_per_case": [
+      5
+    ],
+    "source_counts": {
+      "ietf-rfc/7515": 1,
+      "ietf-rfc/7519": 19,
+      "postgresql-docs/rls": 15,
+      "supabase/docs": 16
+    },
+    "quote_status_counts": {
+      "verbatim": 15,
+      "paraphrase": 36
+    },
+    "source_ids": [
+      "ietf-rfc/7515",
+      "ietf-rfc/7519",
+      "postgresql-docs/rls",
+      "supabase/docs"
+    ]
+  },
+  "evaluation_protocol": {
+    "scorer": "lexical_stopword_filtered",
+    "metrics": [
+      "average_precision",
+      "mrr",
+      "precision_at_k",
+      "recall_at_k",
+      "ndcg_at_k",
+      "graded_ndcg_at_5"
+    ],
+    "tie_break": "score descending, candidate_id ascending",
+    "network": "none",
+    "jev": "not run",
+    "judgments": "developer-authored before scoring; carried forward after passage audit; independent blind review pending",
+    "held_out_status": "exposed; not a blind test for future JEV comparison"
+  },
+  "split": {
+    "seed": 20261101,
+    "dev_fraction": 0.6,
+    "validation_fraction": 0.2,
+    "membership": {
+      "dev": [
+        "rw_0000",
+        "rw_0001",
+        "rw_0002",
+        "rw_0003",
+        "rw_0004",
+        "rw_0009",
+        "rw_0010",
+        "rw_0012",
+        "rw_0014",
+        "rw_0015",
+        "rw_0017",
+        "rw_0018",
+        "rw_0019",
+        "rw_0022",
+        "rw_0023",
+        "rw_0024",
+        "rw_0026",
+        "rw_0027",
+        "rw_0033",
+        "rw_0034",
+        "rw_0035",
+        "rw_0039"
+      ],
+      "validation": [
+        "rw_0005",
+        "rw_0006",
+        "rw_0008",
+        "rw_0013",
+        "rw_0020",
+        "rw_0021",
+        "rw_0030",
+        "rw_0032",
+        "rw_0037",
+        "rw_0038"
+      ],
+      "exposed_test": [
+        "rw_0007",
+        "rw_0011",
+        "rw_0016",
+        "rw_0025",
+        "rw_0028",
+        "rw_0029",
+        "rw_0031",
+        "rw_0036"
+      ]
+    }
+  },
+  "input_sha256": {
+    "data/real_world/passages.jsonl": "365f93b9195733c4c8ce373058a8fe9d38e568c710f22a52b11fd569fe50c1f4",
+    "data/real_world/sources.json": "2e9d34f04c607cdc758690d33c52be05f658c0c2ffa254cd73122fa6d456ad83",
+    "data/real_world/manifest.json": "e476eb154a75ea441c3e0a77a1c90ee453016e5b68b9829da01a544199ac3dee",
+    "data/real_world/NOTICE.md": "c2b8b30cdb4114b9a6becf4f86644ba085c38490046d8d27e234a76b0e197153",
+    "docs/phase6_real_world_benchmark.md": "c90878a7d275d0e68c5d3d8af3fb36850053d4dda2006673fadbaf2b5701b951",
+    "docs/phase6_real_world_review_protocol.md": "8bf5b4420ba2b7f06e20bd1098861a144498f981a745e607f46447384f9055db",
+    "scripts/build_real_world_dataset.py": "8442c675a88e64a0bd69c2bcc931a9bf1092cd0b14702f62505ef5b78773dff4",
+    "scripts/run_real_world_evaluation.py": "69fbcd7cc050f19ec5d65ffe75e18c3329fc3b0a5e8a4a893948c404c443b492",
+    "scripts/verify_real_world_benchmark.py": "627da3e731d1e8322376e99d5af3f547071c03ec3f345b2d813b7e761625b781",
+    "scripts/prepare_real_world_review.py": "2e33be06da6924aa7129fa7697e9e3738b9e46ba142756454604f0c596d05227",
+    "scripts/reconcile_real_world_review.py": "a4942170a4c4639b9c3b5aec0ca612a71fed256d2598891a658718bc5168322f",
+    "src/evidence_layer/metrics.py": "dc90cac6e1a82c4c1db4fcbaebbf7414311dc9deb591dab11489121548012080",
+    "src/evidence_layer/scoring/lexical.py": "5ed574638ce1aca1782a4ca4f6a25a886ac27ed9cbe29a3e4f0eadd20928c651",
+    "src/evidence_layer/schemas.py": "e59907e907b4d28ba2e0971558db56bbed706a196d67a476a26cedddce870a8e"
+  },
+  "generated_sha256": {
+    "data/real_world_dev/cases.jsonl": "f3225e6e8ae113daa8f37789c071bd220e330c37455e9469f5e47f4f3ab54094",
+    "data/real_world_validation/cases.jsonl": "2dd5758e38007ab6e926e102ca48c47b3f50069d17eb523734d35ae5cb56db12",
+    "data/real_world_test/cases.jsonl": "4993d9517e19e81ef69f5523b98f96d6501098c4896b95b5768e3a72556cf9fa",
+    "reports/phase6_real_world_lexical.json": "dd1291efba06f5cc054bf0f62b1231189d54f258888ed260afbd2310adedffe1"
+  },
+  "lexical_summary": {
+    "dev": {
+      "average_precision": 0.7154040404040404,
+      "mrr": 0.7325757575757575,
+      "precision_at_1": 0.5454545454545454,
+      "recall_at_1": 0.36363636363636365,
+      "ndcg_at_1": 0.5454545454545454,
+      "precision_at_3": 0.4393939393939394,
+      "recall_at_3": 0.8106060606060606,
+      "ndcg_at_3": 0.7066406959446642,
+      "precision_at_5": 0.32727272727272727,
+      "recall_at_5": 1.0,
+      "ndcg_at_5": 0.7963142104037739,
+      "graded_ndcg_at_5": 0.8615187594893634
+    },
+    "validation": {
+      "average_precision": 0.8583333333333334,
+      "mrr": 0.8833333333333334,
+      "precision_at_1": 0.8,
+      "recall_at_1": 0.5166666666666667,
+      "ndcg_at_1": 0.8,
+      "precision_at_3": 0.5333333333333333,
+      "recall_at_3": 0.9333333333333333,
+      "ndcg_at_3": 0.8643868466742702,
+      "precision_at_5": 0.36,
+      "recall_at_5": 1.0,
+      "ndcg_at_5": 0.9048083159743797,
+      "graded_ndcg_at_5": 0.9527405978696952
+    },
+    "exposed_test": {
+      "average_precision": 0.84375,
+      "mrr": 0.8541666666666666,
+      "precision_at_1": 0.75,
+      "recall_at_1": 0.5416666666666666,
+      "ndcg_at_1": 0.75,
+      "precision_at_3": 0.4583333333333333,
+      "recall_at_3": 0.9583333333333334,
+      "ndcg_at_3": 0.8620362988200099,
+      "precision_at_5": 0.3,
+      "recall_at_5": 1.0,
+      "ndcg_at_5": 0.8872997171325784,
+      "graded_ndcg_at_5": 0.9200589236595604
+    },
+    "overall": {
+      "average_precision": 0.7768055555555555,
+      "mrr": 0.7945833333333334,
+      "precision_at_1": 0.65,
+      "recall_at_1": 0.4375,
+      "ndcg_at_1": 0.65,
+      "precision_at_3": 0.4666666666666666,
+      "recall_at_3": 0.8708333333333333,
+      "ndcg_at_3": 0.7771563542021348,
+      "precision_at_5": 0.33,
+      "recall_at_5": 1.0,
+      "ndcg_at_5": 0.8416348381421862,
+      "graded_ndcg_at_5": 0.8960322519184858
+    }
+  }
+}
