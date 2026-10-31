@@ -41,6 +41,8 @@ reports/
 !reports/
 reports/*
 !reports/phase6_real_world_lexical.json
+!reports/phase6_real_world_jev.json
+!reports/phase6_real_world_jev_manifest.json
 
 # Environment files (templates stay tracked)
 .env

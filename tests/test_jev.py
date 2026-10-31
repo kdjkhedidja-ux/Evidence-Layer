@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import io
 import os
 from types import SimpleNamespace
@@ -18,6 +19,7 @@ from evidence_layer.scoring.jev import (
     JevTransferDeniedError,
     RetryPolicy,
     _extract_score,
+    _issue_real_world_benchmark_permit,
     render_benchmark_csv,
     write_benchmark_csv,
 )
@@ -25,18 +27,54 @@ from evidence_layer.scoring import jev as jev_module
 
 
 class FakeClient:
-    def __init__(self):
+    def __init__(self, response=None):
         self.calls = []
+        self.response = response or SimpleNamespace(
+            nouls={"candidate_0": SimpleNamespace(noul=0.625)},
+            model="jev-latest",
+            usage=SimpleNamespace(input_tokens=11, output_tokens=4),
+        )
 
     def system_one(self, state, questions, **kwargs):
         self.calls.append((state, questions, kwargs))
-        return SimpleNamespace()
+        return self.response
 
 
 def make_scorer(client: FakeClient | None = None) -> JevEvidenceScorer:
     return JevEvidenceScorer(
         client=client,
         noul_factory=lambda instructions: object(),
+        sdk_retry_policy=SimpleNamespace(max_retries=0),
+    )
+
+
+def make_full_real_world_case_set():
+    splits = {"dev": 22, "validation": 10, "exposed_test": 8}
+    return {
+        split: [
+            {
+                "case_id": f"{split}_{index:02d}",
+                "task": {"input": f"query {split} {index}"},
+                "candidates": [
+                    {
+                        "candidate_id": f"{split}_{index:02d}_c{candidate_index}",
+                        "text": f"candidate {split} {index} {candidate_index}",
+                    }
+                    for candidate_index in range(5)
+                ],
+            }
+            for index in range(count)
+        ]
+        for split, count in splits.items()
+    }
+
+
+def make_permit(cases_by_split=None):
+    cases = cases_by_split or make_full_real_world_case_set()
+    return _issue_real_world_benchmark_permit(
+        cases,
+        run_id="rw-test-run",
+        input_sha256=hashlib.sha256(b"test inputs").hexdigest(),
     )
 
 
@@ -91,7 +129,7 @@ def test_direct_scorer_denies_before_using_credentials_sdk_or_injected_client(
     with pytest.raises(JevTransferDeniedError) as error:
         scorer.score(query, candidate)
 
-    assert "trusted authorization boundary" in str(error.value)
+    assert "benchmark authorization" in str(error.value)
     assert scorer.last_record is not None
     assert scorer.last_record.failure_category == "transfer_denied"
     serialized = repr(scorer.last_record.to_dict())
@@ -131,12 +169,16 @@ def test_client_resolution_is_disabled_even_with_credentials_and_injected_client
     )
 
     with pytest.raises(JevTransferDeniedError):
-        scorer._resolve_client()
+        scorer._resolve_client("query", "candidate")
     assert client.calls == []
 
 
-def test_final_system_one_guard_denies_immediately_before_fake_client_call():
+def test_final_system_one_guard_rejects_a_mismatched_exact_benchmark_scope():
     client = FakeClient()
+    cases = make_full_real_world_case_set()
+    case = cases["dev"][0]
+    candidate = case["candidates"][0]
+    permit = make_permit(cases)
     with pytest.raises(JevTransferDeniedError):
         JevEvidenceScorer._system_one(
             client,
@@ -145,8 +187,58 @@ def test_final_system_one_guard_denies_immediately_before_fake_client_call():
             model=DEFAULT_JEV_MODEL,
             retry=None,
             timeout=1.0,
+            transfer_permit=permit,
+            split="dev",
+            case_id=case["case_id"],
+            candidate_id=candidate["candidate_id"],
+            query=case["task"]["input"],
+            text="different candidate text",
+            sdk_retry=SimpleNamespace(max_retries=0),
         )
     assert client.calls == []
+
+
+def test_valid_permit_scores_exact_candidate_once_and_records_safe_usage():
+    cases = make_full_real_world_case_set()
+    case = cases["dev"][0]
+    candidate = case["candidates"][0]
+    permit = make_permit(cases)
+    client = FakeClient()
+    scorer = JevEvidenceScorer(
+        client=client,
+        noul_factory=lambda instructions: SimpleNamespace(instructions=instructions),
+        split="dev",
+        case_id=case["case_id"],
+        candidate_id=candidate["candidate_id"],
+        transfer_permit=permit,
+        sdk_retry_policy=SimpleNamespace(max_retries=0),
+    )
+
+    assert scorer.score(case["task"]["input"], candidate["text"]) == 0.625
+    assert scorer.last_record is not None
+    assert scorer.last_record.candidate_id == candidate["candidate_id"]
+    assert scorer.last_record.input_tokens == 11
+    assert scorer.last_record.retry_count == 0
+    assert scorer.last_record.estimated_input_cost_usd is None
+    assert permit.remaining_calls == 199
+    assert len(client.calls) == 1
+    assert client.calls[0][0] == {
+        "query": case["task"]["input"],
+        "candidates": {"candidate_0": candidate["text"]},
+    }
+    assert "Return only its relevance score from 0 to 1." in client.calls[0][1]["candidate_0"].instructions
+    assert client.calls[0][2]["retry"].max_retries == 0
+
+    with pytest.raises(JevTransferDeniedError):
+        scorer.score(case["task"]["input"], candidate["text"])
+    assert len(client.calls) == 1
+
+
+def test_permit_issuer_requires_every_case_and_candidate():
+    cases = make_full_real_world_case_set()
+    cases["exposed_test"].pop()
+    with pytest.raises(ValueError, match="complete Real-World v1"):
+        make_permit(cases)
 
 
 def test_caller_flags_and_attached_scorers_are_not_transfer_authorization():
@@ -175,10 +267,44 @@ def test_caller_flags_and_attached_scorers_are_not_transfer_authorization():
     assert injected.calls == []
 
 
+def test_service_provider_policy_remains_lexical_even_with_benchmark_permit():
+    from evidence_layer.scoring.policy import build_provider_selection_policy
+
+    cases = make_full_real_world_case_set()
+    case = cases["dev"][0]
+    candidate = case["candidates"][0]
+    client = FakeClient()
+    scorer = JevEvidenceScorer(
+        client=client,
+        noul_factory=lambda instructions: object(),
+        split="dev",
+        case_id=case["case_id"],
+        candidate_id=candidate["candidate_id"],
+        transfer_permit=make_permit(cases),
+        sdk_retry_policy=SimpleNamespace(max_retries=0),
+    )
+    policy = build_provider_selection_policy(
+        jev_enabled=True,
+        jev_permitted_by_request=True,
+        jev_permitted_by_plan=True,
+        jev_scorer=scorer,
+    )
+
+    outcome = policy.score(case["task"]["input"], [candidate["text"]])
+
+    assert outcome.provider == "lexical"
+    assert policy.jev_selected is False
+    assert client.calls == []
+
+
 def test_retry_policy_is_configuration_only_while_transfer_is_disabled():
     retry_policy = RetryPolicy(max_retries=2, backoff_seconds=0)
     client = FakeClient()
-    scorer = JevEvidenceScorer(client=client, retry_policy=retry_policy)
+    scorer = JevEvidenceScorer(
+        client=client,
+        retry_policy=retry_policy,
+        sdk_retry_policy=SimpleNamespace(max_retries=0),
+    )
 
     with pytest.raises(JevTransferDeniedError):
         scorer.score("query", "candidate")
