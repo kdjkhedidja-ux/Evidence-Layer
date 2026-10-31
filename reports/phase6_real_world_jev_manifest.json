@@ -5,7 +5,7 @@
   "run_id": "de1f7092-f664-461b-8b35-7b57d1414de8",
   "run_scope_sha256": "958dcac08d960b60839ca371ab5caac78d135f12d58d39a67b4c499b53150965",
   "results_path": "reports/phase6_real_world_jev.json",
-  "results_sha256": "2e7bb4d12d248a7e5a57ce8ab85cb2381f22fe2af79144012635fa21622ed7ce",
+  "results_sha256": "607718aee6bda8a7526910fb27c574e370ce21fe00795a63c27c00a76489ccde",
   "raw_score_outputs_sha256": "bffe9e8b9b3ab305b8906fcc4ff9d2d4c88398d325820fd1ba3f418afeedd7ee",
   "input_sha256": {
     "data/corpus/NOTICE.md": "74615ad13dcf51ac47168a758cbd225fbec443b07439ca9be4fda6beee4b7b3e",
@@ -46,5 +46,16 @@
   },
   "generated_cases_sha256": "3d6e0a2ea05a476c374a1ec455664c64b3d478084afc93f96beac8529fbf82ff",
   "synthetic_freeze_manifest_sha256": "0082546fed1b623a89ab032fd39b5d9aca413817867d34690a1babaa51244f31",
-  "synthetic_result_sha256": "9b511fb1975c93caa4e420d853430f16e8d5151e1728f7e5a6ce5a09d99f71f6"
+  "synthetic_result_sha256": "9b511fb1975c93caa4e420d853430f16e8d5151e1728f7e5a6ce5a09d99f71f6",
+  "offline_analysis": {
+    "script_path": "scripts/verify_real_world_jev_results.py",
+    "script_sha256": "c66faeab65a711c4f459be64c194c4ee462cb6a71e764a7836337d90f0a31008",
+    "paired_bootstrap": {
+      "unit": "case_id",
+      "replicates": 10000,
+      "confidence_level": 0.95,
+      "base_seed": 20261031,
+      "percentile_definition": "linear interpolation at (n - 1) * p"
+    }
+  }
 }

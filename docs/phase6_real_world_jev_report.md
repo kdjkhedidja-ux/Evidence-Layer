@@ -56,6 +56,50 @@ scores.
 | overall (40) | nDCG@5 | 0.964 | 0.842 | +0.122 |
 | overall (40) | Graded nDCG@5 | 0.968 | 0.896 | +0.072 |
 
+## Paired case-level bootstrap (descriptive)
+
+For each split, 10,000 bootstrap replicates resample `case_id` values with
+replacement. Each sampled case keeps its JEV and Lexical results together; the
+unit is the case, never an individual candidate. The table reports the observed
+mean per-case delta and the percentile 95% interval. Seeds are fixed per split
+in the result JSON, which also retains full precision and all intervals.
+
+| Split | Metric | Delta (JEV − Lexical) | 95% percentile interval |
+|---|---|---:|---:|
+| dev (22) | MAP | +0.196 | [+0.092, +0.309] |
+| dev (22) | MRR | +0.207 | [+0.089, +0.332] |
+| dev (22) | Precision@1 | +0.364 | [+0.182, +0.591] |
+| dev (22) | Recall@5 | +0.000 | [+0.000, +0.000] |
+| dev (22) | nDCG@3 | +0.213 | [+0.106, +0.333] |
+| dev (22) | nDCG@5 | +0.145 | [+0.066, +0.230] |
+| dev (22) | Graded nDCG@5 | +0.086 | [+0.034, +0.143] |
+| validation (10) | MAP | +0.125 | [+0.000, +0.283] |
+| validation (10) | MRR | +0.117 | [+0.000, +0.283] |
+| validation (10) | Precision@1 | +0.200 | [+0.000, +0.500] |
+| validation (10) | Recall@5 | +0.000 | [+0.000, +0.000] |
+| validation (10) | nDCG@3 | +0.128 | [+0.023, +0.243] |
+| validation (10) | nDCG@5 | +0.087 | [-0.002, +0.203] |
+| validation (10) | Graded nDCG@5 | +0.044 | [+0.003, +0.098] |
+| exposed_test (8) | MAP | +0.135 | [-0.031, +0.333] |
+| exposed_test (8) | MRR | +0.146 | [+0.000, +0.333] |
+| exposed_test (8) | Precision@1 | +0.250 | [+0.000, +0.500] |
+| exposed_test (8) | Recall@5 | +0.000 | [+0.000, +0.000] |
+| exposed_test (8) | nDCG@3 | +0.128 | [-0.001, +0.270] |
+| exposed_test (8) | nDCG@5 | +0.103 | [-0.016, +0.242] |
+| exposed_test (8) | Graded nDCG@5 | +0.069 | [+0.002, +0.147] |
+| overall (40) | MAP | +0.166 | [+0.089, +0.250] |
+| overall (40) | MRR | +0.172 | [+0.092, +0.261] |
+| overall (40) | Precision@1 | +0.300 | [+0.175, +0.450] |
+| overall (40) | Recall@5 | +0.000 | [+0.000, +0.000] |
+| overall (40) | nDCG@3 | +0.175 | [+0.103, +0.253] |
+| overall (40) | nDCG@5 | +0.122 | [+0.066, +0.184] |
+| overall (40) | Graded nDCG@5 | +0.072 | [+0.038, +0.110] |
+
+These intervals describe case-resampling variability for this labeled set; they
+are not significance tests or confirmatory evidence. The exposed-test MAP
+interval includes zero, and all splits remain subject to the labeling and
+exposure limits below.
+
 ## Run details
 
 | Setting | Value |
@@ -92,11 +136,18 @@ JEV run manifest. The saved report contains per-candidate scores, model IDs,
 token counts, latency, failure categories, and query/candidate text hashes; it
 does not contain API credentials or request/response bodies.
 
+The offline verifier requires the exact same 40 `case_id` values and 200
+`(split, case_id, candidate_id)` records for JEV and Lexical. It checks saved
+query and candidate-text hashes against those fixed records, then recomputes
+each Lexical per-case metric from those same five candidates before comparing
+the saved per-case metrics. The verifier also fingerprints its own analysis
+script in the independent manifest.
+
 | Artifact | SHA-256 |
 |---|---|
 | Run scope | `958dcac08d960b60839ca371ab5caac78d135f12d58d39a67b4c499b53150965` |
 | Raw candidate score outputs | `bffe9e8b9b3ab305b8906fcc4ff9d2d4c88398d325820fd1ba3f418afeedd7ee` |
-| Result report | `2e7bb4d12d248a7e5a57ce8ab85cb2381f22fe2af79144012635fa21622ed7ce` |
+| Result report | `607718aee6bda8a7526910fb27c574e370ce21fe00795a63c27c00a76489ccde` |
 | `phase6_freeze_manifest.json` | `0082546fed1b623a89ab032fd39b5d9aca413817867d34690a1babaa51244f31` |
 | Frozen synthetic result | `9b511fb1975c93caa4e420d853430f16e8d5151e1728f7e5a6ce5a09d99f71f6` |
 
@@ -123,9 +174,9 @@ requests and refuses to overwrite the saved evidence.
   blind adjudication has not been performed.
 * The 8-case `exposed_test` split was disclosed previously. It is not blind and
   must not be used as a blind test for future JEV comparisons.
-* The positive deltas are exploratory on 40 cases with developer-authored
-  labels. No confidence interval or significance test was run, and no
-  confirmatory superiority claim is supported.
+* The positive overall deltas and case-level bootstrap intervals are
+  exploratory on 40 cases with developer-authored labels. No significance test
+  was run, and no confirmatory superiority claim is supported.
 * A new unseen benchmark and completed independent blind adjudication are
   required for a confirmatory comparison.
 * This run used only the fixed public benchmark. It did not enable `/retrieve`,

@@ -6,7 +6,11 @@ from pathlib import Path
 import pytest
 
 from scripts import run_real_world_jev_evaluation as evaluation
-from scripts.verify_real_world_jev_results import verify_saved_run
+from scripts.verify_real_world_jev_results import (
+    _assert_same_case_candidate_universe,
+    _paired_case_bootstrap,
+    verify_saved_run,
+)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -87,6 +91,55 @@ def test_full_jev_comparison_includes_all_splits_and_required_metrics(fixed_case
         )
 
 
+def test_comparison_requires_the_same_fixed_case_and_candidate_universe(fixed_cases):
+    _, _, metadata = evaluation._verify_local_inputs()
+    outputs = _outputs(fixed_cases)
+
+    _assert_same_case_candidate_universe(
+        fixed_cases, outputs, metadata["lexical_report"]
+    )
+    with pytest.raises(ValueError, match="same fixed 40 cases and 200 candidates"):
+        _assert_same_case_candidate_universe(
+            fixed_cases, outputs[:-1], metadata["lexical_report"]
+        )
+
+
+def test_paired_bootstrap_resamples_cases_deterministically(fixed_cases):
+    _, _, metadata = evaluation._verify_local_inputs()
+    report = evaluation.build_comparison_report(
+        fixed_cases,
+        metadata["lexical_report"],
+        _outputs(fixed_cases),
+    )
+
+    first = _paired_case_bootstrap(
+        fixed_cases, report["splits"], metadata["lexical_report"]
+    )
+    second = _paired_case_bootstrap(
+        fixed_cases, report["splits"], metadata["lexical_report"]
+    )
+
+    assert first == second
+    assert first["replicates"] == 10_000
+    assert first["resampling_unit"].startswith("case_id")
+    for split, case_count in {
+        "dev": 22,
+        "validation": 10,
+        "exposed_test": 8,
+        "overall": 40,
+    }.items():
+        values = first["splits"][split]
+        assert values["cases"] == case_count
+        assert set(values["metrics"]) == set(evaluation.EXPECTED_METRIC_NAMES)
+        for metric, interval in values["metrics"].items():
+            assert interval["ci_lower"] <= interval["ci_upper"]
+            assert interval["point_estimate"] == pytest.approx(
+                report["splits"][split]["comparison"][metric][
+                    "delta_jev_minus_lexical"
+                ]
+            )
+
+
 def test_missing_candidate_invalidates_split_metrics_without_case_dropping(fixed_cases):
     _, _, metadata = evaluation._verify_local_inputs()
     outputs = _outputs(fixed_cases)
@@ -124,3 +177,5 @@ def test_live_result_artifact_is_reproducible_offline():
     assert report["run"]["counts"]["http_request_events"] == 200
     assert report["run"]["counts"]["failed_scores"] == 0
     assert report["run"]["models_returned"] == ["jev-1.14.0"]
+    assert report["paired_bootstrap"]["replicates"] == 10_000
+    assert report["paired_bootstrap"]["splits"]["overall"]["cases"] == 40
