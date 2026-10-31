@@ -314,7 +314,13 @@ function relationshipQuestion(relations: readonly EvidenceRelationship[]) {
 
 const NAVIGATION_SECTIONS = [
   {
-    label: "This prototype",
+    label: "Product",
+    items: [
+      { kind: "page", label: "Workspace", glyph: "▦", href: "/workspace" },
+    ],
+  },
+  {
+    label: "Demo / Synthetic",
     items: [
       { kind: "available", id: "explorer", label: "Evidence Explorer", glyph: "⌕", href: "#explorer", index: "01" },
       { kind: "available", id: "relationships", label: "Relationships", glyph: "⌘", href: "#relationships" },
@@ -539,7 +545,10 @@ export default function Home({ account }: { account: ExplorerAccount }) {
   const [inquiryTopic, setInquiryTopic] = useState<InquiryTopic | null>(null);
 
   useEffect(() => {
-    const sectionIds = NAVIGATION_SECTIONS[0].items.map((item) => item.id);
+    const demoSection = NAVIGATION_SECTIONS.find((section) => section.label === "Demo / Synthetic");
+    const sectionIds = demoSection?.items
+      .filter((item) => item.kind === "available")
+      .map((item) => item.id) ?? [];
     const updateActiveSection = () => {
       const isAtBottom =
         window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 2;
@@ -682,7 +691,7 @@ export default function Home({ account }: { account: ExplorerAccount }) {
           <span className="sidebar-label">CURRENT VIEW</span>
           <div className="sidebar-dataset">
             <span className="dataset-indicator" aria-hidden="true" />
-            <span><strong>Local sample</strong><small>5 synthetic records</small></span>
+            <span><strong>Demo / Synthetic</strong><small>5 fictional records</small></span>
           </div>
           <p>No evidence sources are connected.</p>
         </div>
@@ -707,7 +716,7 @@ export default function Home({ account }: { account: ExplorerAccount }) {
       <div className="main-column">
         <header className="topbar">
           <div className="breadcrumb"><span>Workspace</span><span aria-hidden="true">/</span><strong>Evidence Explorer</strong></div>
-          <div className="topbar-state"><span className="status-dot" aria-hidden="true" />Local prototype <span className="topbar-divider" /> <span>Synthetic data only</span></div>
+          <div className="topbar-state"><span className="status-dot" aria-hidden="true" />Demo / Synthetic <span className="topbar-divider" /> <span>Synthetic data only</span></div>
         </header>
 
         <main id="explorer" className="page-content">

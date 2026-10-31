@@ -3,6 +3,8 @@ import { expect, test } from "@playwright/test";
 const email = "person@example.test";
 const secondEmail = "switch@example.test";
 const password = "Synthetic-password-123";
+const productWorkspaceId = "10000000-0000-4000-8000-000000000002";
+const productEvidenceId = "10000000-0000-4000-8000-000000000003";
 
 test("login authenticates with the local fixture and opens the signed-in account control", async ({ page }) => {
   await page.route("**/api/evidence/personal-workspace", (route) =>
@@ -89,6 +91,56 @@ test("account panel signs out cleanly before a different synthetic account signs
   await expect(switchedPanel.getByText(secondEmail, { exact: true })).toBeVisible();
   await expect(switchedPanel.getByText(accounts[1].workspace.name, { exact: true })).toBeVisible();
   await expect(switchedPanel.getByText(accounts[0].workspace.name, { exact: true })).toHaveCount(0);
+});
+
+test("workspace route shows authorized service records on desktop and mobile", async ({ page }) => {
+  await page.route("**/api/evidence/personal-workspace", (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({
+      id: productWorkspaceId,
+      name: "Isolated test workspace",
+      role: "owner",
+    }),
+  }));
+  await page.route("**/api/evidence/me", (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({
+      user_id: "synthetic-ui-user",
+      workspaces: [{ id: productWorkspaceId, name: "Isolated test workspace", role: "owner" }],
+    }),
+  }));
+  await page.route(`**/api/evidence/workspaces/${productWorkspaceId}/evidence`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([{
+        id: productEvidenceId,
+        workspace_id: productWorkspaceId,
+        content: "Isolated live-service fixture record",
+        source_label: "Browser test fixture",
+        created_at: "2026-10-31T12:00:00Z",
+        updated_at: "2026-10-31T12:00:00Z",
+      }]),
+    }),
+  );
+
+  await page.goto("/login");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill(password);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page).toHaveURL("/");
+
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/workspace");
+  await expect(page.getByRole("heading", { name: "Evidence workspace" })).toBeVisible();
+  await expect(page.getByText("Isolated live-service fixture record")).toBeVisible();
+  await expect(page.getByText("Live service data")).toBeVisible();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByRole("heading", { name: "Connected and pending capabilities" })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });
 
 test("login normalizes an unsafe external next destination to the app root", async ({ page }) => {
