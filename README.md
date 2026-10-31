@@ -17,14 +17,15 @@ whether the agent should **answer**, **abstain**, or **escalate**.
 The approved target architecture makes JEV the intended primary evidence
 scorer only when explicitly enabled and permitted by policy. On any JEV failure
 or invalid/incomplete score, the entire candidate set is recomputed lexically;
-JEV and lexical rankings are never mixed. In the current runtime, live JEV
-transfer is hard-denied on supported package paths; policy flags, credentials,
-or injected dependencies do not enable it. The standard MCP/stdio path is
-lexical-only, but the current corpus retriever also denies source reads by
-default, so it does not return corpus evidence without a future trusted source
-boundary. Remote scoring requires a separate trusted, appropriately scoped
-provider-transfer authorization boundary. The historical held-out comparison
-was **Inconclusive**.
+JEV and lexical rankings are never mixed. The service provider-selection and
+MCP/stdio paths remain lexical-only. A separate one-run benchmark host can
+score only the complete, fingerprint-verified public Real-World v1 set under a
+one-use permit; it does not enable production provider transfers. Its
+exploratory results and scientific limits are recorded in
+[`docs/phase6_real_world_jev_report.md`](docs/phase6_real_world_jev_report.md).
+The current corpus retriever also denies source reads by default, so it does
+not return corpus evidence without a future trusted source boundary. The
+historical held-out comparison was **Inconclusive**.
 
 A local stdio MCP server (`retrieve_evidence`) is implemented. A Next.js
 Evidence Explorer prototype also exists in `apps/web/`; it uses synthetic
@@ -502,13 +503,15 @@ verified during development. It is an alias and may resolve to a changing
 underlying model; this does not provide pinned-model reproducibility. Callers
 can select another model explicitly with `JevEvidenceScorer(model="...")`.
 
-The TypeSafe SDK remains isolated behind the provider-selection policy.
-Unit tests use fake clients. Future run metadata records the requested model,
-the actual `response.model` when safely available, the locally installed SDK
-version, a UTC timestamp, and the Git commit SHA when available. It does not
-claim production readiness or benchmark results. Input-cost estimates, when
-available from provider-reported token usage, are estimates from
-vendor-published pricing and are not invoices. Retry settings remain
-provider-neutral configuration only: SDK retry is disabled until its policy
-constructor is verified, and retry counts are not measured or reported by this
-integration.
+The TypeSafe SDK is pinned at `typesafe-sdk==0.7.2`. The ordinary
+provider-selection policy remains lexical-only. The dedicated Real-World v1
+runner requires `--run-authorized`, verifies the fixed 40-case/200-candidate
+inputs and the synthetic freeze fingerprints, then issues a one-use scope for
+those exact query/candidate pairs. It uses the official System One endpoint,
+`TYPESAFE_API_KEY` Bearer authentication, zero SDK retries, and records safe
+scores and metadata without request bodies or credentials. The completed run
+and its offline verifier are documented in
+[`docs/phase6_real_world_jev_report.md`](docs/phase6_real_world_jev_report.md).
+That evaluation is exploratory: the judgments were developer-authored and the
+exposed held-out split is not blind. It does not change the production
+provider-selection policy, `/retrieve`, Egress, Supabase, or Railway.
