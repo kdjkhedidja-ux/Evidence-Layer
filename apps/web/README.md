@@ -6,10 +6,19 @@ identity provider. The app uses cookie-backed PKCE sessions through
 `@supabase/ssr`; it does not implement passwords, JWT signing, or a second
 identity system.
 
-The Evidence Explorer continues to display local synthetic evidence. The
-sidebar separately reads the signed-in user's authorized workspace list from
-the Evidence Service and provisions a personal workspace when needed.
-There is no evidence retrieval or AI answer generation in this frontend.
+The root Evidence Explorer stays a clearly labelled synthetic demo. The
+/workspace page reads the verified user's memberships and RLS-protected
+evidence records through same-origin Next.js API routes and the existing
+Evidence Service. The browser never receives a Supabase access token for these
+requests. Source snapshot bytes are read only through the existing service
+endpoint that rechecks workspace membership, source grant, and the verified
+snapshot before opening and before delivery. A denied or unavailable read has
+no fallback.
+
+Live relationships, a live reading guide, verifier history, workspace
+evaluation and metering, integration management, invitations, and role
+administration are not exposed by the current service contract. See
+[the Phase 8 integration record](../../docs/phase8_product_integration.md).
 
 ## Vercel
 
