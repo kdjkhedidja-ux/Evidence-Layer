@@ -1265,6 +1265,38 @@
       "verb": "do",
       "statement": "do $migration$ declare expected_source text := $expected_function$ ; ... $migration$",
       "rationale_ref": "fail-closed-rls-bootstrap"
+    },
+    {
+      "id": "3f12903e8000b983",
+      "file": "20261101120000_evidence_source_version_links.sql",
+      "line": "16",
+      "verb": "alter table",
+      "statement": "alter table public.evidence_records add column source_id uuid null, add column source_version_id uuid null",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "55686d783ac89758",
+      "file": "20261101120000_evidence_source_version_links.sql",
+      "line": "20",
+      "verb": "alter table",
+      "statement": "alter table public.evidence_records add constraint evidence_records_source_link_pair check ((source_id is null) = (source_version_id is null)), add constraint evidence_records_source_link_fkey foreign key (workspace_id, source_id, source_version_id) references public.source_snapshots (workspace_id, source_id, version_id) on delete restrict",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "208c906c1d3757de",
+      "file": "20261101120000_evidence_source_version_links.sql",
+      "line": "32",
+      "verb": "grant insert",
+      "statement": "grant insert (source_id, source_version_id) on public.evidence_records to authenticated",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "a44671ac1df9b08d",
+      "file": "20261101120000_evidence_source_version_links.sql",
+      "line": "34",
+      "verb": "grant update",
+      "statement": "grant update (source_id, source_version_id) on public.evidence_records to authenticated",
+      "rationale_ref": "privilege-grant"
     }
   ]
 }

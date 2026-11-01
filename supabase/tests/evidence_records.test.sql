@@ -7,7 +7,7 @@ set local search_path = public, extensions;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(24);
+select plan(30);
 
 select ok(
     (select relrowsecurity from pg_class where oid = 'public.evidence_records'::regclass),
@@ -60,6 +60,30 @@ select ok(
     and not has_table_privilege('service_role', 'public.evidence_records', 'DELETE'),
     'the service_role has no evidence-table grants'
 );
+select has_column('public', 'evidence_records', 'source_id', 'evidence records have an optional source link');
+select has_column('public', 'evidence_records', 'source_version_id', 'evidence records have an optional source version link');
+select ok(
+    has_column_privilege('authenticated', 'public.evidence_records', 'source_id', 'INSERT')
+    and has_column_privilege('authenticated', 'public.evidence_records', 'source_version_id', 'INSERT')
+    and has_column_privilege('authenticated', 'public.evidence_records', 'source_id', 'UPDATE')
+    and has_column_privilege('authenticated', 'public.evidence_records', 'source_version_id', 'UPDATE'),
+    'authenticated can set and change only the source link columns'
+);
+select is(
+    (select count(*)::integer from pg_constraint
+     where conrelid = 'public.evidence_records'::regclass
+       and conname = 'evidence_records_source_link_pair'
+       and contype = 'c'),
+    1, 'the source link pair check constraint exists'
+);
+select is(
+    (select count(*)::integer from pg_constraint
+     where conrelid = 'public.evidence_records'::regclass
+       and conname = 'evidence_records_source_link_fkey'
+       and contype = 'f'
+       and confrelid = 'public.source_snapshots'::regclass),
+    1, 'the source link foreign key targets source snapshots'
+);
 
 insert into auth.users (id, aud, role, email)
 values
@@ -83,6 +107,21 @@ insert into public.evidence_records (id, workspace_id, content)
 values
     ('e1000000-0000-4000-8000-000000000001', 'a1000000-0000-4000-8000-000000000001', 'A private evidence'),
     ('e2000000-0000-4000-8000-000000000002', 'b3000000-0000-4000-8000-000000000003', 'B private evidence');
+
+-- A staged snapshot in A's workspace is enough for the provenance-link
+-- foreign key; publication checks live in the service layer.
+insert into public.source_snapshots (
+    workspace_id, source_id, version_id, object_key, sha256, size_bytes, state
+)
+values (
+    'a1000000-0000-4000-8000-000000000001',
+    'c1000000-0000-4000-8000-000000000001',
+    'd1000000-0000-4000-8000-000000000001',
+    'workspace/a1000000-0000-4000-8000-000000000001/source/c1000000-0000-4000-8000-000000000001/version/d1000000-0000-4000-8000-000000000001',
+    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    25,
+    'staged'
+);
 
 create temporary table evidence_rls_observations (
     name text primary key,
@@ -116,6 +155,27 @@ values
 
 insert into public.evidence_records (workspace_id, content)
 values ('a1000000-0000-4000-8000-000000000001', 'A added evidence');
+
+insert into public.evidence_records (workspace_id, content, source_id, source_version_id)
+values (
+    'a1000000-0000-4000-8000-000000000001',
+    'A linked evidence',
+    'c1000000-0000-4000-8000-000000000001',
+    'd1000000-0000-4000-8000-000000000001'
+);
+
+do $$
+begin
+    insert into public.evidence_records (workspace_id, content, source_id)
+    values (
+        'a1000000-0000-4000-8000-000000000001',
+        'one-sided link',
+        'c1000000-0000-4000-8000-000000000001'
+    );
+    insert into pg_temp.evidence_rls_observations values ('a_one_sided_link', 'not denied');
+exception when check_violation then
+    insert into pg_temp.evidence_rls_observations values ('a_one_sided_link', '23514');
+end $$;
 
 insert into evidence_rls_observations
 values ('a_insert_own', (
@@ -246,7 +306,8 @@ set local role postgres;
 
 select is((select value from evidence_rls_observations where name = 'a_read_own'), '1', 'A reads evidence in an active workspace');
 select is((select value from evidence_rls_observations where name = 'a_read_b'), '0', 'A with inactive membership cannot read B workspace evidence');
-select is((select value from evidence_rls_observations where name = 'a_insert_own'), '2', 'A can insert evidence into an active workspace');
+select is((select value from evidence_rls_observations where name = 'a_insert_own'), '3', 'A can insert plain and source-linked evidence into an active workspace');
+select is((select value from evidence_rls_observations where name = 'a_one_sided_link'), '23514', 'a one-sided source link is rejected by the pair check');
 select is((select value from evidence_rls_observations where name = 'a_insert_b'), '42501', 'A with inactive membership cannot insert into B workspace');
 select is((select value from evidence_rls_observations where name = 'a_update_b'), '0', 'A with inactive membership cannot update B evidence');
 select is((select value from evidence_rls_observations where name = 'a_delete_b'), '0', 'A with inactive membership cannot delete B evidence');

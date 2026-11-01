@@ -10,8 +10,19 @@ export type WorkspaceEvidenceRecord = {
   workspace_id: string;
   content: string;
   source_label: string | null;
+  source_id: string | null;
+  source_version_id: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type WorkspaceSourceVersion = {
+  source_id: string;
+  version_id: string;
+  state: "staged" | "published";
+  sha256: string;
+  size_bytes: number;
+  created_at: string;
 };
 
 function json(status: number, payload: unknown): Response {
@@ -165,9 +176,17 @@ export function isUuid(value: string): boolean {
   return UUID_PATTERN.test(value);
 }
 
+function safeLinkedId(value: unknown): string | null | undefined {
+  if (value === null) return null;
+  if (typeof value === "string" && UUID_PATTERN.test(value)) return value;
+  return undefined;
+}
+
 function safeEvidenceRecord(value: unknown, workspaceId: string): WorkspaceEvidenceRecord | null {
   if (!value || typeof value !== "object") return null;
   const candidate = value as Record<string, unknown>;
+  const sourceId = safeLinkedId(candidate.source_id);
+  const sourceVersionId = safeLinkedId(candidate.source_version_id);
   if (
     typeof candidate.id !== "string" ||
     !UUID_PATTERN.test(candidate.id) ||
@@ -176,6 +195,9 @@ function safeEvidenceRecord(value: unknown, workspaceId: string): WorkspaceEvide
     candidate.content.length > 65_536 ||
     !(candidate.source_label === null ||
       (typeof candidate.source_label === "string" && candidate.source_label.length <= 512)) ||
+    sourceId === undefined ||
+    sourceVersionId === undefined ||
+    (sourceId === null) !== (sourceVersionId === null) ||
     typeof candidate.created_at !== "string" ||
     !Number.isFinite(Date.parse(candidate.created_at)) ||
     typeof candidate.updated_at !== "string" ||
@@ -188,6 +210,8 @@ function safeEvidenceRecord(value: unknown, workspaceId: string): WorkspaceEvide
     workspace_id: candidate.workspace_id,
     content: candidate.content,
     source_label: candidate.source_label,
+    source_id: sourceId,
+    source_version_id: sourceVersionId,
     created_at: candidate.created_at,
     updated_at: candidate.updated_at,
   };
@@ -196,6 +220,8 @@ function safeEvidenceRecord(value: unknown, workspaceId: string): WorkspaceEvide
 export type EvidenceMutation = {
   content?: string;
   source_label?: string | null;
+  source_id?: string | null;
+  source_version_id?: string | null;
 };
 
 export async function parseEvidenceMutation(
@@ -240,7 +266,8 @@ export async function parseEvidenceMutation(
 
   const input = payload as Record<string, unknown>;
   const keys = Object.keys(input);
-  if (keys.some((key) => key !== "content" && key !== "source_label")) {
+  const allowedKeys = new Set(["content", "source_label", "source_id", "source_version_id"]);
+  if (keys.some((key) => !allowedKeys.has(key))) {
     return { ok: false };
   }
   if (mode === "create" && typeof input.content !== "string") {
@@ -262,6 +289,31 @@ export async function parseEvidenceMutation(
       value.source_label = null;
     } else if (typeof input.source_label === "string" && input.source_label.length <= 512) {
       value.source_label = input.source_label.trim() || null;
+    } else {
+      return { ok: false };
+    }
+  }
+  const hasSourceId = Object.hasOwn(input, "source_id");
+  const hasSourceVersionId = Object.hasOwn(input, "source_version_id");
+  // The provenance link is all-or-nothing: setting or clearing it always
+  // names both the source and the exact version.
+  if (hasSourceId !== hasSourceVersionId) {
+    return { ok: false };
+  }
+  if (hasSourceId) {
+    const sourceId = input.source_id;
+    const sourceVersionId = input.source_version_id;
+    if (sourceId === null && sourceVersionId === null) {
+      value.source_id = null;
+      value.source_version_id = null;
+    } else if (
+      typeof sourceId === "string" &&
+      UUID_PATTERN.test(sourceId) &&
+      typeof sourceVersionId === "string" &&
+      UUID_PATTERN.test(sourceVersionId)
+    ) {
+      value.source_id = sourceId;
+      value.source_version_id = sourceVersionId;
     } else {
       return { ok: false };
     }
@@ -351,6 +403,88 @@ export async function proxyWorkspaceEvidenceRequest({
   return record && (evidenceId === undefined || record.id === evidenceId)
     ? json(200, record)
     : json(502, { error: "Evidence service returned an invalid response." });
+}
+
+function safeSourceVersion(value: unknown): WorkspaceSourceVersion | null {
+  if (!value || typeof value !== "object") return null;
+  const candidate = value as Record<string, unknown>;
+  if (
+    typeof candidate.source_id !== "string" ||
+    !UUID_PATTERN.test(candidate.source_id) ||
+    typeof candidate.version_id !== "string" ||
+    !UUID_PATTERN.test(candidate.version_id) ||
+    (candidate.state !== "staged" && candidate.state !== "published") ||
+    typeof candidate.sha256 !== "string" ||
+    !/^[0-9a-f]{64}$/.test(candidate.sha256) ||
+    typeof candidate.size_bytes !== "number" ||
+    !Number.isSafeInteger(candidate.size_bytes) ||
+    candidate.size_bytes < 0 ||
+    candidate.size_bytes > 8 * 1024 * 1024 ||
+    typeof candidate.created_at !== "string" ||
+    !Number.isFinite(Date.parse(candidate.created_at))
+  ) {
+    return null;
+  }
+  return {
+    source_id: candidate.source_id,
+    version_id: candidate.version_id,
+    state: candidate.state,
+    sha256: candidate.sha256,
+    size_bytes: candidate.size_bytes,
+    created_at: candidate.created_at,
+  };
+}
+
+export async function proxyWorkspaceSourcesRequest({
+  workspaceId,
+}: {
+  workspaceId: string;
+}): Promise<Response> {
+  if (!isUuid(workspaceId)) {
+    return json(404, { error: "Workspace not found." });
+  }
+
+  const auth = await getVerifiedAuthContext();
+  if (auth.kind === "unauthenticated") return json(401, { error: "Authentication is required." });
+  if (auth.kind === "unavailable") return json(503, { error: "Identity verification is unavailable." });
+
+  const serviceUrl = getEvidenceServiceBaseUrl();
+  if (!serviceUrl) return json(503, { error: "Evidence service is unavailable." });
+
+  let upstream: Response;
+  try {
+    upstream = await fetch(`${serviceUrl}/v1/workspaces/${workspaceId}/sources`, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${auth.accessToken}`,
+      },
+      cache: "no-store",
+      redirect: "manual",
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch {
+    return json(503, { error: "Evidence service is unavailable." });
+  }
+
+  if (upstream.status === 401) return json(401, { error: "Your session is no longer valid." });
+  if (upstream.status === 403) return json(403, { error: "This action is not available for this account." });
+  if (upstream.status === 404) return json(404, { error: "Workspace not found." });
+  if (upstream.status !== 200) return json(503, { error: "Evidence service is unavailable." });
+
+  let payload: unknown;
+  try {
+    payload = await upstream.json();
+  } catch {
+    return json(502, { error: "Evidence service returned an invalid response." });
+  }
+  if (!Array.isArray(payload)) {
+    return json(502, { error: "Evidence service returned an invalid response." });
+  }
+  const versions = payload.map(safeSourceVersion);
+  return versions.some((version) => version === null)
+    ? json(502, { error: "Evidence service returned an invalid response." })
+    : json(200, versions);
 }
 
 type SourceContentProxyOptions = {

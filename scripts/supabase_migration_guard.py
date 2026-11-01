@@ -52,6 +52,7 @@ V_SNAPSHOT_STORAGE = "20261022110000"
 V_VERIFIER_IDENTITY = "20261022120000"
 V_FAIL_CLOSED = "20261022130000"
 V_ADMIN_AUDIT = "20261023150000"
+V_EVIDENCE_SOURCE_LINKS = "20261101120000"
 
 VERSION_RE = re.compile(r"^[0-9]{14}_[a-z0-9_]+\.sql$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -482,6 +483,7 @@ def expected_catalog(versions: list[str]) -> dict:
     identity = V_IDENTITY in present
     personal = V_PERSONAL in present
     evidence = V_EVIDENCE in present
+    evidence_links = V_EVIDENCE_SOURCE_LINKS in present
     source = V_SOURCE_CATALOG in present
     storage = V_SNAPSHOT_STORAGE in present
     verifier = V_VERIFIER_IDENTITY in present
@@ -514,6 +516,8 @@ def expected_catalog(versions: list[str]) -> dict:
         })
     if evidence:
         indexes.update({"public.evidence_records_pkey", "public.evidence_records_workspace_created_idx"})
+    if evidence_links:
+        indexes.add("public.evidence_records_source_link_idx")
     if personal:
         indexes.add("public.workspaces_personal_owner_unique")
     if source:
@@ -654,6 +658,8 @@ def expected_catalog(versions: list[str]) -> dict:
         foreign_keys.add(("workspaces_personal_owner_id_fkey", "public.workspaces", "auth.users", "c"))
     if evidence:
         foreign_keys.add(("evidence_records_workspace_id_fkey", "public.evidence_records", "public.workspaces", "c"))
+    if evidence_links:
+        foreign_keys.add(("evidence_records_source_link_fkey", "public.evidence_records", "public.source_snapshots", "r"))
     if source:
         foreign_keys.update({
             ("source_snapshots_workspace_id_fkey", "public.source_snapshots", "public.workspaces", "r"),

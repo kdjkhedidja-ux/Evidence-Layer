@@ -17,6 +17,8 @@ service responses only after the server verifies the Supabase Auth user.
 | Workspace membership | GET /v1/workspaces/{workspace_id} and workspace-scoped evidence routes | The service resolves membership on each request; unknown or unauthorized workspaces are not disclosed. |
 | Evidence records | GET, POST, PATCH, and DELETE /v1/workspaces/{workspace_id}/evidence... | The BFF validates UUIDs and response shape, allow-lists mutation fields, disables caching, and forwards the user token so Supabase RLS remains in force. |
 | Verified source content | GET /v1/workspaces/{workspace_id}/sources/{source_id}/versions/{version_id}/content | The BFF does not read Storage directly. The service rechecks membership and the exact source grant before opening the pinned verified version and before returning bytes. The UI displays the service's SHA-256 Content-Digest when supplied. |
+| Workspace source index | GET /v1/workspaces/{workspace_id}/sources | The service lists the snapshot versions visible to the caller under RLS (published versions of granted sources plus the caller's own staged rows) without exposing object keys. The UI groups versions by source and reads published versions from the list; no manually typed UUIDs are needed. |
+| Evidence provenance links | source_id + source_version_id on the evidence routes | An evidence record may pin the exact published source version it was derived from. The service accepts a link only after the caller's own token resolves that version through the RLS-protected catalog; the database enforces the all-or-nothing pair and the same-workspace foreign key. |
 
 The API routes are a same-origin browser boundary around existing endpoints;
 they do not create a second evidence service or use service_role. Public
@@ -31,21 +33,25 @@ again before delivery. A denial, unknown version, or unavailable dependency
 returns no content. The UI has no fallback to the synthetic fixture or raw
 Storage.
 
-The current service has no source-catalog listing or source-metadata detail
-route, so users need a source UUID and version UUID from an authorized source
-workflow before opening a snapshot. This frontend does not invoke JEV or a
+The source index route covers listing only; there is still no source-metadata
+detail route beyond the index fields. This frontend does not invoke JEV or a
 retrieval endpoint.
 
-The current Supabase Storage adapter is intentionally loopback-only. This
-frontend route therefore cannot read source snapshots from a hosted Supabase
-project through the present adapter; it returns the service's unavailable
-response until a reviewed hosted-storage adapter exists. No production
-connectivity was tested or enabled.
+The service now selects its Supabase Storage adapter from the configured
+project origin: plain HTTP on loopback uses the disposable local-stack
+adapter, and an HTTPS non-loopback origin uses the hosted adapter. Both send
+only the caller's verified bearer token plus the publishable key, refuse
+redirects, compression, and oversize bodies, and fail closed; Storage RLS
+decides object access. Hosted connectivity still requires the deployed
+service to be configured against the target project and is not exercised by
+this repository's test suites.
 
 ## Not connected to live workspace data
 
-- **Relationships and reading guide:** remain fixture-defined in the Demo /
-  Synthetic explorer; the Evidence Service has no relationship or guide API.
+- **Reading guide:** remains fixture-defined in the Demo / Synthetic
+  explorer; the Evidence Service has no guide API. (Provenance links between
+  evidence records and published source versions are now connected; broader
+  relationship graphs are not.)
 - **Verification:** source reads use the verified snapshot path, but there is
   no route for browsing verification status/history or verifier reports.
 - **Evaluation:** Phase 6, Phase 7, and Phase 7B remain historical benchmark

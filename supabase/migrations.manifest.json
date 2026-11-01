@@ -74,6 +74,12 @@
       "version": "20261028120000",
       "sha256": "ee94c96220a1e3170b05bb26a31dd387b1ec0ce940983ab4fa7772a26c5963a0",
       "provenance": "Fail-closed RLS bootstrap. Merged after PR #28 introduced the reviewed manifest; the migration replaces the log-and-continue body and re-verifies signature, owner, SECURITY DEFINER, fixed search_path, ACL, and the ensure_rls event trigger."
+    },
+    {
+      "file": "20261101120000_evidence_source_version_links.sql",
+      "version": "20261101120000",
+      "sha256": "fff1dcf3d470cad1fafd99b3934e6512dfc33cc5b78750426d4587600500d230",
+      "provenance": "Optional evidence-to-source provenance links for the Phase 8 workspace, reviewed on feat/product-integration (PR #48)."
     }
   ]
 }

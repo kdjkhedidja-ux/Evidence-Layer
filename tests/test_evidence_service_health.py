@@ -41,6 +41,7 @@ def test_service_routes_are_limited_and_docs_are_disabled() -> None:
         ("GET", "/v1/me"),
         ("PUT", "/v1/me/personal-workspace"),
         ("GET", "/v1/workspaces/{workspace_id}"),
+        ("GET", "/v1/workspaces/{workspace_id}/sources"),
         ("GET", "/v1/workspaces/{workspace_id}/evidence"),
         ("POST", "/v1/workspaces/{workspace_id}/evidence"),
         ("GET", "/v1/workspaces/{workspace_id}/evidence/{evidence_id}"),

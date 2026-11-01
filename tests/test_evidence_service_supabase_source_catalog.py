@@ -193,3 +193,64 @@ def test_acl_fails_closed_on_non_200() -> None:
     with pytest.raises(SourceAccessPolicyUnavailable):
         asyncio.run(acl.may_read(SUBJECT, WORKSPACE, SOURCE, VERSION))
 
+
+
+def staged_row() -> dict[str, object]:
+    row = dict(published_row())
+    row["state"] = "staged"
+    return row
+
+
+def test_list_visible_versions_returns_published_and_staged_rows() -> None:
+    observed: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        observed.append(request)
+        return httpx.Response(200, json=[published_row(), staged_row()])
+
+    catalog = SupabaseSnapshotCatalog(
+        settings(), TOKEN, transport=httpx.MockTransport(handler)
+    )
+    manifests = asyncio.run(catalog.list_visible_versions(WORKSPACE))
+
+    assert [m.state for m in manifests] == [SnapshotState.PUBLISHED, SnapshotState.STAGED]
+    assert all(m.workspace_id == WORKSPACE for m in manifests)
+    request = observed[0]
+    assert request.headers["authorization"] == f"Bearer {TOKEN}"
+    assert request.headers["apikey"] == "sb_publishable_synthetic_test_key"
+    assert "workspace_id=eq." in str(request.url)
+
+
+def test_list_visible_versions_empty_list_is_not_an_error() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=[])
+
+    catalog = SupabaseSnapshotCatalog(
+        settings(), TOKEN, transport=httpx.MockTransport(handler)
+    )
+    assert asyncio.run(catalog.list_visible_versions(WORKSPACE)) == []
+
+
+def test_list_visible_versions_fails_closed_on_malformed_row() -> None:
+    bad = dict(published_row())
+    bad["sha256"] = "not-a-digest"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=[published_row(), bad])
+
+    catalog = SupabaseSnapshotCatalog(
+        settings(), TOKEN, transport=httpx.MockTransport(handler)
+    )
+    with pytest.raises(SourceCatalogUnavailable):
+        asyncio.run(catalog.list_visible_versions(WORKSPACE))
+
+
+def test_list_visible_versions_fails_closed_on_non_200() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(403, json={"message": "denied"})
+
+    catalog = SupabaseSnapshotCatalog(
+        settings(), TOKEN, transport=httpx.MockTransport(handler)
+    )
+    with pytest.raises(SourceCatalogUnavailable):
+        asyncio.run(catalog.list_visible_versions(WORKSPACE))

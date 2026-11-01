@@ -34,6 +34,8 @@ const RECORD = {
   workspace_id: WORKSPACE_ID,
   content: "Synthetic integration evidence",
   source_label: "test fixture",
+  source_id: null,
+  source_version_id: null,
   created_at: "2026-10-31T12:00:00Z",
   updated_at: "2026-10-31T12:00:00Z",
 };
@@ -261,5 +263,167 @@ describe("workspace evidence and verified source Next.js boundary", () => {
     );
     expect(invalidRepresentation.status).toBe(502);
     expect(await invalidRepresentation.json()).toEqual({ error: "Evidence service returned an invalid response." });
+  });
+});
+
+describe("workspace sources index Next.js boundary", () => {
+  beforeEach(() => {
+    mocks.getAuth.mockResolvedValue(AUTHENTICATED);
+    mocks.serviceUrl.mockReturnValue("https://evidence.example");
+    vi.stubGlobal("fetch", vi.fn());
+  });
+
+  const VERSION_SUMMARY = {
+    source_id: SOURCE_ID,
+    version_id: VERSION_ID,
+    state: "published",
+    sha256: "a".repeat(64),
+    size_bytes: 128,
+    created_at: "2026-10-31T12:00:00Z",
+  };
+
+  it("lists visible source versions for the verified session", async () => {
+    const fetchMock = vi.mocked(fetch).mockResolvedValue(Response.json([VERSION_SUMMARY]));
+    const { GET: getSources } = await import(
+      "../app/api/evidence/workspaces/[workspaceId]/sources/route"
+    );
+    const response = await getSources(
+      request(`/api/evidence/workspaces/${WORKSPACE_ID}/sources`),
+      params({ workspaceId: WORKSPACE_ID }),
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual([VERSION_SUMMARY]);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe(`https://evidence.example/v1/workspaces/${WORKSPACE_ID}/sources`);
+    expect(new Headers(init?.headers).get("Authorization")).toBe(`Bearer ${TOKEN}`);
+  });
+
+  it("requires authentication and never calls the service without a session", async () => {
+    mocks.getAuth.mockResolvedValue({ kind: "unauthenticated" });
+    const { GET: getSources } = await import(
+      "../app/api/evidence/workspaces/[workspaceId]/sources/route"
+    );
+    const response = await getSources(
+      request(`/api/evidence/workspaces/${WORKSPACE_ID}/sources`),
+      params({ workspaceId: WORKSPACE_ID }),
+    );
+    expect(response.status).toBe(401);
+    expect(vi.mocked(fetch)).not.toHaveBeenCalled();
+  });
+
+  it("maps a non-member 404 without disclosing workspace existence", async () => {
+    vi.mocked(fetch).mockResolvedValue(Response.json({ detail: "Workspace not found" }, { status: 404 }));
+    const { GET: getSources } = await import(
+      "../app/api/evidence/workspaces/[workspaceId]/sources/route"
+    );
+    const response = await getSources(
+      request(`/api/evidence/workspaces/${WORKSPACE_ID}/sources`),
+      params({ workspaceId: WORKSPACE_ID }),
+    );
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ error: "Workspace not found." });
+  });
+
+  it("rejects a malformed service payload as 502 and leaks nothing", async () => {
+    vi.mocked(fetch).mockResolvedValue(Response.json([{ ...VERSION_SUMMARY, sha256: "bad" }]));
+    const { GET: getSources } = await import(
+      "../app/api/evidence/workspaces/[workspaceId]/sources/route"
+    );
+    const response = await getSources(
+      request(`/api/evidence/workspaces/${WORKSPACE_ID}/sources`),
+      params({ workspaceId: WORKSPACE_ID }),
+    );
+    expect(response.status).toBe(502);
+    expect(JSON.stringify(await response.json())).not.toContain("bad");
+  });
+
+  it("rejects a non-UUID workspace id before any service call", async () => {
+    const { GET: getSources } = await import(
+      "../app/api/evidence/workspaces/[workspaceId]/sources/route"
+    );
+    const response = await getSources(
+      request("/api/evidence/workspaces/not-a-uuid/sources"),
+      params({ workspaceId: "not-a-uuid" }),
+    );
+    expect(response.status).toBe(404);
+    expect(vi.mocked(fetch)).not.toHaveBeenCalled();
+  });
+});
+
+describe("evidence source link Next.js boundary", () => {
+  beforeEach(() => {
+    mocks.getAuth.mockResolvedValue(AUTHENTICATED);
+    mocks.serviceUrl.mockReturnValue("https://evidence.example");
+    vi.stubGlobal("fetch", vi.fn());
+  });
+
+  it("forwards a complete provenance link on create", async () => {
+    const linked = { ...RECORD, source_id: SOURCE_ID, source_version_id: VERSION_ID };
+    const fetchMock = vi.mocked(fetch).mockResolvedValue(Response.json(linked, { status: 201 }));
+    const response = await postEvidence(
+      request(`/api/evidence/workspaces/${WORKSPACE_ID}/evidence`, {
+        method: "POST",
+        headers: sameOriginHeaders(),
+        body: JSON.stringify({
+          content: "Linked evidence",
+          source_id: SOURCE_ID,
+          source_version_id: VERSION_ID,
+        }),
+      }),
+      params({ workspaceId: WORKSPACE_ID }),
+    );
+    expect(response.status).toBe(201);
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({
+      content: "Linked evidence",
+      source_id: SOURCE_ID,
+      source_version_id: VERSION_ID,
+    });
+  });
+
+  it("rejects a one-sided link before any service call", async () => {
+    const response = await postEvidence(
+      request(`/api/evidence/workspaces/${WORKSPACE_ID}/evidence`, {
+        method: "POST",
+        headers: sameOriginHeaders(),
+        body: JSON.stringify({ content: "Linked evidence", source_id: SOURCE_ID }),
+      }),
+      params({ workspaceId: WORKSPACE_ID }),
+    );
+    expect(response.status).toBe(400);
+    expect(vi.mocked(fetch)).not.toHaveBeenCalled();
+  });
+
+  it("forwards link clearing as an explicit null pair", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(Response.json(RECORD));
+    const response = await patchEvidence(
+      request(`/api/evidence/workspaces/${WORKSPACE_ID}/evidence/${EVIDENCE_ID}`, {
+        method: "PATCH",
+        headers: sameOriginHeaders(),
+        body: JSON.stringify({ source_id: null, source_version_id: null }),
+      }),
+      params({ workspaceId: WORKSPACE_ID, evidenceId: EVIDENCE_ID }),
+    );
+    expect(response.status).toBe(200);
+    expect(JSON.parse(String(vi.mocked(fetch).mock.calls[0][1]?.body))).toEqual({
+      source_id: null,
+      source_version_id: null,
+    });
+  });
+
+  it("rejects a link with non-UUID identifiers", async () => {
+    const response = await postEvidence(
+      request(`/api/evidence/workspaces/${WORKSPACE_ID}/evidence`, {
+        method: "POST",
+        headers: sameOriginHeaders(),
+        body: JSON.stringify({
+          content: "Linked evidence",
+          source_id: "../../etc",
+          source_version_id: VERSION_ID,
+        }),
+      }),
+      params({ workspaceId: WORKSPACE_ID }),
+    );
+    expect(response.status).toBe(400);
+    expect(vi.mocked(fetch)).not.toHaveBeenCalled();
   });
 });

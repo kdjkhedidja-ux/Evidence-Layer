@@ -12,7 +12,10 @@ import httpx
 
 from evidence_service.config import SupabaseSettings
 
-EVIDENCE_COLUMNS = "id,workspace_id,content,source_label,created_at,updated_at"
+EVIDENCE_COLUMNS = (
+    "id,workspace_id,content,source_label,source_id,source_version_id,"
+    "created_at,updated_at"
+)
 
 
 class EvidenceDataUnavailable(Exception):
@@ -31,6 +34,8 @@ class EvidenceRecord:
     source_label: str | None
     created_at: datetime
     updated_at: datetime
+    source_id: UUID | None = None
+    source_version_id: UUID | None = None
 
 
 class EvidenceRepository(Protocol):
@@ -49,6 +54,8 @@ class EvidenceRepository(Protocol):
         *,
         content: str,
         source_label: str | None,
+        source_id: UUID | None = None,
+        source_version_id: UUID | None = None,
     ) -> EvidenceRecord: ...
 
     async def update_record(
@@ -113,6 +120,8 @@ class SupabaseEvidenceRepository:
         *,
         content: str,
         source_label: str | None,
+        source_id: UUID | None = None,
+        source_version_id: UUID | None = None,
     ) -> EvidenceRecord:
         response = await self._request(
             "POST",
@@ -122,6 +131,10 @@ class SupabaseEvidenceRepository:
                 "workspace_id": str(workspace_id),
                 "content": content,
                 "source_label": source_label,
+                "source_id": str(source_id) if source_id else None,
+                "source_version_id": str(source_version_id)
+                if source_version_id
+                else None,
             },
         )
         rows = self._parse_rows(response, workspace_id)
@@ -216,6 +229,10 @@ class SupabaseEvidenceRepository:
                     source_label=item["source_label"],
                     created_at=cls._parse_datetime(item["created_at"]),
                     updated_at=cls._parse_datetime(item["updated_at"]),
+                    source_id=cls._parse_optional_uuid(item["source_id"]),
+                    source_version_id=cls._parse_optional_uuid(
+                        item["source_version_id"]
+                    ),
                 )
                 if (
                     record.workspace_id != expected_workspace_id
@@ -224,6 +241,7 @@ class SupabaseEvidenceRepository:
                         record.source_label is not None
                         and not isinstance(record.source_label, str)
                     )
+                    or (record.source_id is None) != (record.source_version_id is None)
                 ):
                     raise ValueError
             except (KeyError, TypeError, ValueError, AttributeError) as exc:
@@ -262,6 +280,14 @@ class SupabaseEvidenceRepository:
         if returned_id != evidence_id or returned_workspace_id != workspace_id:
             raise EvidenceDataUnavailable
         return True
+
+    @staticmethod
+    def _parse_optional_uuid(value: object) -> UUID | None:
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            raise ValueError
+        return UUID(value)
 
     @staticmethod
     def _parse_datetime(value: object) -> datetime:

@@ -9,6 +9,18 @@ Supabase Auth identity and workspace-membership boundary:
   user's single personal workspace and owner membership.
 - `GET /v1/workspaces/{workspace_id}` selects one workspace only after the
   caller's active membership has been checked.
+- `GET /v1/workspaces/{workspace_id}/evidence` (plus `POST`, and
+  `GET`/`PATCH`/`DELETE` on `{evidence_id}`) manages workspace-scoped evidence
+  records under the caller's own RLS policies. Records may carry an optional
+  provenance link (`source_id` + `source_version_id`) to an exact published
+  source snapshot version; the service accepts a link only after the caller's
+  own token resolves that version through the RLS-protected catalog.
+- `GET /v1/workspaces/{workspace_id}/sources` lists the source snapshot
+  versions visible to the caller (published versions of granted sources plus
+  the caller's own staged rows). Object keys are never exposed.
+- `GET /v1/workspaces/{workspace_id}/sources/{source_id}/versions/{version_id}/content`
+  delivers verified source bytes after membership, catalog, ACL, size, and
+  SHA-256 digest checks, with revalidation before opening and before delivery.
 
 The service does not collect passwords or expose a login/signup UI. A client
 signs in with Supabase Auth, then sends its access token to this service.
@@ -115,6 +127,17 @@ idempotent; `GET /v1/me` then lists the user's active memberships. To select a
 workspace, call `GET /v1/workspaces/{workspace_id}` with the same token. The
 service does not accept a user ID or workspace ID when provisioning the
 personal workspace.
+
+## Source snapshot storage
+
+Verified source content is read from the private `source-snapshots` Supabase
+Storage bucket. The read path picks its Storage adapter from the configured
+project origin: plain HTTP on loopback uses the disposable local-stack
+adapter, and any HTTPS non-loopback project origin uses the hosted adapter.
+Both adapters send only the caller's verified bearer token plus the
+publishable API key, refuse redirects, compression, and oversize bodies, and
+fail closed; Storage RLS decides object access. Neither adapter accepts a
+`service_role` key.
 
 The RLS integration tests execute PostgreSQL policies under Supabase's
 `authenticated` and `anon` roles with request claim context. They need the
