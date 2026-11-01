@@ -11,8 +11,18 @@ type EvidenceRecord = {
   workspace_id: string;
   content: string;
   source_label: string | null;
+  source_id: string | null;
+  source_version_id: string | null;
   created_at: string;
   updated_at: string;
+};
+type SourceVersion = {
+  source_id: string;
+  version_id: string;
+  state: "staged" | "published";
+  sha256: string;
+  size_bytes: number;
+  created_at: string;
 };
 type LoadState = "loading" | "ready" | "expired" | "unavailable";
 
@@ -37,6 +47,13 @@ function dateLabel(value: string): string {
       }).format(date);
 }
 
+function formatBytes(value: number): string {
+  if (!Number.isSafeInteger(value) || value < 0) return "Size unavailable";
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export default function WorkspaceConsole({
   userId,
   email,
@@ -54,19 +71,36 @@ export default function WorkspaceConsole({
   const [pending, setPending] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteConfirmationId, setDeleteConfirmationId] = useState<string | null>(null);
-  const [sourceId, setSourceId] = useState("");
-  const [versionId, setVersionId] = useState("");
+  const [sources, setSources] = useState<SourceVersion[]>([]);
+  const [sourcesState, setSourcesState] = useState<LoadState>("ready");
+  const [readingVersionId, setReadingVersionId] = useState<string | null>(null);
   const [sourceContent, setSourceContent] = useState("");
   const [sourceDigest, setSourceDigest] = useState("");
   const [sourceMessage, setSourceMessage] = useState("");
   const [sourcePending, setSourcePending] = useState(false);
   const [label, setLabel] = useState("");
   const [content, setContent] = useState("");
+  const [linkKey, setLinkKey] = useState("");
 
   const selectedWorkspace = useMemo(
     () => workspaces.find((workspace) => workspace.id === workspaceId) ?? null,
     [workspaceId, workspaces],
   );
+
+  const publishedVersions = useMemo(
+    () => sources.filter((version) => version.state === "published"),
+    [sources],
+  );
+
+  const sourcesById = useMemo(() => {
+    const grouped = new Map<string, SourceVersion[]>();
+    for (const version of sources) {
+      const list = grouped.get(version.source_id) ?? [];
+      list.push(version);
+      grouped.set(version.source_id, list);
+    }
+    return [...grouped.entries()];
+  }, [sources]);
 
   const loadWorkspaces = useCallback(async (): Promise<Workspace[] | null> => {
     setLoadState("loading");
@@ -168,15 +202,68 @@ export default function WorkspaceConsole({
     void loadWorkspaces();
   }, [loadWorkspaces]);
 
+  const loadSources = useCallback(async (selectedId: string) => {
+    if (!selectedId) {
+      setSources([]);
+      setSourcesState("ready");
+      return;
+    }
+    setSourcesState("loading");
+    try {
+      const response = await fetch(
+        `/api/evidence/workspaces/${encodeURIComponent(selectedId)}/sources`,
+        { cache: "no-store" },
+      );
+      if (response.status === 401) {
+        setSources([]);
+        setSourcesState("expired");
+        router.refresh();
+        return;
+      }
+      if (!response.ok) {
+        setSources([]);
+        setSourcesState("unavailable");
+        return;
+      }
+      const payload = (await response.json()) as unknown;
+      if (
+        !Array.isArray(payload) ||
+        payload.some((item) => {
+          if (!item || typeof item !== "object") return true;
+          const candidate = item as Record<string, unknown>;
+          return (
+            typeof candidate.source_id !== "string" ||
+            !UUID.test(candidate.source_id) ||
+            typeof candidate.version_id !== "string" ||
+            !UUID.test(candidate.version_id) ||
+            (candidate.state !== "published" && candidate.state !== "staged")
+          );
+        })
+      ) {
+        setSources([]);
+        setSourcesState("unavailable");
+        return;
+      }
+      setSources(payload as SourceVersion[]);
+      setSourcesState("ready");
+    } catch {
+      setSources([]);
+      setSourcesState("unavailable");
+    }
+  }, [router]);
+
   useEffect(() => {
     void loadEvidence(workspaceId);
+    void loadSources(workspaceId);
     setMessage("");
     setEditingId(null);
     setDeleteConfirmationId(null);
+    setLinkKey("");
+    setReadingVersionId(null);
     setSourceContent("");
     setSourceDigest("");
     setSourceMessage("");
-  }, [loadEvidence, workspaceId]);
+  }, [loadEvidence, loadSources, workspaceId]);
 
   useEffect(() => {
     const { data: { subscription } } = createSupabaseBrowserClient().auth.onAuthStateChange(
@@ -229,6 +316,7 @@ export default function WorkspaceConsole({
     const path = "/api/evidence/workspaces/" + encodeURIComponent(workspaceId) +
       "/evidence" + (editingId ? `/${encodeURIComponent(editingId)}` : "");
     try {
+      const [linkSourceId, linkVersionId] = linkKey ? linkKey.split(":") : [];
       const response = await fetch(path, {
         method,
         cache: "no-store",
@@ -236,6 +324,8 @@ export default function WorkspaceConsole({
         body: JSON.stringify({
           content: content.trim(),
           source_label: label.trim() || null,
+          source_id: linkKey ? linkSourceId : null,
+          source_version_id: linkKey ? linkVersionId : null,
         }),
       });
       if (!response.ok) {
@@ -244,6 +334,7 @@ export default function WorkspaceConsole({
       }
       setContent("");
       setLabel("");
+      setLinkKey("");
       setEditingId(null);
       setMessage(editingId ? "Evidence record updated." : "Evidence record created.");
       await loadEvidence(workspaceId);
@@ -258,6 +349,11 @@ export default function WorkspaceConsole({
     setEditingId(record.id);
     setContent(record.content);
     setLabel(record.source_label ?? "");
+    setLinkKey(
+      record.source_id && record.source_version_id
+        ? `${record.source_id}:${record.source_version_id}`
+        : "",
+    );
     setDeleteConfirmationId(null);
     document.getElementById("evidence-editor-title")?.focus();
   }
@@ -291,19 +387,19 @@ export default function WorkspaceConsole({
     }
   }
 
-  async function readVerifiedSource(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!workspaceId || !UUID.test(sourceId) || !UUID.test(versionId)) {
-      setSourceMessage("Enter valid source and version IDs.");
+  async function readSourceVersion(readSourceId: string, readVersionId: string) {
+    if (!workspaceId || !UUID.test(readSourceId) || !UUID.test(readVersionId)) {
+      setSourceMessage("The selected source version is not valid.");
       return;
     }
     setSourcePending(true);
     setSourceMessage("");
     setSourceContent("");
     setSourceDigest("");
+    setReadingVersionId(readVersionId);
     const path = "/api/evidence/workspaces/" + encodeURIComponent(workspaceId) +
-      "/sources/" + encodeURIComponent(sourceId) +
-      "/versions/" + encodeURIComponent(versionId) + "/content";
+      "/sources/" + encodeURIComponent(readSourceId) +
+      "/versions/" + encodeURIComponent(readVersionId) + "/content";
     try {
       const response = await fetch(path, { cache: "no-store" });
       if (!response.ok) {
@@ -349,7 +445,8 @@ export default function WorkspaceConsole({
         <Link className="workspace-brand" href="/">evidence<span>layer</span></Link>
         <nav aria-label="Workspace navigation">
           <Link aria-current="page" href="/workspace">Workspace</Link>
-          <Link href="/">Demo / Synthetic</Link>
+          <Link href="/">Evidence Explorer</Link>
+          <Link href="/relationships">Relationships</Link>
           <Link href="/documentation">Documentation</Link>
         </nav>
         <div className="workspace-user">
@@ -440,42 +537,67 @@ export default function WorkspaceConsole({
                         <time dateTime={record.updated_at}>Updated {dateLabel(record.updated_at)}</time>
                       </div>
                       <p>{record.content}</p>
-                      <div className="workspace-record-actions">
-                        <button type="button" onClick={() => editRecord(record)} disabled={pending}>
-                          Edit
-                        </button>
-                        {deleteConfirmationId === record.id ? (
-                          <>
-                            <span>Delete this record?</span>
+                      {record.source_id && record.source_version_id && (
+                        <p className="workspace-record-link">
+                          Linked to source {record.source_id.slice(0, 8)}… version{" "}
+                          {record.source_version_id.slice(0, 8)}…
+                          {publishedVersions.some(
+                            (version) =>
+                              version.source_id === record.source_id &&
+                              version.version_id === record.source_version_id,
+                          ) && (
                             <button
                               type="button"
-                              onClick={() => void deleteRecord(record.id)}
-                              disabled={pending}
+                              onClick={() =>
+                                record.source_id &&
+                                record.source_version_id &&
+                                void readSourceVersion(record.source_id, record.source_version_id)
+                              }
+                              disabled={sourcePending}
                             >
-                              Confirm delete
+                              Read linked source
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => setDeleteConfirmationId(null)}
-                              disabled={pending}
-                            >
-                              Cancel
-                            </button>
-                          </>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => setDeleteConfirmationId(record.id)}
-                            disabled={pending}
-                          >
-                            Delete
+                          )}
+                        </p>
+                      )}
+                      {selectedWorkspace.role === "owner" ? (
+                        <div className="workspace-record-actions">
+                          <button type="button" onClick={() => editRecord(record)} disabled={pending}>
+                            Edit
                           </button>
-                        )}
-                      </div>
+                          {deleteConfirmationId === record.id ? (
+                            <>
+                              <span>Delete this record?</span>
+                              <button
+                                type="button"
+                                onClick={() => void deleteRecord(record.id)}
+                                disabled={pending}
+                              >
+                                Confirm delete
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeleteConfirmationId(null)}
+                                disabled={pending}
+                              >
+                                Cancel
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setDeleteConfirmationId(record.id)}
+                              disabled={pending}
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                      ) : <p className="workspace-note">Read-only member access</p>}
                     </article>
                   ))}
                 </section>
-                <form className="workspace-form" onSubmit={saveEvidence}>
+                {selectedWorkspace.role === "owner" && <form className="workspace-form" onSubmit={saveEvidence}>
                   <h3 id="evidence-editor-title" tabIndex={-1}>
                     {editingId ? "Edit evidence record" : "Add evidence record"}
                   </h3>
@@ -486,6 +608,28 @@ export default function WorkspaceConsole({
                     value={label}
                     onChange={(event) => setLabel(event.target.value)}
                   />
+                  <label htmlFor="evidence-source-link">Linked source version (optional)</label>
+                  <select
+                    id="evidence-source-link"
+                    value={linkKey}
+                    onChange={(event) => setLinkKey(event.target.value)}
+                    disabled={sourcesState === "loading"}
+                  >
+                    <option value="">No linked source</option>
+                    {publishedVersions.map((version) => (
+                      <option
+                        key={version.version_id}
+                        value={`${version.source_id}:${version.version_id}`}
+                      >
+                        {`Source ${version.source_id.slice(0, 8)}… · version ${version.version_id.slice(0, 8)}… · ${dateLabel(version.created_at)}`}
+                      </option>
+                    ))}
+                  </select>
+                  {sourcesState === "ready" && publishedVersions.length === 0 && (
+                    <p className="workspace-note">
+                      No published source versions are available to link in this workspace.
+                    </p>
+                  )}
                   <label htmlFor="evidence-content">Evidence content</label>
                   <textarea
                     id="evidence-content"
@@ -513,7 +657,7 @@ export default function WorkspaceConsole({
                       </button>
                     )}
                   </div>
-                </form>
+                </form>}
               </div>
             )}
             {message && <p className="workspace-message" role="status">{message}</p>}
@@ -525,38 +669,57 @@ export default function WorkspaceConsole({
             <div className="workspace-section-heading">
               <div>
                 <p className="eyebrow">Read-time checks</p>
-                <h2 id="source-read-heading">Read a verified source version</h2>
+                <h2 id="source-read-heading">Workspace sources</h2>
               </div>
               <span className="workspace-role">Access checked by service</span>
             </div>
             <p className="workspace-note">
-              The Evidence Service checks active workspace membership, the exact source version, and the current source grant before opening content and again before delivery. Denials and service failures return no source content.
+              This index lists the source versions your account may see in this workspace.
+              Reading a version re-checks active membership, the exact version, and the
+              current source grant before opening content and again before delivery.
+              Denials and service failures return no source content.
             </p>
-            <form className="workspace-source-form" onSubmit={readVerifiedSource}>
-              <label htmlFor="source-id">Source ID</label>
-              <input
-                id="source-id"
-                autoComplete="off"
-                inputMode="text"
-                pattern="[0-9a-fA-F-]{36}"
-                required
-                value={sourceId}
-                onChange={(event) => setSourceId(event.target.value)}
-              />
-              <label htmlFor="source-version-id">Version ID</label>
-              <input
-                id="source-version-id"
-                autoComplete="off"
-                inputMode="text"
-                pattern="[0-9a-fA-F-]{36}"
-                required
-                value={versionId}
-                onChange={(event) => setVersionId(event.target.value)}
-              />
-              <button type="submit" disabled={sourcePending}>
-                {sourcePending ? "Checking access…" : "Read source"}
-              </button>
-            </form>
+            {sourcesState === "loading" && <p role="status">Loading authorized workspace sources…</p>}
+            {sourcesState === "expired" && <p role="alert">Your session needs to be verified again.</p>}
+            {sourcesState === "unavailable" && (
+              <p role="alert">The source index is unavailable. No source data is shown.</p>
+            )}
+            {sourcesState === "ready" && sourcesById.length === 0 && (
+              <p>No verified sources are available to your account in this workspace.</p>
+            )}
+            {sourcesState === "ready" && sourcesById.length > 0 && (
+              <ul className="workspace-source-list">
+                {sourcesById.map(([sourceGroupId, versions]) => (
+                  <li key={sourceGroupId}>
+                    <h3>Source {sourceGroupId.slice(0, 8)}…</h3>
+                    <ul>
+                      {versions.map((version) => (
+                        <li key={version.version_id} className="workspace-source-version">
+                          <span>
+                            Version {version.version_id.slice(0, 8)}… ·{" "}
+                            {version.state === "published" ? "Published" : "Pending verification"} ·{" "}
+                            {formatBytes(version.size_bytes)} · {dateLabel(version.created_at)}
+                          </span>
+                          {version.state === "published" && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void readSourceVersion(version.source_id, version.version_id)
+                              }
+                              disabled={sourcePending}
+                            >
+                              {sourcePending && readingVersionId === version.version_id
+                                ? "Checking access…"
+                                : "Read source"}
+                            </button>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </li>
+                ))}
+              </ul>
+            )}
             {sourceMessage && <p className="workspace-message" role="status">{sourceMessage}</p>}
             {sourceContent && (
               <div className="workspace-source-result">
@@ -577,14 +740,14 @@ export default function WorkspaceConsole({
           <div className="workspace-capability-grid">
             <Capability title="Authentication" state="Connected" detail="Supabase Auth session is verified server-side; sign out revokes the browser session." />
             <Capability title="Workspace & access" state="Connected" detail="Membership list and workspace-scoped requests use the authenticated user's existing RLS policies." />
-            <Capability title="Evidence records" state="Connected" detail="List, create, edit, and delete use the existing Evidence Service contract and user JWT." />
-            <Capability title="Source relationships" state="Demo only" detail="Relationship links currently exist only in the labelled synthetic fixture." />
-            <Capability title="Reading guide" state="Demo only" detail="The current guide is fixture-authored; no live guide API is available." />
-            <Capability title="Verification" state="Read-time only" detail="Source reads use verified snapshots and access checks. Verification history/status has no frontend API." />
+            <Capability title="Evidence records" state={selectedWorkspace?.role === "owner" ? "Connected · owner writes" : "Connected · read only"} detail="Workspace membership is required to read. RLS and the service enforce owner-only create, edit, and delete." />
+            <Capability title="Evidence relationships" state="Connected · owner writes" detail="Explicit relationships are stored with rationale and review basis. Active members can read; owners can create, edit, and delete." />
+            <Capability title="Reading guide" state="Evidence-grounded" detail="The live guide explains how to inspect stored records and exact source provenance; it does not invent interpretations." />
+            <Capability title="Verification" state="Snapshot status" detail="Published source versions are integrity-verified. There is no separate per-attempt verification history API." />
             <Capability title="Evaluation" state="Historical" detail="Published benchmark outputs are fixed reports, not per-workspace live evaluation." />
             <Capability title="Cost & performance" state="Historical estimates" detail="Benchmark estimates are available; workspace usage metering and invoices are not exposed." />
             <Capability title="Integrations" state="Unavailable" detail="No integration-management endpoint is exposed by the current service contract." />
-            <Capability title="Settings & access" state="Read only" detail="Membership roles can be viewed; invitations, role changes, and access administration are not implemented." />
+            <Capability title="Settings & access" state="Limited · read only" detail="The current user's membership and role are visible; invitations, role changes, and access administration are unavailable." />
           </div>
         </section>
 

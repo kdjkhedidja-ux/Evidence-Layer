@@ -19,9 +19,9 @@ if (configuredAppUrl) {
     parsed.search ||
     parsed.hash ||
     !parsed.hostname.endsWith(".vercel.app") ||
-    !parsed.hostname.includes("-git-fix-es256-p256-jwk-test-fixture-")
+    !parsed.hostname.includes("-git-feat-product-integration-")
   ) {
-    throw new Error("STAGING_APP_URL must be the HTTPS Vercel branch-preview origin for fix/es256-p256-jwk-test-fixture.");
+    throw new Error("STAGING_APP_URL must be the HTTPS Vercel branch-preview origin for feat/product-integration.");
   }
   appUrl = parsed.origin;
 }

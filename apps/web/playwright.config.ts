@@ -5,7 +5,7 @@ const authUrl = "http://127.0.0.1:54321";
 const syntheticConfig = {
   NEXT_PUBLIC_SUPABASE_URL: authUrl,
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_synthetic_ui_only",
-  EVIDENCE_SERVICE_URL: "http://127.0.0.1:54322",
+  EVIDENCE_SERVICE_URL: "http://127.0.0.1:54329",
   PORT: "3000",
 };
 
@@ -24,6 +24,12 @@ export default defineConfig({
     {
       command: "node tests/e2e/mock-auth-server.mjs",
       url: `${authUrl}/health`,
+      reuseExistingServer: false,
+      timeout: 30_000,
+    },
+    {
+      command: "node tests/e2e/mock-evidence-service.mjs",
+      url: "http://127.0.0.1:54329/health",
       reuseExistingServer: false,
       timeout: 30_000,
     },

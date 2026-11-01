@@ -3,20 +3,25 @@
 ## Status
 
 This document describes the **approved target architecture**, while marking
-which parts are present. The repository contains a Python library, local
-evaluation scripts, dataset artifacts, a JEV scorer, a local stdio MCP server
-(`retrieve_evidence`), and a synthetic-only Next.js Evidence Explorer
-prototype. The prototype's production deployment from `main` on Vercel is
-confirmed; it is not an authenticated SaaS dashboard or customer-data service.
+which parts are present. The repository contains a Python library, evaluation
+scripts, dataset artifacts, a JEV scorer, a local stdio MCP server
+(`retrieve_evidence`), and authenticated Next.js Workspace and Evidence
+Explorer code backed by Supabase Auth/RLS and the Evidence Service. The root
+Explorer reads actual workspace data; it does not fall back to local fixtures.
+
+The currently observed Vercel Production deployment is still on main commit
+`0bf0c2b2` and predates the later Phase 8 feature-branch work. No Production
+deployment or database migration is made by this branch's local changes. The
+Railway Production health endpoint returned HTTP 200, but service version,
+identity configuration, and protected routes have not been verified against
+the hosted Production environment. The repository service code separately
+implements verified identity, workspace membership, evidence CRUD,
+relationships, and verified source reads using user-scoped Supabase tokens.
+
 The repository does not contain a production source router, a Decisions API
 client, or the SaaS backend described below; it has only a local deterministic
 routing library (`src/evidence_layer/routing/`) that is not wired into any
 service.
-
-The health-only FastAPI service at `services/evidence-service/` is deployed on
-Railway and exposes only `GET /healthz`; it does not read corpus content,
-retrieve evidence, authenticate customers, or call providers. It is separate
-from the stdio MCP server and is not a customer-data service.
 
 Delivery phasing follows the canonical [Product Roadmap](ROADMAP.md): Phase 5
 requires mandatory per-user tenant isolation that protects each user's data;

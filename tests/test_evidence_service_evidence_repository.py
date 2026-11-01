@@ -30,12 +30,18 @@ def settings() -> SupabaseSettings:
     )
 
 
-def row(workspace_id: UUID = WORKSPACE, content: str = "private evidence"):
+SOURCE = UUID("c1000000-0000-4000-8000-000000000001")
+VERSION = UUID("d1000000-0000-4000-8000-000000000001")
+
+
+def row(workspace_id: UUID = WORKSPACE, content: str = "private evidence", *, linked: bool = False):
     return {
         "id": str(EVIDENCE_ID),
         "workspace_id": str(workspace_id),
         "content": content,
         "source_label": "source",
+        "source_id": str(SOURCE) if linked else None,
+        "source_version_id": str(VERSION) if linked else None,
         "created_at": "2026-10-18T12:00:00Z",
         "updated_at": "2026-10-18T12:00:00+00:00",
     }
@@ -96,9 +102,15 @@ def test_evidence_repository_uses_user_token_and_workspace_filters_for_crud() ->
     assert observed[0].url.params["workspace_id"] == f"eq.{WORKSPACE}"
     assert observed[1].url.params["workspace_id"] == f"eq.{WORKSPACE}"
     assert observed[1].url.params["id"] == f"eq.{EVIDENCE_ID}"
-    assert observed[2].read() == (
-        f'{{"workspace_id":"{WORKSPACE}","content":"created","source_label":"source"}}'
-    ).encode()
+    import json as jsonlib
+
+    assert jsonlib.loads(observed[2].read()) == {
+        "workspace_id": str(WORKSPACE),
+        "content": "created",
+        "source_label": "source",
+        "source_id": None,
+        "source_version_id": None,
+    }
     assert observed[3].url.params["workspace_id"] == f"eq.{WORKSPACE}"
     assert observed[3].url.params["id"] == f"eq.{EVIDENCE_ID}"
     assert observed[4].url.params["workspace_id"] == f"eq.{WORKSPACE}"
@@ -166,3 +178,50 @@ def test_delete_requires_returned_rows_and_does_not_assume_204_means_deleted() -
     )
     with pytest.raises(EvidenceDataUnavailable):
         asyncio.run(repository.delete_record(TOKEN, WORKSPACE, EVIDENCE_ID))
+
+
+def test_evidence_repository_round_trips_source_version_link() -> None:
+    observed: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        observed.append(request)
+        return httpx.Response(201, json=[row(content="created", linked=True)])
+
+    repository = SupabaseEvidenceRepository(
+        settings(), transport=httpx.MockTransport(handler)
+    )
+
+    async def exercise():
+        return await repository.create_record(
+            TOKEN,
+            WORKSPACE,
+            content="created",
+            source_label="source",
+            source_id=SOURCE,
+            source_version_id=VERSION,
+        )
+
+    created = asyncio.run(exercise())
+
+    assert created.source_id == SOURCE
+    assert created.source_version_id == VERSION
+    import json as jsonlib
+
+    sent = jsonlib.loads(observed[0].content)
+    assert sent["source_id"] == str(SOURCE)
+    assert sent["source_version_id"] == str(VERSION)
+
+
+def test_evidence_repository_rejects_a_one_sided_link_pair() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        payload = row()
+        payload["source_version_id"] = None
+        payload["source_id"] = str(SOURCE)
+        return httpx.Response(200, json=[payload])
+
+    repository = SupabaseEvidenceRepository(
+        settings(), transport=httpx.MockTransport(handler)
+    )
+
+    with pytest.raises(EvidenceDataUnavailable):
+        asyncio.run(repository.list_records(TOKEN, WORKSPACE))
