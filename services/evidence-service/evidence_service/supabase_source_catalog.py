@@ -59,7 +59,7 @@ def _parse_utc(value: object) -> datetime:
     return parsed.astimezone(timezone.utc)
 
 
-def _parse_manifest(row: object) -> SourceSnapshotManifest:
+def _parse_manifest(row: object, *, require_published: bool = True) -> SourceSnapshotManifest:
     if not isinstance(row, dict):
         raise SourceCatalogUnavailable
     try:
@@ -83,7 +83,8 @@ def _parse_manifest(row: object) -> SourceSnapshotManifest:
         or isinstance(size_bytes, bool)
         or not isinstance(size_bytes, int)
         or not 0 <= size_bytes <= DEFAULT_MAX_SNAPSHOT_BYTES
-        or state != "published"
+        or state not in {"staged", "published"}
+        or (require_published and state != "published")
     ):
         raise SourceCatalogUnavailable
 
@@ -95,7 +96,7 @@ def _parse_manifest(row: object) -> SourceSnapshotManifest:
         object_key=object_key,
         sha256=sha256,
         size_bytes=size_bytes,
-        state=SnapshotState.PUBLISHED,
+        state=SnapshotState(state),
         created_at=created_at,
     )
 
@@ -144,6 +145,26 @@ class SupabaseSnapshotCatalog:
         raise SourceCatalogUnavailable(
             "the read-only catalog cannot publish snapshots"
         )
+
+    async def list_visible_versions(
+        self, workspace_id: UUID
+    ) -> list[SourceSnapshotManifest]:
+        """List the snapshot versions visible to the requesting user.
+
+        RLS on ``source_snapshots`` restricts visibility to published versions
+        of granted sources plus the user's own staged rows; the query adds no
+        privilege of its own. Any malformed row fails the whole listing closed.
+        """
+        if type(workspace_id) is not UUID:
+            raise SourceCatalogUnavailable
+        params = {
+            "workspace_id": f"eq.{workspace_id}",
+            "select": _CATALOG_SELECT,
+            "order": "source_id.asc,created_at.desc,version_id.asc",
+            "limit": "1000",
+        }
+        rows = await self._request(params)
+        return [_parse_manifest(row, require_published=False) for row in rows]
 
     async def _request(self, params: dict[str, str]) -> list[object]:
         headers = {

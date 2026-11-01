@@ -128,7 +128,7 @@ store, not a checked-in file or command-line argument:
 | `STAGING_ALLOW_PERSONAL_WORKSPACE_PROVISIONING` | Workspace provisioning | Set to the exact value `I_AUTHORIZE_STAGING_PERSONAL_WORKSPACE_PROVISIONING` only after the account owners explicitly authorize this idempotent Staging mutation |
 
 The app origin is deliberately restricted to the Vercel branch-preview hostname
-for `fix/es256-p256-jwk-test-fixture`; custom domains and the production alias
+for `feat/product-integration`; custom domains and the production alias
 are rejected. The service hostname must contain a `staging`, `stage`, `test`,
 or `preview` label. These checks reduce accidental production targeting but
 do not replace verification of the deployment SHA and effective platform

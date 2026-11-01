@@ -2,9 +2,9 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata = {
-  title: "Evidence Explorer — Evidence Layer",
+  title: "Evidence Explorer | Evidence Layer",
   description:
-    "A local prototype for examining synthetic evidence, provenance, open questions, and explicit relationships.",
+    "Inspect workspace evidence, authorized source versions, provenance, and explicit relationships.",
 };
 
 const themeBootstrap = `(() => {

@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 const PUBLIC_LINKS = [
+  { href: "/workspace", label: "Workspace" },
   { href: "/documentation", label: "Documentation" },
   { href: "/cost-performance", label: "Cost & Performance" },
   { href: "/privacy", label: "Privacy Policy" },

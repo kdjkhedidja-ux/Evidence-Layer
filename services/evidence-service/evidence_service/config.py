@@ -64,6 +64,10 @@ class SupabaseSettings:
         return f"{self.supabase_url.rstrip('/')}/rest/v1/evidence_records"
 
     @property
+    def evidence_relationships_url(self) -> str:
+        return f"{self.supabase_url.rstrip('/')}/rest/v1/evidence_relationships"
+
+    @property
     def personal_workspace_rpc_url(self) -> str:
         return f"{self.supabase_url.rstrip('/')}/rest/v1/rpc/ensure_personal_workspace"
 

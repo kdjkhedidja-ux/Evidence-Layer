@@ -242,7 +242,7 @@ class ReadOnlyManagementApiTests(unittest.TestCase):
                 [item["version"] for item in guard.local_inventory()],
             )
 
-        self.assertEqual(len(requests), 19)
+        self.assertEqual(len(requests), 20)
         for request in requests:
             self.assertTrue(request.full_url.endswith("/database/query/read-only"))
             self.assertEqual(request.get_method(), "POST")
@@ -443,7 +443,7 @@ class ManifestIntegrityTests(unittest.TestCase):
         on_disk = sorted(p.name for p in guard.MIGRATIONS.iterdir() if p.is_file())
         reviewed = sorted(entry["file"] for entry in self.manifest["migrations"])
         self.assertEqual(reviewed, on_disk)
-        self.assertEqual(len(reviewed), 12)
+        self.assertEqual(len(reviewed), len(on_disk))
         for entry in self.manifest["migrations"]:
             self.assertTrue(entry["provenance"].strip(), entry["file"])
             self.assertEqual(entry["version"], entry["file"][:14])
@@ -516,7 +516,7 @@ class ValidateMessageTests(unittest.TestCase):
         self.assertIn("static sql analysis", message)
         self.assertIn("separate", message)
         self.assertNotIn("no destructive statements detected", message)
-        self.assertIn("12 files", message)
+        self.assertIn("14 files", message)
 
 
 class StatementLexerTests(unittest.TestCase):
@@ -695,8 +695,8 @@ class ApprovalLedgerTests(unittest.TestCase):
 
     def test_reviewed_inventory_lexes_and_classifies_without_ambiguity(self):
         self.assertEqual(self.findings, [])
-        self.assertEqual(len(self.records), 192)
-        self.assertEqual(len({record["file"] for record in self.records}), 12)
+        self.assertEqual(len(self.records), 219)
+        self.assertEqual(len({record["file"] for record in self.records}), 14)
 
     def test_no_reviewed_statement_is_hard_denied(self):
         denied = [r for r in self.records if r["tier"] == sql_statement.TIER_HARD_DENY]
@@ -707,14 +707,14 @@ class ApprovalLedgerTests(unittest.TestCase):
 
     def test_every_ledger_entry_resolves_to_a_written_rationale(self):
         ledger = guard.load_ledger()
-        self.assertEqual(len(ledger["entries"]), 156)
+        self.assertEqual(len(ledger["entries"]), 177)
         for entry in ledger["entries"]:
             self.assertTrue(ledger["rationales"][entry["rationale_ref"]].strip())
             self.assertTrue(entry["file"].endswith(".sql"))
 
     def test_ledger_entries_are_ordered_like_the_migrations(self):
         ledger = guard.load_ledger()
-        lines = [(entry["file"], entry["line"]) for entry in ledger["entries"]]
+        lines = [(entry["file"], int(entry["line"])) for entry in ledger["entries"]]
         self.assertEqual(lines, sorted(lines))
 
     def test_unapproved_statement_change_is_rejected(self):
@@ -824,7 +824,7 @@ class ClassifyCommandTests(unittest.TestCase):
         with patch.object(sys, "argv", ["guard", "classify"]), contextlib.redirect_stdout(buffer):
             self.assertEqual(guard.main(), 0)
         self.assertIn("Static analysis passed", buffer.getvalue())
-        self.assertIn("156 registry-approved", buffer.getvalue())
+        self.assertIn("177 registry-approved", buffer.getvalue())
 
     def test_hard_denied_statement_blocks(self):
         temporary, migrations, manifest = self.build_probe(
@@ -910,6 +910,15 @@ class CatalogCompletenessTests(unittest.TestCase):
                 continue
             table = match.group(3)
             found.add(f"{schema}.{table}.{match.group(1)}")
+        drop_pattern = re.compile(
+            r"\bdrop\s+policy\s+(?:if\s+exists\s+)?([a-z_][a-z0-9_]*)\s+on\s+([a-z_][a-z0-9_]*\.)?([a-z_][a-z0-9_]*)",
+            re.I,
+        )
+        dropped = set()
+        for match in drop_pattern.finditer(self._join(body)):
+            schema = match.group(2).rstrip(".") if match.group(2) else "public"
+            dropped.add(f"{schema}.{match.group(3)}.{match.group(1)}")
+        found.difference_update(dropped)
         self.assertEqual(
             found,
             {

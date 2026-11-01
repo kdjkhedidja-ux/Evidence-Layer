@@ -26,6 +26,14 @@ from evidence_service.evidence_repository import (
     EvidenceRepository,
     SupabaseEvidenceRepository,
 )
+from evidence_service.relationship_repository import (
+    EvidenceRelationship,
+    RelationshipAccessDenied,
+    RelationshipConflict,
+    RelationshipDataUnavailable,
+    RelationshipRepository,
+    SupabaseRelationshipRepository,
+)
 from evidence_service.supabase_repository import (
     SupabaseWorkspaceRepository,
     WorkspaceDataUnavailable,
@@ -56,14 +64,45 @@ class WorkspaceResponse(BaseModel):
     role: Literal["owner", "member"]
 
 
-class EvidenceCreateRequest(BaseModel):
+class SourceVersionSummary(BaseModel):
+    source_id: UUID
+    version_id: UUID
+    state: Literal["staged", "published"]
+    sha256: str
+    size_bytes: int
+    created_at: datetime
+
+
+class SourceLinkFields(BaseModel):
+    """Optional provenance link to an exact source snapshot version.
+
+    The pair is all-or-nothing: a link pins both the source and the version.
+    """
+
+    source_id: UUID | None = None
+    source_version_id: UUID | None = None
+
+    def linked_pair(self) -> tuple[UUID, UUID] | None:
+        if self.source_id is None and self.source_version_id is None:
+            return None
+        if self.source_id is None or self.source_version_id is None:
+            raise ValueError("A source link requires both source_id and source_version_id")
+        return self.source_id, self.source_version_id
+
+
+class EvidenceCreateRequest(SourceLinkFields):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     content: str = Field(min_length=1, max_length=65_536)
     source_label: str | None = Field(default=None, max_length=512)
 
+    @model_validator(mode="after")
+    def require_complete_link(self) -> EvidenceCreateRequest:
+        self.linked_pair()
+        return self
 
-class EvidenceUpdateRequest(BaseModel):
+
+class EvidenceUpdateRequest(SourceLinkFields):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     content: str | None = Field(default=None, min_length=1, max_length=65_536)
@@ -75,6 +114,10 @@ class EvidenceUpdateRequest(BaseModel):
             raise ValueError("At least one evidence field must be provided")
         if "content" in self.model_fields_set and self.content is None:
             raise ValueError("Evidence content cannot be null")
+        provided_link_fields = self.model_fields_set & {"source_id", "source_version_id"}
+        if provided_link_fields and provided_link_fields != {"source_id", "source_version_id"}:
+            raise ValueError("A source link requires both source_id and source_version_id")
+        self.linked_pair()
         return self
 
 
@@ -85,7 +128,59 @@ class EvidenceResponse(BaseModel):
     workspace_id: UUID
     content: str
     source_label: str | None
+    source_id: UUID | None
+    source_version_id: UUID | None
     created_at: datetime
+    updated_at: datetime
+
+
+class RelationshipCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    evidence_id_a: UUID
+    evidence_id_b: UUID
+    relation_type: Literal["supports", "contradicts", "contextualizes", "derived_from"]
+    rationale: str = Field(min_length=1, max_length=4000)
+    provenance_note: str = Field(min_length=1, max_length=2000)
+
+    @model_validator(mode="after")
+    def normalize_pair(self) -> RelationshipCreateRequest:
+        if self.evidence_id_a == self.evidence_id_b:
+            raise ValueError("A relationship requires two different evidence records")
+        if self.evidence_id_a > self.evidence_id_b:
+            self.evidence_id_a, self.evidence_id_b = self.evidence_id_b, self.evidence_id_a
+        return self
+
+
+class RelationshipUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    relation_type: Literal["supports", "contradicts", "contextualizes", "derived_from"] | None = None
+    rationale: str | None = Field(default=None, min_length=1, max_length=4000)
+    provenance_note: str | None = Field(default=None, min_length=1, max_length=2000)
+
+    @model_validator(mode="after")
+    def require_update_fields(self) -> RelationshipUpdateRequest:
+        if not self.model_fields_set:
+            raise ValueError("At least one relationship field must be provided")
+        if any(getattr(self, field) is None for field in self.model_fields_set):
+            raise ValueError("Relationship fields cannot be null")
+        return self
+
+
+class RelationshipResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    workspace_id: UUID
+    evidence_id_a: UUID
+    evidence_id_b: UUID
+    relation_type: Literal["supports", "contradicts", "contextualizes", "derived_from"]
+    rationale: str
+    provenance_note: str
+    created_by: UUID
+    created_at: datetime
+    updated_by: UUID
     updated_at: datetime
 
 
@@ -168,6 +263,48 @@ def _trusted_source_read_boundary(
     )
 
 
+def _snapshot_object_store(settings: SupabaseSettings):
+    """Pick the Storage adapter that matches the configured project origin.
+
+    ``SupabaseSettings`` already guarantees the project URL is HTTPS, or HTTP
+    only on loopback, so the scheme alone selects the adapter. Any mismatch
+    makes the chosen adapter's own validation fail closed with ``ValueError``.
+    """
+    from urllib.parse import urlsplit
+
+    from evidence_service.hosted_snapshot_store import (
+        HostedSupabaseStorageObjectStore,
+    )
+    from evidence_service.secure_snapshot_read import (
+        LocalSupabaseStorageObjectStore,
+    )
+
+    store_class = (
+        LocalSupabaseStorageObjectStore
+        if urlsplit(settings.supabase_url).scheme == "http"
+        else HostedSupabaseStorageObjectStore
+    )
+    return store_class(
+        base_url=settings.supabase_url,
+        bucket="source-snapshots",
+        publishable_key=settings.publishable_key,
+    )
+
+
+def _source_catalog(request: Request, access_token: str):
+    """Compose a request-scoped, user-token-bound snapshot catalog.
+
+    Tests may install ``app.state.source_catalog_factory``; production always
+    binds the verified bearer token to the PostgREST-backed RLS catalog.
+    """
+    factory = request.app.state.source_catalog_factory
+    if factory is not None:
+        return factory(access_token)
+    from evidence_service.supabase_source_catalog import SupabaseSnapshotCatalog
+
+    return SupabaseSnapshotCatalog(_settings_for(request), access_token)
+
+
 def _secure_snapshot_read_path(request: Request, auth: AuthenticatedRequest):
     """Compose the trusted, fail-closed snapshot read path for one request.
 
@@ -182,7 +319,6 @@ def _secure_snapshot_read_path(request: Request, auth: AuthenticatedRequest):
     settings = _settings_for(request)
 
     from evidence_service.secure_snapshot_read import (
-        LocalSupabaseStorageObjectStore,
         SecureSnapshotReadPath,
     )
     from evidence_service.supabase_source_catalog import (
@@ -192,11 +328,7 @@ def _secure_snapshot_read_path(request: Request, auth: AuthenticatedRequest):
 
     catalog = SupabaseSnapshotCatalog(settings, auth.access_token)
     acl = SupabaseSourceAccessPolicy(settings, auth.access_token)
-    store = LocalSupabaseStorageObjectStore(
-        base_url=settings.supabase_url,
-        bucket="source-snapshots",
-        publishable_key=settings.publishable_key,
-    )
+    store = _snapshot_object_store(settings)
     return SecureSnapshotReadPath(
         verifier=verifier,
         workspace_directory=directory,
@@ -204,6 +336,41 @@ def _secure_snapshot_read_path(request: Request, auth: AuthenticatedRequest):
         acl=acl,
         store=store,
     )
+
+
+async def _require_visible_source_link(
+    request: Request,
+    auth: AuthenticatedRequest,
+    workspace_id: UUID,
+    link: tuple[UUID, UUID] | None,
+) -> None:
+    """Accept a provenance link only to a published, user-visible version.
+
+    The catalog query runs under the caller's own token, so RLS visibility is
+    part of the check; a missing or unpublished version is indistinguishable
+    from one the caller may not see.
+    """
+    if link is None:
+        return
+    from evidence_service.supabase_source_catalog import SourceCatalogUnavailable
+
+    source_id, version_id = link
+    catalog = _source_catalog(request, auth.access_token)
+    try:
+        manifest = await catalog.resolve_version(workspace_id, source_id, version_id)
+    except SourceCatalogUnavailable as exc:
+        raise HTTPException(
+            status_code=503, detail="Source catalog is unavailable"
+        ) from exc
+    if (
+        manifest is None
+        or manifest.workspace_id != workspace_id
+        or manifest.source_id != source_id
+        or manifest.version_id != version_id
+    ):
+        raise HTTPException(
+            status_code=422, detail="Source version link is not available"
+        )
 
 
 async def require_authenticated_request(
@@ -251,6 +418,14 @@ def _evidence_repository(request: Request) -> EvidenceRepository:
     return repository
 
 
+def _relationship_repository(request: Request) -> RelationshipRepository:
+    repository = request.app.state.relationship_repository
+    if repository is None:
+        repository = SupabaseRelationshipRepository(_settings_for(request))
+        request.app.state.relationship_repository = repository
+    return repository
+
+
 async def _resolve_workspace_or_404(
     request: Request,
     auth: AuthenticatedRequest,
@@ -281,6 +456,12 @@ def _evidence_data_error(exc: EvidenceDataUnavailable) -> HTTPException:
     )
 
 
+def _relationship_data_error(exc: RelationshipDataUnavailable) -> HTTPException:
+    return HTTPException(
+        status_code=503, detail="Relationship storage is unavailable"
+    )
+
+
 def _source_read_error(exc) -> HTTPException:
     from evidence_layer.source_access import SourceReadDenialReason
 
@@ -306,7 +487,9 @@ def create_app(
     token_verifier: TokenVerifier | None = None,
     workspace_directory: WorkspaceDirectory | None = None,
     evidence_repository: EvidenceRepository | None = None,
+    relationship_repository: RelationshipRepository | None = None,
     source_read_path=None,
+    source_catalog_factory=None,
 ) -> FastAPI:
     """Create the service app; optional integrations are initialized on demand."""
     application = FastAPI(
@@ -319,8 +502,10 @@ def create_app(
     application.state.token_verifier = token_verifier
     application.state.workspace_directory = workspace_directory
     application.state.evidence_repository = evidence_repository
+    application.state.relationship_repository = relationship_repository
     application.state.trusted_source_context_issuer = None
     application.state.source_read_path = source_read_path
+    application.state.source_catalog_factory = source_catalog_factory
 
     @application.api_route(
         "/healthz", methods=["GET"], status_code=200, include_in_schema=False
@@ -415,6 +600,41 @@ def create_app(
         )
 
     @application.get(
+        "/v1/workspaces/{workspace_id}/sources",
+        response_model=list[SourceVersionSummary],
+    )
+    async def list_workspace_sources(
+        workspace_id: UUID,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> list[SourceVersionSummary]:
+        # A non-member sees 404; the catalog query itself is additionally
+        # RLS-scoped to versions the requesting user may see.
+        context = await _resolve_workspace_or_404(request, auth, workspace_id)
+
+        from evidence_service.supabase_source_catalog import SourceCatalogUnavailable
+
+        catalog = _source_catalog(request, auth.access_token)
+        try:
+            manifests = await catalog.list_visible_versions(context.workspace_id)
+        except SourceCatalogUnavailable as exc:
+            raise HTTPException(
+                status_code=503, detail="Source catalog is unavailable"
+            ) from exc
+
+        return [
+            SourceVersionSummary(
+                source_id=manifest.source_id,
+                version_id=manifest.version_id,
+                state=manifest.state.value,
+                sha256=manifest.sha256,
+                size_bytes=manifest.size_bytes,
+                created_at=manifest.created_at,
+            )
+            for manifest in manifests
+        ]
+
+    @application.get(
         "/v1/workspaces/{workspace_id}/evidence",
         response_model=list[EvidenceResponse],
     )
@@ -445,12 +665,19 @@ def create_app(
         auth: AuthenticatedRequest = Depends(require_authenticated_request),
     ) -> EvidenceRecord:
         context = await _resolve_workspace_or_404(request, auth, workspace_id)
+        if context.role != "owner":
+            raise HTTPException(status_code=403, detail="Workspace owner access is required")
+        await _require_visible_source_link(
+            request, auth, context.workspace_id, body.linked_pair()
+        )
         try:
             return await _evidence_repository(request).create_record(
                 auth.access_token,
                 context.workspace_id,
                 content=body.content,
                 source_label=body.source_label,
+                source_id=body.source_id,
+                source_version_id=body.source_version_id,
             )
         except EvidenceAccessDenied as exc:
             raise _evidence_access_error(exc) from exc
@@ -492,6 +719,12 @@ def create_app(
         auth: AuthenticatedRequest = Depends(require_authenticated_request),
     ) -> EvidenceRecord:
         context = await _resolve_workspace_or_404(request, auth, workspace_id)
+        if context.role != "owner":
+            raise HTTPException(status_code=403, detail="Workspace owner access is required")
+        if body.model_fields_set & {"source_id", "source_version_id"}:
+            await _require_visible_source_link(
+                request, auth, context.workspace_id, body.linked_pair()
+            )
         try:
             record = await _evidence_repository(request).update_record(
                 auth.access_token,
@@ -518,6 +751,8 @@ def create_app(
         auth: AuthenticatedRequest = Depends(require_authenticated_request),
     ) -> Response:
         context = await _resolve_workspace_or_404(request, auth, workspace_id)
+        if context.role != "owner":
+            raise HTTPException(status_code=403, detail="Workspace owner access is required")
         try:
             deleted = await _evidence_repository(request).delete_record(
                 auth.access_token, context.workspace_id, evidence_id
@@ -528,6 +763,112 @@ def create_app(
             raise _evidence_data_error(exc) from exc
         if not deleted:
             raise HTTPException(status_code=404, detail="Evidence record not found")
+        return Response(status_code=204)
+
+    @application.get(
+        "/v1/workspaces/{workspace_id}/relationships",
+        response_model=list[RelationshipResponse],
+    )
+    async def list_relationships(
+        workspace_id: UUID,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> list[EvidenceRelationship]:
+        context = await _resolve_workspace_or_404(request, auth, workspace_id)
+        try:
+            return await _relationship_repository(request).list_relationships(
+                auth.access_token, context.workspace_id
+            )
+        except RelationshipAccessDenied as exc:
+            raise HTTPException(status_code=404, detail="Workspace not found") from exc
+        except RelationshipDataUnavailable as exc:
+            raise _relationship_data_error(exc) from exc
+
+    @application.post(
+        "/v1/workspaces/{workspace_id}/relationships",
+        response_model=RelationshipResponse,
+        status_code=201,
+    )
+    async def create_relationship(
+        workspace_id: UUID,
+        body: RelationshipCreateRequest,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> EvidenceRelationship:
+        context = await _resolve_workspace_or_404(request, auth, workspace_id)
+        if context.role != "owner":
+            raise HTTPException(status_code=403, detail="Workspace owner access is required")
+        try:
+            return await _relationship_repository(request).create_relationship(
+                auth.access_token,
+                context.workspace_id,
+                evidence_id_a=body.evidence_id_a,
+                evidence_id_b=body.evidence_id_b,
+                relation_type=body.relation_type,
+                rationale=body.rationale,
+                provenance_note=body.provenance_note,
+            )
+        except RelationshipAccessDenied as exc:
+            raise HTTPException(status_code=403, detail="Relationship write is not authorized") from exc
+        except RelationshipConflict as exc:
+            raise HTTPException(status_code=409, detail="The relationship conflicts with existing evidence") from exc
+        except RelationshipDataUnavailable as exc:
+            raise _relationship_data_error(exc) from exc
+
+    @application.patch(
+        "/v1/workspaces/{workspace_id}/relationships/{relationship_id}",
+        response_model=RelationshipResponse,
+    )
+    async def update_relationship(
+        workspace_id: UUID,
+        relationship_id: UUID,
+        body: RelationshipUpdateRequest,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> EvidenceRelationship:
+        context = await _resolve_workspace_or_404(request, auth, workspace_id)
+        if context.role != "owner":
+            raise HTTPException(status_code=403, detail="Workspace owner access is required")
+        try:
+            relationship = await _relationship_repository(request).update_relationship(
+                auth.access_token,
+                context.workspace_id,
+                relationship_id,
+                body.model_dump(exclude_unset=True),
+            )
+        except RelationshipAccessDenied as exc:
+            raise HTTPException(status_code=403, detail="Relationship write is not authorized") from exc
+        except RelationshipConflict as exc:
+            raise HTTPException(status_code=409, detail="The relationship conflicts with existing evidence") from exc
+        except RelationshipDataUnavailable as exc:
+            raise _relationship_data_error(exc) from exc
+        if relationship is None:
+            raise HTTPException(status_code=404, detail="Relationship not found")
+        return relationship
+
+    @application.delete(
+        "/v1/workspaces/{workspace_id}/relationships/{relationship_id}",
+        status_code=204,
+    )
+    async def delete_relationship(
+        workspace_id: UUID,
+        relationship_id: UUID,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> Response:
+        context = await _resolve_workspace_or_404(request, auth, workspace_id)
+        if context.role != "owner":
+            raise HTTPException(status_code=403, detail="Workspace owner access is required")
+        try:
+            deleted = await _relationship_repository(request).delete_relationship(
+                auth.access_token, context.workspace_id, relationship_id
+            )
+        except RelationshipAccessDenied as exc:
+            raise HTTPException(status_code=403, detail="Relationship write is not authorized") from exc
+        except RelationshipDataUnavailable as exc:
+            raise _relationship_data_error(exc) from exc
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Relationship not found")
         return Response(status_code=204)
 
     @application.get(
@@ -558,8 +899,8 @@ def create_app(
         except SourceReadError as exc:
             raise _source_read_error(exc) from exc
         except ValueError as exc:
-            # The local Storage adapter is loopback-only; a hosted URL is not a
-            # supported read target yet and fails closed as unavailable.
+            # A Storage configuration that matches neither the loopback nor
+            # the hosted adapter contract fails closed as unavailable.
             raise HTTPException(
                 status_code=503, detail="Source storage is unavailable"
             ) from exc

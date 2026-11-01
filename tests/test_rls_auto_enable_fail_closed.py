@@ -24,9 +24,17 @@ def _body(variable, tag):
 
 
 def test_corrective_migration_is_the_newest_forward_only_step():
-    versions = sorted(path.name.split("_")[0] for path in MIGRATIONS.glob("*.sql"))
-    assert versions[-1] == "20261028120000"
+    paths = sorted(MIGRATIONS.glob("*.sql"), key=lambda path: path.name)
+    versions = [path.name.split("_")[0] for path in paths]
     assert len(versions) == len(set(versions))
+    # Later forward-only migrations are allowed, but none of them may touch the
+    # fail-closed rls_auto_enable definition again; the corrective step must
+    # remain the last word on it.
+    corrective_index = versions.index("20261028120000")
+    for path in paths[corrective_index + 1:]:
+        assert "rls_auto_enable" not in path.read_text(), (
+            f"{path.name} reopens the reviewed fail-closed RLS bootstrap"
+        )
 
 
 def test_previous_body_matches_the_prerequisite_migration_byte_for_byte():

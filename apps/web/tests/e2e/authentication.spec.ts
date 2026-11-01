@@ -3,6 +3,8 @@ import { expect, test } from "@playwright/test";
 const email = "person@example.test";
 const secondEmail = "switch@example.test";
 const password = "Synthetic-password-123";
+const productWorkspaceId = "10000000-0000-4000-8000-000000000002";
+const productEvidenceId = "10000000-0000-4000-8000-000000000003";
 
 test("login authenticates with the local fixture and opens the signed-in account control", async ({ page }) => {
   await page.route("**/api/evidence/personal-workspace", (route) =>
@@ -14,7 +16,67 @@ test("login authenticates with the local fixture and opens the signed-in account
   await page.getByRole("button", { name: "Sign in" }).click();
 
   await expect(page).toHaveURL("/");
-  await expect(page.getByRole("button", { name: "Open account" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Account" })).toBeVisible();
+});
+
+test("browser session cookies reach the verified server-side workspace API", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill(password);
+  await page.getByRole("button", { name: "Sign in" }).click();
+
+  await expect(page).toHaveURL("http://localhost:3000/");
+  await expect(page.getByRole("button", { name: "Account" })).toBeVisible();
+
+  const identity = await page.evaluate(async () => {
+    const response = await fetch("/api/evidence/me", { cache: "no-store" });
+    return { status: response.status, body: await response.json() };
+  });
+  expect(identity).toEqual({
+    status: 200,
+    body: {
+      user_id: "synthetic-ui-user",
+      workspaces: [{
+        id: productWorkspaceId,
+        name: "First synthetic workspace",
+        role: "owner",
+      }],
+    },
+  });
+
+  const workspace = await page.evaluate(async (workspaceId) => {
+    const response = await fetch(`/api/evidence/workspaces/${workspaceId}`, { cache: "no-store" });
+    return { status: response.status, body: await response.json() };
+  }, productWorkspaceId);
+  expect(workspace).toEqual({
+    status: 200,
+    body: { id: productWorkspaceId, name: "First synthetic workspace", role: "owner" },
+  });
+});
+
+test("server workspace APIs reject absent sessions and workspaces outside a user's membership", async ({ page }) => {
+  await page.goto("/login");
+  const unauthenticated = await page.evaluate(async () => {
+    const response = await fetch("/api/evidence/me", { cache: "no-store" });
+    return { status: response.status, body: await response.json() };
+  });
+  expect(unauthenticated).toEqual({
+    status: 401,
+    body: { error: "Authentication is required." },
+  });
+
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill(password);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page).toHaveURL("http://localhost:3000/");
+
+  const unauthorized = await page.evaluate(async () => {
+    const response = await fetch("/api/evidence/workspaces/10000000-0000-4000-8000-000000000004", {
+      cache: "no-store",
+    });
+    return { status: response.status, body: await response.json() };
+  });
+  expect(unauthorized).toEqual({ status: 404, body: { error: "Workspace not found." } });
 });
 
 test("a workspace failure keeps the signed-in session and can be retried", async ({ page }) => {
@@ -36,7 +98,7 @@ test("a workspace failure keeps the signed-in session and can be retried", async
   await expect(page).toHaveURL("http://localhost:3000/login");
   await page.getByRole("button", { name: "Retry opening workspace" }).click();
   await expect(page).toHaveURL("http://localhost:3000/");
-  await expect(page.getByRole("button", { name: "Open account" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Account" })).toBeVisible();
   expect(attempts).toBe(2);
 });
 
@@ -68,7 +130,7 @@ test("account panel signs out cleanly before a different synthetic account signs
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL("http://localhost:3000/");
-  await page.getByRole("button", { name: "Open account" }).click();
+  await page.getByRole("button", { name: "Account" }).click();
 
   const accountPanel = page.getByRole("region", { name: "ACCOUNT WORKSPACE" });
   await expect(accountPanel).toBeVisible();
@@ -83,12 +145,171 @@ test("account panel signs out cleanly before a different synthetic account signs
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL("http://localhost:3000/");
-  await page.getByRole("button", { name: "Open account" }).click();
+  await page.getByRole("button", { name: "Account" }).click();
 
   const switchedPanel = page.getByRole("region", { name: "ACCOUNT WORKSPACE" });
   await expect(switchedPanel.getByText(secondEmail, { exact: true })).toBeVisible();
   await expect(switchedPanel.getByText(accounts[1].workspace.name, { exact: true })).toBeVisible();
   await expect(switchedPanel.getByText(accounts[0].workspace.name, { exact: true })).toHaveCount(0);
+});
+
+test("workspace route shows authorized service records on desktop and mobile", async ({ page }) => {
+  await page.route("**/api/evidence/personal-workspace", (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({
+      id: productWorkspaceId,
+      name: "Isolated test workspace",
+      role: "owner",
+    }),
+  }));
+  await page.route("**/api/evidence/me", (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({
+      user_id: "synthetic-ui-user",
+      workspaces: [{ id: productWorkspaceId, name: "Isolated test workspace", role: "owner" }],
+    }),
+  }));
+  await page.route(`**/api/evidence/workspaces/${productWorkspaceId}/evidence`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([{
+        id: productEvidenceId,
+        workspace_id: productWorkspaceId,
+        content: "Isolated live-service fixture record",
+        source_label: "Browser test fixture",
+        source_id: null,
+        source_version_id: null,
+        created_at: "2026-10-31T12:00:00Z",
+        updated_at: "2026-10-31T12:00:00Z",
+      }]),
+    }),
+  );
+  await page.route(`**/api/evidence/workspaces/${productWorkspaceId}/sources`, (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: "[]" }),
+  );
+
+  await page.goto("/login");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill(password);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page).toHaveURL("/");
+
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/workspace");
+  await expect(page.getByRole("heading", { name: "Evidence workspace" })).toBeVisible();
+  await expect(page.getByText("Isolated live-service fixture record")).toBeVisible();
+  await expect(page.getByText("Live service data")).toBeVisible();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByRole("heading", { name: "Connected and pending capabilities" })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+});
+
+test("workspace sources index lists versions and reads one through the verified route", async ({ page }) => {
+  const sourceId = "10000000-0000-4000-8000-000000000004";
+  const versionId = "10000000-0000-4000-8000-000000000005";
+  await page.route("**/api/evidence/me", (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({
+      user_id: "synthetic-ui-user",
+      workspaces: [{ id: productWorkspaceId, name: "Isolated test workspace", role: "owner" }],
+    }),
+  }));
+  await page.route(`**/api/evidence/workspaces/${productWorkspaceId}/evidence`, (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: "[]" }),
+  );
+  await page.route(`**/api/evidence/workspaces/${productWorkspaceId}/sources`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([{
+        source_id: sourceId,
+        version_id: versionId,
+        state: "published",
+        sha256: "a".repeat(64),
+        size_bytes: 25,
+        created_at: "2026-10-31T12:00:00Z",
+      }]),
+    }),
+  );
+  await page.route(
+    `**/api/evidence/workspaces/${productWorkspaceId}/sources/${sourceId}/versions/${versionId}/content`,
+    (route) => route.fulfill({
+      status: 200,
+      contentType: "application/octet-stream",
+      headers: { "Content-Digest": "sha-256=:YWJjZA==:" },
+      body: "verified fixture source bytes",
+    }),
+  );
+
+  await page.goto("/login");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill(password);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page).toHaveURL("/");
+
+  await page.goto("/workspace");
+  await expect(page.getByRole("heading", { name: "Workspace sources" })).toBeVisible();
+  await expect(page.getByText(/Version 10000000/)).toBeVisible();
+  await expect(page.getByText(/· Published ·/)).toBeVisible();
+
+  await page.getByRole("button", { name: "Read source" }).click();
+  await expect(page.getByText("verified fixture source bytes")).toBeVisible();
+  await expect(page.getByText("sha-256=:YWJjZA==:")).toBeVisible();
+  await expect(page.getByText("Source access was verified for this read.")).toBeVisible();
+});
+
+test("workspace sources read denial shows a safe message and no content", async ({ page }) => {
+  const sourceId = "10000000-0000-4000-8000-000000000004";
+  const versionId = "10000000-0000-4000-8000-000000000005";
+  await page.route("**/api/evidence/me", (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({
+      user_id: "synthetic-ui-user",
+      workspaces: [{ id: productWorkspaceId, name: "Isolated test workspace", role: "owner" }],
+    }),
+  }));
+  await page.route(`**/api/evidence/workspaces/${productWorkspaceId}/evidence`, (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: "[]" }),
+  );
+  await page.route(`**/api/evidence/workspaces/${productWorkspaceId}/sources`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([{
+        source_id: sourceId,
+        version_id: versionId,
+        state: "published",
+        sha256: "a".repeat(64),
+        size_bytes: 25,
+        created_at: "2026-10-31T12:00:00Z",
+      }]),
+    }),
+  );
+  await page.route(
+    `**/api/evidence/workspaces/${productWorkspaceId}/sources/${sourceId}/versions/${versionId}/content`,
+    (route) => route.fulfill({
+      status: 403,
+      contentType: "application/json",
+      body: JSON.stringify({ error: "Source read is not authorized." }),
+    }),
+  );
+
+  await page.goto("/login");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill(password);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page).toHaveURL("/");
+
+  await page.goto("/workspace");
+  await page.getByRole("button", { name: "Read source" }).click();
+  await expect(page.getByText("Source read is not authorized.")).toBeVisible();
+  await expect(page.getByText("verified fixture source bytes")).not.toBeVisible();
 });
 
 test("login normalizes an unsafe external next destination to the app root", async ({ page }) => {
@@ -150,7 +371,7 @@ test("login prevents duplicate submissions while the local Auth request is pendi
     releaseAuthRequest();
 
     await expect(page).toHaveURL("http://localhost:3000/");
-    await page.waitForLoadState("networkidle");
+    await expect(page.getByRole("heading", { name: "Evidence Explorer" })).toBeVisible();
     expect(passwordRequests).toBe(1);
   } finally {
     releaseAuthRequest();
@@ -248,15 +469,15 @@ for (const viewport of [
     await page.goto("/");
 
     if (viewport.width <= 900) {
-      const menuButton = page.getByRole("button", { name: "Open navigation" });
+      const menuButton = page.getByRole("button", { name: "Menu" });
       await menuButton.click();
-      await expect(page.getByRole("button", { name: "Close navigation" })).toHaveAttribute(
+      await expect(page.getByRole("button", { name: "Close" })).toHaveAttribute(
         "aria-expanded",
         "true",
       );
     }
 
-    await page.getByRole("link", { name: "Sign in" }).click();
+    await page.getByRole("complementary").getByRole("link", { name: "Sign in" }).click();
     await expect(page).toHaveURL(/\/login$/);
     await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
   });
