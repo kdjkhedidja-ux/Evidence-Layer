@@ -123,24 +123,23 @@ values
     ('member_reads_b', (
         select count(*)::text from public.evidence_relationships
         where workspace_id = 'b3000000-0000-4000-8000-000000000003'
-    )),
-    ('member_update_rows', (
-        with updated as (
-            update public.evidence_relationships
-            set rationale = 'unauthorized'
-            where workspace_id = 'a1000000-0000-4000-8000-000000000001'
-            returning id
-        )
-        select count(*)::text from updated
-    )),
-    ('member_delete_rows', (
-        with deleted as (
-            delete from public.evidence_relationships
-            where workspace_id = 'a1000000-0000-4000-8000-000000000001'
-            returning id
-        )
-        select count(*)::text from deleted
     ));
+
+do $$
+declare
+    affected integer;
+begin
+    update public.evidence_relationships
+    set rationale = 'unauthorized'
+    where workspace_id = 'a1000000-0000-4000-8000-000000000001';
+    get diagnostics affected = row_count;
+    insert into pg_temp.relationship_rls_observations values ('member_update_rows', affected::text);
+
+    delete from public.evidence_relationships
+    where workspace_id = 'a1000000-0000-4000-8000-000000000001';
+    get diagnostics affected = row_count;
+    insert into pg_temp.relationship_rls_observations values ('member_delete_rows', affected::text);
+end $$;
 
 do $$
 begin

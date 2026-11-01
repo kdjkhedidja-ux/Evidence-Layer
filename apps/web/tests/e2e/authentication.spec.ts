@@ -16,7 +16,7 @@ test("login authenticates with the local fixture and opens the signed-in account
   await page.getByRole("button", { name: "Sign in" }).click();
 
   await expect(page).toHaveURL("/");
-  await expect(page.getByRole("button", { name: "Open account" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Account" })).toBeVisible();
 });
 
 test("browser session cookies reach the verified server-side workspace API", async ({ page }) => {
@@ -26,7 +26,7 @@ test("browser session cookies reach the verified server-side workspace API", asy
   await page.getByRole("button", { name: "Sign in" }).click();
 
   await expect(page).toHaveURL("http://localhost:3000/");
-  await expect(page.getByRole("button", { name: "Open account" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Account" })).toBeVisible();
 
   const identity = await page.evaluate(async () => {
     const response = await fetch("/api/evidence/me", { cache: "no-store" });
@@ -98,7 +98,7 @@ test("a workspace failure keeps the signed-in session and can be retried", async
   await expect(page).toHaveURL("http://localhost:3000/login");
   await page.getByRole("button", { name: "Retry opening workspace" }).click();
   await expect(page).toHaveURL("http://localhost:3000/");
-  await expect(page.getByRole("button", { name: "Open account" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Account" })).toBeVisible();
   expect(attempts).toBe(2);
 });
 
@@ -130,7 +130,7 @@ test("account panel signs out cleanly before a different synthetic account signs
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL("http://localhost:3000/");
-  await page.getByRole("button", { name: "Open account" }).click();
+  await page.getByRole("button", { name: "Account" }).click();
 
   const accountPanel = page.getByRole("region", { name: "ACCOUNT WORKSPACE" });
   await expect(accountPanel).toBeVisible();
@@ -145,7 +145,7 @@ test("account panel signs out cleanly before a different synthetic account signs
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL("http://localhost:3000/");
-  await page.getByRole("button", { name: "Open account" }).click();
+  await page.getByRole("button", { name: "Account" }).click();
 
   const switchedPanel = page.getByRole("region", { name: "ACCOUNT WORKSPACE" });
   await expect(switchedPanel.getByText(secondEmail, { exact: true })).toBeVisible();
@@ -371,7 +371,7 @@ test("login prevents duplicate submissions while the local Auth request is pendi
     releaseAuthRequest();
 
     await expect(page).toHaveURL("http://localhost:3000/");
-    await page.waitForLoadState("networkidle");
+    await expect(page.getByRole("heading", { name: "Evidence Explorer" })).toBeVisible();
     expect(passwordRequests).toBe(1);
   } finally {
     releaseAuthRequest();
@@ -469,15 +469,15 @@ for (const viewport of [
     await page.goto("/");
 
     if (viewport.width <= 900) {
-      const menuButton = page.getByRole("button", { name: "Open navigation" });
+      const menuButton = page.getByRole("button", { name: "Menu" });
       await menuButton.click();
-      await expect(page.getByRole("button", { name: "Close navigation" })).toHaveAttribute(
+      await expect(page.getByRole("button", { name: "Close" })).toHaveAttribute(
         "aria-expanded",
         "true",
       );
     }
 
-    await page.getByRole("link", { name: "Sign in" }).click();
+    await page.getByRole("complementary").getByRole("link", { name: "Sign in" }).click();
     await expect(page).toHaveURL(/\/login$/);
     await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
   });

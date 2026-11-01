@@ -112,7 +112,7 @@ values
 -- A staged snapshot in A's workspace is enough for the provenance-link
 -- foreign key; publication checks live in the service layer.
 insert into public.source_snapshots (
-    workspace_id, source_id, version_id, object_key, sha256, size_bytes, state
+    workspace_id, source_id, version_id, object_key, sha256, size_bytes, state, created_by
 )
 values (
     'a1000000-0000-4000-8000-000000000001',
@@ -121,7 +121,8 @@ values (
     'workspace/a1000000-0000-4000-8000-000000000001/source/c1000000-0000-4000-8000-000000000001/version/d1000000-0000-4000-8000-000000000001',
     'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     25,
-    'staged'
+    'staged',
+    '10000000-0000-4000-8000-000000000001'
 );
 
 create temporary table evidence_rls_observations (
