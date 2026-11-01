@@ -15,7 +15,7 @@ function loginNotice(reason: string | undefined): string | undefined {
 
 export default async function LoginPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
-  const next = typeof params.next === "string" ? params.next : "/";
+  const next = typeof params.next === "string" ? params.next : "/workspace";
   const reason = typeof params.reason === "string" ? params.reason : undefined;
   return <AuthForm mode="login" returnTo={safeInternalPath(next)} notice={loginNotice(reason)} />;
 }
