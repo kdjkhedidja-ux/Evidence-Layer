@@ -496,6 +496,16 @@ export default function WorkspaceConsole({
                   </option>
                 ))}
               </select>
+              {selectedWorkspace && (
+                <>
+                  <p><strong>Name:</strong> {selectedWorkspace.name}</p>
+                  <p><strong>Type:</strong> Not recorded in the current schema</p>
+                  <p>
+                    <strong>Role:</strong>{" "}
+                    {selectedWorkspace.role === "owner" ? "Owner" : "Member"}
+                  </p>
+                </>
+              )}
               <p>
                 Memberships come from verified workspace access. Invitations, role changes, and membership administration are not available in the current service contract.
               </p>
@@ -518,7 +528,15 @@ export default function WorkspaceConsole({
                 <p className="eyebrow">Workspace scoped · RLS protected</p>
                 <h2 id="records-heading">Evidence records</h2>
               </div>
-              <span className="workspace-count">{records.length} records</span>
+              <span className="workspace-count" aria-live="polite">
+                {recordsState === "ready"
+                  ? `${records.length} ${records.length === 1 ? "record" : "records"}`
+                  : recordsState === "loading"
+                    ? "Loading records…"
+                    : recordsState === "expired"
+                      ? "Session expired"
+                      : "Unavailable"}
+              </span>
             </div>
             <p className="workspace-note">
               These are stored workspace evidence records and their labels. Snapshot source content is read separately through the verified source boundary below; a signed-in session by itself does not grant source access.

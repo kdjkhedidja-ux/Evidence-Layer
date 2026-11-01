@@ -99,7 +99,10 @@ describe("workspace product console", () => {
     expect(await screen.findByRole("heading", { name: "Evidence workspace" })).toBeInTheDocument();
     expect(await screen.findByText("Current workspace evidence")).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Authorized workspace" })).toHaveValue(WORKSPACE_ID);
+    expect(screen.getByText("Not recorded in the current schema")).toBeInTheDocument();
+    expect(screen.getByText("Owner", { exact: true })).toBeInTheDocument();
     expect(screen.getByText(/These are stored workspace evidence records/)).toBeInTheDocument();
+    expect(screen.getByText("1 record")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Evidence Explorer" })).toHaveAttribute("href", "/");
     expect(screen.getByRole("link", { name: "Relationships" })).toHaveAttribute("href", "/relationships");
     expect(screen.getByRole("heading", { name: "Connected and pending capabilities" })).toBeInTheDocument();
@@ -194,6 +197,28 @@ describe("workspace product console", () => {
     expect(screen.getAllByRole("alert")[0]).toHaveTextContent("Evidence service is unavailable.");
     expect(screen.queryByText("Cedar pilot go-live")).not.toBeInTheDocument();
     expect(screen.queryByText("source fixture")).not.toBeInTheDocument();
+  });
+
+  it("does not present an evidence read failure as zero records", async () => {
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      const url = String(input);
+      if (url === "/api/evidence/me") {
+        return Response.json({ user_id: USER_ID, workspaces: [WORKSPACE] });
+      }
+      if (url.endsWith("/evidence")) {
+        return Response.json({ error: "Evidence service is unavailable." }, { status: 503 });
+      }
+      if (url.endsWith("/sources")) return Response.json([]);
+      return Response.json({ error: "missing test response" }, { status: 404 });
+    });
+    render(<WorkspaceConsole userId={USER_ID} email="reader@example.test" />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Evidence service is unavailable.");
+    expect(screen.getByText("Unavailable", { selector: ".workspace-count" })).toBeInTheDocument();
+    expect(screen.queryByText("0 records")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("No evidence records are stored in this workspace."),
+    ).not.toBeInTheDocument();
   });
 
   it("keeps the workspace layout responsive and source output bounded on narrow screens", () => {
