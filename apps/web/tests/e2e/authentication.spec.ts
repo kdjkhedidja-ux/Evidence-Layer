@@ -6,7 +6,7 @@ const password = "Synthetic-password-123";
 const productWorkspaceId = "10000000-0000-4000-8000-000000000002";
 const productEvidenceId = "10000000-0000-4000-8000-000000000003";
 
-test("login authenticates with the local fixture and opens the signed-in account control", async ({ page }) => {
+test("login authenticates with the local fixture and opens Workspace", async ({ page }) => {
   await page.route("**/api/evidence/personal-workspace", (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) }),
   );
@@ -15,8 +15,8 @@ test("login authenticates with the local fixture and opens the signed-in account
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
 
-  await expect(page).toHaveURL("/");
-  await expect(page.getByRole("button", { name: "Account" })).toBeVisible();
+  await expect(page).toHaveURL("/workspace");
+  await expect(page.getByRole("heading", { name: "Evidence workspace" })).toBeVisible();
 });
 
 test("browser session cookies reach the verified server-side workspace API", async ({ page }) => {
@@ -25,8 +25,8 @@ test("browser session cookies reach the verified server-side workspace API", asy
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
 
-  await expect(page).toHaveURL("http://localhost:3000/");
-  await expect(page.getByRole("button", { name: "Account" })).toBeVisible();
+  await expect(page).toHaveURL("http://localhost:3000/workspace");
+  await expect(page.getByRole("heading", { name: "Evidence workspace" })).toBeVisible();
 
   const identity = await page.evaluate(async () => {
     const response = await fetch("/api/evidence/me", { cache: "no-store" });
@@ -68,7 +68,7 @@ test("server workspace APIs reject absent sessions and workspaces outside a user
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL("http://localhost:3000/");
+  await expect(page).toHaveURL("http://localhost:3000/workspace");
 
   const unauthorized = await page.evaluate(async () => {
     const response = await fetch("/api/evidence/workspaces/10000000-0000-4000-8000-000000000004", {
@@ -97,8 +97,8 @@ test("a workspace failure keeps the signed-in session and can be retried", async
   await expect(page.locator(".auth-error[role='alert']")).toContainText("workspace could not be opened");
   await expect(page).toHaveURL("http://localhost:3000/login");
   await page.getByRole("button", { name: "Retry opening workspace" }).click();
-  await expect(page).toHaveURL("http://localhost:3000/");
-  await expect(page.getByRole("button", { name: "Account" })).toBeVisible();
+  await expect(page).toHaveURL("http://localhost:3000/workspace");
+  await expect(page.getByRole("heading", { name: "Evidence workspace" })).toBeVisible();
   expect(attempts).toBe(2);
 });
 
@@ -125,7 +125,7 @@ test("account panel signs out cleanly before a different synthetic account signs
     body: JSON.stringify({ user_id: activeAccount.id, workspaces: [activeAccount.workspace] }),
   }));
 
-  await page.goto("/login");
+  await page.goto("/login?next=%2F");
   await page.getByLabel("Email").fill(activeAccount.email);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
@@ -141,6 +141,7 @@ test("account panel signs out cleanly before a different synthetic account signs
   await expect(page.getByRole("status")).toContainText("You have been signed out.");
 
   activeAccount = accounts[1];
+  await page.goto("/login?next=%2F");
   await page.getByLabel("Email").fill(activeAccount.email);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
@@ -195,10 +196,9 @@ test("workspace route shows authorized service records on desktop and mobile", a
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL("/");
+  await expect(page).toHaveURL("/workspace");
 
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto("/workspace");
   await expect(page.getByRole("heading", { name: "Evidence workspace" })).toBeVisible();
   await expect(page.getByText("Isolated live-service fixture record")).toBeVisible();
   await expect(page.getByText("Live service data")).toBeVisible();
@@ -250,9 +250,8 @@ test("workspace sources index lists versions and reads one through the verified 
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL("/");
+  await expect(page).toHaveURL("/workspace");
 
-  await page.goto("/workspace");
   await expect(page.getByRole("heading", { name: "Workspace sources" })).toBeVisible();
   await expect(page.getByText(/Version 10000000/)).toBeVisible();
   await expect(page.getByText(/· Published ·/)).toBeVisible();
@@ -304,9 +303,8 @@ test("workspace sources read denial shows a safe message and no content", async 
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL("/");
+  await expect(page).toHaveURL("/workspace");
 
-  await page.goto("/workspace");
   await page.getByRole("button", { name: "Read source" }).click();
   await expect(page.getByText("Source read is not authorized.")).toBeVisible();
   await expect(page.getByText("verified fixture source bytes")).not.toBeVisible();
@@ -325,7 +323,7 @@ test("login normalizes an unsafe external next destination to the app root", asy
 });
 
 test("login failure is announced accessibly", async ({ page }) => {
-  await page.goto("/login");
+  await page.goto("/login?next=%2F");
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill("incorrect synthetic password");
   await page.getByRole("button", { name: "Sign in" }).click();
@@ -356,7 +354,7 @@ test("login prevents duplicate submissions while the local Auth request is pendi
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) }),
   );
 
-  await page.goto("/login");
+  await page.goto("/login?next=%2F");
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
   const submit = page.locator(".auth-submit");
