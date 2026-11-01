@@ -1,4 +1,4 @@
-import EvidenceExplorer from "./evidence-explorer";
+import EvidenceExplorer from "./live-evidence-explorer";
 import { getVerifiedAuthContext } from "../lib/supabase/server";
 
 export const dynamic = "force-dynamic";

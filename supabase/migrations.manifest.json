@@ -80,6 +80,12 @@
       "version": "20261101120000",
       "sha256": "fff1dcf3d470cad1fafd99b3934e6512dfc33cc5b78750426d4587600500d230",
       "provenance": "Optional evidence-to-source provenance links for the Phase 8 workspace, reviewed on feat/product-integration (PR #48)."
+    },
+    {
+      "file": "20261101130000_workspace_evidence_relationships.sql",
+      "version": "20261101130000",
+      "sha256": "53dc2d0b940a19d392d6f9c953c10beaac3aa00f043238e4e38fb4bc65cd0381",
+      "provenance": "Additive same-workspace relationship records with active-member read and owner-only write policies, designed for the live Evidence Explorer."
     }
   ]
 }

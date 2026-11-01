@@ -53,6 +53,7 @@ V_VERIFIER_IDENTITY = "20261022120000"
 V_FAIL_CLOSED = "20261022130000"
 V_ADMIN_AUDIT = "20261023150000"
 V_EVIDENCE_SOURCE_LINKS = "20261101120000"
+V_EVIDENCE_RELATIONSHIPS = "20261101130000"
 
 VERSION_RE = re.compile(r"^[0-9]{14}_[a-z0-9_]+\.sql$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -465,6 +466,7 @@ def expected_policy_identity(policy: str) -> str:
         ("workspace_memberships_", "public", "workspace_memberships"),
         ("workspaces_", "public", "workspaces"),
         ("evidence_records_", "public", "evidence_records"),
+        ("evidence_relationships_", "public", "evidence_relationships"),
         ("source_snapshots_", "public", "source_snapshots"),
         ("source_grants_", "public", "source_grants"),
         ("snapshot_verifier_allowlist_audit_", "private", "snapshot_verifier_allowlist_audit"),
@@ -484,6 +486,7 @@ def expected_catalog(versions: list[str]) -> dict:
     personal = V_PERSONAL in present
     evidence = V_EVIDENCE in present
     evidence_links = V_EVIDENCE_SOURCE_LINKS in present
+    relationships = V_EVIDENCE_RELATIONSHIPS in present
     source = V_SOURCE_CATALOG in present
     storage = V_SNAPSHOT_STORAGE in present
     verifier = V_VERIFIER_IDENTITY in present
@@ -498,6 +501,8 @@ def expected_catalog(versions: list[str]) -> dict:
         tables["public.workspace_memberships"] = (True, True)
     if evidence:
         tables["public.evidence_records"] = (True, True)
+    if relationships:
+        tables["public.evidence_relationships"] = (True, True)
     if source:
         tables["public.source_snapshots"] = (True, True)
         tables["public.source_grants"] = (True, True)
@@ -518,6 +523,13 @@ def expected_catalog(versions: list[str]) -> dict:
         indexes.update({"public.evidence_records_pkey", "public.evidence_records_workspace_created_idx"})
     if evidence_links:
         indexes.add("public.evidence_records_source_link_idx")
+    if relationships:
+        indexes.update({
+            "public.evidence_records_workspace_id_id_key",
+            "public.evidence_relationships_pkey",
+            "public.evidence_relationships_pair_type_unique",
+            "public.evidence_relationships_workspace_idx",
+        })
     if personal:
         indexes.add("public.workspaces_personal_owner_unique")
     if source:
@@ -548,11 +560,25 @@ def expected_catalog(versions: list[str]) -> dict:
             "public.workspace_memberships_client_delete_denied",
         })
     if evidence:
+        policies.add("public.evidence_records_select_active_members")
+        if relationships:
+            policies.update({
+                "public.evidence_records_insert_active_owners",
+                "public.evidence_records_update_active_owners",
+                "public.evidence_records_delete_active_owners",
+            })
+        else:
+            policies.update({
+                "public.evidence_records_insert_active_members",
+                "public.evidence_records_update_active_members",
+                "public.evidence_records_delete_active_members",
+            })
+    if relationships:
         policies.update({
-            "public.evidence_records_select_active_members",
-            "public.evidence_records_insert_active_members",
-            "public.evidence_records_update_active_members",
-            "public.evidence_records_delete_active_members",
+            "public.evidence_relationships_select_active_members",
+            "public.evidence_relationships_insert_active_owners",
+            "public.evidence_relationships_update_active_owners",
+            "public.evidence_relationships_delete_active_owners",
         })
     if source:
         policies.update({
@@ -596,6 +622,8 @@ def expected_catalog(versions: list[str]) -> dict:
     triggers: set[str] = set()
     if evidence:
         triggers.add("public.evidence_records_protect_workspace_ownership")
+    if relationships:
+        triggers.add("public.evidence_relationships_protect_identity")
     if source:
         triggers.update({
             "public.source_snapshots_protect_immutability",
@@ -615,6 +643,8 @@ def expected_catalog(versions: list[str]) -> dict:
         functions.add("public.ensure_personal_workspace")
     if evidence:
         functions.add("private.protect_evidence_record")
+    if relationships:
+        functions.add("private.protect_evidence_relationship")
     if source:
         functions.update({
             "private.assert_snapshot_role_safe",
@@ -658,6 +688,14 @@ def expected_catalog(versions: list[str]) -> dict:
         foreign_keys.add(("workspaces_personal_owner_id_fkey", "public.workspaces", "auth.users", "c"))
     if evidence:
         foreign_keys.add(("evidence_records_workspace_id_fkey", "public.evidence_records", "public.workspaces", "c"))
+    if relationships:
+        foreign_keys.update({
+            ("evidence_relationships_workspace_id_fkey", "public.evidence_relationships", "public.workspaces", "c"),
+            ("evidence_relationships_evidence_a_fkey", "public.evidence_relationships", "public.evidence_records", "c"),
+            ("evidence_relationships_evidence_b_fkey", "public.evidence_relationships", "public.evidence_records", "c"),
+            ("evidence_relationships_created_by_fkey", "public.evidence_relationships", "auth.users", "a"),
+            ("evidence_relationships_updated_by_fkey", "public.evidence_relationships", "auth.users", "a"),
+        })
     if evidence_links:
         foreign_keys.add(("evidence_records_source_link_fkey", "public.evidence_records", "public.source_snapshots", "r"))
     if source:
@@ -831,6 +869,27 @@ def assert_grants(api: Supabase, versions: list[str]) -> None:
                 "service_evidence_denied": bool,
             })
         require(len(rows) == 1 and all(value is True for value in rows[0].values()), "Evidence grants differ from the migration manifest")
+    if V_EVIDENCE_RELATIONSHIPS in present:
+        rows = api.query("select "
+            "pg_catalog.has_table_privilege('authenticated','public.evidence_relationships','SELECT') as relationship_select, "
+            "pg_catalog.has_table_privilege('authenticated','public.evidence_relationships','INSERT') as relationship_insert, "
+            "pg_catalog.has_table_privilege('authenticated','public.evidence_relationships','DELETE') as relationship_delete, "
+            "pg_catalog.has_column_privilege('authenticated','public.evidence_relationships','rationale','UPDATE') as relationship_content_update, "
+            "not pg_catalog.has_column_privilege('authenticated','public.evidence_relationships','workspace_id','UPDATE') as relationship_workspace_immutable, "
+            "not pg_catalog.has_column_privilege('authenticated','public.evidence_relationships','created_by','UPDATE') as relationship_creator_immutable, "
+            "not pg_catalog.has_table_privilege('anon','public.evidence_relationships','SELECT') as anon_relationship_denied, "
+            "not pg_catalog.has_table_privilege('service_role','public.evidence_relationships','SELECT') as service_relationship_denied",
+            {
+                "relationship_select": bool,
+                "relationship_insert": bool,
+                "relationship_delete": bool,
+                "relationship_content_update": bool,
+                "relationship_workspace_immutable": bool,
+                "relationship_creator_immutable": bool,
+                "anon_relationship_denied": bool,
+                "service_relationship_denied": bool,
+            })
+        require(len(rows) == 1 and all(value is True for value in rows[0].values()), "Relationship grants differ from the migration manifest")
     if V_SOURCE_CATALOG in present:
         rows = api.query("select "
             "pg_catalog.has_table_privilege('authenticated','public.source_snapshots','SELECT') as snapshots_select, "

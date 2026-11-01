@@ -25,6 +25,20 @@ export type WorkspaceSourceVersion = {
   created_at: string;
 };
 
+export type WorkspaceEvidenceRelationship = {
+  id: string;
+  workspace_id: string;
+  evidence_id_a: string;
+  evidence_id_b: string;
+  relation_type: "supports" | "contradicts" | "contextualizes" | "derived_from";
+  rationale: string;
+  provenance_note: string;
+  created_by: string;
+  created_at: string;
+  updated_by: string;
+  updated_at: string;
+};
+
 function json(status: number, payload: unknown): Response {
   return Response.json(payload, {
     status,
@@ -433,6 +447,184 @@ function safeSourceVersion(value: unknown): WorkspaceSourceVersion | null {
     size_bytes: candidate.size_bytes,
     created_at: candidate.created_at,
   };
+}
+
+export type RelationshipMutation = {
+  evidence_id_a?: string;
+  evidence_id_b?: string;
+  relation_type?: WorkspaceEvidenceRelationship["relation_type"];
+  rationale?: string;
+  provenance_note?: string;
+};
+
+export async function parseRelationshipMutation(
+  request: Request,
+  mode: "create" | "update",
+): Promise<{ ok: true; value: RelationshipMutation } | { ok: false }> {
+  let payload: unknown;
+  try {
+    const maxRequestBytes = 16_384;
+    const length = Number(request.headers.get("content-length"));
+    if (Number.isFinite(length) && length > maxRequestBytes) return { ok: false };
+    if (!request.body) return { ok: false };
+    const reader = request.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let totalBytes = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > maxRequestBytes) {
+        await reader.cancel();
+        return { ok: false };
+      }
+      chunks.push(value);
+    }
+    const bytes = new Uint8Array(totalBytes);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    payload = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+  } catch {
+    return { ok: false };
+  }
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return { ok: false };
+
+  const input = payload as Record<string, unknown>;
+  const keys = Object.keys(input);
+  const allowed = new Set(["evidence_id_a", "evidence_id_b", "relation_type", "rationale", "provenance_note"]);
+  if (keys.some((key) => !allowed.has(key)) || keys.length === 0) return { ok: false };
+  if (mode === "create" && !["evidence_id_a", "evidence_id_b", "relation_type", "rationale", "provenance_note"].every((key) => Object.hasOwn(input, key))) {
+    return { ok: false };
+  }
+  if (mode === "update" && keys.some((key) => key === "evidence_id_a" || key === "evidence_id_b")) {
+    return { ok: false };
+  }
+
+  const value: RelationshipMutation = {};
+  for (const key of ["evidence_id_a", "evidence_id_b"] as const) {
+    if (Object.hasOwn(input, key)) {
+      if (typeof input[key] !== "string" || !UUID_PATTERN.test(input[key])) return { ok: false };
+      value[key] = input[key];
+    }
+  }
+  if (Object.hasOwn(input, "relation_type")) {
+    if (!["supports", "contradicts", "contextualizes", "derived_from"].includes(String(input.relation_type))) {
+      return { ok: false };
+    }
+    value.relation_type = input.relation_type as WorkspaceEvidenceRelationship["relation_type"];
+  }
+  for (const key of ["rationale", "provenance_note"] as const) {
+    if (Object.hasOwn(input, key)) {
+      const max = key === "rationale" ? 4000 : 2000;
+      if (typeof input[key] !== "string" || !input[key].trim() || input[key].length > max) return { ok: false };
+      value[key] = input[key].trim();
+    }
+  }
+  if (mode === "create" && value.evidence_id_a === value.evidence_id_b) return { ok: false };
+  if (mode === "update" && !["relation_type", "rationale", "provenance_note"].some((key) => Object.hasOwn(value, key))) {
+    return { ok: false };
+  }
+  return { ok: true, value };
+}
+
+function safeRelationship(
+  value: unknown,
+  workspaceId: string,
+): WorkspaceEvidenceRelationship | null {
+  if (!value || typeof value !== "object") return null;
+  const candidate = value as Record<string, unknown>;
+  const uuidFields = ["id", "evidence_id_a", "evidence_id_b", "created_by", "updated_by"] as const;
+  if (
+    uuidFields.some((field) => typeof candidate[field] !== "string" || !UUID_PATTERN.test(candidate[field] as string)) ||
+    candidate.workspace_id !== workspaceId ||
+    !["supports", "contradicts", "contextualizes", "derived_from"].includes(String(candidate.relation_type)) ||
+    typeof candidate.rationale !== "string" ||
+    candidate.rationale.length > 4000 ||
+    typeof candidate.provenance_note !== "string" ||
+    candidate.provenance_note.length > 2000 ||
+    typeof candidate.created_at !== "string" ||
+    !Number.isFinite(Date.parse(candidate.created_at)) ||
+    typeof candidate.updated_at !== "string" ||
+    !Number.isFinite(Date.parse(candidate.updated_at)) ||
+    String(candidate.evidence_id_a) >= String(candidate.evidence_id_b)
+  ) return null;
+  return candidate as WorkspaceEvidenceRelationship;
+}
+
+export async function proxyWorkspaceRelationshipsRequest({
+  request,
+  workspaceId,
+  relationshipId,
+  method,
+  body,
+}: {
+  request: Request;
+  workspaceId: string;
+  relationshipId?: string;
+  method: "GET" | "POST" | "PATCH" | "DELETE";
+  body?: RelationshipMutation;
+}): Promise<Response> {
+  if (!isUuid(workspaceId) || (relationshipId !== undefined && !isUuid(relationshipId))) {
+    return json(404, { error: "Relationship not found." });
+  }
+  if (method !== "GET" && !sameOrigin(request)) {
+    return json(403, { error: "Request origin was not accepted." });
+  }
+  const auth = await getVerifiedAuthContext();
+  if (auth.kind === "unauthenticated") return json(401, { error: "Authentication is required." });
+  if (auth.kind === "unavailable") return json(503, { error: "Identity verification is unavailable." });
+  const serviceUrl = getEvidenceServiceBaseUrl();
+  if (!serviceUrl) return json(503, { error: "Evidence service is unavailable." });
+
+  const path = `/v1/workspaces/${workspaceId}/relationships${relationshipId ? `/${relationshipId}` : ""}`;
+  let upstream: Response;
+  try {
+    upstream = await fetch(serviceUrl + path, {
+      method,
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${auth.accessToken}`,
+        ...(body ? { "Content-Type": "application/json" } : {}),
+      },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+      cache: "no-store",
+      redirect: "manual",
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch {
+    return json(503, { error: "Evidence service is unavailable." });
+  }
+  if (upstream.status === 401) return json(401, { error: "Your session is no longer valid." });
+  if (upstream.status === 403) return json(403, { error: "This action is not available for this account." });
+  if (upstream.status === 404) return json(404, { error: "Relationship or workspace not found." });
+  if (upstream.status === 409) return json(409, { error: "That relationship already exists or conflicts with current evidence." });
+  if (upstream.status === 422) return json(400, { error: "Relationship input was not accepted." });
+  if (upstream.status >= 500 || upstream.status >= 300) return json(503, { error: "Evidence service is unavailable." });
+
+  const expectedStatus = method === "POST" ? 201 : method === "DELETE" ? 204 : 200;
+  if (upstream.status !== expectedStatus) return json(502, { error: "Evidence service returned an invalid response." });
+  if (method === "DELETE") return new Response(null, { status: 204, headers: { "Cache-Control": "no-store" } });
+
+  let payload: unknown;
+  try {
+    payload = await upstream.json();
+  } catch {
+    return json(502, { error: "Evidence service returned an invalid response." });
+  }
+  if (!relationshipId && method === "GET") {
+    if (!Array.isArray(payload)) return json(502, { error: "Evidence service returned an invalid response." });
+    const relationships = payload.map((item) => safeRelationship(item, workspaceId));
+    return relationships.some((item) => item === null)
+      ? json(502, { error: "Evidence service returned an invalid response." })
+      : json(200, relationships);
+  }
+  const relationship = safeRelationship(payload, workspaceId);
+  return relationship && (relationshipId === undefined || relationship.id === relationshipId)
+    ? json(method === "POST" ? 201 : 200, relationship)
+    : json(502, { error: "Evidence service returned an invalid response." });
 }
 
 export async function proxyWorkspaceSourcesRequest({

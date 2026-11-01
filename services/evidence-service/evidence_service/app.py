@@ -26,6 +26,14 @@ from evidence_service.evidence_repository import (
     EvidenceRepository,
     SupabaseEvidenceRepository,
 )
+from evidence_service.relationship_repository import (
+    EvidenceRelationship,
+    RelationshipAccessDenied,
+    RelationshipConflict,
+    RelationshipDataUnavailable,
+    RelationshipRepository,
+    SupabaseRelationshipRepository,
+)
 from evidence_service.supabase_repository import (
     SupabaseWorkspaceRepository,
     WorkspaceDataUnavailable,
@@ -123,6 +131,56 @@ class EvidenceResponse(BaseModel):
     source_id: UUID | None
     source_version_id: UUID | None
     created_at: datetime
+    updated_at: datetime
+
+
+class RelationshipCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    evidence_id_a: UUID
+    evidence_id_b: UUID
+    relation_type: Literal["supports", "contradicts", "contextualizes", "derived_from"]
+    rationale: str = Field(min_length=1, max_length=4000)
+    provenance_note: str = Field(min_length=1, max_length=2000)
+
+    @model_validator(mode="after")
+    def normalize_pair(self) -> RelationshipCreateRequest:
+        if self.evidence_id_a == self.evidence_id_b:
+            raise ValueError("A relationship requires two different evidence records")
+        if self.evidence_id_a > self.evidence_id_b:
+            self.evidence_id_a, self.evidence_id_b = self.evidence_id_b, self.evidence_id_a
+        return self
+
+
+class RelationshipUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    relation_type: Literal["supports", "contradicts", "contextualizes", "derived_from"] | None = None
+    rationale: str | None = Field(default=None, min_length=1, max_length=4000)
+    provenance_note: str | None = Field(default=None, min_length=1, max_length=2000)
+
+    @model_validator(mode="after")
+    def require_update_fields(self) -> RelationshipUpdateRequest:
+        if not self.model_fields_set:
+            raise ValueError("At least one relationship field must be provided")
+        if any(getattr(self, field) is None for field in self.model_fields_set):
+            raise ValueError("Relationship fields cannot be null")
+        return self
+
+
+class RelationshipResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    workspace_id: UUID
+    evidence_id_a: UUID
+    evidence_id_b: UUID
+    relation_type: Literal["supports", "contradicts", "contextualizes", "derived_from"]
+    rationale: str
+    provenance_note: str
+    created_by: UUID
+    created_at: datetime
+    updated_by: UUID
     updated_at: datetime
 
 
@@ -360,6 +418,14 @@ def _evidence_repository(request: Request) -> EvidenceRepository:
     return repository
 
 
+def _relationship_repository(request: Request) -> RelationshipRepository:
+    repository = request.app.state.relationship_repository
+    if repository is None:
+        repository = SupabaseRelationshipRepository(_settings_for(request))
+        request.app.state.relationship_repository = repository
+    return repository
+
+
 async def _resolve_workspace_or_404(
     request: Request,
     auth: AuthenticatedRequest,
@@ -390,6 +456,12 @@ def _evidence_data_error(exc: EvidenceDataUnavailable) -> HTTPException:
     )
 
 
+def _relationship_data_error(exc: RelationshipDataUnavailable) -> HTTPException:
+    return HTTPException(
+        status_code=503, detail="Relationship storage is unavailable"
+    )
+
+
 def _source_read_error(exc) -> HTTPException:
     from evidence_layer.source_access import SourceReadDenialReason
 
@@ -415,6 +487,7 @@ def create_app(
     token_verifier: TokenVerifier | None = None,
     workspace_directory: WorkspaceDirectory | None = None,
     evidence_repository: EvidenceRepository | None = None,
+    relationship_repository: RelationshipRepository | None = None,
     source_read_path=None,
     source_catalog_factory=None,
 ) -> FastAPI:
@@ -429,6 +502,7 @@ def create_app(
     application.state.token_verifier = token_verifier
     application.state.workspace_directory = workspace_directory
     application.state.evidence_repository = evidence_repository
+    application.state.relationship_repository = relationship_repository
     application.state.trusted_source_context_issuer = None
     application.state.source_read_path = source_read_path
     application.state.source_catalog_factory = source_catalog_factory
@@ -591,6 +665,8 @@ def create_app(
         auth: AuthenticatedRequest = Depends(require_authenticated_request),
     ) -> EvidenceRecord:
         context = await _resolve_workspace_or_404(request, auth, workspace_id)
+        if context.role != "owner":
+            raise HTTPException(status_code=403, detail="Workspace owner access is required")
         await _require_visible_source_link(
             request, auth, context.workspace_id, body.linked_pair()
         )
@@ -643,6 +719,8 @@ def create_app(
         auth: AuthenticatedRequest = Depends(require_authenticated_request),
     ) -> EvidenceRecord:
         context = await _resolve_workspace_or_404(request, auth, workspace_id)
+        if context.role != "owner":
+            raise HTTPException(status_code=403, detail="Workspace owner access is required")
         if body.model_fields_set & {"source_id", "source_version_id"}:
             await _require_visible_source_link(
                 request, auth, context.workspace_id, body.linked_pair()
@@ -673,6 +751,8 @@ def create_app(
         auth: AuthenticatedRequest = Depends(require_authenticated_request),
     ) -> Response:
         context = await _resolve_workspace_or_404(request, auth, workspace_id)
+        if context.role != "owner":
+            raise HTTPException(status_code=403, detail="Workspace owner access is required")
         try:
             deleted = await _evidence_repository(request).delete_record(
                 auth.access_token, context.workspace_id, evidence_id
@@ -683,6 +763,112 @@ def create_app(
             raise _evidence_data_error(exc) from exc
         if not deleted:
             raise HTTPException(status_code=404, detail="Evidence record not found")
+        return Response(status_code=204)
+
+    @application.get(
+        "/v1/workspaces/{workspace_id}/relationships",
+        response_model=list[RelationshipResponse],
+    )
+    async def list_relationships(
+        workspace_id: UUID,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> list[EvidenceRelationship]:
+        context = await _resolve_workspace_or_404(request, auth, workspace_id)
+        try:
+            return await _relationship_repository(request).list_relationships(
+                auth.access_token, context.workspace_id
+            )
+        except RelationshipAccessDenied as exc:
+            raise HTTPException(status_code=404, detail="Workspace not found") from exc
+        except RelationshipDataUnavailable as exc:
+            raise _relationship_data_error(exc) from exc
+
+    @application.post(
+        "/v1/workspaces/{workspace_id}/relationships",
+        response_model=RelationshipResponse,
+        status_code=201,
+    )
+    async def create_relationship(
+        workspace_id: UUID,
+        body: RelationshipCreateRequest,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> EvidenceRelationship:
+        context = await _resolve_workspace_or_404(request, auth, workspace_id)
+        if context.role != "owner":
+            raise HTTPException(status_code=403, detail="Workspace owner access is required")
+        try:
+            return await _relationship_repository(request).create_relationship(
+                auth.access_token,
+                context.workspace_id,
+                evidence_id_a=body.evidence_id_a,
+                evidence_id_b=body.evidence_id_b,
+                relation_type=body.relation_type,
+                rationale=body.rationale,
+                provenance_note=body.provenance_note,
+            )
+        except RelationshipAccessDenied as exc:
+            raise HTTPException(status_code=403, detail="Relationship write is not authorized") from exc
+        except RelationshipConflict as exc:
+            raise HTTPException(status_code=409, detail="The relationship conflicts with existing evidence") from exc
+        except RelationshipDataUnavailable as exc:
+            raise _relationship_data_error(exc) from exc
+
+    @application.patch(
+        "/v1/workspaces/{workspace_id}/relationships/{relationship_id}",
+        response_model=RelationshipResponse,
+    )
+    async def update_relationship(
+        workspace_id: UUID,
+        relationship_id: UUID,
+        body: RelationshipUpdateRequest,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> EvidenceRelationship:
+        context = await _resolve_workspace_or_404(request, auth, workspace_id)
+        if context.role != "owner":
+            raise HTTPException(status_code=403, detail="Workspace owner access is required")
+        try:
+            relationship = await _relationship_repository(request).update_relationship(
+                auth.access_token,
+                context.workspace_id,
+                relationship_id,
+                body.model_dump(exclude_unset=True),
+            )
+        except RelationshipAccessDenied as exc:
+            raise HTTPException(status_code=403, detail="Relationship write is not authorized") from exc
+        except RelationshipConflict as exc:
+            raise HTTPException(status_code=409, detail="The relationship conflicts with existing evidence") from exc
+        except RelationshipDataUnavailable as exc:
+            raise _relationship_data_error(exc) from exc
+        if relationship is None:
+            raise HTTPException(status_code=404, detail="Relationship not found")
+        return relationship
+
+    @application.delete(
+        "/v1/workspaces/{workspace_id}/relationships/{relationship_id}",
+        status_code=204,
+    )
+    async def delete_relationship(
+        workspace_id: UUID,
+        relationship_id: UUID,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> Response:
+        context = await _resolve_workspace_or_404(request, auth, workspace_id)
+        if context.role != "owner":
+            raise HTTPException(status_code=403, detail="Workspace owner access is required")
+        try:
+            deleted = await _relationship_repository(request).delete_relationship(
+                auth.access_token, context.workspace_id, relationship_id
+            )
+        except RelationshipAccessDenied as exc:
+            raise HTTPException(status_code=403, detail="Relationship write is not authorized") from exc
+        except RelationshipDataUnavailable as exc:
+            raise _relationship_data_error(exc) from exc
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Relationship not found")
         return Response(status_code=204)
 
     @application.get(

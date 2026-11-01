@@ -1297,6 +1297,142 @@
       "verb": "grant update",
       "statement": "grant update (source_id, source_version_id) on public.evidence_records to authenticated",
       "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "338be214bb32a4b3",
+      "file": "20261101130000_workspace_evidence_relationships.sql",
+      "line": "9",
+      "verb": "drop policy",
+      "statement": "drop policy evidence_records_insert_active_members on public . evidence_records",
+      "rationale_ref": "rls-policy-drop"
+    },
+    {
+      "id": "466d865f9c7d8994",
+      "file": "20261101130000_workspace_evidence_relationships.sql",
+      "line": "10",
+      "verb": "drop policy",
+      "statement": "drop policy evidence_records_update_active_members on public . evidence_records",
+      "rationale_ref": "rls-policy-drop"
+    },
+    {
+      "id": "ca49a34d70e6ca51",
+      "file": "20261101130000_workspace_evidence_relationships.sql",
+      "line": "11",
+      "verb": "drop policy",
+      "statement": "drop policy evidence_records_delete_active_members on public . evidence_records",
+      "rationale_ref": "rls-policy-drop"
+    },
+    {
+      "id": "6fcecac1b41959dc",
+      "file": "20261101130000_workspace_evidence_relationships.sql",
+      "line": "13",
+      "verb": "create policy",
+      "statement": "create policy evidence_records_insert_active_owners on public . evidence_records for insert to authenticated with check ( exists ( select 1 from public . workspace_memberships as membership where membership . workspace_id = evidence_records . workspace_id and membership . user_id = ( select auth . uid ( ) ) and membership . role = 'owner' and membership . status = 'active' ) )",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "328538bcb4508955",
+      "file": "20261101130000_workspace_evidence_relationships.sql",
+      "line": "28",
+      "verb": "create policy",
+      "statement": "create policy evidence_records_update_active_owners on public . evidence_records for update to authenticated using ( exists ( select 1 from public . workspace_memberships as membership where membership . workspace_id = evidence_records . workspace_id and membership . user_id = ( select auth . uid ( ) ) and membership . role = 'owner' and membership . status = 'active' ) ) with check ( exists ( select 1 from public . workspace_memberships as membership where membership . workspace_id = evidence_records . workspace_id and membership . user_id = ( select auth . uid ( ) ) and membership . role = 'owner' and membership . status = 'active' ) )",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "6c60a424bef685fb",
+      "file": "20261101130000_workspace_evidence_relationships.sql",
+      "line": "53",
+      "verb": "create policy",
+      "statement": "create policy evidence_records_delete_active_owners on public . evidence_records for delete to authenticated using ( exists ( select 1 from public . workspace_memberships as membership where membership . workspace_id = evidence_records . workspace_id and membership . user_id = ( select auth . uid ( ) ) and membership . role = 'owner' and membership . status = 'active' ) )",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "94424218d0d385f7",
+      "file": "20261101130000_workspace_evidence_relationships.sql",
+      "line": "101",
+      "verb": "alter table",
+      "statement": "alter table public . evidence_relationships enable row level security",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "c0c686ccab8fd9bd",
+      "file": "20261101130000_workspace_evidence_relationships.sql",
+      "line": "102",
+      "verb": "alter table",
+      "statement": "alter table public . evidence_relationships force row level security",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "df1241f8fea86dc2",
+      "file": "20261101130000_workspace_evidence_relationships.sql",
+      "line": "104",
+      "verb": "revoke all",
+      "statement": "revoke all on table public . evidence_relationships from public , anon , authenticated , service_role",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "4af1b80b23926239",
+      "file": "20261101130000_workspace_evidence_relationships.sql",
+      "line": "106",
+      "verb": "grant select",
+      "statement": "grant select , insert , delete on table public . evidence_relationships to authenticated",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "d9924084f5002205",
+      "file": "20261101130000_workspace_evidence_relationships.sql",
+      "line": "107",
+      "verb": "grant update",
+      "statement": "grant update ( relation_type , rationale , provenance_note ) on table public . evidence_relationships to authenticated",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "4e628b38539cd164",
+      "file": "20261101130000_workspace_evidence_relationships.sql",
+      "line": "110",
+      "verb": "create policy",
+      "statement": "create policy evidence_relationships_select_active_members on public . evidence_relationships for select to authenticated using ( exists ( select 1 from public . workspace_memberships as membership where membership . workspace_id = evidence_relationships . workspace_id and membership . user_id = ( select auth . uid ( ) ) and membership . status = 'active' ) )",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "75e4017fe2481b98",
+      "file": "20261101130000_workspace_evidence_relationships.sql",
+      "line": "124",
+      "verb": "create policy",
+      "statement": "create policy evidence_relationships_insert_active_owners on public . evidence_relationships for insert to authenticated with check ( evidence_relationships . created_by = ( select auth . uid ( ) ) and evidence_relationships . updated_by = ( select auth . uid ( ) ) and exists ( select 1 from public . workspace_memberships as membership where membership . workspace_id = evidence_relationships . workspace_id and membership . user_id = ( select auth . uid ( ) ) and membership . role = 'owner' and membership . status = 'active' ) )",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "f45b6e6210993a5d",
+      "file": "20261101130000_workspace_evidence_relationships.sql",
+      "line": "141",
+      "verb": "create policy",
+      "statement": "create policy evidence_relationships_update_active_owners on public . evidence_relationships for update to authenticated using ( exists ( select 1 from public . workspace_memberships as membership where membership . workspace_id = evidence_relationships . workspace_id and membership . user_id = ( select auth . uid ( ) ) and membership . role = 'owner' and membership . status = 'active' ) ) with check ( exists ( select 1 from public . workspace_memberships as membership where membership . workspace_id = evidence_relationships . workspace_id and membership . user_id = ( select auth . uid ( ) ) and membership . role = 'owner' and membership . status = 'active' ) )",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "a317c3c4ab5a533a",
+      "file": "20261101130000_workspace_evidence_relationships.sql",
+      "line": "166",
+      "verb": "create policy",
+      "statement": "create policy evidence_relationships_delete_active_owners on public . evidence_relationships for delete to authenticated using ( exists ( select 1 from public . workspace_memberships as membership where membership . workspace_id = evidence_relationships . workspace_id and membership . user_id = ( select auth . uid ( ) ) and membership . role = 'owner' and membership . status = 'active' ) )",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "34943d3d3983e3a7",
+      "file": "20261101130000_workspace_evidence_relationships.sql",
+      "line": "181",
+      "verb": "create or",
+      "statement": "create or replace function private . protect_evidence_relationship ( ) returns trigger language plpgsql set search_path = '' as $function$\nbegin\n    if tg_op = 'UPDATE' then\n        if new.id is distinct from old.id\n            or new.workspace_id is distinct from old.workspace_id\n            or new.evidence_id_a is distinct from old.evidence_id_a\n            or new.evidence_id_b is distinct from old.evidence_id_b\n            or new.created_by is distinct from old.created_by\n            or new.created_at is distinct from old.created_at then\n            raise exception 'relationship identity and provenance cannot be changed'\n                using errcode = '42501';\n        end if;\n    end if;\n\n    new.updated_by := auth.uid();\n    new.updated_at := now();\n    return new;\nend;\n$function$",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "be66bca15ae3abba",
+      "file": "20261101130000_workspace_evidence_relationships.sql",
+      "line": "205",
+      "verb": "revoke all",
+      "statement": "revoke all on function private . protect_evidence_relationship ( ) from public , anon , authenticated , service_role",
+      "rationale_ref": "privilege-revoke"
     }
   ]
 }

@@ -445,7 +445,8 @@ export default function WorkspaceConsole({
         <Link className="workspace-brand" href="/">evidence<span>layer</span></Link>
         <nav aria-label="Workspace navigation">
           <Link aria-current="page" href="/workspace">Workspace</Link>
-          <Link href="/">Demo / Synthetic</Link>
+          <Link href="/">Evidence Explorer</Link>
+          <Link href="/relationships">Relationships</Link>
           <Link href="/documentation">Documentation</Link>
         </nav>
         <div className="workspace-user">
@@ -559,42 +560,44 @@ export default function WorkspaceConsole({
                           )}
                         </p>
                       )}
-                      <div className="workspace-record-actions">
-                        <button type="button" onClick={() => editRecord(record)} disabled={pending}>
-                          Edit
-                        </button>
-                        {deleteConfirmationId === record.id ? (
-                          <>
-                            <span>Delete this record?</span>
-                            <button
-                              type="button"
-                              onClick={() => void deleteRecord(record.id)}
-                              disabled={pending}
-                            >
-                              Confirm delete
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setDeleteConfirmationId(null)}
-                              disabled={pending}
-                            >
-                              Cancel
-                            </button>
-                          </>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => setDeleteConfirmationId(record.id)}
-                            disabled={pending}
-                          >
-                            Delete
+                      {selectedWorkspace.role === "owner" ? (
+                        <div className="workspace-record-actions">
+                          <button type="button" onClick={() => editRecord(record)} disabled={pending}>
+                            Edit
                           </button>
-                        )}
-                      </div>
+                          {deleteConfirmationId === record.id ? (
+                            <>
+                              <span>Delete this record?</span>
+                              <button
+                                type="button"
+                                onClick={() => void deleteRecord(record.id)}
+                                disabled={pending}
+                              >
+                                Confirm delete
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeleteConfirmationId(null)}
+                                disabled={pending}
+                              >
+                                Cancel
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setDeleteConfirmationId(record.id)}
+                              disabled={pending}
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                      ) : <p className="workspace-note">Read-only member access</p>}
                     </article>
                   ))}
                 </section>
-                <form className="workspace-form" onSubmit={saveEvidence}>
+                {selectedWorkspace.role === "owner" && <form className="workspace-form" onSubmit={saveEvidence}>
                   <h3 id="evidence-editor-title" tabIndex={-1}>
                     {editingId ? "Edit evidence record" : "Add evidence record"}
                   </h3>
@@ -654,7 +657,7 @@ export default function WorkspaceConsole({
                       </button>
                     )}
                   </div>
-                </form>
+                </form>}
               </div>
             )}
             {message && <p className="workspace-message" role="status">{message}</p>}
@@ -737,14 +740,14 @@ export default function WorkspaceConsole({
           <div className="workspace-capability-grid">
             <Capability title="Authentication" state="Connected" detail="Supabase Auth session is verified server-side; sign out revokes the browser session." />
             <Capability title="Workspace & access" state="Connected" detail="Membership list and workspace-scoped requests use the authenticated user's existing RLS policies." />
-            <Capability title="Evidence records" state="Connected" detail="List, create, edit, and delete use the existing Evidence Service contract and user JWT." />
-            <Capability title="Source relationships" state="Connected" detail="Evidence records can be linked to exact published source versions; links are validated against the verified catalog before saving." />
-            <Capability title="Reading guide" state="Demo only" detail="The current guide is fixture-authored; no live guide API is available." />
-            <Capability title="Verification" state="Read-time only" detail="Source reads use verified snapshots and access checks. Verification history/status has no frontend API." />
+            <Capability title="Evidence records" state={selectedWorkspace?.role === "owner" ? "Connected · owner writes" : "Connected · read only"} detail="Workspace membership is required to read. RLS and the service enforce owner-only create, edit, and delete." />
+            <Capability title="Evidence relationships" state="Connected · owner writes" detail="Explicit relationships are stored with rationale and review basis. Active members can read; owners can create, edit, and delete." />
+            <Capability title="Reading guide" state="Evidence-grounded" detail="The live guide explains how to inspect stored records and exact source provenance; it does not invent interpretations." />
+            <Capability title="Verification" state="Snapshot status" detail="Published source versions are integrity-verified. There is no separate per-attempt verification history API." />
             <Capability title="Evaluation" state="Historical" detail="Published benchmark outputs are fixed reports, not per-workspace live evaluation." />
             <Capability title="Cost & performance" state="Historical estimates" detail="Benchmark estimates are available; workspace usage metering and invoices are not exposed." />
             <Capability title="Integrations" state="Unavailable" detail="No integration-management endpoint is exposed by the current service contract." />
-            <Capability title="Settings & access" state="Read only" detail="Membership roles can be viewed; invitations, role changes, and access administration are not implemented." />
+            <Capability title="Settings & access" state="Limited · read only" detail="The current user's membership and role are visible; invitations, role changes, and access administration are unavailable." />
           </div>
         </section>
 

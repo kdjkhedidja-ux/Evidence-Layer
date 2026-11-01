@@ -225,6 +225,44 @@ def test_nonmember_cannot_read_or_mutate_another_workspace(
     asyncio.run(run())
 
 
+def test_active_member_can_read_but_cannot_mutate_workspace_evidence() -> None:
+    async def run() -> None:
+        directory = MembershipDirectory()
+        repository = EvidenceRepositorySpy()
+
+        async def member_membership(principal, access_token, workspace_id):
+            directory.lookups.append((principal.subject, workspace_id, access_token))
+            if workspace_id == WORKSPACE_A:
+                return WorkspaceMembership(WORKSPACE_A, "A workspace", "member")
+            return None
+
+        directory.get_membership = member_membership
+        async with make_client(directory, repository) as client:
+            headers = {"Authorization": f"Bearer {TOKEN}"}
+            listed = await client.get(
+                f"/v1/workspaces/{WORKSPACE_A}/evidence", headers=headers
+            )
+            created = await client.post(
+                f"/v1/workspaces/{WORKSPACE_A}/evidence",
+                headers=headers,
+                json={"content": "member write"},
+            )
+            updated = await client.patch(
+                f"/v1/workspaces/{WORKSPACE_A}/evidence/{EVIDENCE_ID}",
+                headers=headers,
+                json={"content": "member update"},
+            )
+            deleted = await client.delete(
+                f"/v1/workspaces/{WORKSPACE_A}/evidence/{EVIDENCE_ID}",
+                headers=headers,
+            )
+        assert listed.status_code == 200
+        assert [created.status_code, updated.status_code, deleted.status_code] == [403, 403, 403]
+        assert [call[0] for call in repository.calls] == ["list"]
+
+    asyncio.run(run())
+
+
 @pytest.mark.parametrize("method", ["POST", "PATCH"])
 def test_caller_cannot_supply_evidence_workspace_ownership(method: str) -> None:
     async def run() -> None:

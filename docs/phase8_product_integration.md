@@ -2,10 +2,11 @@
 
 ## Product boundary
 
-The root route remains the explicitly labelled **Demo / Synthetic** explorer.
-Its five fictional records, fixture relationships, and reading guide are not
-presented as customer data. The new /workspace route is separate and uses live
-service responses only after the server verifies the Supabase Auth user.
+The root route is the live Evidence Explorer. It loads only authenticated,
+workspace-scoped Evidence Service responses; it never substitutes fixture
+records when a service is unavailable or a workspace is empty. The old
+synthetic component is not routed from the product navigation. /workspace
+remains the source/evidence management screen.
 
 ## Connected paths
 
@@ -19,6 +20,9 @@ service responses only after the server verifies the Supabase Auth user.
 | Verified source content | GET /v1/workspaces/{workspace_id}/sources/{source_id}/versions/{version_id}/content | The BFF does not read Storage directly. The service rechecks membership and the exact source grant before opening the pinned verified version and before returning bytes. The UI displays the service's SHA-256 Content-Digest when supplied. |
 | Workspace source index | GET /v1/workspaces/{workspace_id}/sources | The service lists the snapshot versions visible to the caller under RLS (published versions of granted sources plus the caller's own staged rows) without exposing object keys. The UI groups versions by source and reads published versions from the list; no manually typed UUIDs are needed. |
 | Evidence provenance links | source_id + source_version_id on the evidence routes | An evidence record may pin the exact published source version it was derived from. The service accepts a link only after the caller's own token resolves that version through the RLS-protected catalog; the database enforces the all-or-nothing pair and the same-workspace foreign key. |
+| Evidence relationships | GET/POST/PATCH/DELETE /v1/workspaces/{workspace_id}/relationships | An additive RLS-protected table links two evidence records in the same workspace and records type, rationale, provenance note, creator, and last updater. Members read; active owners mutate. |
+| Reading guide | Live stored evidence and source links | The guide describes how to inspect stored text and source provenance; it does not manufacture interpretations or unresolved facts. |
+| Verification state | Published/staged source catalog state and verified source reader | Published rows are constrained to successful integrity verification. A separate attempt-by-attempt verification history is not available. |
 
 The API routes are a same-origin browser boundary around existing endpoints;
 they do not create a second evidence service or use service_role. Public
@@ -46,14 +50,8 @@ decides object access. Hosted connectivity still requires the deployed
 service to be configured against the target project and is not exercised by
 this repository's test suites.
 
-## Not connected to live workspace data
+## Explicitly unavailable or historical capabilities
 
-- **Reading guide:** remains fixture-defined in the Demo / Synthetic
-  explorer; the Evidence Service has no guide API. (Provenance links between
-  evidence records and published source versions are now connected; broader
-  relationship graphs are not.)
-- **Verification:** source reads use the verified snapshot path, but there is
-  no route for browsing verification status/history or verifier reports.
 - **Evaluation:** Phase 6, Phase 7, and Phase 7B remain historical benchmark
   reports. They are not workspace evaluations.
 - **Cost and performance:** the public benchmark page reports experiment
@@ -62,21 +60,21 @@ this repository's test suites.
 - **Integrations:** no integration status/configuration endpoint is exposed.
 - **Settings and access administration:** active memberships and roles are
   viewable, but invitations and role or membership changes are not exposed.
+- **Source ingestion:** the UI can list and securely read published versions,
+  but no hosted upload/publish integration for the trusted snapshot verifier is
+  exposed. It does not stage or publish an unverified object.
 
-The workspace screen labels each item as connected, demo-only, read-only,
-historical, or unavailable. These gaps are not silently filled with synthetic
-or inferred values.
+The Explorer and Workspace label each item using its actual data state. These
+gaps are not silently filled with synthetic or inferred values.
 
 ## Existing authorization limitation
 
-The Evidence Service documentation identifies a temporary MVP policy in which
-every active workspace member can read, create, update, and delete all evidence
-records in that workspace. The frontend uses that existing service/RLS
-contract and does not add a role bypass, but exposing write controls makes this
-policy directly available through the product UI. The service README already
-marks this policy as unsuitable for pre-production/public launch; replace it
-with an owner-reviewed least-privilege capability model before broad release.
-No invitation or role-management feature was added.
+Active workspace members can read evidence. Evidence create, update, and delete
+and relationship mutations are restricted to active owners at both the
+Evidence Service and RLS layers. This is intentionally conservative because
+the current role model has no finer-grained capabilities. Invitations, role
+changes, member administration, and source-upload authorization remain
+unavailable; UI visibility is not the security boundary.
 
 DenyAllSourceReadBoundary remains the default for untrusted core retrieval
 contexts. The UI's verified snapshot request uses the Evidence Service's
@@ -85,12 +83,14 @@ Next.js route constructs an allowing source boundary.
 
 ## Validation scope
 
-Frontend route tests use synthetic session and service responses. Existing
-Evidence Service tests cover membership, workspace isolation, RLS-shaped
-denials, source grants, verified snapshot reads, and fail-closed behavior. They
-do not establish that a hosted Supabase or Railway environment is configured
-or reachable. This phase does not use production credentials or call a hosted
-service.
+Frontend route tests use synthetic session and service responses. Evidence
+Service tests cover membership, workspace isolation, owner/member mutation
+checks, relationship CRUD, source grants, verified snapshot reads, and
+fail-closed behavior. pgTAP assertions cover relationship membership, owner
+write policy, same-workspace foreign keys, and evidence member read-only access.
+These tests do not establish that the hosted Supabase or Railway environment is
+configured or reachable. No hosted production migration or deployment is
+performed by the local change.
 
 Phase 6 and Phase 7 benchmark inputs, manifests, and results are outside this
 change. The static benchmark pages remain unchanged.

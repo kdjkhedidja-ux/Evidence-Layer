@@ -34,7 +34,7 @@ const WORKSPACE_ID = "10000000-0000-4000-8000-000000000002";
 const EVIDENCE_ID = "10000000-0000-4000-8000-000000000003";
 const SOURCE_ID = "10000000-0000-4000-8000-000000000004";
 const VERSION_ID = "10000000-0000-4000-8000-000000000005";
-const WORKSPACE = { id: WORKSPACE_ID, name: "Team workspace", role: "member" };
+const WORKSPACE = { id: WORKSPACE_ID, name: "Team workspace", role: "owner" as const };
 const RECORD = {
   id: EVIDENCE_ID,
   workspace_id: WORKSPACE_ID,
@@ -54,11 +54,13 @@ const VERSION_SUMMARY = {
   created_at: "2026-10-31T12:00:00Z",
 };
 
-function mockProductFetch() {
+function mockProductFetch(
+  workspace: { id: string; name: string; role: "owner" | "member" } = WORKSPACE,
+) {
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     if (url === "/api/evidence/me") {
-      return Response.json({ user_id: USER_ID, workspaces: [WORKSPACE] });
+      return Response.json({ user_id: USER_ID, workspaces: [workspace] });
     }
     if (url.endsWith("/sources") && init?.method === undefined) {
       return Response.json([VERSION_SUMMARY]);
@@ -92,16 +94,27 @@ describe("workspace product console", () => {
     mockProductFetch();
   });
 
-  it("shows verified membership and live workspace records separately from the synthetic demo", async () => {
+  it("shows verified membership and truthful workspace capability states", async () => {
     render(<WorkspaceConsole userId={USER_ID} email="reader@example.test" />);
     expect(await screen.findByRole("heading", { name: "Evidence workspace" })).toBeInTheDocument();
     expect(await screen.findByText("Current workspace evidence")).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Authorized workspace" })).toHaveValue(WORKSPACE_ID);
     expect(screen.getByText(/These are stored workspace evidence records/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Demo / Synthetic" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "Evidence Explorer" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "Relationships" })).toHaveAttribute("href", "/relationships");
     expect(screen.getByRole("heading", { name: "Connected and pending capabilities" })).toBeInTheDocument();
-    expect(screen.getByText("Source relationships")).toBeInTheDocument();
-    expect(screen.getAllByText("Demo only")).toHaveLength(1);
+    expect(screen.getByText("Evidence relationships")).toBeInTheDocument();
+    expect(screen.queryByText("Demo only")).not.toBeInTheDocument();
+  });
+
+  it("keeps evidence mutations unavailable in the member UI", async () => {
+    mockProductFetch({ ...WORKSPACE, role: "member" });
+    render(<WorkspaceConsole userId={USER_ID} email="reader@example.test" />);
+    await screen.findByText("Current workspace evidence");
+    expect(screen.queryByLabelText("Evidence content")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+    expect(screen.getByText("Read-only member access")).toBeInTheDocument();
   });
 
   it("creates evidence using the current selected workspace path", async () => {

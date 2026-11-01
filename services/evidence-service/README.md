@@ -11,10 +11,16 @@ Supabase Auth identity and workspace-membership boundary:
   caller's active membership has been checked.
 - `GET /v1/workspaces/{workspace_id}/evidence` (plus `POST`, and
   `GET`/`PATCH`/`DELETE` on `{evidence_id}`) manages workspace-scoped evidence
-  records under the caller's own RLS policies. Records may carry an optional
+  records under the caller's own RLS policies. Active members can read;
+  active owners can create, update, and delete. Records may carry an optional
   provenance link (`source_id` + `source_version_id`) to an exact published
   source snapshot version; the service accepts a link only after the caller's
   own token resolves that version through the RLS-protected catalog.
+- `GET /v1/workspaces/{workspace_id}/relationships` lists explicit links
+  between evidence records. `POST`, `PATCH`, and `DELETE` on that collection
+  are restricted to active owners; active members may read. Each link stores
+  its type, rationale, provenance note, creator, and last updater, and the
+  database constrains both endpoints to evidence in the same workspace.
 - `GET /v1/workspaces/{workspace_id}/sources` lists the source snapshot
   versions visible to the caller (published versions of granted sources plus
   the caller's own staged rows). Object keys are never exposed.
@@ -68,12 +74,11 @@ shared-workspace membership assignment, or role changes. The Supabase `service_r
 privileged administrative role that bypasses RLS and is not used by this
 service's user request path.
 
-**Temporary MVP compromise:** every active workspace member currently has
-select, insert, update, and delete access to every evidence record in that
-workspace. This is not a pre-production or public-launch security posture.
-Before either gate, replace this broad member-level write policy with an
-owner-reviewed least-privilege role/capability model and add pgTAP coverage
-proving which roles may read, create, edit, and delete evidence.
+The current conservative role boundary allows active members to read evidence
+and restricts evidence and relationship mutations to active workspace owners.
+The model has no finer-grained member capabilities. Invitations, role changes,
+source ingestion, and relationship edit history beyond creator/last-updater
+metadata are not implemented.
 
 ## Local configuration
 
