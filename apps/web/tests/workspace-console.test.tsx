@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import type { AnchorHTMLAttributes } from "react";
@@ -105,9 +105,52 @@ describe("workspace product console", () => {
     expect(screen.getByText("1 record")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Evidence Explorer" })).toHaveAttribute("href", "/");
     expect(screen.getByRole("link", { name: "Relationships" })).toHaveAttribute("href", "/relationships");
-    expect(screen.getByRole("heading", { name: "Connected and pending capabilities" })).toBeInTheDocument();
-    expect(screen.getByText("Evidence relationships")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Capability Catalog" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Evidence Relationships" })).toBeInTheDocument();
     expect(screen.queryByText("Demo only")).not.toBeInTheDocument();
+  });
+
+  it("shows contract-based feature states and links only to existing destinations", async () => {
+    render(<WorkspaceConsole userId={USER_ID} email="reader@example.test" />);
+    await screen.findByText("Current workspace evidence");
+
+    const catalog = screen.getByRole("region", { name: "Capability Catalog" });
+    const links = within(catalog).getAllByRole("link");
+    const existingDestinations = new Set([
+      "/workspace#workspace-session",
+      "/workspace#membership-heading",
+      "/#explorer",
+      "/workspace#records-heading",
+      "/#reading-guide",
+      "/workspace#source-read-heading",
+      "/relationships",
+      "/#verification",
+      "/cost-performance",
+      "/#integrations",
+      "/#settings-access",
+    ]);
+    expect(links.length).toBeGreaterThan(0);
+    for (const link of links) {
+      const href = link.getAttribute("href") ?? "";
+      expect(existingDestinations.has(href)).toBe(true);
+      expect(link).toHaveTextContent("Open existing page");
+      if (href.startsWith("/workspace#")) {
+        expect(document.getElementById(href.split("#")[1] ?? "")).not.toBeNull();
+      }
+    }
+    expect(within(catalog).queryByRole("button")).not.toBeInTheDocument();
+
+    const keysFeature = screen.getByRole("heading", { name: "Personal API Keys" }).closest("li");
+    expect(keysFeature).not.toBeNull();
+    if (!keysFeature) throw new Error("Personal API Keys capability is missing its list item");
+    expect(within(keysFeature).getByText("Pending")).toBeInTheDocument();
+    expect(keysFeature).toHaveTextContent(/separate from session JWTs/i);
+
+    const evaluationFeature = screen.getByRole("heading", { name: "Workspace evaluation" }).closest("li");
+    expect(evaluationFeature).not.toBeNull();
+    if (!evaluationFeature) throw new Error("Workspace evaluation capability is missing its list item");
+    expect(within(evaluationFeature).getByText("Unavailable")).toBeInTheDocument();
+    expect(within(evaluationFeature).queryByRole("link")).not.toBeInTheDocument();
   });
 
   it("keeps evidence mutations unavailable in the member UI", async () => {

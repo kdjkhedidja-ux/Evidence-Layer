@@ -2709,10 +2709,41 @@ select:focus-visible,
 .workspace-capability-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
+  align-items: start;
+  gap: 0.9rem;
 }
 
-.workspace-capability > div {
+.workspace-capability-group {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-primary);
+}
+
+.workspace-capability-group > h3 {
+  margin: 0 0 0.8rem;
+  color: var(--text-strong);
+  font-size: 1rem;
+}
+
+.workspace-capability-list {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.workspace-capability {
+  min-width: 0;
+  padding: 0.8rem;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-secondary);
+}
+
+.workspace-capability-heading {
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
@@ -2720,20 +2751,33 @@ select:focus-visible,
   gap: 0.5rem;
 }
 
-.workspace-capability h3 {
+.workspace-capability h4 {
   margin: 0;
   color: var(--text-strong);
-  font-size: 0.98rem;
+  font-size: 0.9rem;
 }
 
-.workspace-capability > div > span {
+.workspace-capability-state {
+  max-width: 100%;
   color: var(--accent-color);
   font-size: 0.75rem;
   font-weight: 700;
 }
 
 .workspace-capability p {
-  margin-bottom: 0;
+  margin: 0.45rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.workspace-capability-link {
+  display: inline-block;
+  margin-top: 0.5rem;
+  color: var(--accent-color);
+  font-size: 0.8rem;
+  font-weight: 650;
+  text-underline-offset: 0.18em;
 }
 
 .workspace-footer {

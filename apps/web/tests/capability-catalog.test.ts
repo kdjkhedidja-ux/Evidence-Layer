@@ -1,0 +1,84 @@
+import { describe, expect, it } from "vitest";
+import { CAPABILITY_GROUPS } from "../app/workspace/capability-catalog";
+
+const REQUIRED_FEATURES: Record<string, string[]> = {
+  Authentication: ["Identity", "Sessions", "Sign out"],
+  "Workspace & Access": ["Membership", "Members", "Invitations", "Roles", "Permissions"],
+  "Evidence Records": ["Browse", "Create", "Edit", "Delete", "Provenance", "Source links"],
+  "Evidence Relationships": [
+    "Relationship types",
+    "Evidence links",
+    "Rationale",
+    "Review basis",
+    "Evidence Graph",
+    "Conflict analysis",
+    "Unresolved gaps",
+  ],
+  "Reading Guide": ["Reading instructions", "Source inspection", "Provenance guidance"],
+  Verification: ["Snapshot integrity", "Hash verification", "Verification history"],
+  Evaluation: ["Historical reports", "Workspace evaluation", "Comparisons"],
+  "Cost & Performance": ["Historical estimates", "Token usage", "API calls", "Latency", "Cost metering"],
+  Integrations: ["Providers", "Connections", "Source import", "Synchronization", "Sync status"],
+  "Settings & Access": [
+    "Account profile",
+    "Security",
+    "Authentication sessions",
+    "Personal API Keys",
+    "Account preferences",
+  ],
+};
+
+const ALLOWED_STATUSES = new Set([
+  "Connected",
+  "Partially available",
+  "Evidence-grounded",
+  "Historical",
+  "Pending",
+  "Unavailable",
+  "Limited / Read only",
+]);
+
+describe("workspace capability catalog contract", () => {
+  it("contains every approved service and subfeature once", () => {
+    expect(CAPABILITY_GROUPS.map((group) => group.name)).toEqual(Object.keys(REQUIRED_FEATURES));
+    for (const group of CAPABILITY_GROUPS) {
+      expect(group.features.map((feature) => feature.name)).toEqual(REQUIRED_FEATURES[group.name]);
+      expect(new Set(group.features.map((feature) => feature.name)).size).toBe(group.features.length);
+    }
+  });
+
+  it("uses only the approved status vocabulary and real existing destinations", () => {
+    const existingDestinations = new Set([
+      "/workspace#workspace-session",
+      "/workspace#membership-heading",
+      "/#explorer",
+      "/workspace#records-heading",
+      "/#reading-guide",
+      "/workspace#source-read-heading",
+      "/relationships",
+      "/#verification",
+      "/cost-performance",
+      "/#integrations",
+      "/#settings-access",
+    ]);
+    const features = CAPABILITY_GROUPS.flatMap((group) => group.features);
+    for (const feature of features) {
+      expect(ALLOWED_STATUSES.has(feature.status)).toBe(true);
+      if (feature.href) expect(existingDestinations.has(feature.href)).toBe(true);
+    }
+  });
+
+  it("keeps evaluation and cost accounting honest and API keys planned", () => {
+    const features = new Map(
+      CAPABILITY_GROUPS.flatMap((group) => group.features.map((feature) => [feature.name, feature] as const)),
+    );
+    expect(features.get("Historical reports")?.status).toBe("Historical");
+    expect(features.get("Workspace evaluation")?.status).toBe("Unavailable");
+    expect(features.get("Token usage")?.detail).toMatch(/not per-workspace/i);
+    expect(features.get("Cost metering")?.status).toBe("Unavailable");
+    expect(features.get("Evidence Graph")?.status).toBe("Unavailable");
+    expect(features.get("Conflict analysis")?.status).toBe("Unavailable");
+    expect(features.get("Personal API Keys")?.status).toBe("Pending");
+    expect(features.get("Personal API Keys")?.detail).toMatch(/separate from session JWTs/i);
+  });
+});
