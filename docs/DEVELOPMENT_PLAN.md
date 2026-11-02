@@ -1,5 +1,14 @@
 # Evidence Layer Development Plan
 
+**2026-11-02 repository audit and next implementation plan:** see the
+[evidence optimization work plan (Arabic)](EVIDENCE_OPTIMIZATION_PLAN_AR.md) and
+[ADR 0005: adaptive evidence selection](adr/0005-adaptive-evidence-selection.md).
+They inventory the current code, preserve the Phase 7/7B benchmarks, and specify
+candidate preparation, token-aware selection, sufficiency, and total-cost gates.
+The older status snapshot below predates the authenticated evidence/source routes
+and connected frontend documented in [Phase 8](phase8_product_integration.md).
+The new optimization pipeline is a proposed implementation, not a shipped feature.
+
 This is the living development plan for the intended Evidence Layer SaaS. It
 distinguishes current implementation and deployments from the approved product
 direction. Future product capabilities are identified separately from what is
@@ -53,6 +62,9 @@ production retrieval phase.
 The test result is one evaluation on this project's held-out dataset. It is not
 evidence of production readiness, savings, or generalization to customer
 workloads.
+
+The multi-domain product direction below is approved architecture, not a claim
+that domain-specific pipelines or evaluations are already implemented.
 
 ## Approved Target Architecture
 
@@ -120,10 +132,41 @@ flow.
 
 ## Product Goal
 
-The goal is an integrated SaaS product, not only a Python library. The Python
-core remains useful as the local evaluation and scoring foundation, while the
-product adds a hosted MCP entry point, durable document storage, an initial
-connector, usage controls, billing, and an A/B comparison experience.
+Evidence Layer is one shared evidence-optimization engine, not three separate
+products. Its product direction covers three task domains:
+
+- **Document QA and Knowledge Retrieval:** select source passages that support
+  each requested fact, preserve provenance, and identify missing or conflicting
+  evidence.
+- **Coding Agents and Vibecoding:** select repository context such as relevant
+  files, APIs, constraints, and tests that an agent needs to make and verify a
+  code change.
+- **Complex Classification:** select the records, rules, exceptions, and
+  boundary evidence needed to assign a label or structured decision reliably.
+
+The shared core prepares and ranks candidates, removes safe redundancy, selects
+within a serialized token budget, retains provenance, and coordinates bounded
+retrieval expansion. Task profiles supply domain-specific sufficiency policies
+and evaluation criteria around that core. JEV is the intended primary candidate
+ranker when enabled and separately authorized; lexical ranking remains a whole-
+request fallback. The caller's model still generates answers or performs the
+downstream task.
+
+Each domain needs its own representative data, definition of task success,
+sufficiency policy, quality guardrails, and cost evaluation. Results must be
+reported separately by domain; one pooled score can hide a quality or cost
+regression in one workload. Shared code does not imply shared sufficiency
+thresholds or interchangeable evaluation labels.
+
+This is product direction. The implemented Python evaluation/scoring core,
+local MCP server, authenticated evidence service routes, verified source reader,
+and connected web screens are described in their current-status and Phase 8
+documentation. A domain-aware optimization pipeline, production JEV execution,
+hosted retrieval/MCP, customer connectors, and the three domain-specific
+evaluation suites remain proposed or planned work. SaaS hosting, durable source
+storage, usage controls, billing, and comparison experiences are separate
+product-platform work; their target roadmap does not make the optimization
+pipeline available today.
 
 ## Revised Phases
 
@@ -209,6 +252,10 @@ These are target outcomes, not measured results:
 - Free-to-paid conversion: **3–5%**.
 - LLM token reduction: **40–60%**.
 - Gross margin: **70%+ within 6–12 months**.
+
+The token-reduction figure is an unvalidated product-level aspiration. It does
+not set an acceptance threshold for every task, and it cannot override each
+domain's independent evidence-quality, task-success, and net-cost gates.
 
 Define denominators, cohorts, measurement windows, excluded traffic, and
 instrumentation before using these targets to judge a launch.
