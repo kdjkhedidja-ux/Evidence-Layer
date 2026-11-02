@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { AnchorHTMLAttributes } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import LiveEvidenceExplorer from "../app/live-evidence-explorer";
@@ -69,6 +69,85 @@ describe("live Evidence Explorer", () => {
     });
     expect(screen.queryByText("Stored source claim alpha.")).not.toBeInTheDocument();
     expect(screen.getAllByText("Stored source claim beta.")).toHaveLength(3);
+  });
+
+  it("keeps one primary navigation destination for every existing product page and section", async () => {
+    render(<LiveEvidenceExplorer account={{ id: USER_ID, email: "reader@example.test" }} />);
+    await screen.findAllByText("Stored source claim alpha.");
+
+    const navigationRoot = screen.getByRole("navigation", { name: "Product navigation" });
+    const navigation = within(navigationRoot);
+    const links = navigation.getAllByRole("link");
+    const destinations = links.map((link) => link.getAttribute("href"));
+    expect(new Set(destinations).size).toBe(destinations.length);
+    expect(links.map((link) => link.querySelector("span")?.textContent)).toEqual([
+      "Workspace",
+      "Evidence Explorer",
+      "Relationships",
+      "Reading Guide",
+      "Verification",
+      "Evaluation",
+      "Cost & Performance",
+      "Integrations",
+      "Settings & Access",
+      "Documentation",
+    ]);
+    expect(destinations).toEqual([
+      "/workspace",
+      "#explorer",
+      "/relationships",
+      "#reading-guide",
+      "#verification",
+      "#evaluation",
+      "/cost-performance",
+      "#integrations",
+      "#settings-access",
+      "/documentation",
+    ]);
+    for (const destination of destinations) {
+      if (destination?.startsWith("#")) {
+        expect(document.getElementById(destination.slice(1))).not.toBeNull();
+      }
+    }
+    const validStatuses = new Set([
+      "Connected",
+      "Partially available",
+      "Evidence-grounded",
+      "Historical",
+      "Pending",
+      "Unavailable",
+      "Limited / Read only",
+    ]);
+    for (const status of navigationRoot.querySelectorAll("small")) {
+      expect(validStatuses.has(status.textContent ?? "")).toBe(true);
+    }
+  });
+
+  it("keeps relationship-page links pointed at the single existing destinations", async () => {
+    render(
+      <LiveEvidenceExplorer
+        relationshipsOnly
+        account={{ id: USER_ID, email: "reader@example.test" }}
+      />,
+    );
+    expect(await screen.findByRole("heading", { name: "Evidence Relationships" })).toBeInTheDocument();
+
+    const navigation = within(screen.getByRole("navigation", { name: "Product navigation" }));
+    const links = navigation.getAllByRole("link");
+    const destinations = links.map((link) => link.getAttribute("href"));
+    expect(new Set(destinations).size).toBe(destinations.length);
+    expect(destinations).toEqual([
+      "/workspace",
+      "/",
+      "#relationships",
+      "/#reading-guide",
+      "/#verification",
+      "/#evaluation",
+      "/cost-performance",
+      "/#integrations",
+      "/#settings-access",
+      "/documentation",
+    ]);
   });
 
   it("fails closed when evidence service is unavailable instead of using synthetic fixtures", async () => {

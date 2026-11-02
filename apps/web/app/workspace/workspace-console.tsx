@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { createSupabaseBrowserClient } from "../../lib/supabase/client";
+import { CAPABILITY_GROUPS } from "./capability-catalog";
 
 type Workspace = { id: string; name: string; role: "owner" | "member" };
 type EvidenceRecord = {
@@ -449,7 +450,7 @@ export default function WorkspaceConsole({
           <Link href="/relationships">Relationships</Link>
           <Link href="/documentation">Documentation</Link>
         </nav>
-        <div className="workspace-user">
+        <div className="workspace-user" id="workspace-session">
           <span>{email}</span>
           <button type="button" onClick={signOut} disabled={pending}>Sign out</button>
         </div>
@@ -748,24 +749,47 @@ export default function WorkspaceConsole({
           </section>
         )}
 
-        <section aria-labelledby="capabilities-heading" className="workspace-panel">
+        <section aria-labelledby="capabilities-heading" className="workspace-panel workspace-capability-catalog">
           <div className="workspace-section-heading">
             <div>
               <p className="eyebrow">Feature availability</p>
-              <h2 id="capabilities-heading">Connected and pending capabilities</h2>
+              <h2 id="capabilities-heading">Capability Catalog</h2>
+              <p className="workspace-note">
+                Availability reflects the existing application and service contract. It does not report live production uptime.
+              </p>
             </div>
           </div>
           <div className="workspace-capability-grid">
-            <Capability title="Authentication" state="Connected" detail="Supabase Auth session is verified server-side; sign out revokes the browser session." />
-            <Capability title="Workspace & access" state="Connected" detail="Membership list and workspace-scoped requests use the authenticated user's existing RLS policies." />
-            <Capability title="Evidence records" state={selectedWorkspace?.role === "owner" ? "Connected · owner writes" : "Connected · read only"} detail="Workspace membership is required to read. RLS and the service enforce owner-only create, edit, and delete." />
-            <Capability title="Evidence relationships" state="Connected · owner writes" detail="Explicit relationships are stored with rationale and review basis. Active members can read; owners can create, edit, and delete." />
-            <Capability title="Reading guide" state="Evidence-grounded" detail="The live guide explains how to inspect stored records and exact source provenance; it does not invent interpretations." />
-            <Capability title="Verification" state="Snapshot status" detail="Published source versions are integrity-verified. There is no separate per-attempt verification history API." />
-            <Capability title="Evaluation" state="Historical" detail="Published benchmark outputs are fixed reports, not per-workspace live evaluation." />
-            <Capability title="Cost & performance" state="Historical estimates" detail="Benchmark estimates are available; workspace usage metering and invoices are not exposed." />
-            <Capability title="Integrations" state="Unavailable" detail="No integration-management endpoint is exposed by the current service contract." />
-            <Capability title="Settings & access" state="Limited · read only" detail="The current user's membership and role are visible; invitations, role changes, and access administration are unavailable." />
+            {CAPABILITY_GROUPS.map((group, groupIndex) => {
+              const groupId = `capability-group-${groupIndex}`;
+              return (
+                <section
+                  aria-labelledby={groupId}
+                  className="workspace-capability-group"
+                  key={group.name}
+                >
+                  <h3 id={groupId}>{group.name}</h3>
+                  <ul className="workspace-capability-list">
+                    {group.features.map((feature) => (
+                      <li className="workspace-capability" key={feature.name}>
+                        <div className="workspace-capability-heading">
+                          <h4>{feature.name}</h4>
+                          <span className="workspace-capability-state" data-status={feature.status}>
+                            {feature.status}
+                          </span>
+                        </div>
+                        <p>{feature.detail}</p>
+                        {feature.href && (
+                          <Link href={feature.href} className="workspace-capability-link">
+                            Open existing page
+                          </Link>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              );
+            })}
           </div>
         </section>
 
@@ -775,22 +799,5 @@ export default function WorkspaceConsole({
         </footer>
       </div>
     </main>
-  );
-}
-
-function Capability({
-  title,
-  state,
-  detail,
-}: {
-  title: string;
-  state: string;
-  detail: string;
-}) {
-  return (
-    <article className="workspace-capability">
-      <div><h3>{title}</h3><span>{state}</span></div>
-      <p>{detail}</p>
-    </article>
   );
 }
