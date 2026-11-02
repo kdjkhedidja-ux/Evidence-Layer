@@ -371,16 +371,17 @@ export default function LiveEvidenceExplorer({
     ? sources.filter((source) => source.source_id === selectedRecord.source_id && source.version_id === selectedRecord.source_version_id)
     : [];
   const navTarget = (id: string) => relationshipsOnly ? `/#${id}` : `#${id}`;
+  const isLoading = workspaceState === "loading";
   const sidebarItems = [
-    { href: "/workspace", label: "Workspace", status: selectedWorkspace ? selectedWorkspace.role : "Unavailable" },
-    { href: relationshipsOnly ? "/" : "#explorer", label: "Evidence Explorer", status: recordsState === "ready" ? "Connected" : recordsState === "loading" ? "Loading" : "Unavailable" },
-    { href: relationshipsOnly ? "#relationships" : "/relationships", label: "Relationships", status: relationshipsState === "ready" ? "Connected" : relationshipsState === "loading" ? "Loading" : "Unavailable" },
-    { href: navTarget("reading-guide"), label: "Reading Guide", status: recordsState === "ready" ? "Evidence-grounded" : "Unavailable" },
-    { href: navTarget("verification"), label: "Verification", status: sourcesState === "ready" ? "Source state" : sourcesState === "loading" ? "Loading" : "Unavailable" },
+    { href: "/workspace", label: "Workspace", status: selectedWorkspace ? "Connected" : isLoading ? "Pending" : "Unavailable" },
+    { href: relationshipsOnly ? "/" : "#explorer", label: "Evidence Explorer", status: recordsState === "ready" ? "Connected" : recordsState === "loading" ? "Pending" : "Unavailable" },
+    { href: relationshipsOnly ? "#relationships" : "/relationships", label: "Relationships", status: relationshipsState === "ready" ? "Partially available" : relationshipsState === "loading" ? "Pending" : "Unavailable" },
+    { href: navTarget("reading-guide"), label: "Reading Guide", status: recordsState === "ready" ? "Evidence-grounded" : recordsState === "loading" ? "Pending" : "Unavailable" },
+    { href: navTarget("verification"), label: "Verification", status: sourcesState === "ready" ? "Limited / Read only" : sourcesState === "loading" ? "Pending" : "Unavailable" },
     { href: navTarget("evaluation"), label: "Evaluation", status: "Historical" },
     { href: "/cost-performance", label: "Cost & Performance", status: "Historical" },
-    { href: navTarget("integrations"), label: "Integrations", status: "Not configured" },
-    { href: navTarget("settings-access"), label: "Settings & Access", status: selectedWorkspace?.role ?? "Unavailable" },
+    { href: navTarget("integrations"), label: "Integrations", status: "Unavailable" },
+    { href: navTarget("settings-access"), label: "Settings & Access", status: selectedWorkspace ? "Limited / Read only" : isLoading ? "Pending" : "Unavailable" },
   ];
 
   return (
@@ -405,7 +406,7 @@ export default function LiveEvidenceExplorer({
               <span>{item.label}</span><small>{item.status}</small>
             </a>
           ))}
-          <Link className="live-nav-item" href="/documentation"><span>Documentation</span><small>Public docs</small></Link>
+          <Link className="live-nav-item" href="/documentation"><span>Documentation</span></Link>
         </nav>
         <div className="live-sidebar-footer">
           <Link href="/privacy">Privacy Policy</Link><Link href="/terms">Terms of Use</Link>
@@ -611,6 +612,7 @@ export default function LiveEvidenceExplorer({
                 <p className="live-eyebrow">Settings &amp; access</p><h2>{selectedWorkspace.name}</h2>
                 <p>Your verified role is <strong>{selectedWorkspace.role}</strong>. Members may inspect active workspace data; only owners can create, edit, or delete documented relationships.</p>
                 <p>Invitations, role changes, and workspace settings are unavailable because the current service has no invitation or access-administration API. Use Workspace for current evidence and source access.</p>
+                <p>Personal API Keys are planned as separate credentials. They are not session JWTs, and this application has no key issuance or revocation endpoint.</p>
                 <Link href="/workspace">Open Workspace</Link>
               </section>
               </>

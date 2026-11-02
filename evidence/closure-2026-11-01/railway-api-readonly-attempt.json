@@ -1,0 +1,25 @@
+{
+  "timestamp_utc": "2026-11-01",
+  "purpose": "read-only Railway GraphQL status discovery",
+  "credential_source": "RAILWAY_API_KEY environment variable was present; secret value omitted",
+  "canonical_endpoint": "https://backboard.railway.com/graphql/v2",
+  "canonical_response": {
+    "http_status": 403,
+    "body": "error code: 1010"
+  },
+  "alternate_endpoint": "https://backboard.railway.app/graphql/v2",
+  "alternate_response": {
+    "http_status": 200,
+    "graphql_errors": [
+      {
+        "message": "Not Authorized",
+        "code": "INTERNAL_SERVER_ERROR",
+        "traceId": "441845891115595970"
+      }
+    ],
+    "data": null,
+    "query": "query { me { id name email } }"
+  },
+  "side_effects": "None; GraphQL query only. No Railway mutation, deploy, restart, configuration change, or resource change was sent.",
+  "limitations": "No Railway project, service, environment, production URL, deployment identity/status, or runtime logs were returned."
+}
