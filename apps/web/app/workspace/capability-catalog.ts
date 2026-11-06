@@ -59,11 +59,6 @@ export const CAPABILITY_GROUPS: readonly CapabilityGroup[] = [
         href: "/workspace#membership-heading",
       },
       {
-        name: "Invitations",
-        status: "Unavailable",
-        detail: "The service contract has no invitation API.",
-      },
-      {
         name: "Roles",
         status: "Limited / Read only",
         detail: "The current user's owner or member role is shown; role changes are unavailable.",
@@ -145,21 +140,6 @@ export const CAPABILITY_GROUPS: readonly CapabilityGroup[] = [
         detail: "An owner records the provenance or review basis; it is not generated automatically.",
         href: "/relationships",
       },
-      {
-        name: "Evidence Graph",
-        status: "Unavailable",
-        detail: "Relationships are shown as explicit record pairs. The application has no graph exploration view.",
-      },
-      {
-        name: "Conflict analysis",
-        status: "Unavailable",
-        detail: "A manually selected contradicts type is stored as a link; no conflict-analysis engine is exposed.",
-      },
-      {
-        name: "Unresolved gaps",
-        status: "Unavailable",
-        detail: "The service does not detect or store unresolved gaps. The Reading Guide does not infer them.",
-      },
     ],
   },
   {
@@ -200,11 +180,6 @@ export const CAPABILITY_GROUPS: readonly CapabilityGroup[] = [
         detail: "The service verifies source bytes against the pinned SHA-256 before delivery and returns a Content-Digest header.",
         href: "/#verification",
       },
-      {
-        name: "Verification history",
-        status: "Unavailable",
-        detail: "There is no per-attempt verification-history endpoint.",
-      },
     ],
   },
   {
@@ -215,11 +190,6 @@ export const CAPABILITY_GROUPS: readonly CapabilityGroup[] = [
         status: "Historical",
         detail: "Published benchmark reports are fixed repository artifacts, not live workspace evaluations.",
         href: "/cost-performance",
-      },
-      {
-        name: "Workspace evaluation",
-        status: "Unavailable",
-        detail: "There is no workspace evaluation execution or results API.",
       },
       {
         name: "Comparisons",
@@ -256,46 +226,6 @@ export const CAPABILITY_GROUPS: readonly CapabilityGroup[] = [
         detail: "Latency values are benchmark measurements and are not live workspace telemetry.",
         href: "/cost-performance",
       },
-      {
-        name: "Cost metering",
-        status: "Unavailable",
-        detail: "There is no per-workspace metering, invoice, or live cost API.",
-      },
-    ],
-  },
-  {
-    name: "Integrations",
-    features: [
-      {
-        name: "Providers",
-        status: "Unavailable",
-        detail: "The workspace service exposes no provider-management contract.",
-        href: "/#integrations",
-      },
-      {
-        name: "Connections",
-        status: "Unavailable",
-        detail: "No integration connection settings or status endpoint is exposed.",
-        href: "/#integrations",
-      },
-      {
-        name: "Source import",
-        status: "Unavailable",
-        detail: "The workspace UI can list and read authorized published versions; it cannot import or publish sources.",
-        href: "/#integrations",
-      },
-      {
-        name: "Synchronization",
-        status: "Unavailable",
-        detail: "No synchronization job or connector API is available.",
-        href: "/#integrations",
-      },
-      {
-        name: "Sync status",
-        status: "Unavailable",
-        detail: "There is no synchronization status endpoint.",
-        href: "/#integrations",
-      },
     ],
   },
   {
@@ -324,11 +254,6 @@ export const CAPABILITY_GROUPS: readonly CapabilityGroup[] = [
         status: "Pending",
         detail: "Planned as separate personal credentials. No key issuance or revocation exists; API keys must remain separate from session JWTs.",
         href: "/#settings-access",
-      },
-      {
-        name: "Account preferences",
-        status: "Unavailable",
-        detail: "The service exposes no account-preferences settings.",
       },
     ],
   },

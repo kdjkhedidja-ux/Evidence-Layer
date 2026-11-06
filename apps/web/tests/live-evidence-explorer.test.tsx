@@ -88,7 +88,6 @@ describe("live Evidence Explorer", () => {
       "Verification",
       "Evaluation",
       "Cost & Performance",
-      "Integrations",
       "Settings & Access",
       "Documentation",
     ]);
@@ -100,7 +99,6 @@ describe("live Evidence Explorer", () => {
       "#verification",
       "#evaluation",
       "/cost-performance",
-      "#integrations",
       "#settings-access",
       "/documentation",
     ]);
@@ -144,7 +142,6 @@ describe("live Evidence Explorer", () => {
       "/#verification",
       "/#evaluation",
       "/cost-performance",
-      "/#integrations",
       "/#settings-access",
       "/documentation",
     ]);

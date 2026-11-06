@@ -380,7 +380,6 @@ export default function LiveEvidenceExplorer({
     { href: navTarget("verification"), label: "Verification", status: sourcesState === "ready" ? "Limited / Read only" : sourcesState === "loading" ? "Pending" : "Unavailable" },
     { href: navTarget("evaluation"), label: "Evaluation", status: "Historical" },
     { href: "/cost-performance", label: "Cost & Performance", status: "Historical" },
-    { href: navTarget("integrations"), label: "Integrations", status: "Unavailable" },
     { href: navTarget("settings-access"), label: "Settings & Access", status: selectedWorkspace ? "Limited / Read only" : isLoading ? "Pending" : "Unavailable" },
   ];
 
@@ -603,10 +602,6 @@ export default function LiveEvidenceExplorer({
                 <p className="live-eyebrow">Evaluation · Historical reports</p><h2>Evaluation records are separate from live Workspace data</h2>
                 <p>No per-workspace evaluation execution or results API is configured. The published Phase 6, 7, and 7B reports are historical benchmarks, not live evaluations.</p>
                 <Link href="/cost-performance">Read historical evaluation and cost reports</Link>
-              </section>
-              <section id="integrations" className="live-section live-capability">
-                <p className="live-eyebrow">Integrations · Not configured</p><h2>No source connector is currently available</h2>
-                <p>This deployment exposes the verified source-version catalog and secure content reader, but no connector credentials, synchronization API, or integration-management contract. No integration is shown as connected.</p>
               </section>
               <section id="settings-access" className="live-section live-capability">
                 <p className="live-eyebrow">Settings &amp; access</p><h2>{selectedWorkspace.name}</h2>
