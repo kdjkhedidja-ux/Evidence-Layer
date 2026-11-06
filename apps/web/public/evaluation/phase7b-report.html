@@ -1,6 +1,6 @@
 <!DOCTYPE html>
-<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Phase 7B — Validation live du coût JEV · Evidence Layer</title><style>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phase 7B — Live JEV cost validation · Evidence Layer</title><style>
 :root{--bg:#f7f7f5;--card:#fff;--ink:#1d2321;--muted:#5c6662;--line:#dfe3df;--accent:#1f6f5c}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
@@ -8,7 +8,6 @@ main{max-width:880px;margin:0 auto;padding:40px 20px 64px}
 a{color:var(--accent)}
 h1{font-size:1.9rem;line-height:1.2;margin:.2rem 0 .6rem}
 h2{font-size:1.2rem;margin:2rem 0 .6rem;padding-bottom:.3rem;border-bottom:1px solid var(--line)}
-h3{font-size:1rem;margin:1.2rem 0 .4rem}
 p{margin:.6rem 0}
 .eyebrow{text-transform:uppercase;letter-spacing:.08em;font-size:.75rem;color:var(--muted);margin:0}
 .lede{color:var(--muted)}
@@ -26,21 +25,21 @@ ul{margin:.5rem 0 .8rem 1.2rem}
 footer{margin-top:2.5rem;color:var(--muted);font-size:.85rem}
 </style></head>
 <body><main>
-<a class="back" href="/cost-performance">← Retour à Cost &amp; Performance</a>
-<p class="eyebrow">Rapport · coût de bout en bout</p><h1>Phase 7B — Validation live du coût JEV</h1>
+<a class="back" href="/cost-performance">← Back to Cost &amp; Performance</a>
+<p class="eyebrow">Report · end-to-end cost</p><h1>Phase 7B — Live JEV cost validation</h1>
 
-<p class="lede">Phase 7B a relancé les quatre bras fournisseur/route avec un scoring JEV live dans chaque bras Evidence Layer : 160 réponses, 400 scores JEV, 80 jugements appariés.</p>
-<table><thead><tr><th>Mesure</th><th class="num">OpenAI</th><th class="num">DeepSeek</th></tr></thead><tbody>
-<tr><td>Tokens totaux moyens par réponse</td><td class="num">510,35 → 384,05<br><span class="ok">−24,75 %</span></td><td class="num">798,125 → 567,25<br><span class="ok">−28,93 %</span></td></tr>
-<tr><td>Coût API total estimé par bras de 40 cas</td><td class="num">0,070700 → 0,061188 $<br><span class="ok">−13,45 %</span></td><td class="num">0,029040 → 0,025995 $<br><span class="ok">−10,49 %</span></td></tr>
-<tr><td>Latence moyenne de bout en bout</td><td class="num">2 329 → 3 005 ms<br>+676 ms</td><td class="num">4 144 → 4 159 ms<br>+16 ms</td></tr>
-<tr><td>Couverture des évidences</td><td class="num">1,0000 → 0,9792</td><td class="num">1,0000 → 0,9792</td></tr>
-<tr><td>Correctness moyenne / 2</td><td class="num">2,00 → 2,00</td><td class="num">1,95 → 2,00</td></tr>
-<tr><td>Intervalle apparié du coût total</td><td>Réduction : intervalle exclut zéro</td><td>Inclut zéro ; non concluant sur ce jeu</td></tr>
+<p class="lede">Phase 7B reran the four provider/route arms with live JEV scoring inside each Evidence Layer arm: 160 answers, 400 JEV scores, 80 paired judgments.</p>
+<table><thead><tr><th>Measure</th><th class="num">OpenAI</th><th class="num">DeepSeek</th></tr></thead><tbody>
+<tr><td>Mean total tokens per answer</td><td class="num">510.35 → 384.05<br><span class="ok">−24.75%</span></td><td class="num">798.125 → 567.25<br><span class="ok">−28.93%</span></td></tr>
+<tr><td>Estimated total API cost per 40-case arm</td><td class="num">$0.070700 → $0.061188<br><span class="ok">−13.45%</span></td><td class="num">$0.029040 → $0.025995<br><span class="ok">−10.49%</span></td></tr>
+<tr><td>Mean end-to-end latency</td><td class="num">2,329 → 3,005 ms<br>+676 ms</td><td class="num">4,144 → 4,159 ms<br>+16 ms</td></tr>
+<tr><td>Evidence coverage</td><td class="num">1.0000 → 0.9792</td><td class="num">1.0000 → 0.9792</td></tr>
+<tr><td>Mean correctness / 2</td><td class="num">2.00 → 2.00</td><td class="num">1.95 → 2.00</td></tr>
+<tr><td>Paired total-cost interval</td><td>Reduction interval excludes zero</td><td>Includes zero; not conclusive on this set</td></tr>
 </tbody></table>
-<div class="note warn">Aucune amélioration générale de la qualité n’est établie. La couverture baisse de 0,0208 chez les deux fournisseurs. Les coûts sont estimés à partir de l’usage fournisseur et des tarifs publiés : ce ne sont pas des factures.</div>
-<h2>Limites</h2>
-<ul><li>Jugements automatisés exploratoires, non humains.</li><li>Le juge OpenAI recoupe un fournisseur testé.</li><li>Split exposé non aveugle.</li><li>Les valeurs de coût et de latence ne doivent pas être fusionnées avec Phase 6 ou Phase 7.</li></ul>
+<div class="note warn">No general answer-quality improvement is established. Coverage falls by 0.0208 in both providers. Costs are estimated from provider usage and published rates; they are not invoices.</div>
+<h2>Limitations</h2>
+<ul><li>Exploratory automated judgments, not human review.</li><li>The OpenAI judge overlaps with a tested provider.</li><li>The exposed split is not blind.</li><li>Cost and latency values must not be pooled with Phase 6 or Phase 7.</li></ul>
 
-<footer>Page locale générée à partir des artefacts du projet. Aucune clé, aucun prompt et aucun texte de réponse n’y figurent.</footer>
+<footer>Local page generated from the project artifacts. It contains no keys, prompts, or answer text.</footer>
 </main></body></html>
