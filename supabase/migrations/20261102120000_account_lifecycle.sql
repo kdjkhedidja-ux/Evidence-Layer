@@ -325,7 +325,6 @@ create trigger account_lifecycle_after_auth_insert
     after insert on auth.users
     for each row execute function private.provision_account_lifecycle_for_auth_user();
 
-revoke create on schema private from account_lifecycle_provisioner;
 
 revoke all on function private.enforce_account_lifecycle_insert()
     from public, anon, authenticated, service_role, authenticator;
@@ -347,6 +346,9 @@ begin
     execute format('revoke account_lifecycle_provisioner from %I', current_user);
 end
 $$;
+
+-- The new owner needs CREATE on the schema for the transfer, then it is removed.
+revoke create on schema private from account_lifecycle_provisioner;
 
 do $privilege_audit$
 declare

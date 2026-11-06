@@ -1493,51 +1493,51 @@
       "rationale_ref": "rls-policy-drop"
     },
     {
-      "id": "faadb3bd8f3d772c",
-      "file": "20261102120000_account_lifecycle.sql",
-      "line": 328,
-      "verb": "revoke create",
-      "rationale_ref": "privilege-revoke"
-    },
-    {
       "id": "07e0ed39224ef14b",
       "file": "20261102120000_account_lifecycle.sql",
-      "line": 330,
+      "line": 329,
       "verb": "revoke all",
       "rationale_ref": "privilege-revoke"
     },
     {
       "id": "de24f6434e3f2acd",
       "file": "20261102120000_account_lifecycle.sql",
-      "line": 332,
+      "line": 331,
       "verb": "revoke all",
       "rationale_ref": "privilege-revoke"
     },
     {
       "id": "9ec524a1c13f7767",
       "file": "20261102120000_account_lifecycle.sql",
-      "line": 336,
+      "line": 335,
       "verb": "do",
       "rationale_ref": "procedural-block"
     },
     {
       "id": "1ca021fcb14d92c3",
       "file": "20261102120000_account_lifecycle.sql",
-      "line": 342,
+      "line": 341,
       "verb": "alter function",
       "rationale_ref": "lifecycle-function-ownership"
     },
     {
       "id": "1c5d85566d33128f",
       "file": "20261102120000_account_lifecycle.sql",
-      "line": 345,
+      "line": 344,
       "verb": "do",
       "rationale_ref": "procedural-block"
     },
     {
-      "id": "6f3fbdbcfd540916",
+      "id": "faadb3bd8f3d772c",
       "file": "20261102120000_account_lifecycle.sql",
       "line": 351,
+      "verb": "revoke create",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "6f3fbdbcfd540916",
+      "file": "20261102120000_account_lifecycle.sql",
+      "line": 353,
       "verb": "do",
       "rationale_ref": "procedural-block"
     },
