@@ -1864,65 +1864,79 @@
       "rationale_ref": "function-definition"
     },
     {
+      "id": "bdbda416456bc983",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 304,
+      "verb": "grant create",
+      "rationale_ref": "privilege-grant"
+    },
+    {
       "id": "b587e2b98bbbd7cf",
       "file": "20261105110000_deletion_request_manifest.sql",
-      "line": 305,
+      "line": 307,
       "verb": "do",
       "rationale_ref": "procedural-block"
     },
     {
       "id": "f76b66ef8a77072d",
       "file": "20261105110000_deletion_request_manifest.sql",
-      "line": 311,
+      "line": 313,
       "verb": "alter function",
       "rationale_ref": "lifecycle-function-ownership"
     },
     {
       "id": "47145d4c43121f76",
       "file": "20261105110000_deletion_request_manifest.sql",
-      "line": 314,
+      "line": 316,
       "verb": "do",
       "rationale_ref": "procedural-block"
     },
     {
-      "id": "cdf88894dac3282c",
-      "file": "20261105110000_deletion_request_manifest.sql",
-      "line": 320,
-      "verb": "revoke all",
-      "rationale_ref": "privilege-revoke"
-    },
-    {
-      "id": "21aac8b4295b177d",
-      "file": "20261105110000_deletion_request_manifest.sql",
-      "line": 321,
-      "verb": "revoke all",
-      "rationale_ref": "privilege-revoke"
-    },
-    {
-      "id": "f09633b9d7993599",
+      "id": "8fa725fcab7d4ba9",
       "file": "20261105110000_deletion_request_manifest.sql",
       "line": 322,
-      "verb": "revoke all",
+      "verb": "revoke create",
       "rationale_ref": "privilege-revoke"
     },
     {
-      "id": "cddc35442b4c6d7f",
-      "file": "20261105110000_deletion_request_manifest.sql",
-      "line": 323,
-      "verb": "revoke all",
-      "rationale_ref": "privilege-revoke"
-    },
-    {
-      "id": "69bdbb36ede0cc8e",
+      "id": "cdf88894dac3282c",
       "file": "20261105110000_deletion_request_manifest.sql",
       "line": 324,
       "verb": "revoke all",
       "rationale_ref": "privilege-revoke"
     },
     {
-      "id": "4948fb1674735511",
+      "id": "21aac8b4295b177d",
       "file": "20261105110000_deletion_request_manifest.sql",
       "line": 325,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "f09633b9d7993599",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 326,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "cddc35442b4c6d7f",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 327,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "69bdbb36ede0cc8e",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 328,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "4948fb1674735511",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 329,
       "verb": "grant execute",
       "rationale_ref": "privilege-grant"
     },
@@ -2095,51 +2109,65 @@
       "rationale_ref": "function-definition"
     },
     {
+      "id": "834b0873c00b8c1c",
+      "file": "20261105120000_account_deletion_worker_slice.sql",
+      "line": 338,
+      "verb": "grant create",
+      "rationale_ref": "privilege-grant"
+    },
+    {
       "id": "ee3abbbdda9d5f6f",
       "file": "20261105120000_account_deletion_worker_slice.sql",
-      "line": 339,
+      "line": 341,
       "verb": "do",
       "rationale_ref": "procedural-block"
     },
     {
       "id": "8398f316796a6ab5",
       "file": "20261105120000_account_deletion_worker_slice.sql",
-      "line": 345,
+      "line": 347,
       "verb": "alter function",
       "rationale_ref": "lifecycle-function-ownership"
     },
     {
       "id": "8a07367b84260ca9",
       "file": "20261105120000_account_deletion_worker_slice.sql",
-      "line": 348,
+      "line": 350,
       "verb": "do",
       "rationale_ref": "procedural-block"
     },
     {
+      "id": "9ac28b3ef5d15379",
+      "file": "20261105120000_account_deletion_worker_slice.sql",
+      "line": 356,
+      "verb": "revoke create",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
       "id": "5a4898bd9fd7110d",
       "file": "20261105120000_account_deletion_worker_slice.sql",
-      "line": 354,
+      "line": 358,
       "verb": "revoke all",
       "rationale_ref": "privilege-revoke"
     },
     {
       "id": "92755e13d83eea54",
       "file": "20261105120000_account_deletion_worker_slice.sql",
-      "line": 356,
+      "line": 360,
       "verb": "revoke all",
       "rationale_ref": "privilege-revoke"
     },
     {
       "id": "e5a2c251d4e47786",
       "file": "20261105120000_account_deletion_worker_slice.sql",
-      "line": 358,
+      "line": 362,
       "verb": "grant execute",
       "rationale_ref": "privilege-grant"
     },
     {
       "id": "09f746f023f9cc1a",
       "file": "20261105120000_account_deletion_worker_slice.sql",
-      "line": 364,
+      "line": 368,
       "verb": "do",
       "rationale_ref": "procedural-block"
     },
@@ -2235,25 +2263,39 @@
       "rationale_ref": "function-definition"
     },
     {
+      "id": "223e687f61e228a9",
+      "file": "20261105130000_account_application_purge_slice.sql",
+      "line": 265,
+      "verb": "grant create",
+      "rationale_ref": "privilege-grant"
+    },
+    {
       "id": "889cb2e9a466bb4f",
       "file": "20261105130000_account_application_purge_slice.sql",
-      "line": 266,
+      "line": 268,
       "verb": "do",
       "rationale_ref": "procedural-block"
     },
     {
       "id": "319e348e11262163",
       "file": "20261105130000_account_application_purge_slice.sql",
-      "line": 272,
+      "line": 274,
       "verb": "alter function",
       "rationale_ref": "lifecycle-function-ownership"
     },
     {
       "id": "d4bc9cd48408cf05",
       "file": "20261105130000_account_application_purge_slice.sql",
-      "line": 275,
+      "line": 277,
       "verb": "do",
       "rationale_ref": "procedural-block"
+    },
+    {
+      "id": "f1382702d5bad85e",
+      "file": "20261105130000_account_application_purge_slice.sql",
+      "line": 283,
+      "verb": "revoke create",
+      "rationale_ref": "privilege-revoke"
     },
     {
       "id": "b81d393314ba73e6",
@@ -2382,25 +2424,39 @@
       "rationale_ref": "function-definition"
     },
     {
+      "id": "425026b322879385",
+      "file": "20261105140000_account_evidence_ownership_purge.sql",
+      "line": 352,
+      "verb": "grant create",
+      "rationale_ref": "privilege-grant"
+    },
+    {
       "id": "3a36349eb486c67e",
       "file": "20261105140000_account_evidence_ownership_purge.sql",
-      "line": 353,
+      "line": 355,
       "verb": "do",
       "rationale_ref": "procedural-block"
     },
     {
       "id": "f30295b4c0b33662",
       "file": "20261105140000_account_evidence_ownership_purge.sql",
-      "line": 359,
+      "line": 361,
       "verb": "alter function",
       "rationale_ref": "lifecycle-function-ownership"
     },
     {
       "id": "71cb90f655bd1d8b",
       "file": "20261105140000_account_evidence_ownership_purge.sql",
-      "line": 362,
+      "line": 364,
       "verb": "do",
       "rationale_ref": "procedural-block"
+    },
+    {
+      "id": "4809a9c60cc0f30d",
+      "file": "20261105140000_account_evidence_ownership_purge.sql",
+      "line": 370,
+      "verb": "revoke create",
+      "rationale_ref": "privilege-revoke"
     },
     {
       "id": "7ed2b4f677ca0127",
@@ -2431,44 +2487,58 @@
       "rationale_ref": "function-definition"
     },
     {
+      "id": "24c82723f70a41a4",
+      "file": "20261105150000_deletion_restore_reconciliation.sql",
+      "line": 138,
+      "verb": "grant create",
+      "rationale_ref": "privilege-grant"
+    },
+    {
       "id": "c52defcc9fd342ad",
       "file": "20261105150000_deletion_restore_reconciliation.sql",
-      "line": 139,
+      "line": 141,
       "verb": "do",
       "rationale_ref": "procedural-block"
     },
     {
       "id": "dccb1276633b1a08",
       "file": "20261105150000_deletion_restore_reconciliation.sql",
-      "line": 145,
+      "line": 147,
       "verb": "alter function",
       "rationale_ref": "lifecycle-function-ownership"
     },
     {
       "id": "ed6a6924aadee498",
       "file": "20261105150000_deletion_restore_reconciliation.sql",
-      "line": 148,
+      "line": 150,
       "verb": "do",
       "rationale_ref": "procedural-block"
     },
     {
+      "id": "35b30d4e23f79427",
+      "file": "20261105150000_deletion_restore_reconciliation.sql",
+      "line": 156,
+      "verb": "revoke create",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
       "id": "e00c13c7781efac6",
       "file": "20261105150000_deletion_restore_reconciliation.sql",
-      "line": 154,
+      "line": 158,
       "verb": "revoke all",
       "rationale_ref": "privilege-revoke"
     },
     {
       "id": "d01bab293a028ede",
       "file": "20261105150000_deletion_restore_reconciliation.sql",
-      "line": 156,
+      "line": 160,
       "verb": "grant execute",
       "rationale_ref": "privilege-grant"
     },
     {
       "id": "711ed1e99fc6483b",
       "file": "20261105150000_deletion_restore_reconciliation.sql",
-      "line": 159,
+      "line": 163,
       "verb": "create policy",
       "rationale_ref": "rls-policy-create"
     }

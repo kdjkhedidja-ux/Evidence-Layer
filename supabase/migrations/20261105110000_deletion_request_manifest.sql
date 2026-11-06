@@ -301,6 +301,8 @@ begin
 end;
 $function$;
 
+grant create on schema public to account_lifecycle_transition_writer;
+
 -- ALTER OWNER requires SET on the target role; grant temporarily to the migration actor.
 do $$
 begin
@@ -316,6 +318,8 @@ begin
     execute format('revoke account_lifecycle_transition_writer from %I', current_user);
 end
 $$;
+
+revoke create on schema public from account_lifecycle_transition_writer;
 
 revoke all on function private.enforce_deletion_request_insert() from public, anon, authenticated, service_role;
 revoke all on function private.reject_deletion_manifest_mutation() from public, anon, authenticated, service_role;

@@ -349,6 +349,8 @@ begin
 end;
 $function$;
 
+grant create on schema private to account_deletion_worker;
+
 -- ALTER OWNER requires SET on the target role; grant temporarily to the migration actor.
 do $$
 begin
@@ -364,6 +366,8 @@ begin
     execute format('revoke account_deletion_worker from %I', current_user);
 end
 $$;
+
+revoke create on schema private from account_deletion_worker;
 
 comment on function private.deletion_workspace_is_sole_owner(uuid, uuid) is
     'True only for a request principal who is the sole active owner and has no active member peers.';

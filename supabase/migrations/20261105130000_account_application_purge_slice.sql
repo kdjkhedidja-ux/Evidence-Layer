@@ -262,6 +262,8 @@ begin
 end;
 $function$;
 
+grant create on schema private to account_deletion_worker;
+
 -- ALTER OWNER requires SET on the target role; grant temporarily to the migration actor.
 do $$
 begin
@@ -277,6 +279,8 @@ begin
     execute format('revoke account_deletion_worker from %I', current_user);
 end
 $$;
+
+revoke create on schema private from account_deletion_worker;
 
 comment on table public.data_deletion_work_set is
     'Immutable worker-owned type/id work items for the account application purge slice; no content bodies.';

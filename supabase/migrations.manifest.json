@@ -102,31 +102,31 @@
     {
       "file": "20261105110000_deletion_request_manifest.sql",
       "version": "20261105110000",
-      "sha256": "7e0ac7c51b7eb54626920d2866e12e7074b6b7c8a595d3a3c6e71e57674009c2",
+      "sha256": "a5bb6acec5fce4879247f4fbbc75506915506534106595b592e7b02175dca605",
       "provenance": "P1 account-scoped deletion request, immutable target manifest, and idempotent local acceptance; no purge execution."
     },
     {
       "file": "20261105120000_account_deletion_worker_slice.sql",
       "version": "20261105120000",
-      "sha256": "75780a3ef498401fed861702b0a5725eda2b9c131a2354e014eef9b7d9c726d2",
+      "sha256": "2bfcb0ea45dae6fc2758208b8bc2d654bca592e59250f537119fb5f9dabcd486",
       "provenance": "P3 bounded accepted-account source-grant purge slice with dedicated worker role; no Storage or snapshot deletion."
     },
     {
       "file": "20261105130000_account_application_purge_slice.sql",
       "version": "20261105130000",
-      "sha256": "b4737486d5155ee9611164b55dec332f2ec5ba92f8be8f78a8a824b8f9a31230",
+      "sha256": "565f8184b263e691b9de0dddc887b467ec8346b3f2512b158e6e21a0dbfee820",
       "provenance": "P4 immutable source-grant/member work set and account-owned application access-row purge; no shared content or Storage deletion."
     },
     {
       "file": "20261105140000_account_evidence_ownership_purge.sql",
       "version": "20261105140000",
-      "sha256": "6e78854fde6ffd1aabf0dafaa775062de185049e78bd6ff42a181b0af729f592",
+      "sha256": "21251d2eedfa239f95cbda70f6bff1bfb5ac44f10d2058f120dded9dd173d729",
       "provenance": "P4b sole-active-owner evidence/relationship purge with immutable target IDs; shared workspaces and Storage remain deferred."
     },
     {
       "file": "20261105150000_deletion_restore_reconciliation.sql",
       "version": "20261105150000",
-      "sha256": "521435f3dd2c07d6b311c41e320d75e025a496260d65d828bb5eac4a383dd1af",
+      "sha256": "e4b6593c9acae3fe8d05fe3eb327b44231cce0179a5dad2bf08357a6bdfd7934",
       "provenance": "P5 local restore reconciliation against immutable deletion work sets; no provider PITR or terminal purge."
     }
   ]
