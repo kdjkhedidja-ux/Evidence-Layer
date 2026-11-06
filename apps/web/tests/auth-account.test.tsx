@@ -136,3 +136,74 @@ describe("authenticated workspace controls", () => {
     expect(mocks.refresh).toHaveBeenCalled();
   });
 });
+
+describe("account deletion request", () => {
+  const workspace = { id: "10000000-0000-4000-8000-000000000002", name: "Personal", role: "owner" };
+  const deletion = {
+    request_id: "72000000-0000-4000-8000-000000000001",
+    requester_user_id: "user-a",
+    scope_type: "account",
+    status: "approval_pending",
+    created_at: "2026-11-06T12:00:00Z",
+    accepted_at: null,
+  };
+
+  function mockDeletionFlow(overrides: { create?: Response; accept?: Response } = {}) {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/api/evidence/me")) {
+        return Response.json({ user_id: "user-a", workspaces: [workspace] });
+      }
+      if (url.endsWith("/api/evidence/deletion-requests")) {
+        return overrides.create ?? Response.json(deletion, { status: 201 });
+      }
+      if (url.endsWith("/accept")) {
+        return overrides.accept ?? Response.json({ ...deletion, status: "journal_ack_pending", accepted_at: "2026-11-06T12:01:00Z" });
+      }
+      return new Response(null, { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  }
+
+  beforeEach(() => {
+    mocks.signOut.mockResolvedValue({ error: null });
+    mocks.onAuthStateChange.mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } });
+  });
+
+  it("states the real deletion scope without promising full erasure", async () => {
+    mockDeletionFlow();
+    render(<AuthAccount userId="user-a" email="a@example.test" />);
+    expect(await screen.findByRole("heading", { name: "Delete account" })).toBeInTheDocument();
+    expect(screen.getByText(/Evidence and relationships in shared workspaces/i)).toBeInTheDocument();
+    expect(screen.getByText(/snapshots, and stored files are retained/i)).toBeInTheDocument();
+    expect(screen.getByText(/cannot be cancelled/i)).toBeInTheDocument();
+  });
+
+  it("creates a request, requires confirmation, then accepts it", async () => {
+    const fetchMock = mockDeletionFlow();
+    const user = userEvent.setup();
+    render(<AuthAccount userId="user-a" email="a@example.test" />);
+    await user.click(await screen.findByRole("button", { name: "Request account deletion" }));
+
+    expect(await screen.findByText(/Approval pending/)).toBeInTheDocument();
+    const accept = screen.getByRole("button", { name: "Accept deletion request" });
+    expect(accept).toBeDisabled();
+    await user.click(screen.getByLabelText(/I understand that accepting blocks access/i));
+    expect(accept).toBeEnabled();
+    await user.click(accept);
+
+    expect(await screen.findByText(/Accepted locally; purge pending/)).toBeInTheDocument();
+    const urls = fetchMock.mock.calls.map(([input]) => String(input));
+    expect(urls).toContain("/api/evidence/deletion-requests");
+    expect(urls.some((url) => url.endsWith("/accept"))).toBe(true);
+  });
+
+  it("shows the conflict message when a request is already open", async () => {
+    mockDeletionFlow({ create: Response.json({ error: "A deletion request is already open for this account." }, { status: 409 }) });
+    const user = userEvent.setup();
+    render(<AuthAccount userId="user-a" email="a@example.test" />);
+    await user.click(await screen.findByRole("button", { name: "Request account deletion" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/already open/i);
+  });
+});
