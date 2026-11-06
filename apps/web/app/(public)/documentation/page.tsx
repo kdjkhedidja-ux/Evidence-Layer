@@ -28,7 +28,7 @@ export default function DocumentationPage() {
       <section className="public-section" aria-labelledby="docs-flow">
         <h2 id="docs-flow">How the flow works</h2>
         <ol className="public-steps">
-          <li><strong>Receive a task and eligible candidates.</strong> A retrieval layer or caller supplies a query and candidate records. A production source connector and hosted retrieval API are not part of the public prototype.</li>
+          <li><strong>Receive a task and eligible candidates.</strong> A retrieval layer or caller supplies a query and candidate records. A production source connector and hosted retrieval API are not part of the current service.</li>
           <li><strong>Score the candidates.</strong> The Python evidence core includes deterministic lexical scoring and a JEV scorer behind provider-selection policy. JEV use requires explicit policy enablement and a separately trusted provider-transfer authorisation; supported package paths currently fail closed for live transfer.</li>
           <li><strong>Rank and select evidence.</strong> Results are sorted and a configured evidence budget can return a focused subset. When a JEV result cannot be safely used, the policy recomputes the entire candidate set lexically rather than mixing scores.</li>
           <li><strong>Return evidence with provenance.</strong> The schemas preserve candidate identifiers and source references so callers can trace selected material back to the supplied evidence.</li>
@@ -111,7 +111,7 @@ export default function DocumentationPage() {
           The repository includes Supabase Auth and server-side workspace API code for account
           identity and workspace metadata. That is separate from evidence retrieval. Google Drive
           ingestion, a production source router, a customer-facing retrieval API, and an LLM answer
-          provider are not implemented in the public prototype. The local service and evaluation
+          provider are not implemented in the current service. The local service and evaluation
           harness should not be treated as a production SaaS endpoint.
         </p>
         <p>

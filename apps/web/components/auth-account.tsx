@@ -184,7 +184,7 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
         </ul>
       )}
       {message && <p className="account-message" role="status">{message}</p>}
-      <p className="account-sample-note">The Explorer below remains a synthetic demo; no evidence is stored in this workspace yet.</p>
+      <p className="account-sample-note">The Explorer shows only records your verified account is authorized to read; no sample records are substituted.</p>
     </section>
   );
 }

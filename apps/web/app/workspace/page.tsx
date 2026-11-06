@@ -49,7 +49,7 @@ function WorkspaceGate({
     <main className="workspace-page workspace-page--gate">
       <header className="workspace-header">
         <Link className="workspace-brand" href="/">evidence<span>layer</span></Link>
-        <Link href="/">Demo / Synthetic</Link>
+        <Link href="/">Open Explorer</Link>
       </header>
       <section aria-labelledby="workspace-gate-title" className="workspace-gate">
         <p className="eyebrow">Evidence Layer · Workspace</p>

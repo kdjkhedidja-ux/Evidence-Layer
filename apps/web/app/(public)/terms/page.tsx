@@ -29,9 +29,10 @@ export default function TermsPage() {
         <h2 id="terms-scope">1. Scope</h2>
         <p>
           Evidence Layer is a software project for selecting, ranking, and tracing supplied evidence
-          for use by retrieval-augmented generation systems. The public website currently includes
-          a synthetic Evidence Explorer and research documentation. The explorer is not a hosted
-          customer-document retrieval or answer-generation service. These terms must be revised if
+          for use by retrieval-augmented generation systems. The public website includes an
+          authenticated workspace explorer and research documentation. Workspace records shown there
+          are returned by the server after account verification; they are not a synthetic sample.
+          The explorer is not a hosted customer-document retrieval or answer-generation service. These terms must be revised if
           the scope, operator, or available features change.
         </p>
       </section>
