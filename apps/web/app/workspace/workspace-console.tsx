@@ -76,6 +76,12 @@ export default function WorkspaceConsole({
   const [sourcesState, setSourcesState] = useState<LoadState>("ready");
   const [readingVersionId, setReadingVersionId] = useState<string | null>(null);
   const [expandedCapabilityGroups, setExpandedCapabilityGroups] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (!editingId) return;
+    const editor = document.getElementById("evidence-editor");
+    editor?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+  }, [editingId]);
   const [sourceContent, setSourceContent] = useState("");
   const [sourceDigest, setSourceDigest] = useState("");
   const [sourceMessage, setSourceMessage] = useState("");
@@ -617,10 +623,15 @@ export default function WorkspaceConsole({
                     </article>
                   ))}
                 </section>
-                {selectedWorkspace.role === "owner" && <form className="workspace-form" onSubmit={saveEvidence}>
+                {selectedWorkspace.role === "owner" && <form id="evidence-editor" className="workspace-form" onSubmit={saveEvidence}>
                   <h3 id="evidence-editor-title" tabIndex={-1}>
                     {editingId ? "Edit evidence record" : "Add evidence record"}
                   </h3>
+                  <p className="workspace-note">
+                    Records belong to the selected workspace. Owners can add or edit them; members
+                    keep read-only access. Source links are optional and only published versions can
+                    be attached.
+                  </p>
                   <label htmlFor="evidence-source-label">Source label (optional)</label>
                   <input
                     id="evidence-source-label"
