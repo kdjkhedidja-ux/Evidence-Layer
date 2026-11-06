@@ -3664,3 +3664,44 @@ select:focus-visible,
     .live-section-heading { align-items: start; }
     .live-footer { flex-direction: column; }
   }
+
+/* Workspace header: on mobile only, keep every item visible and swipeable. */
+@media (max-width: 640px) {
+  .workspace-header {
+    gap: 1rem;
+    justify-content: flex-start;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0 1rem;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+  }
+
+  .workspace-header::-webkit-scrollbar {
+    display: none;
+  }
+
+  .workspace-brand,
+  .workspace-header nav,
+  .workspace-user {
+    flex: 0 0 auto;
+  }
+
+  .workspace-header nav {
+    gap: 0.9rem;
+  }
+
+  .workspace-header nav a,
+  .workspace-user button {
+    white-space: nowrap;
+  }
+
+  .workspace-user {
+    margin-left: auto;
+  }
+
+  .workspace-user span {
+    max-width: 45vw;
+  }
+}
