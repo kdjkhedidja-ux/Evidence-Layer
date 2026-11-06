@@ -204,7 +204,7 @@ test("workspace route shows authorized service records on desktop and mobile", a
   await expect(page.getByText("Live service data")).toBeVisible();
 
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(page.getByRole("heading", { name: "Connected and pending capabilities" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Capability Catalog" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });
 
