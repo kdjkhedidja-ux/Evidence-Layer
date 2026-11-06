@@ -97,12 +97,12 @@
       "scripts/run_real_world_jev_evaluation.py": "303ce4e9b3ba49f13fe779956fd525d87f8b2a622d6290463063ea1e932bd522",
       "scripts/verify_real_world_jev_results.py": "c66faeab65a711c4f459be64c194c4ee462cb6a71e764a7836337d90f0a31008",
       "src/evidence_layer/scoring/lexical.py": "5ed574638ce1aca1782a4ca4f6a25a886ac27ed9cbe29a3e4f0eadd20928c651",
-      "services/evidence-service/evidence_service/secure_snapshot_read.py": "04ad752a63ec3502f55383d416c7db19eecfaab1a1e3a90f5d7b193842877fe4",
+      "services/evidence-service/evidence_service/secure_snapshot_read.py": "6aa68315f9c83efed4f4e98af8cd7414b3ad1988c77ba593a118aca1d0dbe1bc",
       "tests/integration/test_phase7_real_world_snapshot.py": "142345fec227e86ff04c44f8ae2c65b47f39cb7accb08dd5e93cab6f9e935c62",
       "scripts/run_phase7_end_to_end_rag.py": "750e6d7b7d18827bfd0dd3bfc2d340aa63002877633d9e02e66cfbcf9e6468c2",
       "scripts/verify_phase7_end_to_end_rag.py": "484b8ac0c97bcc8cf1b89afb112a7533dc7fa1ed89aca48ea065f1569062bca8",
       "tests/test_phase7_end_to_end_rag.py": "0d268a3f6b99c329a147268541b3d0b531bdfe2f1f830f5aa7385507f5b60fbb",
-      "docs/phase7_end_to_end_benchmark.md": "002072ff89100f64791a87388befb0d0bd0b05389fc38dce34036b3a3d7ce281"
+      "docs/phase7_end_to_end_benchmark.md": "06324609883df68cbf9ca3f5989c4ee17ba8d52fb5d6d03ee247e459be014149"
     },
     "generated_cases_sha256": "3d6e0a2ea05a476c374a1ec455664c64b3d478084afc93f96beac8529fbf82ff",
     "secure_snapshot_sha256": "365f93b9195733c4c8ce373058a8fe9d38e568c710f22a52b11fd569fe50c1f4",
@@ -1341,7 +1341,7 @@
             "completeness": 2,
             "completeness_rationale": "Covers all four required facts.",
             "groundedness": 2,
-            "groundedness_rationale": "The validation guidance is substantially supported by E1–E3.",
+            "groundedness_rationale": "The validation guidance is substantially supported by E1\u2013E3.",
             "citation_correctness": 2,
             "citation_correctness_rationale": "All citations exist and support the corresponding claims, with only a minor loss of nuance about typical clock-skew leeway."
           }
@@ -1363,7 +1363,7 @@
             "completeness": 2,
             "completeness_rationale": "Covers all four required facts.",
             "groundedness": 2,
-            "groundedness_rationale": "The validation guidance is substantially supported by E1–E3.",
+            "groundedness_rationale": "The validation guidance is substantially supported by E1\u2013E3.",
             "citation_correctness": 2,
             "citation_correctness_rationale": "All citations exist and support the corresponding claims, with only a minor loss of nuance about typical clock-skew leeway."
           }
@@ -1399,7 +1399,7 @@
         },
         "llm_cost_usd": 0.006136,
         "unpriced_http_200_attempts": 0,
-        "raw_output": "{\n  \"answer_x\": {\n    \"correctness\": 2,\n    \"completeness\": 2,\n    \"groundedness\": 2,\n    \"citation_correctness\": 2,\n    \"correctness_rationale\": \"Accurately states the signature, issuer/audience, rejection, and expiration checks.\",\n    \"completeness_rationale\": \"Covers all four required facts.\",\n    \"groundedness_rationale\": \"All factual guidance is supported by E1, E4, and E5.\",\n    \"citation_correctness_rationale\": \"The citations exist and directly support their attached validation requirements.\"\n  },\n  \"answer_y\": {\n    \"correctness\": 2,\n    \"completeness\": 2,\n    \"groundedness\": 2,\n    \"citation_correctness\": 2,\n    \"correctness_rationale\": \"Correctly describes the required checks and optional expiration claim; its clock-skew wording is slightly stricter than the evidence's 'usually' qualification.\",\n    \"completeness_rationale\": \"Covers all four required facts.\",\n    \"groundedness_rationale\": \"The validation guidance is substantially supported by E1–E3.\",\n    \"citation_correctness_rationale\": \"All citations exist and support the corresponding claims, with only a minor loss of nuance about typical clock-skew leeway.\"\n  }\n}",
+        "raw_output": "{\n  \"answer_x\": {\n    \"correctness\": 2,\n    \"completeness\": 2,\n    \"groundedness\": 2,\n    \"citation_correctness\": 2,\n    \"correctness_rationale\": \"Accurately states the signature, issuer/audience, rejection, and expiration checks.\",\n    \"completeness_rationale\": \"Covers all four required facts.\",\n    \"groundedness_rationale\": \"All factual guidance is supported by E1, E4, and E5.\",\n    \"citation_correctness_rationale\": \"The citations exist and directly support their attached validation requirements.\"\n  },\n  \"answer_y\": {\n    \"correctness\": 2,\n    \"completeness\": 2,\n    \"groundedness\": 2,\n    \"citation_correctness\": 2,\n    \"correctness_rationale\": \"Correctly describes the required checks and optional expiration claim; its clock-skew wording is slightly stricter than the evidence's 'usually' qualification.\",\n    \"completeness_rationale\": \"Covers all four required facts.\",\n    \"groundedness_rationale\": \"The validation guidance is substantially supported by E1\u2013E3.\",\n    \"citation_correctness_rationale\": \"All citations exist and support the corresponding claims, with only a minor loss of nuance about typical clock-skew leeway.\"\n  }\n}",
         "judge_order_randomized": true
       },
       {
@@ -1829,7 +1829,7 @@
             "completeness": 2,
             "completeness_rationale": "Covers both required facts: USING (manager = current_user) and the implicit WITH CHECK for writes.",
             "groundedness": 2,
-            "groundedness_rationale": "All substantive claims are supported by the provided E1–E3 evidence.",
+            "groundedness_rationale": "All substantive claims are supported by the provided E1\u2013E3 evidence.",
             "citation_correctness": 2,
             "citation_correctness_rationale": "Each citation exists and directly supports its attached SQL or explanation."
           },
@@ -1839,7 +1839,7 @@
             "completeness": 2,
             "completeness_rationale": "Includes both required facts and explains the effect on inserted and updated rows.",
             "groundedness": 2,
-            "groundedness_rationale": "The policy, default-deny behavior, and implicit WITH CHECK explanation are supported by E1–E3.",
+            "groundedness_rationale": "The policy, default-deny behavior, and implicit WITH CHECK explanation are supported by E1\u2013E3.",
             "citation_correctness": 2,
             "citation_correctness_rationale": "All citations point to relevant evidence supporting the associated claims."
           }
@@ -1851,7 +1851,7 @@
             "completeness": 2,
             "completeness_rationale": "Covers both required facts: USING (manager = current_user) and the implicit WITH CHECK for writes.",
             "groundedness": 2,
-            "groundedness_rationale": "All substantive claims are supported by the provided E1–E3 evidence.",
+            "groundedness_rationale": "All substantive claims are supported by the provided E1\u2013E3 evidence.",
             "citation_correctness": 2,
             "citation_correctness_rationale": "Each citation exists and directly supports its attached SQL or explanation."
           },
@@ -1861,7 +1861,7 @@
             "completeness": 2,
             "completeness_rationale": "Includes both required facts and explains the effect on inserted and updated rows.",
             "groundedness": 2,
-            "groundedness_rationale": "The policy, default-deny behavior, and implicit WITH CHECK explanation are supported by E1–E3.",
+            "groundedness_rationale": "The policy, default-deny behavior, and implicit WITH CHECK explanation are supported by E1\u2013E3.",
             "citation_correctness": 2,
             "citation_correctness_rationale": "All citations point to relevant evidence supporting the associated claims."
           }
@@ -1897,7 +1897,7 @@
         },
         "llm_cost_usd": 0.006261,
         "unpriced_http_200_attempts": 0,
-        "raw_output": "{\n  \"answer_x\": {\n    \"correctness\": 2,\n    \"completeness\": 2,\n    \"groundedness\": 2,\n    \"citation_correctness\": 2,\n    \"correctness_rationale\": \"Gives the correct policy expression, enables RLS, and accurately explains the implicit write check.\",\n    \"completeness_rationale\": \"Covers both required facts: USING (manager = current_user) and the implicit WITH CHECK for writes.\",\n    \"groundedness_rationale\": \"All substantive claims are supported by the provided E1–E3 evidence.\",\n    \"citation_correctness_rationale\": \"Each citation exists and directly supports its attached SQL or explanation.\"\n  },\n  \"answer_y\": {\n    \"correctness\": 2,\n    \"completeness\": 2,\n    \"groundedness\": 2,\n    \"citation_correctness\": 2,\n    \"correctness_rationale\": \"Correctly supplies the manager policy, RLS enablement, default-deny behavior, and implicit write restriction.\",\n    \"completeness_rationale\": \"Includes both required facts and explains the effect on inserted and updated rows.\",\n    \"groundedness_rationale\": \"The policy, default-deny behavior, and implicit WITH CHECK explanation are supported by E1–E3.\",\n    \"citation_correctness_rationale\": \"All citations point to relevant evidence supporting the associated claims.\"\n  }\n}",
+        "raw_output": "{\n  \"answer_x\": {\n    \"correctness\": 2,\n    \"completeness\": 2,\n    \"groundedness\": 2,\n    \"citation_correctness\": 2,\n    \"correctness_rationale\": \"Gives the correct policy expression, enables RLS, and accurately explains the implicit write check.\",\n    \"completeness_rationale\": \"Covers both required facts: USING (manager = current_user) and the implicit WITH CHECK for writes.\",\n    \"groundedness_rationale\": \"All substantive claims are supported by the provided E1\u2013E3 evidence.\",\n    \"citation_correctness_rationale\": \"Each citation exists and directly supports its attached SQL or explanation.\"\n  },\n  \"answer_y\": {\n    \"correctness\": 2,\n    \"completeness\": 2,\n    \"groundedness\": 2,\n    \"citation_correctness\": 2,\n    \"correctness_rationale\": \"Correctly supplies the manager policy, RLS enablement, default-deny behavior, and implicit write restriction.\",\n    \"completeness_rationale\": \"Includes both required facts and explains the effect on inserted and updated rows.\",\n    \"groundedness_rationale\": \"The policy, default-deny behavior, and implicit WITH CHECK explanation are supported by E1\u2013E3.\",\n    \"citation_correctness_rationale\": \"All citations point to relevant evidence supporting the associated claims.\"\n  }\n}",
         "judge_order_randomized": true
       },
       {
@@ -2669,7 +2669,7 @@
             "completeness": 2,
             "completeness_rationale": "Includes both required facts and additional supported encoding details.",
             "groundedness": 2,
-            "groundedness_rationale": "The structure and encoding claims are supported by E1–E3.",
+            "groundedness_rationale": "The structure and encoding claims are supported by E1\u2013E3.",
             "citation_correctness": 2,
             "citation_correctness_rationale": "All citations point to relevant evidence supporting their attached claims."
           }
@@ -2691,7 +2691,7 @@
             "completeness": 2,
             "completeness_rationale": "Includes both required facts and additional supported encoding details.",
             "groundedness": 2,
-            "groundedness_rationale": "The structure and encoding claims are supported by E1–E3.",
+            "groundedness_rationale": "The structure and encoding claims are supported by E1\u2013E3.",
             "citation_correctness": 2,
             "citation_correctness_rationale": "All citations point to relevant evidence supporting their attached claims."
           }
@@ -2727,7 +2727,7 @@
         },
         "llm_cost_usd": 0.005186,
         "unpriced_http_200_attempts": 0,
-        "raw_output": "{\"answer_x\":{\"correctness\":2,\"completeness\":2,\"groundedness\":2,\"citation_correctness\":2,\"correctness_rationale\":\"Accurately describes the three-part structure and encoding in the evidence.\",\"completeness_rationale\":\"Covers header.payload.signature, period separators, base64url encoding, and URL safety.\",\"groundedness_rationale\":\"All factual claims are supported by E1 and E2.\",\"citation_correctness_rationale\":\"E1 and E2 exist and directly support the attached structural and encoding claims.\"},\"answer_y\":{\"correctness\":2,\"completeness\":2,\"groundedness\":2,\"citation_correctness\":2,\"correctness_rationale\":\"Correctly describes the JWT structure and the cited base64url properties.\",\"completeness_rationale\":\"Includes both required facts and additional supported encoding details.\",\"groundedness_rationale\":\"The structure and encoding claims are supported by E1–E3.\",\"citation_correctness_rationale\":\"All citations point to relevant evidence supporting their attached claims.\"}}",
+        "raw_output": "{\"answer_x\":{\"correctness\":2,\"completeness\":2,\"groundedness\":2,\"citation_correctness\":2,\"correctness_rationale\":\"Accurately describes the three-part structure and encoding in the evidence.\",\"completeness_rationale\":\"Covers header.payload.signature, period separators, base64url encoding, and URL safety.\",\"groundedness_rationale\":\"All factual claims are supported by E1 and E2.\",\"citation_correctness_rationale\":\"E1 and E2 exist and directly support the attached structural and encoding claims.\"},\"answer_y\":{\"correctness\":2,\"completeness\":2,\"groundedness\":2,\"citation_correctness\":2,\"correctness_rationale\":\"Correctly describes the JWT structure and the cited base64url properties.\",\"completeness_rationale\":\"Includes both required facts and additional supported encoding details.\",\"groundedness_rationale\":\"The structure and encoding claims are supported by E1\u2013E3.\",\"citation_correctness_rationale\":\"All citations point to relevant evidence supporting their attached claims.\"}}",
         "judge_order_randomized": true
       },
       {
@@ -3325,7 +3325,7 @@
             "groundedness": 2,
             "groundedness_rationale": "All factual claims are directly supported by the supplied evidence.",
             "citation_correctness": 2,
-            "citation_correctness_rationale": "E1 supports creation and role scope, E4 supports command scope, and E2–E3 support removal and default-deny."
+            "citation_correctness_rationale": "E1 supports creation and role scope, E4 supports command scope, and E2\u2013E3 support removal and default-deny."
           },
           "evidence_layer": {
             "correctness": 2,
@@ -3347,7 +3347,7 @@
             "groundedness": 2,
             "groundedness_rationale": "All factual claims are directly supported by the supplied evidence.",
             "citation_correctness": 2,
-            "citation_correctness_rationale": "E1 supports creation and role scope, E4 supports command scope, and E2–E3 support removal and default-deny."
+            "citation_correctness_rationale": "E1 supports creation and role scope, E4 supports command scope, and E2\u2013E3 support removal and default-deny."
           },
           "answer_y": {
             "correctness": 2,
@@ -3391,7 +3391,7 @@
         },
         "llm_cost_usd": 0.0066385,
         "unpriced_http_200_attempts": 0,
-        "raw_output": "{\n  \"answer_x\": {\n    \"correctness\": 2,\n    \"completeness\": 2,\n    \"groundedness\": 2,\n    \"citation_correctness\": 2,\n    \"correctness_rationale\": \"Accurately describes creation, role and command scoping, removal, and default-deny behavior.\",\n    \"completeness_rationale\": \"Covers all required facts, including per-table name uniqueness and default-deny after removal.\",\n    \"groundedness_rationale\": \"All factual claims are directly supported by the supplied evidence.\",\n    \"citation_correctness_rationale\": \"E1 supports creation and role scope, E4 supports command scope, and E2–E3 support removal and default-deny.\"\n  },\n  \"answer_y\": {\n    \"correctness\": 2,\n    \"completeness\": 2,\n    \"groundedness\": 2,\n    \"citation_correctness\": 2,\n    \"correctness_rationale\": \"Correctly explains CREATE POLICY, its scoping options, and DROP POLICY without implying that removal disables RLS.\",\n    \"completeness_rationale\": \"Includes all required facts: unique names per table, command or ALL scope, and continued default-deny while RLS remains enabled.\",\n    \"groundedness_rationale\": \"Every factual statement is supported by the answer's supplied evidence.\",\n    \"citation_correctness_rationale\": \"E2 supports creation and role scope, E3 supports command scope, and E1 supports removal and continued default-deny.\"\n  }\n}",
+        "raw_output": "{\n  \"answer_x\": {\n    \"correctness\": 2,\n    \"completeness\": 2,\n    \"groundedness\": 2,\n    \"citation_correctness\": 2,\n    \"correctness_rationale\": \"Accurately describes creation, role and command scoping, removal, and default-deny behavior.\",\n    \"completeness_rationale\": \"Covers all required facts, including per-table name uniqueness and default-deny after removal.\",\n    \"groundedness_rationale\": \"All factual claims are directly supported by the supplied evidence.\",\n    \"citation_correctness_rationale\": \"E1 supports creation and role scope, E4 supports command scope, and E2\u2013E3 support removal and default-deny.\"\n  },\n  \"answer_y\": {\n    \"correctness\": 2,\n    \"completeness\": 2,\n    \"groundedness\": 2,\n    \"citation_correctness\": 2,\n    \"correctness_rationale\": \"Correctly explains CREATE POLICY, its scoping options, and DROP POLICY without implying that removal disables RLS.\",\n    \"completeness_rationale\": \"Includes all required facts: unique names per table, command or ALL scope, and continued default-deny while RLS remains enabled.\",\n    \"groundedness_rationale\": \"Every factual statement is supported by the answer's supplied evidence.\",\n    \"citation_correctness_rationale\": \"E2 supports creation and role scope, E3 supports command scope, and E1 supports removal and continued default-deny.\"\n  }\n}",
         "judge_order_randomized": true
       },
       {
@@ -5149,7 +5149,7 @@
             "completeness": 2,
             "completeness_rationale": "Includes both required facts: USING (manager = current_user) and the implicit WITH CHECK for inserts and updates.",
             "groundedness": 2,
-            "groundedness_rationale": "All factual claims are supported by the supplied evidence E1–E5.",
+            "groundedness_rationale": "All factual claims are supported by the supplied evidence E1\u2013E5.",
             "citation_correctness": 2,
             "citation_correctness_rationale": "All citations exist and support the attached claims, including the bypass and owner exceptions."
           },
@@ -5159,7 +5159,7 @@
             "completeness": 2,
             "completeness_rationale": "Explicitly covers both required facts, including the implicit condition on inserted and updated rows.",
             "groundedness": 2,
-            "groundedness_rationale": "The SQL and explanatory claims are supported by E1–E3.",
+            "groundedness_rationale": "The SQL and explanatory claims are supported by E1\u2013E3.",
             "citation_correctness": 2,
             "citation_correctness_rationale": "Each citation exists and points to evidence supporting the associated statement."
           }
@@ -5171,7 +5171,7 @@
             "completeness": 2,
             "completeness_rationale": "Includes both required facts: USING (manager = current_user) and the implicit WITH CHECK for inserts and updates.",
             "groundedness": 2,
-            "groundedness_rationale": "All factual claims are supported by the supplied evidence E1–E5.",
+            "groundedness_rationale": "All factual claims are supported by the supplied evidence E1\u2013E5.",
             "citation_correctness": 2,
             "citation_correctness_rationale": "All citations exist and support the attached claims, including the bypass and owner exceptions."
           },
@@ -5181,7 +5181,7 @@
             "completeness": 2,
             "completeness_rationale": "Explicitly covers both required facts, including the implicit condition on inserted and updated rows.",
             "groundedness": 2,
-            "groundedness_rationale": "The SQL and explanatory claims are supported by E1–E3.",
+            "groundedness_rationale": "The SQL and explanatory claims are supported by E1\u2013E3.",
             "citation_correctness": 2,
             "citation_correctness_rationale": "Each citation exists and points to evidence supporting the associated statement."
           }
@@ -5217,7 +5217,7 @@
         },
         "llm_cost_usd": 0.0064335,
         "unpriced_http_200_attempts": 0,
-        "raw_output": "{\n  \"answer_x\": {\n    \"correctness\": 2,\n    \"completeness\": 2,\n    \"groundedness\": 2,\n    \"citation_correctness\": 2,\n    \"correctness_rationale\": \"The SQL and explanation accurately describe the policy, implicit write checks, and RLS bypass exceptions.\",\n    \"completeness_rationale\": \"Includes both required facts: USING (manager = current_user) and the implicit WITH CHECK for inserts and updates.\",\n    \"groundedness_rationale\": \"All factual claims are supported by the supplied evidence E1–E5.\",\n    \"citation_correctness_rationale\": \"All citations exist and support the attached claims, including the bypass and owner exceptions.\"\n  },\n  \"answer_y\": {\n    \"correctness\": 2,\n    \"completeness\": 2,\n    \"groundedness\": 2,\n    \"citation_correctness\": 2,\n    \"correctness_rationale\": \"The SQL correctly enables RLS and restricts managers to matching rows; the write-check explanation is accurate.\",\n    \"completeness_rationale\": \"Explicitly covers both required facts, including the implicit condition on inserted and updated rows.\",\n    \"groundedness_rationale\": \"The SQL and explanatory claims are supported by E1–E3.\",\n    \"citation_correctness_rationale\": \"Each citation exists and points to evidence supporting the associated statement.\"\n  }\n}",
+        "raw_output": "{\n  \"answer_x\": {\n    \"correctness\": 2,\n    \"completeness\": 2,\n    \"groundedness\": 2,\n    \"citation_correctness\": 2,\n    \"correctness_rationale\": \"The SQL and explanation accurately describe the policy, implicit write checks, and RLS bypass exceptions.\",\n    \"completeness_rationale\": \"Includes both required facts: USING (manager = current_user) and the implicit WITH CHECK for inserts and updates.\",\n    \"groundedness_rationale\": \"All factual claims are supported by the supplied evidence E1\u2013E5.\",\n    \"citation_correctness_rationale\": \"All citations exist and support the attached claims, including the bypass and owner exceptions.\"\n  },\n  \"answer_y\": {\n    \"correctness\": 2,\n    \"completeness\": 2,\n    \"groundedness\": 2,\n    \"citation_correctness\": 2,\n    \"correctness_rationale\": \"The SQL correctly enables RLS and restricts managers to matching rows; the write-check explanation is accurate.\",\n    \"completeness_rationale\": \"Explicitly covers both required facts, including the implicit condition on inserted and updated rows.\",\n    \"groundedness_rationale\": \"The SQL and explanatory claims are supported by E1\u2013E3.\",\n    \"citation_correctness_rationale\": \"Each citation exists and points to evidence supporting the associated statement.\"\n  }\n}",
         "judge_order_randomized": true
       },
       {
@@ -6562,7 +6562,7 @@
             "groundedness": 2,
             "groundedness_rationale": "All factual claims are supported by the supplied evidence.",
             "citation_correctness": 2,
-            "citation_correctness_rationale": "E2–E5 exist and directly support the claims attached to them."
+            "citation_correctness_rationale": "E2\u2013E5 exist and directly support the claims attached to them."
           },
           "evidence_layer": {
             "correctness": 2,
@@ -6572,7 +6572,7 @@
             "groundedness": 2,
             "groundedness_rationale": "All stated factual claims are supported by the available evidence.",
             "citation_correctness": 2,
-            "citation_correctness_rationale": "E1–E3 exist and support their respective attached claims."
+            "citation_correctness_rationale": "E1\u2013E3 exist and support their respective attached claims."
           }
         },
         "raw_blind_scores": {
@@ -6584,7 +6584,7 @@
             "groundedness": 2,
             "groundedness_rationale": "All factual claims are supported by the supplied evidence.",
             "citation_correctness": 2,
-            "citation_correctness_rationale": "E2–E5 exist and directly support the claims attached to them."
+            "citation_correctness_rationale": "E2\u2013E5 exist and directly support the claims attached to them."
           },
           "answer_y": {
             "correctness": 2,
@@ -6594,7 +6594,7 @@
             "groundedness": 2,
             "groundedness_rationale": "All stated factual claims are supported by the available evidence.",
             "citation_correctness": 2,
-            "citation_correctness_rationale": "E1–E3 exist and support their respective attached claims."
+            "citation_correctness_rationale": "E1\u2013E3 exist and support their respective attached claims."
           }
         },
         "blind_order": "traditional_rag_as_x",
@@ -6628,7 +6628,7 @@
         },
         "llm_cost_usd": 0.0064435,
         "unpriced_http_200_attempts": 0,
-        "raw_output": "{\n  \"answer_x\": {\n    \"correctness\": 2,\n    \"completeness\": 2,\n    \"groundedness\": 2,\n    \"citation_correctness\": 2,\n    \"correctness_rationale\": \"Accurately states the exp and nbf boundaries, clock-skew allowance, and NumericDate definition.\",\n    \"completeness_rationale\": \"Covers all required facts, including NumericDate seconds.\",\n    \"groundedness_rationale\": \"All factual claims are supported by the supplied evidence.\",\n    \"citation_correctness_rationale\": \"E2–E5 exist and directly support the claims attached to them.\"\n  },\n  \"answer_y\": {\n    \"correctness\": 2,\n    \"completeness\": 1,\n    \"groundedness\": 2,\n    \"citation_correctness\": 2,\n    \"correctness_rationale\": \"Correctly states both temporal boundaries and the optional exp and clock-skew provisions.\",\n    \"completeness_rationale\": \"Covers exp and nbf boundaries but does not explain that NumericDate values represent seconds.\",\n    \"groundedness_rationale\": \"All stated factual claims are supported by the available evidence.\",\n    \"citation_correctness_rationale\": \"E1–E3 exist and support their respective attached claims.\"\n  }\n}",
+        "raw_output": "{\n  \"answer_x\": {\n    \"correctness\": 2,\n    \"completeness\": 2,\n    \"groundedness\": 2,\n    \"citation_correctness\": 2,\n    \"correctness_rationale\": \"Accurately states the exp and nbf boundaries, clock-skew allowance, and NumericDate definition.\",\n    \"completeness_rationale\": \"Covers all required facts, including NumericDate seconds.\",\n    \"groundedness_rationale\": \"All factual claims are supported by the supplied evidence.\",\n    \"citation_correctness_rationale\": \"E2\u2013E5 exist and directly support the claims attached to them.\"\n  },\n  \"answer_y\": {\n    \"correctness\": 2,\n    \"completeness\": 1,\n    \"groundedness\": 2,\n    \"citation_correctness\": 2,\n    \"correctness_rationale\": \"Correctly states both temporal boundaries and the optional exp and clock-skew provisions.\",\n    \"completeness_rationale\": \"Covers exp and nbf boundaries but does not explain that NumericDate values represent seconds.\",\n    \"groundedness_rationale\": \"All stated factual claims are supported by the available evidence.\",\n    \"citation_correctness_rationale\": \"E1\u2013E3 exist and support their respective attached claims.\"\n  }\n}",
         "judge_order_randomized": true
       },
       {
@@ -6736,7 +6736,7 @@
             "completeness": 1,
             "completeness_rationale": "Covers signature or MAC integrity and the lack of integrity with alg none, but does not state the required sign-then-encrypt nesting pattern.",
             "groundedness": 2,
-            "groundedness_rationale": "The factual descriptions and qualified conclusions are supported by E1–E3.",
+            "groundedness_rationale": "The factual descriptions and qualified conclusions are supported by E1\u2013E3.",
             "citation_correctness": 2,
             "citation_correctness_rationale": "All citations exist and support the claims to which they are attached."
           }
@@ -6748,7 +6748,7 @@
             "completeness": 1,
             "completeness_rationale": "Covers signature or MAC integrity and the lack of integrity with alg none, but does not state the required sign-then-encrypt nesting pattern.",
             "groundedness": 2,
-            "groundedness_rationale": "The factual descriptions and qualified conclusions are supported by E1–E3.",
+            "groundedness_rationale": "The factual descriptions and qualified conclusions are supported by E1\u2013E3.",
             "citation_correctness": 2,
             "citation_correctness_rationale": "All citations exist and support the claims to which they are attached."
           },
@@ -6794,7 +6794,7 @@
         },
         "llm_cost_usd": 0.006636,
         "unpriced_http_200_attempts": 0,
-        "raw_output": "{\n  \"answer_x\": {\n    \"correctness\": 2,\n    \"completeness\": 1,\n    \"groundedness\": 2,\n    \"citation_correctness\": 2,\n    \"correctness_rationale\": \"Accurately describes all three forms according to the supplied evidence, including nesting as a general layering mechanism.\",\n    \"completeness_rationale\": \"Covers signature or MAC integrity and the lack of integrity with alg none, but does not state the required sign-then-encrypt nesting pattern.\",\n    \"groundedness_rationale\": \"The factual descriptions and qualified conclusions are supported by E1–E3.\",\n    \"citation_correctness_rationale\": \"All citations exist and support the claims to which they are attached.\"\n  },\n  \"answer_y\": {\n    \"correctness\": 2,\n    \"completeness\": 1,\n    \"groundedness\": 2,\n    \"citation_correctness\": 2,\n    \"correctness_rationale\": \"Its descriptions are accurate against the supplied evidence, including the general definition of a Nested JWT.\",\n    \"completeness_rationale\": \"Includes the required signed/MAC and alg none distinctions, but omits the required sign-then-encrypt nesting pattern.\",\n    \"groundedness_rationale\": \"The substantive claims follow from E1, E2, and E4, without unsupported verification details.\",\n    \"citation_correctness_rationale\": \"The cited evidence exists, is relevant, and supports the attached descriptions.\"\n  }\n}",
+        "raw_output": "{\n  \"answer_x\": {\n    \"correctness\": 2,\n    \"completeness\": 1,\n    \"groundedness\": 2,\n    \"citation_correctness\": 2,\n    \"correctness_rationale\": \"Accurately describes all three forms according to the supplied evidence, including nesting as a general layering mechanism.\",\n    \"completeness_rationale\": \"Covers signature or MAC integrity and the lack of integrity with alg none, but does not state the required sign-then-encrypt nesting pattern.\",\n    \"groundedness_rationale\": \"The factual descriptions and qualified conclusions are supported by E1\u2013E3.\",\n    \"citation_correctness_rationale\": \"All citations exist and support the claims to which they are attached.\"\n  },\n  \"answer_y\": {\n    \"correctness\": 2,\n    \"completeness\": 1,\n    \"groundedness\": 2,\n    \"citation_correctness\": 2,\n    \"correctness_rationale\": \"Its descriptions are accurate against the supplied evidence, including the general definition of a Nested JWT.\",\n    \"completeness_rationale\": \"Includes the required signed/MAC and alg none distinctions, but omits the required sign-then-encrypt nesting pattern.\",\n    \"groundedness_rationale\": \"The substantive claims follow from E1, E2, and E4, without unsupported verification details.\",\n    \"citation_correctness_rationale\": \"The cited evidence exists, is relevant, and supports the attached descriptions.\"\n  }\n}",
         "judge_order_randomized": true
       },
       {
@@ -9158,7 +9158,7 @@
           "relevance_grade": 0
         }
       },
-      "answer": "An Unsecured JWT is a JWS using the “alg” Header Parameter value “none” and with an empty signature [E1]. It cannot be trusted on its own, because it is not integrity protected and must not be trusted without an external integrity mechanism [E1].",
+      "answer": "An Unsecured JWT is a JWS using the \u201calg\u201d Header Parameter value \u201cnone\u201d and with an empty signature [E1]. It cannot be trusted on its own, because it is not integrity protected and must not be trusted without an external integrity mechanism [E1].",
       "citation_ids": [
         "E1",
         "E1"
@@ -11182,7 +11182,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.24494897427831783,
           "jev_score": 0.92,
@@ -11244,7 +11244,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.24494897427831783,
           "jev_score": 0.92,
@@ -11278,7 +11278,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "relevance_grade": 2
         },
         "E2": {
@@ -11399,7 +11399,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.24494897427831783,
           "jev_score": 0.92,
@@ -11463,7 +11463,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.24494897427831783,
           "jev_score": 0.92,
@@ -11515,7 +11515,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "relevance_grade": 2
         },
         "E3": {
@@ -11652,7 +11652,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.0,
           "jev_score": 0.08,
@@ -11845,7 +11845,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.0,
           "jev_score": 0.08,
@@ -11909,7 +11909,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.0,
           "jev_score": 0.08,
@@ -11953,7 +11953,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "relevance_grade": 0
         },
         "E5": {
@@ -11964,7 +11964,7 @@
           "relevance_grade": 0
         }
       },
-      "answer": "Supabase recommends wrapping `auth.uid()` in a `select` statement — i.e., using `(select auth.uid())` — in policy expressions, because this causes the Postgres optimizer to run an initPlan and cache the result per-statement instead of calling the function once per row [E1].",
+      "answer": "Supabase recommends wrapping `auth.uid()` in a `select` statement \u2014 i.e., using `(select auth.uid())` \u2014 in policy expressions, because this causes the Postgres optimizer to run an initPlan and cache the result per-statement instead of calling the function once per row [E1].",
       "citation_ids": [
         "E1"
       ],
@@ -12215,7 +12215,7 @@
         "completeness": 2,
         "completeness_rationale": "Covers all four required facts.",
         "groundedness": 2,
-        "groundedness_rationale": "The validation guidance is substantially supported by E1–E3.",
+        "groundedness_rationale": "The validation guidance is substantially supported by E1\u2013E3.",
         "citation_correctness": 2,
         "citation_correctness_rationale": "All citations exist and support the corresponding claims, with only a minor loss of nuance about typical clock-skew leeway."
       }
@@ -12515,7 +12515,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.0,
           "jev_score": 0.02,
@@ -12585,7 +12585,7 @@
           "relevance_grade": 1
         }
       },
-      "answer": "Both sources agree that on a table with grants but no RLS, any role holding a grant can access all rows: PostgreSQL says all rows are “equally available for querying or updating” [E1], and Supabase says the table is “readable and writable by any role with a grant on it” [E2]. Supabase goes further operationally, advising you to enable RLS on every table in an exposed schema and revoke default `anon`/`authenticated` grants, whereas PostgreSQL simply describes the default behavior [E1][E2].",
+      "answer": "Both sources agree that on a table with grants but no RLS, any role holding a grant can access all rows: PostgreSQL says all rows are \u201cequally available for querying or updating\u201d [E1], and Supabase says the table is \u201creadable and writable by any role with a grant on it\u201d [E2]. Supabase goes further operationally, advising you to enable RLS on every table in an exposed schema and revoke default `anon`/`authenticated` grants, whereas PostgreSQL simply describes the default behavior [E1][E2].",
       "citation_ids": [
         "E1",
         "E2",
@@ -12711,7 +12711,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.0,
           "jev_score": 0.02,
@@ -12775,7 +12775,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.0,
           "jev_score": 0.02,
@@ -12815,11 +12815,11 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "relevance_grade": 0
         }
       },
-      "answer": "Both the Supabase guide and PostgreSQL docs agree that, without RLS, a table can be accessed by any role that has privileges on it, and all rows are available. Supabase states that “a table in an exposed schema without RLS is readable and writable by any role with a grant on it” [E1]. PostgreSQL similarly notes that when access privileges are granted but row security is not enabled, “all rows within it are equally available for querying or updating” [E3]. Supabase adds operational guidance about exposed schemas and default `anon`/`authenticated` grants [E1], while PostgreSQL describes the default-deny behavior only after RLS is enabled [E2].",
+      "answer": "Both the Supabase guide and PostgreSQL docs agree that, without RLS, a table can be accessed by any role that has privileges on it, and all rows are available. Supabase states that \u201ca table in an exposed schema without RLS is readable and writable by any role with a grant on it\u201d [E1]. PostgreSQL similarly notes that when access privileges are granted but row security is not enabled, \u201call rows within it are equally available for querying or updating\u201d [E3]. Supabase adds operational guidance about exposed schemas and default `anon`/`authenticated` grants [E1], while PostgreSQL describes the default-deny behavior only after RLS is enabled [E2].",
       "citation_ids": [
         "E1",
         "E3",
@@ -13864,7 +13864,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.0,
           "jev_score": 0.3,
@@ -14059,7 +14059,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.0,
           "jev_score": 0.3,
@@ -14123,7 +14123,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.0,
           "jev_score": 0.3,
@@ -14163,7 +14163,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "relevance_grade": 0
         }
       },
@@ -14272,7 +14272,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.1414213562373095,
           "jev_score": 0.15,
@@ -14334,7 +14334,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.1414213562373095,
           "jev_score": 0.15,
@@ -14360,7 +14360,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "relevance_grade": 0
         }
       },
@@ -14466,7 +14466,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.1414213562373095,
           "jev_score": 0.15,
@@ -14530,7 +14530,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.1414213562373095,
           "jev_score": 0.15,
@@ -14578,7 +14578,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "relevance_grade": 0
         },
         "E4": {
@@ -14596,7 +14596,7 @@
           "relevance_grade": 0
         }
       },
-      "answer": "A Supabase Auth session pairs a short-lived access token with a refresh token; when the access token expires, the client uses the refresh token to obtain a new token pair [E1]. Sign-out can be scoped to the current session, all of the user’s sessions, or other sessions, and it revokes the affected refresh tokens so they can no longer be used [E2].",
+      "answer": "A Supabase Auth session pairs a short-lived access token with a refresh token; when the access token expires, the client uses the refresh token to obtain a new token pair [E1]. Sign-out can be scoped to the current session, all of the user\u2019s sessions, or other sessions, and it revokes the affected refresh tokens so they can no longer be used [E2].",
       "citation_ids": [
         "E1",
         "E2"
@@ -14848,7 +14848,7 @@
         "completeness": 2,
         "completeness_rationale": "Includes both required facts and explains the effect on inserted and updated rows.",
         "groundedness": 2,
-        "groundedness_rationale": "The policy, default-deny behavior, and implicit WITH CHECK explanation are supported by E1–E3.",
+        "groundedness_rationale": "The policy, default-deny behavior, and implicit WITH CHECK explanation are supported by E1\u2013E3.",
         "citation_correctness": 2,
         "citation_correctness_rationale": "All citations point to relevant evidence supporting the associated claims."
       }
@@ -15094,7 +15094,7 @@
         "completeness": 2,
         "completeness_rationale": "Covers both required facts: USING (manager = current_user) and the implicit WITH CHECK for writes.",
         "groundedness": 2,
-        "groundedness_rationale": "All substantive claims are supported by the provided E1–E3 evidence.",
+        "groundedness_rationale": "All substantive claims are supported by the provided E1\u2013E3 evidence.",
         "citation_correctness": 2,
         "citation_correctness_rationale": "Each citation exists and directly supports its attached SQL or explanation."
       }
@@ -16014,7 +16014,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.0,
           "jev_score": 0.04,
@@ -16211,7 +16211,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.0,
           "jev_score": 0.04,
@@ -16275,7 +16275,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.0,
           "jev_score": 0.04,
@@ -16315,11 +16315,11 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "relevance_grade": 0
         }
       },
-      "answer": "You should enable Row Level Security on the new table, set the grants — revoking default `anon` and `authenticated` grants where they still exist — and add the appropriate policies [E1][E2]. Adding policies alone does not remove grants, so an unrevoked grant can still allow writes [E2][E3]. Then verify the setup with `supabase test db` [E1].",
+      "answer": "You should enable Row Level Security on the new table, set the grants \u2014 revoking default `anon` and `authenticated` grants where they still exist \u2014 and add the appropriate policies [E1][E2]. Adding policies alone does not remove grants, so an unrevoked grant can still allow writes [E2][E3]. Then verify the setup with `supabase test db` [E1].",
       "citation_ids": [
         "E1",
         "E2",
@@ -16413,7 +16413,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.4,
           "jev_score": 0.96,
@@ -16475,7 +16475,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.4,
           "jev_score": 0.96,
@@ -16505,7 +16505,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "relevance_grade": 1
         },
         "E3": {
@@ -16597,7 +16597,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.4,
           "jev_score": 0.96,
@@ -16661,7 +16661,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.4,
           "jev_score": 0.96,
@@ -16717,7 +16717,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "relevance_grade": 1
         },
         "E2": {
@@ -16841,7 +16841,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.0,
           "jev_score": 0.45,
@@ -16903,7 +16903,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.0,
           "jev_score": 0.45,
@@ -16933,7 +16933,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "relevance_grade": 0
         },
         "E3": {
@@ -17047,7 +17047,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.0,
           "jev_score": 0.45,
@@ -17111,7 +17111,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.0,
           "jev_score": 0.45,
@@ -17159,7 +17159,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "relevance_grade": 0
         },
         "E4": {
@@ -17177,7 +17177,7 @@
           "relevance_grade": 0
         }
       },
-      "answer": "Sessions last as long as the user remains signed in, because Supabase Auth continuously issues a new JWT for each session [E1]. A session pairs a short-lived access token with a refresh token; when the access token expires, the client uses the refresh token to obtain a new pair [E2]. The access token’s expiration is set by the `exp` field, but the evidence does not specify a concrete duration for that expiry or for the overall session [E2][E3].",
+      "answer": "Sessions last as long as the user remains signed in, because Supabase Auth continuously issues a new JWT for each session [E1]. A session pairs a short-lived access token with a refresh token; when the access token expires, the client uses the refresh token to obtain a new pair [E2]. The access token\u2019s expiration is set by the `exp` field, but the evidence does not specify a concrete duration for that expiry or for the overall session [E2][E3].",
       "citation_ids": [
         "E1",
         "E2",
@@ -17304,7 +17304,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.0,
           "jev_score": 0.15,
@@ -17498,7 +17498,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.0,
           "jev_score": 0.15,
@@ -17562,7 +17562,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.0,
           "jev_score": 0.15,
@@ -17606,7 +17606,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "relevance_grade": 0
         },
         "E5": {
@@ -18238,7 +18238,7 @@
           "relevance_grade": 0
         }
       },
-      "answer": "The audience (“aud”) claim identifies the recipients that a JWT is intended for. Each principal processing the JWT must identify itself with a value in this claim; if it does not, the JWT must be rejected.[E1]",
+      "answer": "The audience (\u201caud\u201d) claim identifies the recipients that a JWT is intended for. Each principal processing the JWT must identify itself with a value in this claim; if it does not, the JWT must be rejected.[E1]",
       "citation_ids": [
         "E1"
       ],
@@ -18469,7 +18469,7 @@
           "relevance_grade": 0
         }
       },
-      "answer": "The audience (“aud” claim) identifies the recipients that a JWT is intended for. Each principal that processes the JWT must identify itself with a value in the audience claim, and if it does not, the JWT must be rejected [E1].",
+      "answer": "The audience (\u201caud\u201d claim) identifies the recipients that a JWT is intended for. Each principal that processes the JWT must identify itself with a value in the audience claim, and if it does not, the JWT must be rejected [E1].",
       "citation_ids": [
         "E1"
       ],
@@ -18662,7 +18662,7 @@
           "relevance_grade": 2
         }
       },
-      "answer": "For updates, row security requires the update to be allowed by an UPDATE policy or an ALL policy; otherwise a default-deny policy applies so no rows are updatable [E1][E2]. The policy’s USING clause determines which existing rows can be selected for update, and if a WITH CHECK clause is omitted, the USING condition is also applied as the WITH CHECK to the updated row values [E3].",
+      "answer": "For updates, row security requires the update to be allowed by an UPDATE policy or an ALL policy; otherwise a default-deny policy applies so no rows are updatable [E1][E2]. The policy\u2019s USING clause determines which existing rows can be selected for update, and if a WITH CHECK clause is omitted, the USING condition is also applied as the WITH CHECK to the updated row values [E3].",
       "citation_ids": [
         "E1",
         "E2",
@@ -19152,7 +19152,7 @@
         "completeness": 2,
         "completeness_rationale": "Includes both required facts and additional supported encoding details.",
         "groundedness": 2,
-        "groundedness_rationale": "The structure and encoding claims are supported by E1–E3.",
+        "groundedness_rationale": "The structure and encoding claims are supported by E1\u2013E3.",
         "citation_correctness": 2,
         "citation_correctness_rationale": "All citations point to relevant evidence supporting their attached claims."
       }
@@ -19523,7 +19523,7 @@
           "relevance_grade": 0
         }
       },
-      "answer": "Base64url encoding uses the URL- and filename-safe Base64 variant described in RFC 4648 Section 5, omits all trailing “=” padding characters, and contains no line breaks or whitespace, unlike standard Base64 [E1].",
+      "answer": "Base64url encoding uses the URL- and filename-safe Base64 variant described in RFC 4648 Section 5, omits all trailing \u201c=\u201d padding characters, and contains no line breaks or whitespace, unlike standard Base64 [E1].",
       "citation_ids": [
         "E1"
       ],
@@ -19877,7 +19877,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.0,
           "jev_score": 0.05,
@@ -20072,7 +20072,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.0,
           "jev_score": 0.05,
@@ -20136,7 +20136,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.0,
           "jev_score": 0.05,
@@ -20176,7 +20176,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "relevance_grade": 0
         }
       },
@@ -21111,7 +21111,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.22677868380553634,
           "jev_score": 0.89,
@@ -21173,7 +21173,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.22677868380553634,
           "jev_score": 0.89,
@@ -21207,7 +21207,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "relevance_grade": 2
         },
         "E2": {
@@ -21317,7 +21317,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.22677868380553634,
           "jev_score": 0.89,
@@ -21381,7 +21381,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.22677868380553634,
           "jev_score": 0.89,
@@ -21433,7 +21433,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "relevance_grade": 2
         },
         "E3": {
@@ -21550,7 +21550,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.06666666666666667,
           "jev_score": 0.42,
@@ -21612,7 +21612,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.06666666666666667,
           "jev_score": 0.42,
@@ -21642,7 +21642,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "relevance_grade": 2
         },
         "E3": {
@@ -21757,7 +21757,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.06666666666666667,
           "jev_score": 0.42,
@@ -21821,7 +21821,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.06666666666666667,
           "jev_score": 0.42,
@@ -21869,7 +21869,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "relevance_grade": 2
         },
         "E4": {
@@ -21887,7 +21887,7 @@
           "relevance_grade": 0
         }
       },
-      "answer": "A Supabase user session pairs a short-lived access token with a refresh token [E2]. Supabase Auth continuously issues a new JWT for each user session while the user remains signed in [E1]. The access token’s `exp` field sets a time limit after which the token expires and should not be trusted [E3]. When the access token expires, the client uses the refresh token to obtain a new token pair [E2].",
+      "answer": "A Supabase user session pairs a short-lived access token with a refresh token [E2]. Supabase Auth continuously issues a new JWT for each user session while the user remains signed in [E1]. The access token\u2019s `exp` field sets a time limit after which the token expires and should not be trusted [E3]. When the access token expires, the client uses the refresh token to obtain a new token pair [E2].",
       "citation_ids": [
         "E2",
         "E1",
@@ -22083,7 +22083,7 @@
           "relevance_grade": 2
         }
       },
-      "answer": "RFC 7519 requires that, if an “exp” claim is used, the current date/time MUST be before the expiration time [E1]. The “exp” claim is optional and its value MUST be a NumericDate [E2]. If an “nbf” claim is used, the current date/time MUST be after or equal to the not-before time [E3]. Implementers MAY allow a small leeway, usually no more than a few minutes, for clock skew [E2].",
+      "answer": "RFC 7519 requires that, if an \u201cexp\u201d claim is used, the current date/time MUST be before the expiration time [E1]. The \u201cexp\u201d claim is optional and its value MUST be a NumericDate [E2]. If an \u201cnbf\u201d claim is used, the current date/time MUST be after or equal to the not-before time [E3]. Implementers MAY allow a small leeway, usually no more than a few minutes, for clock skew [E2].",
       "citation_ids": [
         "E1",
         "E2",
@@ -22811,7 +22811,7 @@
         "groundedness": 2,
         "groundedness_rationale": "All factual claims are directly supported by the supplied evidence.",
         "citation_correctness": 2,
-        "citation_correctness_rationale": "E1 supports creation and role scope, E4 supports command scope, and E2–E3 support removal and default-deny."
+        "citation_correctness_rationale": "E1 supports creation and role scope, E4 supports command scope, and E2\u2013E3 support removal and default-deny."
       }
     },
     {
@@ -23370,7 +23370,7 @@
           "relevance_grade": 2
         }
       },
-      "answer": "A signed JWT’s claims are digitally signed or integrity protected with a MAC and/or encrypted, so trust relies on verifying that signature/MAC or decrypting the content [E3]. An Unsecured JWT uses `\"alg\":\"none\"` and an empty signature; it is not integrity protected and must not be trusted without an external integrity mechanism [E1]. A Nested JWT uses another JWT as the payload or plaintext of an enclosing JWS or JWE [E2], so its trust model depends on the protection provided by that enclosing JWS or JWE rather than the inner JWT alone [E2][E3].",
+      "answer": "A signed JWT\u2019s claims are digitally signed or integrity protected with a MAC and/or encrypted, so trust relies on verifying that signature/MAC or decrypting the content [E3]. An Unsecured JWT uses `\"alg\":\"none\"` and an empty signature; it is not integrity protected and must not be trusted without an external integrity mechanism [E1]. A Nested JWT uses another JWT as the payload or plaintext of an enclosing JWS or JWE [E2], so its trust model depends on the protection provided by that enclosing JWS or JWE rather than the inner JWT alone [E2][E3].",
       "citation_ids": [
         "E3",
         "E1",
@@ -23748,7 +23748,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.18090680674665818,
           "jev_score": 0.18,
@@ -23961,7 +23961,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.18090680674665818,
           "jev_score": 0.18,
@@ -24025,7 +24025,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.18090680674665818,
           "jev_score": 0.18,
@@ -24073,7 +24073,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "relevance_grade": 0
         },
         "E4": {
@@ -24287,7 +24287,7 @@
           "relevance_grade": 0
         }
       },
-      "answer": "The `exp` (expiration time) claim specifies when a JWT expires: it must not be accepted for processing at or after that time. [E1] Its value must be a number containing a NumericDate value, and including the claim is optional. [E2] Implementations may allow a small leeway—usually no more than a few minutes—to account for clock skew. [E2]",
+      "answer": "The `exp` (expiration time) claim specifies when a JWT expires: it must not be accepted for processing at or after that time. [E1] Its value must be a number containing a NumericDate value, and including the claim is optional. [E2] Implementations may allow a small leeway\u2014usually no more than a few minutes\u2014to account for clock skew. [E2]",
       "citation_ids": [
         "E1",
         "E2",
@@ -25567,7 +25567,7 @@
           "relevance_grade": 0
         }
       },
-      "answer": "If the JWT’s `aud` claim is present but does not identify the recipient processing it, the JWT **MUST be rejected**. [E1] It must not be used after this validation failure. [E2]",
+      "answer": "If the JWT\u2019s `aud` claim is present but does not identify the recipient processing it, the JWT **MUST be rejected**. [E1] It must not be used after this validation failure. [E2]",
       "citation_ids": [
         "E1",
         "E2"
@@ -25799,7 +25799,7 @@
           "relevance_grade": 0
         }
       },
-      "answer": "If the JWT’s `aud` claim is present but does not include the recipient processing it, the JWT **MUST be rejected**. [E2] It must not be used because audience validation has failed. [E1]",
+      "answer": "If the JWT\u2019s `aud` claim is present but does not include the recipient processing it, the JWT **MUST be rejected**. [E2] It must not be used because audience validation has failed. [E1]",
       "citation_ids": [
         "E2",
         "E1"
@@ -26845,7 +26845,7 @@
           "relevance_grade": 0
         }
       },
-      "answer": "No—a conforming JWT Claims Set must have unique claim names, so the same claim name cannot validly appear twice. [E1] If duplicates are encountered, the parser must either reject them or return only the lexically last duplicate member; this handling rule does not make duplicates valid. [E1]",
+      "answer": "No\u2014a conforming JWT Claims Set must have unique claim names, so the same claim name cannot validly appear twice. [E1] If duplicates are encountered, the parser must either reject them or return only the lexically last duplicate member; this handling rule does not make duplicates valid. [E1]",
       "citation_ids": [
         "E1",
         "E1"
@@ -27077,7 +27077,7 @@
           "relevance_grade": 0
         }
       },
-      "answer": "No—a conforming JWT Claims Set must have unique claim names, so the same claim name cannot legally appear twice. [E3] If duplicates are encountered, a parser must either reject them or return only the lexically last duplicate member; that parsing allowance does not make duplicate claim names conforming. [E3]",
+      "answer": "No\u2014a conforming JWT Claims Set must have unique claim names, so the same claim name cannot legally appear twice. [E3] If duplicates are encountered, a parser must either reject them or return only the lexically last duplicate member; that parsing allowance does not make duplicate claim names conforming. [E3]",
       "citation_ids": [
         "E3",
         "E3"
@@ -28435,7 +28435,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.24494897427831783,
           "jev_score": 0.92,
@@ -28497,7 +28497,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.24494897427831783,
           "jev_score": 0.92,
@@ -28531,7 +28531,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "relevance_grade": 2
         },
         "E2": {
@@ -28549,7 +28549,7 @@
           "relevance_grade": 0
         }
       },
-      "answer": "The `sub` field in a Supabase-issued JWT holds the unique ID of the user represented by the token. [E1] It is the JWT’s “subject” claim, identifying the principal the token is about. [E2]",
+      "answer": "The `sub` field in a Supabase-issued JWT holds the unique ID of the user represented by the token. [E1] It is the JWT\u2019s \u201csubject\u201d claim, identifying the principal the token is about. [E2]",
       "citation_ids": [
         "E1",
         "E2"
@@ -28640,7 +28640,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.24494897427831783,
           "jev_score": 0.92,
@@ -28704,7 +28704,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.24494897427831783,
           "jev_score": 0.92,
@@ -28756,7 +28756,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "relevance_grade": 2
         },
         "E3": {
@@ -28781,7 +28781,7 @@
           "relevance_grade": 0
         }
       },
-      "answer": "In a Supabase-issued JWT, the `sub` field holds the unique ID of the user represented by the token. [E2] It is the JWT’s “subject” claim, identifying the principal the token is about. [E1]",
+      "answer": "In a Supabase-issued JWT, the `sub` field holds the unique ID of the user represented by the token. [E2] It is the JWT\u2019s \u201csubject\u201d claim, identifying the principal the token is about. [E1]",
       "citation_ids": [
         "E2",
         "E1"
@@ -28894,7 +28894,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.0,
           "jev_score": 0.08,
@@ -28975,7 +28975,7 @@
           "relevance_grade": 0
         }
       },
-      "answer": "Supabase recommends wrapping `auth.uid()` in a `SELECT` in policies—for example, `using ((select auth.uid()) = user_id)`. [E1][E2] This lets Postgres run an initPlan and cache the result per statement, instead of calling the function once per row. [E1]",
+      "answer": "Supabase recommends wrapping `auth.uid()` in a `SELECT` in policies\u2014for example, `using ((select auth.uid()) = user_id)`. [E1][E2] This lets Postgres run an initPlan and cache the result per statement, instead of calling the function once per row. [E1]",
       "citation_ids": [
         "E1",
         "E2",
@@ -29089,7 +29089,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.0,
           "jev_score": 0.08,
@@ -29153,7 +29153,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.0,
           "jev_score": 0.08,
@@ -29197,7 +29197,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "relevance_grade": 0
         },
         "E5": {
@@ -29208,7 +29208,7 @@
           "relevance_grade": 0
         }
       },
-      "answer": "Supabase recommends wrapping `auth.uid()` in a `SELECT` within policies—for example, `using ((select auth.uid()) = user_id)` rather than `using (auth.uid() = user_id)`. [E1][E2] This lets the Postgres optimizer run an initPlan and cache the result per statement instead of calling the function once per row. [E1]",
+      "answer": "Supabase recommends wrapping `auth.uid()` in a `SELECT` within policies\u2014for example, `using ((select auth.uid()) = user_id)` rather than `using (auth.uid() = user_id)`. [E1][E2] This lets the Postgres optimizer run an initPlan and cache the result per statement instead of calling the function once per row. [E1]",
       "citation_ids": [
         "E1",
         "E2",
@@ -29767,7 +29767,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.0,
           "jev_score": 0.02,
@@ -29963,7 +29963,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.0,
           "jev_score": 0.02,
@@ -30027,7 +30027,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.0,
           "jev_score": 0.02,
@@ -30067,7 +30067,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "relevance_grade": 0
         }
       },
@@ -30500,7 +30500,7 @@
           "relevance_grade": 1
         }
       },
-      "answer": "Role membership can determine which row-security policies apply: for example, a policy `TO managers USING (manager = current_user)` restricts members of `managers` to rows whose `manager` equals the current user. [E4] When multiple policies apply, permissive policies (the default) combine with OR, while restrictive policies combine with AND; the permissive behavior resembles a role having the privileges of all roles it belongs to. [E3][E5] With row-level security enabled, normal row access must be allowed by a policy, and no policy means default denial—no rows are visible or updatable. [E2] Table owners typically bypass row security unless they opt into it with `ALTER TABLE ... FORCE ROW LEVEL SECURITY`. [E1]",
+      "answer": "Role membership can determine which row-security policies apply: for example, a policy `TO managers USING (manager = current_user)` restricts members of `managers` to rows whose `manager` equals the current user. [E4] When multiple policies apply, permissive policies (the default) combine with OR, while restrictive policies combine with AND; the permissive behavior resembles a role having the privileges of all roles it belongs to. [E3][E5] With row-level security enabled, normal row access must be allowed by a policy, and no policy means default denial\u2014no rows are visible or updatable. [E2] Table owners typically bypass row security unless they opt into it with `ALTER TABLE ... FORCE ROW LEVEL SECURITY`. [E1]",
       "citation_ids": [
         "E4",
         "E3",
@@ -30697,7 +30697,7 @@
           "relevance_grade": 2
         }
       },
-      "answer": "The claims are `iss` (issuer), which identifies the principal that issued the JWT, and `sub` (subject), which identifies the principal the JWT is about. [E2][E3] The `aud` (audience) claim identifies the JWT’s intended recipients. [E1]",
+      "answer": "The claims are `iss` (issuer), which identifies the principal that issued the JWT, and `sub` (subject), which identifies the principal the JWT is about. [E2][E3] The `aud` (audience) claim identifies the JWT\u2019s intended recipients. [E1]",
       "citation_ids": [
         "E2",
         "E3",
@@ -31055,7 +31055,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.0,
           "jev_score": 0.3,
@@ -31125,7 +31125,7 @@
           "relevance_grade": 2
         }
       },
-      "answer": "A JWT is tamper-resistant because it is signed with a cryptographic key, protecting the integrity of its claims through a digital signature or message authentication code (MAC). [E1][E2] Supabase manages JWT signing keys used to create and verify tokens, and each Supabase product securely decodes and verifies a received JWT’s validity before using Postgres policies and roles to authorize access to project data. [E1][E3] The evidence does not specify the detailed verification procedure or individual checks performed. [E1][E3]",
+      "answer": "A JWT is tamper-resistant because it is signed with a cryptographic key, protecting the integrity of its claims through a digital signature or message authentication code (MAC). [E1][E2] Supabase manages JWT signing keys used to create and verify tokens, and each Supabase product securely decodes and verifies a received JWT\u2019s validity before using Postgres policies and roles to authorize access to project data. [E1][E3] The evidence does not specify the detailed verification procedure or individual checks performed. [E1][E3]",
       "citation_ids": [
         "E1",
         "E2",
@@ -31253,7 +31253,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.0,
           "jev_score": 0.3,
@@ -31317,7 +31317,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.0,
           "jev_score": 0.3,
@@ -31357,11 +31357,11 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "relevance_grade": 0
         }
       },
-      "answer": "A JWT is tamper-resistant because it is signed with a cryptographic key; its structure is `header.payload.signature`, with each section base64url-encoded. [E1][E3] Supabase manages JWT signing keys for creating and verifying tokens, and each Supabase product securely decodes and verifies a received JWT’s validity before using Postgres policies and roles to authorize data access. [E1][E2] A valid signature alone is not enough: after the token’s `exp` time, it is expired and should no longer be trusted. [E5]",
+      "answer": "A JWT is tamper-resistant because it is signed with a cryptographic key; its structure is `header.payload.signature`, with each section base64url-encoded. [E1][E3] Supabase manages JWT signing keys for creating and verifying tokens, and each Supabase product securely decodes and verifies a received JWT\u2019s validity before using Postgres policies and roles to authorize data access. [E1][E2] A valid signature alone is not enough: after the token\u2019s `exp` time, it is expired and should no longer be trusted. [E5]",
       "citation_ids": [
         "E1",
         "E3",
@@ -31466,7 +31466,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.1414213562373095,
           "jev_score": 0.15,
@@ -31528,7 +31528,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.1414213562373095,
           "jev_score": 0.15,
@@ -31554,11 +31554,11 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "relevance_grade": 0
         }
       },
-      "answer": "A Supabase Auth session pairs a short-lived access token with a refresh token; when the access token expires, the client uses the refresh token to obtain a new token pair. [E2] Sign-out can target the current session, all of the user’s sessions, or other sessions, and revokes the affected refresh tokens so they can no longer be used. [E1] The evidence does not establish that sign-out immediately invalidates already-issued access tokens; it states that a token is considered expired after its `exp` time, even if properly signed. [E1][E3]",
+      "answer": "A Supabase Auth session pairs a short-lived access token with a refresh token; when the access token expires, the client uses the refresh token to obtain a new token pair. [E2] Sign-out can target the current session, all of the user\u2019s sessions, or other sessions, and revokes the affected refresh tokens so they can no longer be used. [E1] The evidence does not establish that sign-out immediately invalidates already-issued access tokens; it states that a token is considered expired after its `exp` time, even if properly signed. [E1][E3]",
       "citation_ids": [
         "E2",
         "E1",
@@ -31662,7 +31662,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.1414213562373095,
           "jev_score": 0.15,
@@ -31726,7 +31726,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.1414213562373095,
           "jev_score": 0.15,
@@ -31774,7 +31774,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "relevance_grade": 0
         },
         "E4": {
@@ -31792,7 +31792,7 @@
           "relevance_grade": 0
         }
       },
-      "answer": "A Supabase Auth session consists of a short-lived access token and a refresh token; when the access token expires, the client uses the refresh token to obtain a new token pair. [E1] Sign-out can target the current session, all of the user’s sessions, or other sessions, and revokes the affected refresh tokens so they can no longer be used. [E2] The evidence does not establish that sign-out immediately invalidates already-issued access tokens; it states that a token must no longer be trusted after its `exp` time. [E2][E3]",
+      "answer": "A Supabase Auth session consists of a short-lived access token and a refresh token; when the access token expires, the client uses the refresh token to obtain a new token pair. [E1] Sign-out can target the current session, all of the user\u2019s sessions, or other sessions, and revokes the affected refresh tokens so they can no longer be used. [E2] The evidence does not establish that sign-out immediately invalidates already-issued access tokens; it states that a token must no longer be trusted after its `exp` time. [E2][E3]",
       "citation_ids": [
         "E1",
         "E2",
@@ -31988,7 +31988,7 @@
           "relevance_grade": 2
         }
       },
-      "answer": "Enable row-level security on the table, then create a policy restricting members of `managers` to rows whose `manager` equals `current_user`: [E1][E2]\n\n```sql\nALTER TABLE accounts ENABLE ROW LEVEL SECURITY;\n\nCREATE POLICY account_managers ON accounts\n  TO managers\n  USING (manager = current_user);\n```\n\nThis uses `accounts` as the table name and `manager` as the column identifying each row’s manager. [E1] Because `WITH CHECK` is omitted, the same condition also applies to rows being inserted or updated. [E3]",
+      "answer": "Enable row-level security on the table, then create a policy restricting members of `managers` to rows whose `manager` equals `current_user`: [E1][E2]\n\n```sql\nALTER TABLE accounts ENABLE ROW LEVEL SECURITY;\n\nCREATE POLICY account_managers ON accounts\n  TO managers\n  USING (manager = current_user);\n```\n\nThis uses `accounts` as the table name and `manager` as the column identifying each row\u2019s manager. [E1] Because `WITH CHECK` is omitted, the same condition also applies to rows being inserted or updated. [E3]",
       "citation_ids": [
         "E1",
         "E2",
@@ -32047,7 +32047,7 @@
         "completeness": 2,
         "completeness_rationale": "Explicitly covers both required facts, including the implicit condition on inserted and updated rows.",
         "groundedness": 2,
-        "groundedness_rationale": "The SQL and explanatory claims are supported by E1–E3.",
+        "groundedness_rationale": "The SQL and explanatory claims are supported by E1\u2013E3.",
         "citation_correctness": 2,
         "citation_correctness_rationale": "Each citation exists and points to evidence supporting the associated statement."
       }
@@ -32282,7 +32282,7 @@
         "completeness": 2,
         "completeness_rationale": "Includes both required facts: USING (manager = current_user) and the implicit WITH CHECK for inserts and updates.",
         "groundedness": 2,
-        "groundedness_rationale": "All factual claims are supported by the supplied evidence E1–E5.",
+        "groundedness_rationale": "All factual claims are supported by the supplied evidence E1\u2013E5.",
         "citation_correctness": 2,
         "citation_correctness_rationale": "All citations exist and support the attached claims, including the bypass and owner exceptions."
       }
@@ -32419,7 +32419,7 @@
           "relevance_grade": 1
         }
       },
-      "answer": "The `nbf` (“not before”) claim sets the earliest time a JWT can be accepted: the current time must be **greater than or equal to** `nbf`. [E1] The `exp` (“expiration time”) claim sets the cutoff: the current time must be **strictly less than** `exp`. [E2] Thus, when both apply, the time window is **`nbf ≤ current time < exp`**. [E1][E2]",
+      "answer": "The `nbf` (\u201cnot before\u201d) claim sets the earliest time a JWT can be accepted: the current time must be **greater than or equal to** `nbf`. [E1] The `exp` (\u201cexpiration time\u201d) claim sets the cutoff: the current time must be **strictly less than** `exp`. [E2] Thus, when both apply, the time window is **`nbf \u2264 current time < exp`**. [E1][E2]",
       "citation_ids": [
         "E1",
         "E2",
@@ -32653,7 +32653,7 @@
           "relevance_grade": 1
         }
       },
-      "answer": "The `exp` claim sets the expiration cutoff: the current time must be **strictly before** `exp`, so the JWT must not be accepted at or after that time. [E1] The `nbf` claim sets the earliest permitted processing time: the current time must be **at or after** `nbf`, so the JWT must not be accepted before that time. [E2] Together, these checks define the time window `nbf ≤ current time < exp`. [E1][E2]",
+      "answer": "The `exp` claim sets the expiration cutoff: the current time must be **strictly before** `exp`, so the JWT must not be accepted at or after that time. [E1] The `nbf` claim sets the earliest permitted processing time: the current time must be **at or after** `nbf`, so the JWT must not be accepted before that time. [E2] Together, these checks define the time window `nbf \u2264 current time < exp`. [E1][E2]",
       "citation_ids": [
         "E1",
         "E2",
@@ -33205,7 +33205,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.0,
           "jev_score": 0.04,
@@ -33275,7 +33275,7 @@
           "relevance_grade": 2
         }
       },
-      "answer": "Enable Row Level Security (RLS) on the new table; without it, any role with a grant can read and write the table in an exposed schema. [E1] Set grants deliberately, revoking default grants to `anon` and `authenticated` if your project still provides them—adding policies does not revoke those grants. [E1][E2] Then add the appropriate RLS policies and verify the setup with `supabase test db`. [E3]",
+      "answer": "Enable Row Level Security (RLS) on the new table; without it, any role with a grant can read and write the table in an exposed schema. [E1] Set grants deliberately, revoking default grants to `anon` and `authenticated` if your project still provides them\u2014adding policies does not revoke those grants. [E1][E2] Then add the appropriate RLS policies and verify the setup with `supabase test db`. [E3]",
       "citation_ids": [
         "E1",
         "E1",
@@ -33401,7 +33401,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.0,
           "jev_score": 0.04,
@@ -33465,7 +33465,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.0,
           "jev_score": 0.04,
@@ -33505,11 +33505,11 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "relevance_grade": 0
         }
       },
-      "answer": "Enable Row Level Security (RLS) on the new table; every table in an exposed schema should have it enabled. [E2] Set its grants deliberately, revoking default grants to `anon` and `authenticated` if your project still supplies them—adding policies does not revoke existing grants. [E1][E2] Add the policies for the access you intend to allow, then verify the setup with `supabase test db`. [E1]",
+      "answer": "Enable Row Level Security (RLS) on the new table; every table in an exposed schema should have it enabled. [E2] Set its grants deliberately, revoking default grants to `anon` and `authenticated` if your project still supplies them\u2014adding policies does not revoke existing grants. [E1][E2] Add the policies for the access you intend to allow, then verify the setup with `supabase test db`. [E1]",
       "citation_ids": [
         "E2",
         "E1",
@@ -33602,7 +33602,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.4,
           "jev_score": 0.96,
@@ -33664,7 +33664,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.4,
           "jev_score": 0.96,
@@ -33694,7 +33694,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "relevance_grade": 1
         },
         "E3": {
@@ -33705,7 +33705,7 @@
           "relevance_grade": 0
         }
       },
-      "answer": "Your token is considered expired when the current time is **equal to or later than** its `exp` timestamp; it must not be accepted then, even if its signature is valid. [E1][E2] A verifier may allow a small grace period—usually no more than a few minutes—to account for clock skew. [E3]",
+      "answer": "Your token is considered expired when the current time is **equal to or later than** its `exp` timestamp; it must not be accepted then, even if its signature is valid. [E1][E2] A verifier may allow a small grace period\u2014usually no more than a few minutes\u2014to account for clock skew. [E3]",
       "citation_ids": [
         "E1",
         "E2",
@@ -33786,7 +33786,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.4,
           "jev_score": 0.96,
@@ -33850,7 +33850,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.4,
           "jev_score": 0.96,
@@ -33906,7 +33906,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "relevance_grade": 1
         },
         "E2": {
@@ -33938,7 +33938,7 @@
           "relevance_grade": 0
         }
       },
-      "answer": "Your token is considered expired when the current time is **at or after the time in its `exp` claim**, even if its signature is valid. [E1][E2] Some implementations may allow a small grace period—usually no more than a few minutes—to account for clock skew. [E3]",
+      "answer": "Your token is considered expired when the current time is **at or after the time in its `exp` claim**, even if its signature is valid. [E1][E2] Some implementations may allow a small grace period\u2014usually no more than a few minutes\u2014to account for clock skew. [E3]",
       "citation_ids": [
         "E1",
         "E2",
@@ -34042,7 +34042,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.0,
           "jev_score": 0.45,
@@ -34104,7 +34104,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.0,
           "jev_score": 0.45,
@@ -34134,7 +34134,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "relevance_grade": 0
         },
         "E3": {
@@ -34145,7 +34145,7 @@
           "relevance_grade": 2
         }
       },
-      "answer": "The evidence does not specify a fixed session duration; Supabase Auth keeps issuing new JWTs for as long as the user remains signed in. [E1] An access token’s expiry is not necessarily the end of the session: the client uses a refresh token to obtain a new token pair when the access token expires. [E3]",
+      "answer": "The evidence does not specify a fixed session duration; Supabase Auth keeps issuing new JWTs for as long as the user remains signed in. [E1] An access token\u2019s expiry is not necessarily the end of the session: the client uses a refresh token to obtain a new token pair when the access token expires. [E3]",
       "citation_ids": [
         "E1",
         "E3"
@@ -34247,7 +34247,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.0,
           "jev_score": 0.45,
@@ -34311,7 +34311,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.0,
           "jev_score": 0.45,
@@ -34359,7 +34359,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "relevance_grade": 0
         },
         "E4": {
@@ -34377,7 +34377,7 @@
           "relevance_grade": 0
         }
       },
-      "answer": "Supabase Auth sessions continue for as long as the user remains signed in, with new JWTs issued continuously. [E1] Access tokens are short-lived, but when one expires, the client uses the refresh token to obtain a new token pair—so access-token expiry does not itself end the session. [E2] The provided evidence does not specify a fixed maximum session duration. [E1][E2]",
+      "answer": "Supabase Auth sessions continue for as long as the user remains signed in, with new JWTs issued continuously. [E1] Access tokens are short-lived, but when one expires, the client uses the refresh token to obtain a new token pair\u2014so access-token expiry does not itself end the session. [E2] The provided evidence does not specify a fixed maximum session duration. [E1][E2]",
       "citation_ids": [
         "E1",
         "E2",
@@ -34492,7 +34492,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.0,
           "jev_score": 0.15,
@@ -34688,7 +34688,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.0,
           "jev_score": 0.15,
@@ -34752,7 +34752,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.0,
           "jev_score": 0.15,
@@ -34796,7 +34796,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "relevance_grade": 0
         },
         "E5": {
@@ -34807,7 +34807,7 @@
           "relevance_grade": 0
         }
       },
-      "answer": "If access is revoked by signing out, the affected refresh tokens can no longer be used; sign-out can apply to the current session, all of the user’s sessions, or other sessions. [E3] The evidence does not establish whether already-issued access JWTs are invalidated immediately; it only states that they must not be trusted after their `exp` time. [E4] If revocation means removing a row-level security policy, dropping the last policy leaves row security enabled with default-deny behavior. [E2]",
+      "answer": "If access is revoked by signing out, the affected refresh tokens can no longer be used; sign-out can apply to the current session, all of the user\u2019s sessions, or other sessions. [E3] The evidence does not establish whether already-issued access JWTs are invalidated immediately; it only states that they must not be trusted after their `exp` time. [E4] If revocation means removing a row-level security policy, dropping the last policy leaves row security enabled with default-deny behavior. [E2]",
       "citation_ids": [
         "E3",
         "E4",
@@ -35002,7 +35002,7 @@
           "relevance_grade": 1
         }
       },
-      "answer": "No—not always: the table owner typically bypasses row security policies, but can become subject to them with `ALTER TABLE ... FORCE ROW LEVEL SECURITY`. [E1] When row security applies, policies determine which rows are accessible; if no policy exists, the default is to deny access to all rows. [E2] Superusers and roles with `BYPASSRLS`, however, always bypass row security. [E3]",
+      "answer": "No\u2014not always: the table owner typically bypasses row security policies, but can become subject to them with `ALTER TABLE ... FORCE ROW LEVEL SECURITY`. [E1] When row security applies, policies determine which rows are accessible; if no policy exists, the default is to deny access to all rows. [E2] Superusers and roles with `BYPASSRLS`, however, always bypass row security. [E3]",
       "citation_ids": [
         "E1",
         "E2",
@@ -35856,7 +35856,7 @@
           "relevance_grade": 2
         }
       },
-      "answer": "For an UPDATE, row-level security policies control both which existing rows can be selected for modification and which updated rows are allowed; if `WITH CHECK` is omitted, it implicitly matches the policy’s `USING` clause. [E3] Policies can target `UPDATE` specifically, while an `ALL` policy applies to every command type, including updates. [E2] When row security is enabled, updates must be allowed by a policy; if no policy exists, default-deny applies and no rows are updatable. [E1]",
+      "answer": "For an UPDATE, row-level security policies control both which existing rows can be selected for modification and which updated rows are allowed; if `WITH CHECK` is omitted, it implicitly matches the policy\u2019s `USING` clause. [E3] Policies can target `UPDATE` specifically, while an `ALL` policy applies to every command type, including updates. [E2] When row security is enabled, updates must be allowed by a policy; if no policy exists, default-deny applies and no rows are updatable. [E1]",
       "citation_ids": [
         "E3",
         "E2",
@@ -37082,7 +37082,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.0,
           "jev_score": 0.05,
@@ -37277,7 +37277,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.0,
           "jev_score": 0.05,
@@ -37341,7 +37341,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.0,
           "jev_score": 0.05,
@@ -37381,7 +37381,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "relevance_grade": 0
         }
       },
@@ -38318,7 +38318,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.22677868380553634,
           "jev_score": 0.89,
@@ -38380,7 +38380,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.22677868380553634,
           "jev_score": 0.89,
@@ -38414,7 +38414,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "relevance_grade": 2
         },
         "E2": {
@@ -38432,7 +38432,7 @@
           "relevance_grade": 1
         }
       },
-      "answer": "A Supabase Auth access token stops being trusted when the current time reaches or passes its `exp` (expiration) timestamp—even if its signature is valid. [E1][E2] When it expires, the client uses the session’s refresh token to obtain a new access-token/refresh-token pair. [E3]",
+      "answer": "A Supabase Auth access token stops being trusted when the current time reaches or passes its `exp` (expiration) timestamp\u2014even if its signature is valid. [E1][E2] When it expires, the client uses the session\u2019s refresh token to obtain a new access-token/refresh-token pair. [E3]",
       "citation_ids": [
         "E1",
         "E2",
@@ -38524,7 +38524,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.22677868380553634,
           "jev_score": 0.89,
@@ -38588,7 +38588,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.22677868380553634,
           "jev_score": 0.89,
@@ -38640,7 +38640,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "relevance_grade": 2
         },
         "E3": {
@@ -38665,7 +38665,7 @@
           "relevance_grade": 0
         }
       },
-      "answer": "A Supabase Auth access token stops being trusted when the current time reaches or passes its `exp` (expiration) timestamp—even if its signature is valid. [E2][E4] Once it expires, the client uses the refresh token to obtain a new access-token/refresh-token pair. [E1]",
+      "answer": "A Supabase Auth access token stops being trusted when the current time reaches or passes its `exp` (expiration) timestamp\u2014even if its signature is valid. [E2][E4] Once it expires, the client uses the refresh token to obtain a new access-token/refresh-token pair. [E1]",
       "citation_ids": [
         "E2",
         "E4",
@@ -38757,7 +38757,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.06666666666666667,
           "jev_score": 0.42,
@@ -38819,7 +38819,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.06666666666666667,
           "jev_score": 0.42,
@@ -38849,7 +38849,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "relevance_grade": 2
         },
         "E3": {
@@ -38860,7 +38860,7 @@
           "relevance_grade": 2
         }
       },
-      "answer": "A Supabase Auth session consists of a short-lived access token and a refresh token, with Auth issuing new JWTs for the session for as long as the user remains signed in. [E1][E3] The JWT’s `sub` claim identifies the user, while its `exp` claim sets the time after which the token is expired and must not be trusted, even if its signature is valid. [E2] When the access token expires, the client uses the refresh token to obtain a new access-token/refresh-token pair, continuing the session. [E1] The evidence does not specify the initial sign-in issuance flow, token lifetimes, or refresh-token expiry and revocation rules, so it cannot establish those parts of the full lifecycle. [E1][E2][E3]",
+      "answer": "A Supabase Auth session consists of a short-lived access token and a refresh token, with Auth issuing new JWTs for the session for as long as the user remains signed in. [E1][E3] The JWT\u2019s `sub` claim identifies the user, while its `exp` claim sets the time after which the token is expired and must not be trusted, even if its signature is valid. [E2] When the access token expires, the client uses the refresh token to obtain a new access-token/refresh-token pair, continuing the session. [E1] The evidence does not specify the initial sign-in issuance flow, token lifetimes, or refresh-token expiry and revocation rules, so it cannot establish those parts of the full lifecycle. [E1][E2][E3]",
       "citation_ids": [
         "E1",
         "E3",
@@ -38967,7 +38967,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.06666666666666667,
           "jev_score": 0.42,
@@ -39031,7 +39031,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.06666666666666667,
           "jev_score": 0.42,
@@ -39079,7 +39079,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "relevance_grade": 2
         },
         "E4": {
@@ -39097,7 +39097,7 @@
           "relevance_grade": 0
         }
       },
-      "answer": "A Supabase Auth session consists of a short-lived access token (JWT) paired with a refresh token, and Auth continues issuing new JWTs for as long as the user remains signed in. [E1][E2] The JWT’s `exp` claim determines when it expires; after that time, it must not be trusted even if its signature is valid. [E3] When the access token expires, the client uses the refresh token to obtain a new access-token/refresh-token pair, continuing the session cycle. [E2] The evidence does not specify the initial sign-in/issuance steps, exact token lifetimes, refresh-token expiry rules, or how sessions end, so a fully detailed lifecycle cannot be established. [E1][E2][E3]",
+      "answer": "A Supabase Auth session consists of a short-lived access token (JWT) paired with a refresh token, and Auth continues issuing new JWTs for as long as the user remains signed in. [E1][E2] The JWT\u2019s `exp` claim determines when it expires; after that time, it must not be trusted even if its signature is valid. [E3] When the access token expires, the client uses the refresh token to obtain a new access-token/refresh-token pair, continuing the session cycle. [E2] The evidence does not specify the initial sign-in/issuance steps, exact token lifetimes, refresh-token expiry rules, or how sessions end, so a fully detailed lifecycle cannot be established. [E1][E2][E3]",
       "citation_ids": [
         "E1",
         "E2",
@@ -39296,7 +39296,7 @@
           "relevance_grade": 2
         }
       },
-      "answer": "When an `exp` claim is present, the current time MUST be strictly before its expiration time; at or after that time, the JWT MUST NOT be accepted for processing. [E1] Use of `exp` is optional, its value MUST be a NumericDate number, and implementers MAY allow small leeway—usually no more than a few minutes—for clock skew. [E2] When an `nbf` claim is present, the current time MUST be at or after its not-before time; before then, the JWT MUST NOT be accepted for processing. [E3]",
+      "answer": "When an `exp` claim is present, the current time MUST be strictly before its expiration time; at or after that time, the JWT MUST NOT be accepted for processing. [E1] Use of `exp` is optional, its value MUST be a NumericDate number, and implementers MAY allow small leeway\u2014usually no more than a few minutes\u2014for clock skew. [E2] When an `nbf` claim is present, the current time MUST be at or after its not-before time; before then, the JWT MUST NOT be accepted for processing. [E3]",
       "citation_ids": [
         "E1",
         "E2",
@@ -39356,7 +39356,7 @@
         "groundedness": 2,
         "groundedness_rationale": "All stated factual claims are supported by the available evidence.",
         "citation_correctness": 2,
-        "citation_correctness_rationale": "E1–E3 exist and support their respective attached claims."
+        "citation_correctness_rationale": "E1\u2013E3 exist and support their respective attached claims."
       }
     },
     {
@@ -39590,7 +39590,7 @@
         "groundedness": 2,
         "groundedness_rationale": "All factual claims are supported by the supplied evidence.",
         "citation_correctness": 2,
-        "citation_correctness_rationale": "E2–E5 exist and directly support the claims attached to them."
+        "citation_correctness_rationale": "E2\u2013E5 exist and directly support the claims attached to them."
       }
     },
     {
@@ -39725,7 +39725,7 @@
           "relevance_grade": 2
         }
       },
-      "answer": "Create an RLS policy with `CREATE POLICY`; its name must be unique within the table. [E2] Scope it to roles with the `TO` clause (it applies to `PUBLIC` if no roles are named), and to commands by specifying `SELECT`, `INSERT`, `UPDATE`, `DELETE`, or `ALL`. [E2][E3] Later, remove it with `DROP POLICY`; dropping the table’s last policy does **not** disable row security—default-deny still applies while row security remains enabled. [E1]",
+      "answer": "Create an RLS policy with `CREATE POLICY`; its name must be unique within the table. [E2] Scope it to roles with the `TO` clause (it applies to `PUBLIC` if no roles are named), and to commands by specifying `SELECT`, `INSERT`, `UPDATE`, `DELETE`, or `ALL`. [E2][E3] Later, remove it with `DROP POLICY`; dropping the table\u2019s last policy does **not** disable row security\u2014default-deny still applies while row security remains enabled. [E1]",
       "citation_ids": [
         "E2",
         "E2",
@@ -40608,7 +40608,7 @@
           "relevance_grade": 2
         }
       },
-      "answer": "- **Signed JWT:** Trust rests on the signature or MAC protecting the claims’ integrity; encryption is a separate possible protection. [E3]\n- **Unsecured JWT:** Uses `\"alg\": \"none\"` with an empty signature, provides no integrity protection, and must not be trusted without an external integrity mechanism. [E1]\n- **Nested JWT:** Contains another JWT as the payload of an enclosing JWS or the plaintext of an enclosing JWE; nesting describes layering rather than a standalone trust guarantee, so its protections depend on the structures used. [E2][E3]\n\nThe evidence does not specify key-trust or verification requirements, so a fuller comparison of those aspects is not possible. [E1][E2][E3]",
+      "answer": "- **Signed JWT:** Trust rests on the signature or MAC protecting the claims\u2019 integrity; encryption is a separate possible protection. [E3]\n- **Unsecured JWT:** Uses `\"alg\": \"none\"` with an empty signature, provides no integrity protection, and must not be trusted without an external integrity mechanism. [E1]\n- **Nested JWT:** Contains another JWT as the payload of an enclosing JWS or the plaintext of an enclosing JWE; nesting describes layering rather than a standalone trust guarantee, so its protections depend on the structures used. [E2][E3]\n\nThe evidence does not specify key-trust or verification requirements, so a fuller comparison of those aspects is not possible. [E1][E2][E3]",
       "citation_ids": [
         "E3",
         "E1",
@@ -40670,7 +40670,7 @@
         "completeness": 1,
         "completeness_rationale": "Covers signature or MAC integrity and the lack of integrity with alg none, but does not state the required sign-then-encrypt nesting pattern.",
         "groundedness": 2,
-        "groundedness_rationale": "The factual descriptions and qualified conclusions are supported by E1–E3.",
+        "groundedness_rationale": "The factual descriptions and qualified conclusions are supported by E1\u2013E3.",
         "citation_correctness": 2,
         "citation_correctness_rationale": "All citations exist and support the claims to which they are attached."
       }
@@ -40960,7 +40960,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.18090680674665818,
           "jev_score": 0.18,
@@ -41144,7 +41144,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.18090680674665818,
           "jev_score": 0.18,
@@ -41208,7 +41208,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "text": "The exp field sets a time limit after which the token should not be trusted and is considered expired, even if it is properly signed. The sub field is the unique ID of the user represented by the token.",
           "lexical_score": 0.18090680674665818,
           "jev_score": 0.18,
@@ -41256,7 +41256,7 @@
           "candidate_id": "sb_jwt_exp_field",
           "source_id": "supabase/docs",
           "source_url": "https://github.com/supabase/supabase/blob/783727708403b941fe5a59300b23c1c0711bd97b/apps/docs/content/guides/auth/jwts.mdx",
-          "section": "Introduction — JWT claim descriptions",
+          "section": "Introduction \u2014 JWT claim descriptions",
           "relevance_grade": 0
         },
         "E4": {
@@ -41274,7 +41274,7 @@
           "relevance_grade": 2
         }
       },
-      "answer": "- **Rate limits:** Supabase Auth rate-limits endpoints such as sign-up and token refresh to protect against abuse; limits are configurable per project. [E1]\n- **MFA:** Supported second factors include authenticator-app TOTP and phone codes; a verified second factor is reflected in the session JWT as `aal2` assurance. [E2]\n- **Sign-out scope:** Sign-out can target the current session, all user sessions, or other sessions, revoking the affected refresh tokens so they can no longer be used. [E5]\n- **Token expiry:** The JWT’s `exp` sets the time after which it must no longer be trusted, even if properly signed. [E3]",
+      "answer": "- **Rate limits:** Supabase Auth rate-limits endpoints such as sign-up and token refresh to protect against abuse; limits are configurable per project. [E1]\n- **MFA:** Supported second factors include authenticator-app TOTP and phone codes; a verified second factor is reflected in the session JWT as `aal2` assurance. [E2]\n- **Sign-out scope:** Sign-out can target the current session, all user sessions, or other sessions, revoking the affected refresh tokens so they can no longer be used. [E5]\n- **Token expiry:** The JWT\u2019s `exp` sets the time after which it must no longer be trusted, even if properly signed. [E3]",
       "citation_ids": [
         "E1",
         "E2",

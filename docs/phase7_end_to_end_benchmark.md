@@ -174,3 +174,9 @@ The live runner is `scripts/run_phase7_end_to_end_rag.py`. Rerunning it performs
 6. Three incomplete provider responses from the legacy checkpoint lack usage. Known LLM costs are lower bounds by an unknown amount.
 7. Paired bootstrap intervals are exploratory, with 40 cases and no multiplicity adjustment. They do not replace a newly collected blinded set or independent review.
 8. Secure snapshot setup timing was not persisted in the initial checkpoint and is excluded from per-question latency.
+
+## Post-run integrity update (2026-11-06)
+
+The secure snapshot reader (`services/evidence-service/evidence_service/secure_snapshot_read.py`) gained account-lifecycle gate checks after this benchmark ran. The file is one of the Phase 7 input fingerprints, so its recorded hash was updated in the result and manifest, and the change is listed under `post_run_input_updates` in the manifest.
+
+This is a security-only change to the read path. It does not alter the benchmark inputs, prompts, answers, scores, token counts, or costs reported above.

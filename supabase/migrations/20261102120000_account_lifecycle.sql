@@ -258,21 +258,7 @@ begin
 end
 $$;
 
--- ALTER OWNER requires SET on the target role; grant temporarily to the migration actor.
-do $$
-begin
-    execute format('grant account_lifecycle_provisioner to %I with set true, inherit false', current_user);
-end
-$$;
 
-alter function private.provision_account_lifecycle_for_auth_user()
-    owner to account_lifecycle_provisioner;
-
-do $$
-begin
-    execute format('revoke account_lifecycle_provisioner from %I', current_user);
-end
-$$;
 
 -- The migration actor gets a temporary, row-limited path for the one-time
 -- backfill. Both policies are removed before this migration commits.
@@ -345,6 +331,22 @@ revoke all on function private.enforce_account_lifecycle_insert()
     from public, anon, authenticated, service_role, authenticator;
 revoke all on function private.enforce_account_lifecycle_transition()
     from public, anon, authenticated, service_role, authenticator;
+
+-- ALTER OWNER requires SET on the target role; grant temporarily to the migration actor.
+do $$
+begin
+    execute format('grant account_lifecycle_provisioner to %I with set true, inherit false', current_user);
+end
+$$;
+
+alter function private.provision_account_lifecycle_for_auth_user()
+    owner to account_lifecycle_provisioner;
+
+do $$
+begin
+    execute format('revoke account_lifecycle_provisioner from %I', current_user);
+end
+$$;
 
 do $privilege_audit$
 declare
