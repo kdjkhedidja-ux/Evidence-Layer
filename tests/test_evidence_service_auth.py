@@ -10,6 +10,10 @@ from cryptography.hazmat.primitives.asymmetric import ec, rsa
 from fastapi.testclient import TestClient
 from jwt.utils import base64url_decode, base64url_encode, to_base64url_uint
 
+from account_lifecycle_test_support import (
+    AvailableAccountLifecycleReader,
+    OpenRecoveryFenceReader,
+)
 from evidence_service.app import create_app
 from evidence_service.auth import (
     AuthenticatedRequest,
@@ -147,6 +151,8 @@ def make_client(
         create_app(
             settings(),
             token_verifier=verifier,
+            account_lifecycle_reader=AvailableAccountLifecycleReader(),
+            recovery_fence_reader=OpenRecoveryFenceReader(),
             workspace_directory=directory,
         )
     )

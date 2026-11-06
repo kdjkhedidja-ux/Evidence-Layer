@@ -8,6 +8,10 @@ from uuid import UUID
 import httpx
 import pytest
 
+from account_lifecycle_test_support import (
+    AvailableAccountLifecycleReader,
+    OpenRecoveryFenceReader,
+)
 from evidence_service.app import create_app
 from evidence_service.auth import AuthenticationRejected, Principal
 from evidence_service.config import SupabaseSettings
@@ -132,6 +136,8 @@ def make_client(directory: MembershipDirectory, repository: EvidenceRepositorySp
     app = create_app(
         settings(),
         token_verifier=StaticVerifier(),
+        account_lifecycle_reader=AvailableAccountLifecycleReader(),
+        recovery_fence_reader=OpenRecoveryFenceReader(),
         workspace_directory=directory,
         evidence_repository=repository,
     )
@@ -336,6 +342,8 @@ def make_link_client(repository, catalog):
     app = create_app(
         settings(),
         token_verifier=StaticVerifier(),
+        account_lifecycle_reader=AvailableAccountLifecycleReader(),
+        recovery_fence_reader=OpenRecoveryFenceReader(),
         workspace_directory=MembershipDirectory(),
         evidence_repository=repository,
         source_catalog_factory=factory,

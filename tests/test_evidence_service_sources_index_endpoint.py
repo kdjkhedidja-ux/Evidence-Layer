@@ -8,6 +8,10 @@ from uuid import UUID
 
 import httpx
 
+from account_lifecycle_test_support import (
+    AvailableAccountLifecycleReader,
+    OpenRecoveryFenceReader,
+)
 from evidence_service.app import create_app
 from evidence_service.auth import AuthenticationRejected, Principal
 from evidence_service.config import SupabaseSettings
@@ -96,6 +100,8 @@ def make_client(*, directory, catalog: FakeCatalog):
     app = create_app(
         settings(),
         token_verifier=StaticVerifier(),
+        account_lifecycle_reader=AvailableAccountLifecycleReader(),
+        recovery_fence_reader=OpenRecoveryFenceReader(),
         workspace_directory=directory,
         source_catalog_factory=factory,
     )

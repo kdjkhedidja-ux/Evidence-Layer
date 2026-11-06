@@ -2,14 +2,25 @@
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from datetime import datetime
-from typing import Literal
+from typing import Literal, TypeVar
 from uuid import UUID
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from evidence_service.account_lifecycle import (
+    AccountLifecycleReader,
+    SupabaseAccountLifecycleReader,
+)
+from evidence_service.deletion_repository import (
+    DeletionRepository,
+    DeletionRequest,
+    DeletionRequestUnavailable,
+    SupabaseDeletionRepository,
+)
 from evidence_service.auth import (
     AuthenticatedRequest,
     AuthenticationRejected,
@@ -33,6 +44,11 @@ from evidence_service.relationship_repository import (
     RelationshipDataUnavailable,
     RelationshipRepository,
     SupabaseRelationshipRepository,
+)
+from evidence_service.recovery_fence import (
+    CloudflareRecoveryFenceReader,
+    RecoveryFenceConfigurationError,
+    RecoveryFenceReader,
 )
 from evidence_service.supabase_repository import (
     SupabaseWorkspaceRepository,
@@ -184,7 +200,23 @@ class RelationshipResponse(BaseModel):
     updated_at: datetime
 
 
+class DeletionRequestCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    idempotency_key: str = Field(min_length=1, max_length=256)
+
+
+class DeletionRequestResponse(BaseModel):
+    request_id: UUID
+    requester_user_id: UUID
+    scope_type: Literal["account"]
+    status: Literal["approval_pending", "journal_ack_pending", "accepted"]
+    created_at: datetime
+    accepted_at: datetime | None
+
+
 bearer_scheme = HTTPBearer(auto_error=False)
+_Result = TypeVar("_Result")
 
 
 def _settings_for(request: Request) -> SupabaseSettings:
@@ -207,6 +239,75 @@ def _token_verifier(request: Request) -> TokenVerifier:
         verifier = SupabaseTokenVerifier(_settings_for(request))
         request.app.state.token_verifier = verifier
     return verifier
+
+
+def _account_lifecycle_reader(request: Request) -> AccountLifecycleReader:
+    reader = request.app.state.account_lifecycle_reader
+    if reader is None:
+        reader = SupabaseAccountLifecycleReader(_settings_for(request))
+        request.app.state.account_lifecycle_reader = reader
+    return reader
+
+
+def _recovery_fence_reader(request: Request) -> RecoveryFenceReader | None:
+    reader = request.app.state.recovery_fence_reader
+    if reader is not None:
+        return reader
+    try:
+        reader = CloudflareRecoveryFenceReader.from_environment()
+    except RecoveryFenceConfigurationError:
+        return None
+    request.app.state.recovery_fence_reader = reader
+    return reader
+
+
+async def _require_recovery_fence_open(request: Request) -> None:
+    """Fail closed unless an approved external recovery fence says open."""
+    reader = _recovery_fence_reader(request)
+    if reader is None:
+        raise HTTPException(status_code=503, detail="Service is unavailable")
+    try:
+        is_open = await reader.is_open()
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="Service is unavailable") from exc
+    if is_open is not True:
+        raise HTTPException(status_code=503, detail="Service is unavailable")
+
+
+async def _require_available_account(
+    request: Request, authenticated_request: AuthenticatedRequest
+) -> None:
+    """Read the authoritative state afresh and fail closed on every error."""
+    try:
+        state = await _account_lifecycle_reader(request).read_state(
+            authenticated_request.principal.subject,
+            authenticated_request.access_token,
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503, detail="Account status is unavailable"
+        ) from exc
+
+    if state != "available":
+        raise HTTPException(status_code=403, detail="Account unavailable")
+
+
+async def _require_protected_access(
+    request: Request, authenticated_request: AuthenticatedRequest
+) -> None:
+    """Apply the recovery fence first, then the account lifecycle gate."""
+    await _require_recovery_fence_open(request)
+    await _require_available_account(request, authenticated_request)
+
+
+async def _with_account_gate(
+    request: Request,
+    authenticated_request: AuthenticatedRequest,
+    operation: Callable[[], Awaitable[_Result]],
+) -> _Result:
+    """Recheck immediately before one protected repository/API operation."""
+    await _require_protected_access(request, authenticated_request)
+    return await operation()
 
 
 class SourceContextDependencyUnavailable(Exception):
@@ -335,6 +436,9 @@ def _secure_snapshot_read_path(request: Request, auth: AuthenticatedRequest):
         catalog=catalog,
         acl=acl,
         store=store,
+        account_lifecycle_check=lambda authenticated_request: _require_protected_access(
+            request, authenticated_request
+        ),
     )
 
 
@@ -355,9 +459,14 @@ async def _require_visible_source_link(
     from evidence_service.supabase_source_catalog import SourceCatalogUnavailable
 
     source_id, version_id = link
-    catalog = _source_catalog(request, auth.access_token)
     try:
-        manifest = await catalog.resolve_version(workspace_id, source_id, version_id)
+        manifest = await _with_account_gate(
+            request,
+            auth,
+            lambda: _source_catalog(request, auth.access_token).resolve_version(
+                workspace_id, source_id, version_id
+            ),
+        )
     except SourceCatalogUnavailable as exc:
         raise HTTPException(
             status_code=503, detail="Source catalog is unavailable"
@@ -399,7 +508,9 @@ async def require_authenticated_request(
             status_code=503, detail="Identity verification is unavailable"
         ) from exc
 
-    return AuthenticatedRequest(principal, credentials.credentials)
+    authenticated_request = AuthenticatedRequest(principal, credentials.credentials)
+    await _require_protected_access(request, authenticated_request)
+    return authenticated_request
 
 
 def _workspace_directory(request: Request) -> WorkspaceDirectory:
@@ -426,17 +537,40 @@ def _relationship_repository(request: Request) -> RelationshipRepository:
     return repository
 
 
+def _deletion_repository(request: Request) -> DeletionRepository:
+    repository = request.app.state.deletion_repository
+    if repository is None:
+        repository = SupabaseDeletionRepository(_settings_for(request))
+        request.app.state.deletion_repository = repository
+    return repository
+
+
+def _deletion_response(request_row: DeletionRequest) -> DeletionRequestResponse:
+    return DeletionRequestResponse(
+        request_id=request_row.request_id,
+        requester_user_id=request_row.requester_user_id,
+        scope_type="account",
+        status=request_row.status,
+        created_at=request_row.created_at,
+        accepted_at=request_row.accepted_at,
+    )
+
+
 async def _resolve_workspace_or_404(
     request: Request,
     auth: AuthenticatedRequest,
     workspace_id: UUID,
 ) -> WorkspaceContext:
     try:
-        return await resolve_workspace_context(
-            _workspace_directory(request),
-            auth.principal,
-            auth.access_token,
-            workspace_id,
+        return await _with_account_gate(
+            request,
+            auth,
+            lambda: resolve_workspace_context(
+                _workspace_directory(request),
+                auth.principal,
+                auth.access_token,
+                workspace_id,
+            ),
         )
     except WorkspaceAccessDenied as exc:
         raise HTTPException(status_code=404, detail="Workspace not found") from exc
@@ -485,9 +619,12 @@ def create_app(
     settings: SupabaseSettings | None = None,
     *,
     token_verifier: TokenVerifier | None = None,
+    account_lifecycle_reader: AccountLifecycleReader | None = None,
+    recovery_fence_reader: RecoveryFenceReader | None = None,
     workspace_directory: WorkspaceDirectory | None = None,
     evidence_repository: EvidenceRepository | None = None,
     relationship_repository: RelationshipRepository | None = None,
+    deletion_repository: DeletionRepository | None = None,
     source_read_path=None,
     source_catalog_factory=None,
 ) -> FastAPI:
@@ -500,9 +637,12 @@ def create_app(
     )
     application.state.supabase_settings = settings
     application.state.token_verifier = token_verifier
+    application.state.account_lifecycle_reader = account_lifecycle_reader
+    application.state.recovery_fence_reader = recovery_fence_reader
     application.state.workspace_directory = workspace_directory
     application.state.evidence_repository = evidence_repository
     application.state.relationship_repository = relationship_repository
+    application.state.deletion_repository = deletion_repository
     application.state.trusted_source_context_issuer = None
     application.state.source_read_path = source_read_path
     application.state.source_catalog_factory = source_catalog_factory
@@ -513,14 +653,90 @@ def create_app(
     async def healthz() -> dict[str, str]:
         return {"status": "ok"}
 
+    @application.post(
+        "/v1/deletion-requests",
+        response_model=DeletionRequestResponse,
+        status_code=201,
+    )
+    async def create_deletion_request(
+        payload: DeletionRequestCreateRequest,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> DeletionRequestResponse:
+        try:
+            request_row = await _with_account_gate(
+                request,
+                auth,
+                lambda: _deletion_repository(request).create_request(
+                    auth.access_token,
+                    principal_id=auth.principal.subject,
+                    idempotency_key=payload.idempotency_key,
+                ),
+            )
+        except DeletionRequestUnavailable as exc:
+            raise HTTPException(
+                status_code=503, detail="Deletion request service is unavailable"
+            ) from exc
+        return _deletion_response(request_row)
+
+    @application.post(
+        "/v1/deletion-requests/{request_id}/accept",
+        response_model=DeletionRequestResponse,
+    )
+    async def accept_deletion_request(
+        request_id: UUID,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> DeletionRequestResponse:
+        try:
+            # Acceptance is the control operation that creates the denial
+            # marker; replay remains available to return the same outcome.
+            request_row = await _deletion_repository(request).accept_request(
+                auth.access_token, request_id=request_id
+            )
+        except DeletionRequestUnavailable as exc:
+            raise HTTPException(
+                status_code=503, detail="Deletion request service is unavailable"
+            ) from exc
+        return _deletion_response(request_row)
+
+    @application.get(
+        "/v1/deletion-requests/{request_id}",
+        response_model=DeletionRequestResponse,
+    )
+    async def get_deletion_request(
+        request_id: UUID,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> DeletionRequestResponse:
+        # Status is the explicitly permitted control-only view for a blocked
+        # account; the repository query remains requester- and RLS-scoped.
+        try:
+            request_row = await _deletion_repository(request).get_request(
+                auth.access_token,
+                principal_id=auth.principal.subject,
+                request_id=request_id,
+            )
+        except DeletionRequestUnavailable as exc:
+            raise HTTPException(
+                status_code=503, detail="Deletion request service is unavailable"
+            ) from exc
+        if request_row is None:
+            raise HTTPException(status_code=404, detail="Deletion request not found")
+        return _deletion_response(request_row)
+
     @application.get("/v1/me", response_model=MeResponse)
     async def me(
         request: Request,
         auth: AuthenticatedRequest = Depends(require_authenticated_request),
     ) -> MeResponse:
         try:
-            memberships = await _workspace_directory(request).list_memberships(
-                auth.principal, auth.access_token
+            memberships = await _with_account_gate(
+                request,
+                auth,
+                lambda: _workspace_directory(request).list_memberships(
+                    auth.principal, auth.access_token
+                ),
             )
         except WorkspaceDataUnavailable as exc:
             raise HTTPException(
@@ -548,8 +764,12 @@ def create_app(
         auth: AuthenticatedRequest = Depends(require_authenticated_request),
     ) -> WorkspaceResponse:
         try:
-            membership = await _workspace_directory(request).ensure_personal_workspace(
-                auth.principal, auth.access_token
+            membership = await _with_account_gate(
+                request,
+                auth,
+                lambda: _workspace_directory(request).ensure_personal_workspace(
+                    auth.principal, auth.access_token
+                ),
             )
         except AuthenticationRejected as exc:
             raise HTTPException(
@@ -580,11 +800,15 @@ def create_app(
         auth: AuthenticatedRequest = Depends(require_authenticated_request),
     ) -> WorkspaceResponse:
         try:
-            context = await resolve_workspace_context(
-                _workspace_directory(request),
-                auth.principal,
-                auth.access_token,
-                workspace_id,
+            context = await _with_account_gate(
+                request,
+                auth,
+                lambda: resolve_workspace_context(
+                    _workspace_directory(request),
+                    auth.principal,
+                    auth.access_token,
+                    workspace_id,
+                ),
             )
         except WorkspaceAccessDenied as exc:
             raise HTTPException(status_code=404, detail="Workspace not found") from exc
@@ -614,9 +838,14 @@ def create_app(
 
         from evidence_service.supabase_source_catalog import SourceCatalogUnavailable
 
-        catalog = _source_catalog(request, auth.access_token)
         try:
-            manifests = await catalog.list_visible_versions(context.workspace_id)
+            manifests = await _with_account_gate(
+                request,
+                auth,
+                lambda: _source_catalog(
+                    request, auth.access_token
+                ).list_visible_versions(context.workspace_id),
+            )
         except SourceCatalogUnavailable as exc:
             raise HTTPException(
                 status_code=503, detail="Source catalog is unavailable"
@@ -645,8 +874,12 @@ def create_app(
     ) -> list[EvidenceRecord]:
         context = await _resolve_workspace_or_404(request, auth, workspace_id)
         try:
-            return await _evidence_repository(request).list_records(
-                auth.access_token, context.workspace_id
+            return await _with_account_gate(
+                request,
+                auth,
+                lambda: _evidence_repository(request).list_records(
+                    auth.access_token, context.workspace_id
+                ),
             )
         except EvidenceAccessDenied as exc:
             raise _evidence_access_error(exc) from exc
@@ -671,13 +904,17 @@ def create_app(
             request, auth, context.workspace_id, body.linked_pair()
         )
         try:
-            return await _evidence_repository(request).create_record(
-                auth.access_token,
-                context.workspace_id,
-                content=body.content,
-                source_label=body.source_label,
-                source_id=body.source_id,
-                source_version_id=body.source_version_id,
+            return await _with_account_gate(
+                request,
+                auth,
+                lambda: _evidence_repository(request).create_record(
+                    auth.access_token,
+                    context.workspace_id,
+                    content=body.content,
+                    source_label=body.source_label,
+                    source_id=body.source_id,
+                    source_version_id=body.source_version_id,
+                ),
             )
         except EvidenceAccessDenied as exc:
             raise _evidence_access_error(exc) from exc
@@ -696,8 +933,12 @@ def create_app(
     ) -> EvidenceRecord:
         context = await _resolve_workspace_or_404(request, auth, workspace_id)
         try:
-            record = await _evidence_repository(request).get_record(
-                auth.access_token, context.workspace_id, evidence_id
+            record = await _with_account_gate(
+                request,
+                auth,
+                lambda: _evidence_repository(request).get_record(
+                    auth.access_token, context.workspace_id, evidence_id
+                ),
             )
         except EvidenceAccessDenied as exc:
             raise _evidence_access_error(exc) from exc
@@ -726,11 +967,15 @@ def create_app(
                 request, auth, context.workspace_id, body.linked_pair()
             )
         try:
-            record = await _evidence_repository(request).update_record(
-                auth.access_token,
-                context.workspace_id,
-                evidence_id,
-                body.model_dump(exclude_unset=True),
+            record = await _with_account_gate(
+                request,
+                auth,
+                lambda: _evidence_repository(request).update_record(
+                    auth.access_token,
+                    context.workspace_id,
+                    evidence_id,
+                    body.model_dump(exclude_unset=True),
+                ),
             )
         except EvidenceAccessDenied as exc:
             raise _evidence_access_error(exc) from exc
@@ -754,8 +999,12 @@ def create_app(
         if context.role != "owner":
             raise HTTPException(status_code=403, detail="Workspace owner access is required")
         try:
-            deleted = await _evidence_repository(request).delete_record(
-                auth.access_token, context.workspace_id, evidence_id
+            deleted = await _with_account_gate(
+                request,
+                auth,
+                lambda: _evidence_repository(request).delete_record(
+                    auth.access_token, context.workspace_id, evidence_id
+                ),
             )
         except EvidenceAccessDenied as exc:
             raise _evidence_access_error(exc) from exc
@@ -776,8 +1025,12 @@ def create_app(
     ) -> list[EvidenceRelationship]:
         context = await _resolve_workspace_or_404(request, auth, workspace_id)
         try:
-            return await _relationship_repository(request).list_relationships(
-                auth.access_token, context.workspace_id
+            return await _with_account_gate(
+                request,
+                auth,
+                lambda: _relationship_repository(request).list_relationships(
+                    auth.access_token, context.workspace_id
+                ),
             )
         except RelationshipAccessDenied as exc:
             raise HTTPException(status_code=404, detail="Workspace not found") from exc
@@ -799,14 +1052,18 @@ def create_app(
         if context.role != "owner":
             raise HTTPException(status_code=403, detail="Workspace owner access is required")
         try:
-            return await _relationship_repository(request).create_relationship(
-                auth.access_token,
-                context.workspace_id,
-                evidence_id_a=body.evidence_id_a,
-                evidence_id_b=body.evidence_id_b,
-                relation_type=body.relation_type,
-                rationale=body.rationale,
-                provenance_note=body.provenance_note,
+            return await _with_account_gate(
+                request,
+                auth,
+                lambda: _relationship_repository(request).create_relationship(
+                    auth.access_token,
+                    context.workspace_id,
+                    evidence_id_a=body.evidence_id_a,
+                    evidence_id_b=body.evidence_id_b,
+                    relation_type=body.relation_type,
+                    rationale=body.rationale,
+                    provenance_note=body.provenance_note,
+                ),
             )
         except RelationshipAccessDenied as exc:
             raise HTTPException(status_code=403, detail="Relationship write is not authorized") from exc
@@ -830,11 +1087,15 @@ def create_app(
         if context.role != "owner":
             raise HTTPException(status_code=403, detail="Workspace owner access is required")
         try:
-            relationship = await _relationship_repository(request).update_relationship(
-                auth.access_token,
-                context.workspace_id,
-                relationship_id,
-                body.model_dump(exclude_unset=True),
+            relationship = await _with_account_gate(
+                request,
+                auth,
+                lambda: _relationship_repository(request).update_relationship(
+                    auth.access_token,
+                    context.workspace_id,
+                    relationship_id,
+                    body.model_dump(exclude_unset=True),
+                ),
             )
         except RelationshipAccessDenied as exc:
             raise HTTPException(status_code=403, detail="Relationship write is not authorized") from exc
@@ -860,8 +1121,12 @@ def create_app(
         if context.role != "owner":
             raise HTTPException(status_code=403, detail="Workspace owner access is required")
         try:
-            deleted = await _relationship_repository(request).delete_relationship(
-                auth.access_token, context.workspace_id, relationship_id
+            deleted = await _with_account_gate(
+                request,
+                auth,
+                lambda: _relationship_repository(request).delete_relationship(
+                    auth.access_token, context.workspace_id, relationship_id
+                ),
             )
         except RelationshipAccessDenied as exc:
             raise HTTPException(status_code=403, detail="Relationship write is not authorized") from exc
@@ -889,13 +1154,16 @@ def create_app(
         await _resolve_workspace_or_404(request, auth, workspace_id)
 
         try:
-            path = _secure_snapshot_read_path(request, auth)
-            snapshot = await path.read(
-                auth,
-                workspace_id=workspace_id,
-                source_id=source_id,
-                version_id=version_id,
-            )
+            async def read_snapshot():
+                path = _secure_snapshot_read_path(request, auth)
+                return await path.read(
+                    auth,
+                    workspace_id=workspace_id,
+                    source_id=source_id,
+                    version_id=version_id,
+                )
+
+            snapshot = await _with_account_gate(request, auth, read_snapshot)
         except SourceReadError as exc:
             raise _source_read_error(exc) from exc
         except ValueError as exc:
@@ -904,6 +1172,10 @@ def create_app(
             raise HTTPException(
                 status_code=503, detail="Source storage is unavailable"
             ) from exc
+
+        # The complete buffered body remains server-side until this final
+        # authoritative read succeeds; no digest or bytes are emitted earlier.
+        await _require_protected_access(request, auth)
 
         return Response(
             content=snapshot.content,

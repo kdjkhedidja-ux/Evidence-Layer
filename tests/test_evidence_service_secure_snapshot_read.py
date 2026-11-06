@@ -7,6 +7,7 @@ from uuid import UUID, uuid4
 
 import httpx
 import pytest
+from fastapi import HTTPException
 
 from evidence_layer.source_access import (
     SourceReadDenialReason,
@@ -128,7 +129,7 @@ def manifest(
     )
 
 
-def setup_path(*, content: bytes = CONTENT):
+def setup_path(*, content: bytes = CONTENT, account_lifecycle_check=None):
     clock = MutableClock()
     verifier = FakeVerifier(clock)
     directory = MutableWorkspaceDirectory()
@@ -144,6 +145,7 @@ def setup_path(*, content: bytes = CONTENT):
         catalog=catalog,
         acl=acl,
         store=store,
+        account_lifecycle_check=account_lifecycle_check,
         clock=clock,
     )
     auth = AuthenticatedRequest(PRINCIPAL, TOKEN)
@@ -275,6 +277,49 @@ def test_acl_revoked_after_download_but_before_delivery_withholds_payload():
         lambda: read(path, auth),
         SourceReadDenialReason.ACCESS_DENIED,
     )
+    assert len(store.opened) == 1
+
+
+def test_lifecycle_failure_at_storage_boundary_prevents_object_open():
+    checks = 0
+
+    async def lifecycle_check(_authenticated_request):
+        nonlocal checks
+        checks += 1
+        if checks == 8:
+            raise HTTPException(status_code=503, detail="Account status is unavailable")
+
+    path, auth, _, _, _, catalog, _, store, _ = setup_path(
+        account_lifecycle_check=lifecycle_check
+    )
+
+    with pytest.raises(HTTPException) as error:
+        read(path, auth)
+
+    assert error.value.status_code == 503
+    assert checks == 8
+    assert catalog._entries
+    assert store.opened == []
+
+
+def test_lifecycle_failure_at_final_snapshot_boundary_withholds_result():
+    checks = 0
+
+    async def lifecycle_check(_authenticated_request):
+        nonlocal checks
+        checks += 1
+        if checks == 11:
+            raise HTTPException(status_code=403, detail="Account unavailable")
+
+    path, auth, _, _, _, _, _, store, _ = setup_path(
+        account_lifecycle_check=lifecycle_check
+    )
+
+    with pytest.raises(HTTPException) as error:
+        read(path, auth)
+
+    assert error.value.status_code == 403
+    assert checks == 11
     assert len(store.opened) == 1
 
 

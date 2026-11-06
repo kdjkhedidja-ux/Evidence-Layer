@@ -15,7 +15,7 @@ import hmac
 import ipaddress
 import json
 import re
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from enum import Enum
@@ -382,6 +382,7 @@ class SecureSnapshotReadPath:
         catalog: SnapshotCatalog,
         acl: SnapshotSourceAccessPolicy,
         store: SnapshotObjectStore,
+        account_lifecycle_check: Callable[[AuthenticatedRequest], Awaitable[None]] | None = None,
         clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
         context_ttl: timedelta = DEFAULT_READ_CONTEXT_TTL,
         max_snapshot_bytes: int = DEFAULT_MAX_SNAPSHOT_BYTES,
@@ -398,6 +399,7 @@ class SecureSnapshotReadPath:
         self._catalog = catalog
         self._acl = acl
         self._store = store
+        self._account_lifecycle_check = account_lifecycle_check
         self._clock = clock
         self._context_ttl = context_ttl
         self._max_bytes = max_snapshot_bytes
@@ -455,14 +457,17 @@ class SecureSnapshotReadPath:
         version_id: UUID,
         budget: asyncio.Timeout,
     ) -> VerifiedSnapshot:
+        await self._check_account_lifecycle(authenticated_request)
         principal, context = await self._trusted_membership(
             authenticated_request, workspace_id, expected_expiry=None
         )
         self._limit_budget_to_context(budget, context)
+        await self._check_account_lifecycle(authenticated_request)
         manifest = await self._resolve_manifest(workspace_id, source_id, version_id)
         self._validate_manifest(manifest, workspace_id, source_id, version_id)
 
-        await self._require_acl(principal.subject, manifest)
+        await self._check_account_lifecycle(authenticated_request)
+        await self._require_acl(authenticated_request, principal.subject, manifest)
         await self._revalidate_before_open(
             authenticated_request,
             workspace_id,
@@ -471,6 +476,7 @@ class SecureSnapshotReadPath:
             manifest,
         )
 
+        await self._check_account_lifecycle(authenticated_request)
         try:
             content = await self._store.read_exact(
                 manifest.object_key,
@@ -493,7 +499,14 @@ class SecureSnapshotReadPath:
             context,
             manifest,
         )
+        await self._check_account_lifecycle(authenticated_request)
         return VerifiedSnapshot(manifest=manifest, content=content)
+
+    async def _check_account_lifecycle(
+        self, authenticated_request: AuthenticatedRequest
+    ) -> None:
+        if self._account_lifecycle_check is not None:
+            await self._account_lifecycle_check(authenticated_request)
 
     async def _trusted_membership(
         self,
@@ -503,6 +516,7 @@ class SecureSnapshotReadPath:
         expected_expiry: datetime | None,
         context: SourceRequestContext | None = None,
     ) -> tuple[Principal, SourceRequestContext]:
+        await self._check_account_lifecycle(authenticated_request)
         try:
             verified = await self._verifier.verify_access_token(
                 authenticated_request.access_token
@@ -586,6 +600,8 @@ class SecureSnapshotReadPath:
     async def _resolve_manifest(
         self, workspace_id: UUID, source_id: UUID, version_id: UUID
     ) -> SourceSnapshotManifest:
+        # Keep the lifecycle check outside the catalog error translation so a
+        # denial is returned as the generic account gate response.
         try:
             manifest = await self._catalog.resolve_version(
                 workspace_id, source_id, version_id
@@ -630,8 +646,12 @@ class SecureSnapshotReadPath:
             raise _denied(SourceReadDenialReason.INVALID_SOURCE_DATA) from exc
 
     async def _require_acl(
-        self, principal_id: UUID, manifest: SourceSnapshotManifest
+        self,
+        authenticated_request: AuthenticatedRequest,
+        principal_id: UUID,
+        manifest: SourceSnapshotManifest,
     ) -> None:
+        await self._check_account_lifecycle(authenticated_request)
         try:
             allowed = await self._acl.may_read(
                 principal_id,
@@ -660,7 +680,7 @@ class SecureSnapshotReadPath:
         )
         if checked_principal != principal:
             raise _denied(SourceReadDenialReason.SCOPE_MISMATCH)
-        await self._require_acl(principal.subject, manifest)
+        await self._require_acl(authenticated_request, principal.subject, manifest)
 
     async def _revalidate_before_delivery(
         self,
