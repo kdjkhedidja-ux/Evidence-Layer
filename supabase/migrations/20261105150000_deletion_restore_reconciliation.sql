@@ -135,8 +135,21 @@ begin
 end;
 $function$;
 
+-- ALTER OWNER requires SET on the target role; grant temporarily to the migration actor.
+do $$
+begin
+    execute format('grant account_deletion_worker to %I with set true, inherit false', current_user);
+end
+$$;
+
 alter function private.reconcile_account_deletion_slice(uuid)
     owner to account_deletion_worker;
+
+do $$
+begin
+    execute format('revoke account_deletion_worker from %I', current_user);
+end
+$$;
 
 revoke all on function private.reconcile_account_deletion_slice(uuid)
     from public, anon, authenticated, service_role;

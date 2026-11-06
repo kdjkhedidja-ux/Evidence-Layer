@@ -17,7 +17,11 @@ from evidence_service.account_lifecycle import (
     AccountLifecycleReadError,
     SupabaseAccountLifecycleReader,
 )
-from evidence_service.app import create_app, require_authenticated_request
+from evidence_service.app import (
+    create_app,
+    require_authenticated_request,
+    require_control_request,
+)
 from evidence_service.auth import AuthenticationRejected, Principal
 from evidence_service.config import SupabaseSettings
 from evidence_service.deletion_repository import DeletionRequest
@@ -96,6 +100,10 @@ class DirectorySpy:
 class OperationSpy:
     def __init__(self) -> None:
         self.calls: list[str] = []
+
+    async def list_records(self, access_token, workspace_id):
+        self.calls.append("list_records")
+        return []
 
     def __getattr__(self, name: str):
         async def call(*args, **kwargs):
@@ -356,8 +364,10 @@ def test_status_is_not_cached_between_requests() -> None:
 
 
 def test_pending_account_denies_evidence_route_before_repository_access() -> None:
+    # One request reads lifecycle three times: entry dependency, workspace
+    # resolution, and the operation gate. The next request is blocked at entry.
     reader = ScriptedLifecycleReader(
-        sequence=["available", "available", "revocation_pending"]
+        sequence=["available", "available", "available", "revocation_pending"]
     )
     repository = OperationSpy()
     app, directory, _, catalog, read_path = make_app(reader, repository=repository)
@@ -369,7 +379,8 @@ def test_pending_account_denies_evidence_route_before_repository_access() -> Non
     assert first.status_code == 200
     assert second.status_code == 403
     assert directory.calls == ["get_membership"]
-    assert repository.calls == []
+    # Only the allowed request reached the repository; the blocked one stopped at the gate.
+    assert repository.calls == ["list_records"]
     assert catalog.calls == []
     assert read_path.calls == 0
 
@@ -600,12 +611,14 @@ def test_new_v1_routes_must_bind_the_lifecycle_dependency_and_healthz_is_public(
 
     def has_auth_dependency(dependant) -> bool:
         return any(
-            dependency.call is require_authenticated_request
+            dependency.call in {require_authenticated_request, require_control_request}
             or has_auth_dependency(dependency)
             for dependency in dependant.dependencies
         )
 
-    assert len(protected) == 14
+    # 14 data routes plus 3 deletion control routes (create/accept/status).
+    # All require authentication; only data routes use the lifecycle data gate.
+    assert len(protected) == 17
     assert all(has_auth_dependency(route.dependant) for route in protected)
     assert [(route.path, route.methods) for route in public] == [
         ("/healthz", {"GET"})

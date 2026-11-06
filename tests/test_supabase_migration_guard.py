@@ -695,7 +695,7 @@ class ApprovalLedgerTests(unittest.TestCase):
 
     def test_reviewed_inventory_lexes_and_classifies_without_ambiguity(self):
         self.assertEqual(self.findings, [])
-        self.assertEqual(len(self.records), 411)
+        self.assertEqual(len(self.records), 423)
         self.assertEqual(len({record["file"] for record in self.records}), 21)
 
     def test_no_reviewed_statement_is_hard_denied(self):
@@ -707,7 +707,7 @@ class ApprovalLedgerTests(unittest.TestCase):
 
     def test_every_ledger_entry_resolves_to_a_written_rationale(self):
         ledger = guard.load_ledger()
-        self.assertEqual(len(ledger["entries"]), 338)
+        self.assertEqual(len(ledger["entries"]), 350)
         for entry in ledger["entries"]:
             self.assertTrue(ledger["rationales"][entry["rationale_ref"]].strip())
             self.assertTrue(entry["file"].endswith(".sql"))
@@ -824,7 +824,7 @@ class ClassifyCommandTests(unittest.TestCase):
         with patch.object(sys, "argv", ["guard", "classify"]), contextlib.redirect_stdout(buffer):
             self.assertEqual(guard.main(), 0)
         self.assertIn("Static analysis passed", buffer.getvalue())
-        self.assertIn("338 registry-approved", buffer.getvalue())
+        self.assertIn("350 registry-approved", buffer.getvalue())
 
     def test_hard_denied_statement_blocks(self):
         temporary, migrations, manifest = self.build_probe(

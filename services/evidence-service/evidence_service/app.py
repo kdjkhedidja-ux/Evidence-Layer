@@ -482,9 +482,9 @@ async def _require_visible_source_link(
         )
 
 
-async def require_authenticated_request(
+async def _verify_bearer(
     request: Request,
-    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    credentials: HTTPAuthorizationCredentials | None,
 ) -> AuthenticatedRequest:
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise HTTPException(
@@ -508,9 +508,29 @@ async def require_authenticated_request(
             status_code=503, detail="Identity verification is unavailable"
         ) from exc
 
-    authenticated_request = AuthenticatedRequest(principal, credentials.credentials)
+    return AuthenticatedRequest(principal, credentials.credentials)
+
+
+async def require_authenticated_request(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+) -> AuthenticatedRequest:
+    authenticated_request = await _verify_bearer(request, credentials)
     await _require_protected_access(request, authenticated_request)
     return authenticated_request
+
+
+async def require_control_request(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+) -> AuthenticatedRequest:
+    """Authenticate only: deletion status and acceptance replay stay reachable.
+
+    These two control operations must remain callable while a revocation is
+    pending, otherwise the owner cannot observe status or replay an accepted
+    request. The repository query is still requester-scoped and RLS-bound.
+    """
+    return await _verify_bearer(request, credentials)
 
 
 def _workspace_directory(request: Request) -> WorkspaceDirectory:
@@ -686,7 +706,7 @@ def create_app(
     async def accept_deletion_request(
         request_id: UUID,
         request: Request,
-        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+        auth: AuthenticatedRequest = Depends(require_control_request),
     ) -> DeletionRequestResponse:
         try:
             # Acceptance is the control operation that creates the denial
@@ -707,7 +727,7 @@ def create_app(
     async def get_deletion_request(
         request_id: UUID,
         request: Request,
-        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+        auth: AuthenticatedRequest = Depends(require_control_request),
     ) -> DeletionRequestResponse:
         # Status is the explicitly permitted control-only view for a blocked
         # account; the repository query remains requester- and RLS-scoped.
