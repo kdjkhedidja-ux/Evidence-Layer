@@ -240,7 +240,7 @@ $function$;
 
 revoke all on function private.provision_account_lifecycle_for_auth_user()
     from public, anon, authenticated, service_role, authenticator, supabase_auth_admin;
--- CREATE TRIGGER checks EXECUTE as the role running the migration. Supabase may
+-- Trigger creation checks EXECUTE as the role running the migration. Supabase may
 -- run migrations as postgres or supabase_admin, so grant to the actor and to
 -- either administrative role when present. API and Auth roles stay excluded.
 do $$
