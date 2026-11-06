@@ -48,18 +48,18 @@ export default function PrivacyPage() {
       <section className="public-section" aria-labelledby="privacy-current">
         <h2 id="privacy-current">2. Current website and service state</h2>
         <p>
-          The public Evidence Explorer displays five synthetic records embedded in the application;
-          they are fictional and are not customer evidence. The web code also contains Supabase
-          Auth session and recovery flows and server-side workspace requests to an Evidence Service
-          when the corresponding configuration is present. Those flows can involve an email address,
+          The Evidence Explorer displays only workspace records that the server returns after
+          verifying the signed-in account; it does not substitute synthetic records. The web code
+          also contains Supabase Auth session and recovery flows and server-side workspace requests
+          to an Evidence Service when the corresponding configuration is present. Those flows can involve an email address,
           account identifier, session data, workspace identifier, workspace name, and role. The
           operator must confirm which environments are live, what each vendor stores, and where it
           is processed before this text is published as a complete notice.
         </p>
         <p>
-          The public prototype does not generate answers with OpenAI or DeepSeek and does not connect
+          The public website does not generate answers with OpenAI or DeepSeek and does not connect
           customer source documents to a language model. Historical benchmark runs used public
-          Real-World v1 materials in separate evaluations. Any future JEV, language-model, source
+          Real-World v1 and separately frozen synthetic evaluation materials in offline evaluations. Any future JEV, language-model, source
           connector, or hosted retrieval integration requires a reviewed data-flow notice before it
           is enabled. This policy makes no representation about a provider’s retention or training
           settings; those settings and contractual terms must be checked for each integration.
@@ -76,7 +76,7 @@ export default function PrivacyPage() {
               <tr><th scope="row">Account data: email, account identifier, authentication and recovery session data</th><td>Sign-in, account recovery, session security, and responding to account requests</td><td>Authentication code exists; actual live configuration and retention require confirmation</td></tr>
               <tr><th scope="row">Workspace data: workspace identifiers, names, and membership role</th><td>Display or provision an authorised personal workspace</td><td>Server-side workspace API integration exists when configured; not source-document retrieval</td></tr>
               <tr><th scope="row">Request and device data: IP address, browser headers, timestamps, and security events</th><td>Website delivery, abuse prevention, troubleshooting, and security where collected by the host or service</td><td>Provider logging and retention are not established by this repository and must be confirmed</td></tr>
-              <tr><th scope="row">Queries, candidate text, source references, and evidence selections</th><td>Potential future retrieval, ranking, provenance, and answer-context preparation</td><td>Not accepted by the public prototype; future processing needs a specific notice and access boundary</td></tr>
+              <tr><th scope="row">Queries, candidate text, source references, and evidence selections</th><td>Potential future retrieval, ranking, provenance, and answer-context preparation</td><td>Not accepted by public pages; authenticated workspace content is handled by the service under the access boundary</td></tr>
               <tr><th scope="row">Operational metrics: token counts, request duration, retrieval volume, estimated costs, and evidence-selection statistics</th><td>Potential future usage reporting, reliability monitoring, cost estimation, and product evaluation</td><td>Not currently exposed as customer usage telemetry in the web app; may be personal data if linked to an account or run</td></tr>
             </tbody>
           </table>
@@ -149,8 +149,8 @@ export default function PrivacyPage() {
           subprocessor register. Before publication, the operator must name each entity, purpose,
           processing location, retention, contractual role, and onward recipient. OpenAI, DeepSeek,
           and TypeSafe/JEV appear in separate benchmark tooling; they are not connected to answer
-          generation by the public prototype. Their use for any future customer workload requires
-          a fresh review and notice.
+          generation by the public website. Their use for any future customer workload requires a
+          fresh review and notice.
         </p>
         <p>
           If personal data is transferred outside the EEA, the controller and processor must identify

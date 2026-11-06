@@ -829,7 +829,7 @@ export default function WorkspaceConsole({
         </section>
 
         <footer className="workspace-footer">
-          <span>Live workspace data is separate from the demo fixture.</span>
+          <span>Live workspace data comes from the verified Evidence Service.</span>
           <Link href="/cost-performance">View benchmark reports and their limits</Link>
         </footer>
       </div>
