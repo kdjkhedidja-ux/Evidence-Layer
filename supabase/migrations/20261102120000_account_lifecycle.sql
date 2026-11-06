@@ -240,7 +240,16 @@ $function$;
 
 revoke all on function private.provision_account_lifecycle_for_auth_user()
     from public, anon, authenticated, service_role, authenticator, supabase_auth_admin;
-grant execute on function private.provision_account_lifecycle_for_auth_user() to postgres;
+-- The migration actor (postgres or supabase_admin) must be able to execute the
+-- helper while creating the auth.users trigger. Grant only to that actor.
+do $$
+begin
+    execute format(
+        'grant execute on function private.provision_account_lifecycle_for_auth_user() to %I',
+        current_user
+    );
+end
+$$;
 
 -- ALTER OWNER requires SET on the target role; grant temporarily to the migration actor.
 do $$

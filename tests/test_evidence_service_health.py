@@ -38,6 +38,9 @@ def test_service_routes_are_limited_and_docs_are_disabled() -> None:
     }
     assert routes == {
         ("GET", "/healthz"),
+        ("POST", "/v1/deletion-requests"),
+        ("POST", "/v1/deletion-requests/{request_id}/accept"),
+        ("GET", "/v1/deletion-requests/{request_id}"),
         ("GET", "/v1/me"),
         ("PUT", "/v1/me/personal-workspace"),
         ("GET", "/v1/workspaces/{workspace_id}"),

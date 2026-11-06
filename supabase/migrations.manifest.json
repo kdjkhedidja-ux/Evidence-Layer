@@ -90,7 +90,7 @@
     {
       "file": "20261102120000_account_lifecycle.sql",
       "version": "20261102120000",
-      "sha256": "6102588f5d220bdabb90736159dc4e24c46815d7dd73fe9283cfdf4db4dea590",
+      "sha256": "2fe534563a884b58356ca4b55ef6403eaad79a236344c3af36aebae4e6f6c3a9",
       "provenance": "Locally reviewed account lifecycle state, trusted provisioning, fail-closed transition policy, and privilege audit; not production approval."
     },
     {
