@@ -108,25 +108,25 @@
     {
       "file": "20261105120000_account_deletion_worker_slice.sql",
       "version": "20261105120000",
-      "sha256": "2bfcb0ea45dae6fc2758208b8bc2d654bca592e59250f537119fb5f9dabcd486",
+      "sha256": "5e2e462c2460170cb02c02200fe982ac4271301e0811df1c91bca09901eb66b6",
       "provenance": "P3 bounded accepted-account source-grant purge slice with dedicated worker role; no Storage or snapshot deletion."
     },
     {
       "file": "20261105130000_account_application_purge_slice.sql",
       "version": "20261105130000",
-      "sha256": "565f8184b263e691b9de0dddc887b467ec8346b3f2512b158e6e21a0dbfee820",
+      "sha256": "08cbc0f66571f7380ca46d65002b09a553adb7c441f0dfc88a7eb69a58a4e8bf",
       "provenance": "P4 immutable source-grant/member work set and account-owned application access-row purge; no shared content or Storage deletion."
     },
     {
       "file": "20261105140000_account_evidence_ownership_purge.sql",
       "version": "20261105140000",
-      "sha256": "21251d2eedfa239f95cbda70f6bff1bfb5ac44f10d2058f120dded9dd173d729",
+      "sha256": "8531cdabff971e3d5f1e086c847b16322219d29da1e08ec9456061f38ce3070d",
       "provenance": "P4b sole-active-owner evidence/relationship purge with immutable target IDs; shared workspaces and Storage remain deferred."
     },
     {
       "file": "20261105150000_deletion_restore_reconciliation.sql",
       "version": "20261105150000",
-      "sha256": "e4b6593c9acae3fe8d05fe3eb327b44231cce0179a5dad2bf08357a6bdfd7934",
+      "sha256": "b81ecb04bf3b16ecfadf53bd2cc6b4a2e5ff0dcdc36323994925bfef36ad8203",
       "provenance": "P5 local restore reconciliation against immutable deletion work sets; no provider PITR or terminal purge."
     }
   ]

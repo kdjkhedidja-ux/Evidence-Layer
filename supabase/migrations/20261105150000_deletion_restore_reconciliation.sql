@@ -144,6 +144,9 @@ begin
 end
 $$;
 
+alter function private.run_account_deletion_slice(uuid)
+    owner to account_deletion_worker;
+
 alter function private.reconcile_account_deletion_slice(uuid)
     owner to account_deletion_worker;
 
