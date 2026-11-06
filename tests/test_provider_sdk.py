@@ -80,7 +80,7 @@ def transport_for(response_body=None, status=200, *, raises=None, record=None):
 
 def run(model, transport, *, cap=8192, policy=None, counter=None, prompt="Answer briefly."):
     if counter is None:
-        counter = tokenization.shared_visible_counter()[0]  # shared meter, as in production
+        counter = lambda text: len(text.split())  # deterministic offline stand-in
     client = LiveProviderClient(model, api_key=KEY, transport=transport)
     job = ProviderJob(
         job_ordinal=0, run_id="sdk-test", case_id="case-1", arm_id="evidence_layer",
@@ -184,6 +184,9 @@ def test_length_stop_below_the_cap_is_partial() -> None:
 
 
 def test_over_target_is_measured_on_the_shared_meter_not_truncated() -> None:
+    pytest.importorskip("tiktoken")
+    if not (tokenization.tokenizer_dir() / "tiktoken").is_dir():
+        pytest.skip("pinned tokenizer artifacts not installed")
     counter, _id, _sha = tokenization.shared_visible_counter()
     from evidence_layer.synthetic_long_output import exact_visible_text
     text = exact_visible_text(850, counter)

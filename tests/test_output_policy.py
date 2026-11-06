@@ -45,6 +45,7 @@ def test_cap_status_detects_reached_limit() -> None:
 
 
 def test_tokenizer_artifact_failing_sha256_is_rejected(tmp_path, monkeypatch) -> None:
+    pytest.importorskip("tiktoken")
     monkeypatch.setenv("EVIDENCE_TOKENIZER_DIR", str(tmp_path))
     target = tmp_path / "deepseek_v4_tokenizer"
     target.mkdir()
@@ -54,6 +55,7 @@ def test_tokenizer_artifact_failing_sha256_is_rejected(tmp_path, monkeypatch) ->
 
 
 def test_missing_tokenizer_artifact_fails_closed(tmp_path, monkeypatch) -> None:
+    pytest.importorskip("tiktoken")
     monkeypatch.setenv("EVIDENCE_TOKENIZER_DIR", str(tmp_path / "absent"))
     with pytest.raises(FileNotFoundError, match="fetch_phase6_tokenizers"):
         tokenization.load_counter("o200k_base-tiktoken-0.14.0")
@@ -66,6 +68,9 @@ def test_every_candidate_is_measured_with_the_shared_meter() -> None:
         "gpt-6.1-sol", "gpt-6.1-terra", "gpt-6-luna",
         "deepseek-flash", "deepseek-v4-pro",
     }
+    pytest.importorskip("tokenizers")
+    if not (tokenization.tokenizer_dir() / "deepseek_v4_tokenizer").is_dir():
+        pytest.skip("pinned DeepSeek tokenizer not installed")
     assert tokenization.native_counter("claude-opus-5-5") is None
     assert tokenization.native_counter("gpt-6.1-sol") is None
     for model in ("deepseek-flash", "deepseek-v4-pro"):

@@ -240,14 +240,21 @@ $function$;
 
 revoke all on function private.provision_account_lifecycle_for_auth_user()
     from public, anon, authenticated, service_role, authenticator, supabase_auth_admin;
--- The migration actor (postgres or supabase_admin) must be able to execute the
--- helper while creating the auth.users trigger. Grant only to that actor.
+-- CREATE TRIGGER checks EXECUTE as the role running the migration. Supabase may
+-- run migrations as postgres or supabase_admin, so grant to the actor and to
+-- either administrative role when present. API and Auth roles stay excluded.
 do $$
 begin
     execute format(
         'grant execute on function private.provision_account_lifecycle_for_auth_user() to %I',
         current_user
     );
+    if exists (select 1 from pg_catalog.pg_roles where rolname = 'postgres') then
+        execute 'grant execute on function private.provision_account_lifecycle_for_auth_user() to postgres';
+    end if;
+    if exists (select 1 from pg_catalog.pg_roles where rolname = 'supabase_admin') then
+        execute 'grant execute on function private.provision_account_lifecycle_for_auth_user() to supabase_admin';
+    end if;
 end
 $$;
 
