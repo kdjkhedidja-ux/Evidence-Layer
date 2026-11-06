@@ -2597,10 +2597,26 @@ select:focus-visible,
 
 .workspace-record-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(18rem, 0.8fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
-  gap: 1.5rem;
+  gap: 1.25rem;
   margin-top: 1.25rem;
+}
+
+.workspace-record-layout .workspace-form {
+  max-width: 48rem;
+  padding: 1rem 1.1rem 1.15rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+}
+
+.workspace-record-layout .workspace-form h3 {
+  margin-top: 0;
+}
+
+.workspace-record-layout .workspace-form .workspace-note {
+  margin: 0.15rem 0 0.9rem;
 }
 
 .workspace-record-list {
