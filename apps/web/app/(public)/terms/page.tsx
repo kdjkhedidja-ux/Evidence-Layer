@@ -117,6 +117,16 @@ export default function TermsPage() {
           The final contract must define notice, cure periods, data export/deletion, and effects of
           termination. The current repository does not establish those commercial processes.
         </p>
+        <p>
+          <strong>Account deletion requests.</strong> A signed-in person may request deletion of the
+          account data this service manages. Accepting a request blocks access immediately and is
+          not reversible in the current implementation. The implemented slice removes source grants,
+          member workspace memberships, and evidence and relationships in workspaces where the
+          account is the sole active owner with no other active members. Workspaces, owner
+          memberships, shared-workspace content, the source catalogue, snapshots, stored objects, and
+          the authentication identity are retained. The interface therefore does not represent
+          complete erasure, and stored files and published snapshots are not deleted.
+        </p>
       </section>
 
       <section className="public-section" aria-labelledby="terms-liability">
