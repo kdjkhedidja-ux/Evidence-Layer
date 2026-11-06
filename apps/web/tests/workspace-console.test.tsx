@@ -137,7 +137,15 @@ describe("workspace product console", () => {
         expect(document.getElementById(href.split("#")[1] ?? "")).not.toBeNull();
       }
     }
-    expect(within(catalog).queryByRole("button")).not.toBeInTheDocument();
+    // Groups are collapsed to their first card; the rest appear on demand.
+    const groupToggles = within(catalog).getAllByRole("button");
+    expect(groupToggles.length).toBeGreaterThan(0);
+    expect(screen.queryByRole("heading", { name: "Personal API Keys" })).not.toBeInTheDocument();
+
+    const settingsGroup = screen.getByRole("heading", { name: "Settings & Access" }).closest("section");
+    expect(settingsGroup).not.toBeNull();
+    if (!settingsGroup) throw new Error("Settings & Access group is missing");
+    fireEvent.click(within(settingsGroup).getByRole("button", { name: /Show \d+ more/ }));
 
     const keysFeature = screen.getByRole("heading", { name: "Personal API Keys" }).closest("li");
     expect(keysFeature).not.toBeNull();

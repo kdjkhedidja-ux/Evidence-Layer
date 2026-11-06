@@ -75,6 +75,7 @@ export default function WorkspaceConsole({
   const [sources, setSources] = useState<SourceVersion[]>([]);
   const [sourcesState, setSourcesState] = useState<LoadState>("ready");
   const [readingVersionId, setReadingVersionId] = useState<string | null>(null);
+  const [expandedCapabilityGroups, setExpandedCapabilityGroups] = useState<Record<string, boolean>>({});
   const [sourceContent, setSourceContent] = useState("");
   const [sourceDigest, setSourceDigest] = useState("");
   const [sourceMessage, setSourceMessage] = useState("");
@@ -762,15 +763,24 @@ export default function WorkspaceConsole({
           <div className="workspace-capability-grid">
             {CAPABILITY_GROUPS.map((group, groupIndex) => {
               const groupId = `capability-group-${groupIndex}`;
+              const listId = `${groupId}-list`;
+              const isExpanded = expandedCapabilityGroups[group.name] ?? false;
+              const visibleFeatures = isExpanded ? group.features : group.features.slice(0, 1);
+              const hiddenCount = group.features.length - 1;
               return (
                 <section
                   aria-labelledby={groupId}
                   className="workspace-capability-group"
                   key={group.name}
                 >
-                  <h3 id={groupId}>{group.name}</h3>
-                  <ul className="workspace-capability-list">
-                    {group.features.map((feature) => (
+                  <div className="workspace-capability-group-head">
+                    <h3 id={groupId}>{group.name}</h3>
+                    <span className="workspace-capability-total">
+                      {group.features.length} {group.features.length === 1 ? "capability" : "capabilities"}
+                    </span>
+                  </div>
+                  <ul className="workspace-capability-list" id={listId}>
+                    {visibleFeatures.map((feature) => (
                       <li className="workspace-capability" key={feature.name}>
                         <div className="workspace-capability-heading">
                           <h4>{feature.name}</h4>
@@ -787,6 +797,20 @@ export default function WorkspaceConsole({
                       </li>
                     ))}
                   </ul>
+                  {hiddenCount > 0 && (
+                    <button
+                      type="button"
+                      className="workspace-capability-toggle"
+                      aria-expanded={isExpanded}
+                      aria-controls={listId}
+                      onClick={() => setExpandedCapabilityGroups((current) => ({
+                        ...current,
+                        [group.name]: !isExpanded,
+                      }))}
+                    >
+                      {isExpanded ? "Show less" : `Show ${hiddenCount} more`}
+                    </button>
+                  )}
                 </section>
               );
             })}
