@@ -1,6 +1,6 @@
 <!DOCTYPE html>
-<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Phase 7 — RAG large contre Evidence Layer · Evidence Layer</title><style>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phase 7 — Broad RAG versus Evidence Layer · Evidence Layer</title><style>
 :root{--bg:#f7f7f5;--card:#fff;--ink:#1d2321;--muted:#5c6662;--line:#dfe3df;--accent:#1f6f5c}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
@@ -8,7 +8,6 @@ main{max-width:880px;margin:0 auto;padding:40px 20px 64px}
 a{color:var(--accent)}
 h1{font-size:1.9rem;line-height:1.2;margin:.2rem 0 .6rem}
 h2{font-size:1.2rem;margin:2rem 0 .6rem;padding-bottom:.3rem;border-bottom:1px solid var(--line)}
-h3{font-size:1rem;margin:1.2rem 0 .4rem}
 p{margin:.6rem 0}
 .eyebrow{text-transform:uppercase;letter-spacing:.08em;font-size:.75rem;color:var(--muted);margin:0}
 .lede{color:var(--muted)}
@@ -26,26 +25,26 @@ ul{margin:.5rem 0 .8rem 1.2rem}
 footer{margin-top:2.5rem;color:var(--muted);font-size:.85rem}
 </style></head>
 <body><main>
-<a class="back" href="/cost-performance">← Retour à Cost &amp; Performance</a>
-<p class="eyebrow">Rapport · génération de réponses</p><h1>Phase 7 — RAG large contre Evidence Layer</h1>
+<a class="back" href="/cost-performance">← Back to Cost &amp; Performance</a>
+<p class="eyebrow">Report · answer generation</p><h1>Phase 7 — Broad RAG versus Evidence Layer</h1>
 
-<p class="lede">Même question et même modèle par paire. Le bras A envoie les 5 meilleurs passages lexicaux ; le bras B envoie 3 passages sélectionnés (JEV, ou lexical seul dans le cas Haiku sans JEV).</p>
-<div class="note warn"><strong>Deux variantes Anthropic.</strong> Le run historique Haiku utilisait le JEV mis en cache (coût estimé). Le run <a href="/evaluation/haiku-lexical-report.html">Haiku EL + lexical sans JEV</a> mesure le même dispositif sans aucun scoring JEV.</div>
-<h2>OpenAI et DeepSeek (historique)</h2>
-<table><thead><tr><th>Fournisseur</th><th class="num">Tokens totaux A → B</th><th class="num">Coût LLM A → B</th><th class="num">Latence A → B</th><th>Qualité</th></tr></thead><tbody>
-<tr><td>OpenAI gpt-6.1-sol</td><td class="num">507,75 → 386,10<br><span class="ok">−23,96 %</span></td><td class="num">0,069660 → 0,058880 $</td><td class="num">2 264 → 3 061 ms</td><td>Correctness inchangée ; complétude en baisse ; aucun gain général établi.</td></tr>
-<tr><td>DeepSeek V4 Pro</td><td class="num">728,95 → 570,52<br><span class="ok">−21,73 %</span></td><td class="num">0,032920 → 0,028622 $</td><td class="num">4 974 → 5 094 ms</td><td>Écarts faibles selon la métrique ; aucun gain général établi.</td></tr>
+<p class="lede">Same question and same model per pair. Arm A passes the five best lexical passages; arm B passes three selected passages (JEV, or lexical only in the Haiku no-JEV run).</p>
+<div class="note warn"><strong>Two Anthropic variants.</strong> The historical Haiku run used cached JEV scores (estimated cost). The <a href="/evaluation/haiku-lexical-report.html">Haiku EL + lexical, no JEV</a> run measures the same setup without any JEV scoring.</div>
+<h2>OpenAI and DeepSeek (historical)</h2>
+<table><thead><tr><th>Provider</th><th class="num">Total tokens A → B</th><th class="num">LLM cost A → B</th><th class="num">Latency A → B</th><th>Quality</th></tr></thead><tbody>
+<tr><td>OpenAI gpt-6.1-sol</td><td class="num">507.75 → 386.10<br><span class="ok">−23.96%</span></td><td class="num">$0.069660 → $0.058880</td><td class="num">2,264 → 3,061 ms</td><td>Correctness unchanged; completeness lower; no general improvement established.</td></tr>
+<tr><td>DeepSeek V4 Pro</td><td class="num">728.95 → 570.52<br><span class="ok">−21.73%</span></td><td class="num">$0.032920 → $0.028622</td><td class="num">4,974 → 5,094 ms</td><td>Small metric-dependent changes; no general improvement established.</td></tr>
 </tbody></table>
-<h2>Anthropic — avec JEV estimé (historique) et sans JEV (nouveau)</h2>
-<table><thead><tr><th>Modèle · variante</th><th class="num">Tokens A → B</th><th class="num">Coût LLM A → B</th><th class="num">Coût système A → B</th><th>Qualité</th></tr></thead><tbody>
-<tr><td>Claude Haiku 5.5 · EL + lexical, <strong>sans JEV</strong></td><td class="num">912,25 → 701,00<br><span class="ok">−23,16 %</span></td><td class="num">0,007876 → 0,006698 $</td><td class="num">0,007876 → 0,006698 $<br><span class="ok">−14,96 %</span></td><td>Correctness 2,000 → 1,975 ; complétude 1,950 → 1,725 (IC −0,40 ; −0,075) ; groundedness 1,975 → 2,000.</td></tr>
-<tr><td>Claude Haiku 5.5 · EL + JEV estimé</td><td class="num">906,15 → 710,43<br><span class="ok">−21,60 %</span></td><td class="num">0,007754 → 0,006765 $</td><td class="num">0,007754 → 0,009965 $<br><span class="bad">+0,002210 $</span></td><td>Aucun gain de qualité établi.</td></tr>
-<tr><td>Claude Sonnet 5.5 · EL + JEV estimé</td><td class="num">822,75 → 631,68<br><span class="ok">−23,22 %</span></td><td class="num">0,121724 → 0,103798 $</td><td class="num">0,121724 → 0,106998 $</td><td>Aucun gain de qualité établi.</td></tr>
-<tr><td>Claude Opus 5.5 · EL + JEV estimé</td><td class="num">915,75 → 723,00<br><span class="ok">−21,05 %</span></td><td class="num">0,317848 → 0,280656 $</td><td class="num">0,317848 → 0,283856 $</td><td>Aucun gain de qualité établi.</td></tr>
+<h2>Anthropic — with estimated JEV (historical) and without JEV (new)</h2>
+<table><thead><tr><th>Model · variant</th><th class="num">Tokens A → B</th><th class="num">Measured LLM cost A → B</th><th class="num">System cost A → B</th><th>Quality readout</th></tr></thead><tbody>
+<tr><td>Claude Haiku 5.5 · EL + lexical, <strong>no JEV</strong></td><td class="num">912.25 → 701.00<br><span class="ok">−23.16%</span></td><td class="num">$0.007876 → $0.006698</td><td class="num">$0.007876 → $0.006698<br><span class="ok">−14.96%</span></td><td>Correctness 2.000 → 1.975; completeness 1.950 → 1.725 (CI −0.40, −0.075); groundedness 1.975 → 2.000. No quality gain established.</td></tr>
+<tr><td>Claude Haiku 5.5 · EL + estimated JEV</td><td class="num">906.15 → 710.43<br><span class="ok">−21.60%</span></td><td class="num">$0.007754 → $0.006765</td><td class="num">$0.007754 → $0.009965<br><span class="bad">+$0.002210</span></td><td>No quality gain established.</td></tr>
+<tr><td>Claude Sonnet 5.5 · EL + estimated JEV</td><td class="num">822.75 → 631.68<br><span class="ok">−23.22%</span></td><td class="num">$0.121724 → $0.103798</td><td class="num">$0.121724 → $0.106998</td><td>No quality gain established.</td></tr>
+<tr><td>Claude Opus 5.5 · EL + estimated JEV</td><td class="num">915.75 → 723.00<br><span class="ok">−21.05%</span></td><td class="num">$0.317848 → $0.280656</td><td class="num">$0.317848 → $0.283856</td><td>No quality gain established.</td></tr>
 </tbody></table>
-<p>Le coût JEV des lignes « JEV estimé » est une estimation au prix liste, pas une facture. La ligne « sans JEV » n’a fait aucun appel JEV : son coût système est exactement le coût LLM mesuré.</p>
-<h2>Limites</h2>
-<ul><li>Jugements de pertinence et faits requis rédigés par les développeurs ; juge automatisé OpenAI, non humain.</li><li>Split exposé non aveugle.</li><li>Les profils Anthropic utilisent adaptive thinking / effort medium / plafond 8192, différents du plafond 800 de Phase 7.</li><li>Les coûts JEV sont estimés ; les coûts LLM sont mesurés sur l’usage fournisseur.</li></ul>
+<p>JEV cost on the “estimated JEV” rows is a list-price estimate, not an invoice. The “no JEV” row made no JEV call, so its system cost equals measured LLM cost.</p>
+<h2>Limitations</h2>
+<ul><li>Developer-authored relevance judgments and required facts; automated OpenAI judge, not human review.</li><li>The exposed split is not blind.</li><li>Anthropic profiles use adaptive thinking / medium effort / 8192 cap, unlike Phase 7's 800 total output cap.</li><li>JEV costs are estimates; LLM costs are measured from provider usage.</li></ul>
 
-<footer>Page locale générée à partir des artefacts du projet. Aucune clé, aucun prompt et aucun texte de réponse n’y figurent.</footer>
+<footer>Local page generated from the project artifacts. It contains no keys, prompts, or answer text.</footer>
 </main></body></html>
