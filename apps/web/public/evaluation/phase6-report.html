@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phase 6 — Classement des évidences · Evidence Layer</title><style>
+:root{--bg:#f7f7f5;--card:#fff;--ink:#1d2321;--muted:#5c6662;--line:#dfe3df;--accent:#1f6f5c}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+main{max-width:880px;margin:0 auto;padding:40px 20px 64px}
+a{color:var(--accent)}
+h1{font-size:1.9rem;line-height:1.2;margin:.2rem 0 .6rem}
+h2{font-size:1.2rem;margin:2rem 0 .6rem;padding-bottom:.3rem;border-bottom:1px solid var(--line)}
+h3{font-size:1rem;margin:1.2rem 0 .4rem}
+p{margin:.6rem 0}
+.eyebrow{text-transform:uppercase;letter-spacing:.08em;font-size:.75rem;color:var(--muted);margin:0}
+.lede{color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:.9rem;margin:.8rem 0}
+th,td{border:1px solid var(--line);padding:.5rem .6rem;text-align:left;vertical-align:top}
+th{background:#eef1ee;font-weight:600}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.note{background:#fff;border:1px solid var(--line);border-left:3px solid var(--accent);padding:.7rem .9rem;margin:1rem 0}
+.warn{border-left-color:#b7791f}
+.ok{color:#1f6f5c;font-weight:600}
+.bad{color:#a33;font-weight:600}
+code{background:#eef1ee;padding:.1em .35em;border-radius:3px;font-size:.85em}
+ul{margin:.5rem 0 .8rem 1.2rem}
+.back{display:inline-block;margin-bottom:1.4rem;font-size:.9rem}
+footer{margin-top:2.5rem;color:var(--muted);font-size:.85rem}
+</style></head>
+<body><main>
+<a class="back" href="/cost-performance">← Retour à Cost &amp; Performance</a>
+<p class="eyebrow">Rapport · évaluation hors ligne</p><h1>Phase 6 — Classement des évidences</h1>
+
+<p class="lede">JEV contre lexical sur les mêmes 40 cas Real-World v1. Cette phase mesure l’ordre des passages candidats, pas la qualité des réponses générées.</p>
+<div class="note"><strong>Périmètre.</strong> 51 passages, 40 cas, 200 enregistrements candidats. Les jugements de pertinence sont rédigés par les développeurs et n’ont pas reçu de revue humaine indépendante. Le split <code>exposed_test</code> (8 cas) n’est pas aveugle.</div>
+<h2>Résultats globaux</h2>
+<table><thead><tr><th>Métrique</th><th class="num">JEV</th><th class="num">Lexical</th><th class="num">Écart</th></tr></thead><tbody>
+<tr><td>MAP</td><td class="num">0,943</td><td class="num">0,777</td><td class="num ok">+0,166</td></tr>
+<tr><td>MRR</td><td class="num">0,967</td><td class="num">0,795</td><td class="num ok">+0,172</td></tr>
+<tr><td>Précision@1</td><td class="num">0,950</td><td class="num">0,650</td><td class="num ok">+0,300</td></tr>
+<tr><td>nDCG@5</td><td class="num">0,964</td><td class="num">0,842</td><td class="num ok">+0,122</td></tr>
+<tr><td>Rappel@5</td><td class="num">1,000</td><td class="num">1,000</td><td class="num">0,000</td></tr>
+</tbody></table>
+<p>Intervalles bootstrap 95 % (40 cas) : MAP <strong>+0,166 [0,089 ; 0,250]</strong>, MRR <strong>+0,172 [0,092 ; 0,261]</strong>, P@1 <strong>+0,300 [0,175 ; 0,450]</strong>. Le rappel@5 est saturé des deux côtés : le gain porte sur le rang, pas sur la présence.</p>
+<h2>Coût du scoring JEV</h2>
+<p>76 184 tokens d’entrée mesurés sur 200 appels, 0 échec. Prix liste Typesafe Jev 1.14 (docs.typesafe.ai/models, relevé le 2026-11-06) : 0,042 $/M en entrée, sortie gratuite.</p>
+<p><code>estimated_usd = (76 184 / 1 000 000) × 0,042 = 0,003199728 $</code> — <strong>estimation</strong>, pas une facture (<code>invoiced_usd = null</code>).</p>
+<h2>Limites</h2>
+<ul><li>Jugements développeur, non revus indépendamment.</li><li>Split exposé non aveugle.</li><li>Échantillon de 40 cas ; les intervalles sont larges.</li><li>Aucune mesure de qualité de réponse dans cette phase.</li></ul>
+
+<footer>Page locale générée à partir des artefacts du projet. Aucune clé, aucun prompt et aucun texte de réponse n’y figurent.</footer>
+</main></body></html>

@@ -1,0 +1,38 @@
+{
+  "cases": 40,
+  "created_at_utc": "2026-11-06T18:48:17.205952+00:00",
+  "generation_instructions_sha256": "3ab19fd2422ef0edb0575c8904cae91df2ce87d36033767a2048cadc567eb41f",
+  "jev": "not_used",
+  "manifest_kind": "phase7_haiku_lexical_e2e",
+  "model": "claude-haiku-5-5",
+  "passages": {
+    "bytes": 32144,
+    "path": "data/real_world/passages.jsonl",
+    "secure_snapshot_read_path": "not re-run; frozen file verified by hash and case match",
+    "sha256": "365f93b9195733c4c8ce373058a8fe9d38e568c710f22a52b11fd569fe50c1f4"
+  },
+  "pricing": {
+    "cache_read": 0.01,
+    "cache_write_5m": 0.125,
+    "input": 0.1,
+    "output": 0.5,
+    "source": "https://platform.claude.com/docs/en/about-claude/pricing"
+  },
+  "results_path": "reports/phase7_haiku_lexical_e2e.json",
+  "results_sha256": "2cbe21553ac7fe2f10d8dc78c75fa03a2f5c0f78a4f6fa4e4f66a8bf9e624d06",
+  "schema_version": 1,
+  "scorer": "lexical",
+  "scorer_source_sha256": "5ed574638ce1aca1782a4ca4f6a25a886ac27ed9cbe29a3e4f0eadd20928c651",
+  "settings": {
+    "evidence_layer_context": 3,
+    "judge_model": "gpt-6.1-sol",
+    "max_tokens": 8192,
+    "output_config": {
+      "effort": "medium"
+    },
+    "thinking": {
+      "type": "adaptive"
+    },
+    "traditional_context": 5
+  }
+}
