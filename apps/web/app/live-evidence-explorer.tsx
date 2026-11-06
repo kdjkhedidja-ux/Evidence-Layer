@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import RelationshipCanvas from "./relationships/relationship-canvas";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import AuthAccount from "../components/auth-account";
 import ThemeToggle from "./theme-toggle";
@@ -517,6 +518,13 @@ export default function LiveEvidenceExplorer({
                 {relationshipsState === "loading" && <p className="live-muted" role="status">Loading recorded relationships…</p>}
                 {relationshipsState === "unavailable" && <p className="live-error" role="alert">Relationship service is unavailable. No fixture-defined or inferred links are shown.</p>}
                 {relationshipsState === "ready" && relationships.length === 0 && <div className="live-empty"><h3>No relationships recorded</h3><p>Only workspace owners can document a relationship. Similarity alone is never treated as proof.</p></div>}
+                {relationshipsState === "ready" && relationships.length > 0 && (
+                  <RelationshipCanvas
+                    records={records}
+                    relationships={relationships}
+                    onOpenEvidence={(id) => setSelectedId(id)}
+                  />
+                )}
                 {relationshipsState === "ready" && relationships.map((relationship) => {
                   const recordA = evidenceById.get(relationship.evidence_id_a);
                   const recordB = evidenceById.get(relationship.evidence_id_b);

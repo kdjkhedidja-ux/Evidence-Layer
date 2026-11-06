@@ -3843,3 +3843,124 @@ select:focus-visible,
 .workspace-capability-toggle:hover {
   background: var(--bg-secondary);
 }
+
+/* Evidence relationships · interactive canvas */
+.relationship-canvas {
+  margin: 1rem 0 1.4rem;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--bg-secondary);
+  overflow: hidden;
+}
+
+.relationship-canvas-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.6rem 0.8rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.relationship-canvas-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.relationship-canvas-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.relationship-canvas-legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.relationship-canvas-controls {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.relationship-canvas-controls button {
+  min-width: 34px;
+  min-height: 30px;
+  padding: 0.15rem 0.55rem;
+  border: 1px solid var(--border-control-color);
+  border-radius: 5px;
+  background: var(--bg-primary);
+  color: var(--text-main);
+  font: inherit;
+  cursor: pointer;
+}
+
+.relationship-canvas-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.relationship-canvas-svg:active { cursor: grabbing; }
+
+.relationship-canvas-node { cursor: pointer; }
+
+.relationship-canvas-node rect {
+  fill: var(--bg-primary);
+  stroke: var(--border-control-color);
+  stroke-width: 1.2;
+}
+
+.relationship-canvas-node.is-selected rect {
+  stroke: var(--accent-color);
+  stroke-width: 2.4;
+}
+
+.relationship-canvas-node-title {
+  fill: var(--text-strong);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.relationship-canvas-node-meta,
+.relationship-canvas-edge-label {
+  fill: var(--text-muted);
+  font-size: 10px;
+}
+
+.relationship-canvas-edge-label { font-weight: 600; }
+
+.relationship-canvas-edge:focus-visible path,
+.relationship-canvas-node:focus-visible rect {
+  outline: 3px solid var(--accent-color);
+}
+
+.relationship-canvas-details {
+  padding: 0.75rem 0.9rem 0.9rem;
+  border-top: 1px solid var(--border-color);
+  font-size: 0.9rem;
+}
+
+.relationship-canvas-details h3 { margin: 0 0 0.35rem; font-size: 0.98rem; }
+.relationship-canvas-details p { margin: 0.3rem 0; }
+.relationship-canvas-details ul { margin: 0.3rem 0 0.5rem 1.1rem; }
+.relationship-canvas-meta { color: var(--text-muted); font-size: 0.84rem; }
+.relationship-canvas-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
+.relationship-canvas-actions button {
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--border-control-color);
+  border-radius: 5px;
+  background: var(--bg-primary);
+  color: var(--text-main);
+  font: inherit;
+  font-size: 0.84rem;
+  cursor: pointer;
+}
