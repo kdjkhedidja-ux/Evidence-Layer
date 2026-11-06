@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Evidence Layer — Rapport de benchmark expliqué</title>
+<style>
+  :root{
+    --bg:#0f1419; --panel:#1a2332; --panel2:#243044; --text:#e8eef7; --muted:#9aa8bc;
+    --accent:#3b9eff; --good:#3dd68c; --warn:#f5a524; --bad:#f76b6b; --border:#2d3a4f;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Segoe UI",system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.58}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 1.4rem}
+  header{background:linear-gradient(135deg,#132033,#1a2a45 50%,#0f1a2a);border-bottom:1px solid var(--border);padding:2.4rem 0 2rem}
+  h1{margin:0 0 .5rem;font-size:1.9rem;letter-spacing:-.02em}
+  h2{font-size:1.28rem;margin:0 0 .8rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}
+  h3{font-size:1.02rem;margin:1.3rem 0 .45rem;color:#c9d8ec}
+  p{margin:.55rem 0;color:#d3dcea}
+  ul,ol{margin:.4rem 0 .7rem 1.25rem;color:#d3dcea}
+  li{margin:.22rem 0}
+  .subtitle{color:var(--muted);max-width:60rem}
+  .meta{display:flex;flex-wrap:wrap;gap:.45rem .9rem;margin-top:1.1rem;font-size:.82rem;color:var(--muted);align-items:center}
+  .badge{display:inline-block;padding:.18rem .55rem;border-radius:999px;font-size:.72rem;font-weight:700;border:1px solid var(--border);background:var(--panel)}
+  .badge.ok{color:var(--good);border-color:#2a6b4a}
+  .badge.warn{color:var(--warn);border-color:#7a5a20}
+  .badge.no{color:var(--bad);border-color:#7a3030}
+  .badge.info{color:var(--accent);border-color:#2a5080}
+  main{padding:1.6rem 0 3rem}
+  section{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:1.4rem 1.35rem 1.5rem;margin-bottom:1.15rem}
+  table{width:100%;border-collapse:collapse;font-size:.87rem;margin:.7rem 0 .3rem}
+  th,td{border:1px solid var(--border);padding:.48rem .6rem;text-align:left;vertical-align:top}
+  th{background:#1e2c40;color:#bacbe2;font-weight:600}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+  tr:nth-child(even) td{background:rgba(0,0,0,.15)}
+  .pos{color:var(--good);font-weight:700}
+  .neg{color:var(--bad);font-weight:700}
+  .neu{color:var(--warn);font-weight:700}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:.9rem;margin-top:.9rem}
+  .card{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:.9rem 1rem}
+  .card h4{margin:0 0 .35rem;font-size:.93rem}
+  .card p{margin:0;font-size:.88rem;color:var(--muted)}
+  .callout{border-left:3px solid var(--accent);background:rgba(59,158,255,.08);padding:.7rem .95rem;border-radius:0 8px 8px 0;margin:.9rem 0 0;font-size:.94rem}
+  .callout.warn{border-left-color:var(--warn);background:rgba(245,165,36,.08)}
+  .callout.good{border-left-color:var(--good);background:rgba(61,214,140,.08)}
+  .callout.bad{border-left-color:var(--bad);background:rgba(247,107,107,.08)}
+  code{font-family:ui-monospace,"Cascadia Code",monospace;font-size:.84em;background:#0d121a;padding:.1em .35em;border-radius:4px}
+  a{color:var(--accent)}
+  .toc a{text-decoration:none}.toc a:hover{text-decoration:underline}
+  .diagram{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:.8rem;margin:.9rem 0;overflow-x:auto}
+  .diagram svg{display:block;min-width:660px;width:100%;height:auto}
+  .chart{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:.9rem 1rem;margin:.9rem 0}
+  .chart-title{font-size:.83rem;color:var(--muted);margin-bottom:.6rem}
+  .group{margin:.75rem 0}
+  .group-name{font-size:.85rem;color:#c9d8ec;margin-bottom:.25rem}
+  .bar-row{display:flex;align-items:center;gap:.6rem;margin:.22rem 0;font-size:.82rem}
+  .bar-label{width:78px;color:var(--muted);flex:none}
+  .bar-track{position:relative;flex:1;height:15px;background:#141d29;border-radius:4px;overflow:hidden}
+  .bar{height:100%;border-radius:4px}
+  .bar.jev{background:var(--accent)}
+  .bar.lex{background:#6b7b92}
+  .bar.red{background:var(--bad)}
+  .bar.green{background:var(--good)}
+  .bar-val{width:74px;text-align:right;font-variant-numeric:tabular-nums;flex:none}
+  .legend{display:flex;gap:1rem;font-size:.8rem;color:var(--muted);margin-bottom:.5rem}
+  .swatch{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:.3rem;vertical-align:middle}
+  footer{border-top:1px solid var(--border);padding:1.2rem 0 2rem;color:var(--muted);font-size:.83rem}
+  .kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:.8rem;margin-top:.9rem}
+  .kpi .box{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:.8rem .9rem}
+  .kpi .big{font-size:1.35rem;font-weight:700;line-height:1.2}
+  .kpi .lbl{font-size:.78rem;color:var(--muted)}
+  .small{font-size:.83rem;color:var(--muted)}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>Evidence Layer — Rapport de benchmark expliqué</h1>
+    <p class="subtitle">Ce que nous avons mesuré, comment le lire, et ce que les chiffres ne prouvent pas. Page autonome : aucune ressource externe, graphiques en CSS/SVG.</p>
+    <div class="meta">
+      <span class="badge info">Phase 6–7</span>
+      <span class="badge ok">Smoke live 8/8</span>
+      <span class="badge ok">JEV vs Lexical : PASS</span>
+      <span class="badge ok">EL vs RAG : 5 modèles</span>
+      <span class="badge warn">Coût JEV = estimation</span>
+      <span>Real-World v1 · 40 cas · 51 passages</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+<section>
+  <h2>Sommaire</h2>
+  <ol class="toc">
+    <li><a href="#lire">Comment lire cette page</a></li>
+    <li><a href="#glossaire">Glossaire</a></li>
+    <li><a href="#vue">Vue d’ensemble des trois expériences</a></li>
+    <li><a href="#exp1">Expérience 1 — Smoke live des 8 modèles</a></li>
+    <li><a href="#exp2">Expérience 2 — JEV vs Lexical</a></li>
+    <li><a href="#exp3">Expérience 3 — RAG large vs Evidence Layer</a></li>
+    <li><a href="#couts">Coûts : mesuré, estimé, facturé</a></li>
+    <li><a href="#bilan">Bilan honnête</a></li>
+    <li><a href="#limites">Limites</a></li>
+    <li><a href="#sources">Sources et artefacts</a></li>
+  </ol>
+</section>
+
+<section id="lire">
+  <h2>1. Comment lire cette page</h2>
+  <p>Trois questions différentes sont mesurées séparément. Les mélanger est l’erreur la plus facile à commettre :</p>
+  <div class="grid">
+    <div class="card"><h4>① Le modèle répond-il ?</h4><p>Smoke test : un appel court par modèle, pour vérifier le câblage. Ce n’est pas un classement de qualité.</p></div>
+    <div class="card"><h4>② Quel scorer classe mieux les passages ?</h4><p>JEV contre lexical, mesuré par MAP / MRR / P@1 / nDCG. Aucune génération de réponse ici.</p></div>
+    <div class="card"><h4>③ Filtrer le contexte change-t-il tokens, qualité et coût ?</h4><p>Même question, même modèle, deux bras : contexte large (A) ou contexte sélectionné (B).</p></div>
+  </div>
+  <div class="callout">
+    <strong>Statuts utilisés partout :</strong>
+    <span class="badge ok">mesuré</span> vient d’un usage rapporté par le fournisseur ;
+    <span class="badge warn">estimate</span> est un calcul documenté ;
+    <span class="badge no">non établi</span> signifie que l’intervalle de confiance inclut zéro.
+    Un montant <code>null</code> n’est jamais un zéro.
+  </div>
+</section>
+
+<section id="glossaire">
+  <h2>2. Glossaire</h2>
+  <table>
+    <thead><tr><th>Terme</th><th>Définition courte</th></tr></thead>
+    <tbody>
+      <tr><td><strong>RAG</strong></td><td>On récupère des passages, puis on les donne au LLM pour répondre.</td></tr>
+      <tr><td><strong>Traditional RAG (A)</strong></td><td>Le contexte envoyé est large : les 5 meilleurs passages du classement lexical.</td></tr>
+      <tr><td><strong>Evidence Layer (B)</strong></td><td>Même pool de passages, mais sélection et budget avant l’envoi : les 3 meilleurs passages classés par JEV.</td></tr>
+      <tr><td><strong>JEV / Typesafe</strong></td><td>Scorer distant qui attribue une note de pertinence à chaque candidat. Modèle utilisé : <code>jev-1.14.0</code>.</td></tr>
+      <tr><td><strong>Lexical</strong></td><td>Score local par chevauchement de mots. Déterministe, sans appel réseau.</td></tr>
+      <tr><td><strong>MAP</strong></td><td>Précision moyenne : récompense les bons passages placés haut, sur toute la liste.</td></tr>
+      <tr><td><strong>MRR</strong></td><td>Rang du premier bon passage : 1,0 = toujours en tête.</td></tr>
+      <tr><td><strong>P@1</strong></td><td>Le premier résultat est-il pertinent ?</td></tr>
+      <tr><td><strong>nDCG@5</strong></td><td>Qualité du classement des 5 premiers, sensible à l’ordre et aux grades.</td></tr>
+      <tr><td><strong>recall@5</strong></td><td>Part des passages « or » présents dans le top 5. Ici saturé à 1,0 des deux côtés.</td></tr>
+      <tr><td><strong>Bootstrap apparié</strong></td><td>Re-tirage des cas 10 000 fois pour estimer un intervalle de confiance sur la différence A−B.</td></tr>
+      <tr><td><strong>Tokens</strong></td><td>Unités de texte facturées par le fournisseur. Entrée = contexte + question ; sortie = réponse.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="vue">
+  <h2>3. Vue d’ensemble</h2>
+  <div class="diagram">
+    <svg viewBox="0 0 1040 250" role="img" aria-label="Trois expériences">
+      <defs>
+        <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="3.2" orient="auto">
+          <path d="M0,0 L7,3.2 L0,6.4 z" fill="#6b7b92"/>
+        </marker>
+      </defs>
+      <g font-family="Segoe UI, sans-serif" font-size="13">
+        <rect x="20" y="70" width="220" height="86" rx="9" fill="#243044" stroke="#2d3a4f"/>
+        <text x="130" y="98" fill="#e8eef7" text-anchor="middle" font-weight="700">① Smoke live</text>
+        <text x="130" y="120" fill="#9aa8bc" text-anchor="middle">8 modèles · 1 appel court</text>
+        <text x="130" y="140" fill="#9aa8bc" text-anchor="middle">» câblage &amp; returned_model</text>
+
+        <rect x="290" y="70" width="220" height="86" rx="9" fill="#243044" stroke="#2d3a4f"/>
+        <text x="400" y="98" fill="#e8eef7" text-anchor="middle" font-weight="700">② JEV vs Lexical</text>
+        <text x="400" y="120" fill="#9aa8bc" text-anchor="middle">40 cas · 200 appels JEV</text>
+        <text x="400" y="140" fill="#9aa8bc" text-anchor="middle">» MAP, MRR, P@1, nDCG</text>
+
+        <rect x="560" y="70" width="240" height="86" rx="9" fill="#243044" stroke="#2d3a4f"/>
+        <text x="680" y="98" fill="#e8eef7" text-anchor="middle" font-weight="700">③ RAG large vs EL</text>
+        <text x="680" y="120" fill="#9aa8bc" text-anchor="middle">5 modèles · 40 cas · 2 bras</text>
+        <text x="680" y="140" fill="#9aa8bc" text-anchor="middle">» tokens, qualité, coût</text>
+
+        <rect x="850" y="70" width="170" height="86" rx="9" fill="#243044" stroke="#2d3a4f"/>
+        <text x="935" y="98" fill="#e8eef7" text-anchor="middle" font-weight="700">Coûts</text>
+        <text x="935" y="120" fill="#9aa8bc" text-anchor="middle">LLM mesuré</text>
+        <text x="935" y="140" fill="#9aa8bc" text-anchor="middle">+ JEV estimé</text>
+
+        <line x1="240" y1="113" x2="286" y2="113" stroke="#6b7b92" stroke-width="1.6" marker-end="url(#ar)"/>
+        <line x1="510" y1="113" x2="556" y2="113" stroke="#6b7b92" stroke-width="1.6" marker-end="url(#ar)"/>
+        <line x1="800" y1="113" x2="846" y2="113" stroke="#6b7b92" stroke-width="1.6" marker-end="url(#ar)"/>
+        <text x="520" y="205" fill="#9aa8bc" text-anchor="middle">Chaque étape est mesurée séparément ; aucune ne prouve à elle seule un « meilleur produit ».</text>
+      </g>
+    </svg>
+  </div>
+</section>
+
+<section id="exp1">
+  <h2>4. Expérience 1 — Smoke live des 8 modèles</h2>
+  <p><strong>But :</strong> vérifier que chaque modèle du roster répond via le profil de requête figé, que le modèle retourné est bien celui demandé, et que l’usage est mappé. <strong>Ce n’est pas</strong> un classement qualité.</p>
+  <table>
+    <thead><tr><th>Candidat</th><th>Famille</th><th>Résultat</th><th>Modèle retourné</th></tr></thead>
+    <tbody>
+      <tr><td><code>claude-opus-5-5</code></td><td>Anthropic</td><td class="pos">succès</td><td>identique</td></tr>
+      <tr><td><code>claude-sonnet-5-5</code></td><td>Anthropic</td><td class="pos">succès</td><td>identique</td></tr>
+      <tr><td><code>claude-haiku-5-5</code></td><td>Anthropic</td><td class="pos">succès</td><td>identique</td></tr>
+      <tr><td><code>gpt-6.1-sol</code></td><td>OpenAI</td><td class="pos">succès</td><td>identique</td></tr>
+      <tr><td><code>gpt-6.1-terra</code></td><td>OpenAI</td><td class="pos">succès</td><td>identique</td></tr>
+      <tr><td><code>gpt-6-luna</code></td><td>OpenAI</td><td class="pos">succès</td><td>identique</td></tr>
+      <tr><td><code>deepseek-flash</code></td><td>DeepSeek</td><td class="pos">succès</td><td>identique</td></tr>
+      <tr><td><code>deepseek-v4-pro</code></td><td>DeepSeek</td><td class="pos">succès</td><td>identique</td></tr>
+    </tbody>
+  </table>
+  <div class="callout">
+    <strong>Ce que ça prouve :</strong> les trois familles d’API acceptent les requêtes telles qu’envoyées, et <code>returned_model</code> correspond au roster.
+    <strong>Ce que ça ne prouve pas :</strong> la qualité, le comportement aux frontières 800 / 8192, ni le coût réel.
+  </div>
+</section>
+
+<section id="exp2">
+  <h2>5. Expérience 2 — JEV vs Lexical</h2>
+  <div class="diagram">
+    <svg viewBox="0 0 1040 190" role="img" aria-label="Protocole JEV vs lexical">
+      <g font-family="Segoe UI, sans-serif" font-size="13">
+        <rect x="20" y="60" width="150" height="60" rx="8" fill="#243044" stroke="#2d3a4f"/>
+        <text x="95" y="86" fill="#e8eef7" text-anchor="middle" font-weight="700">1 question</text>
+        <text x="95" y="105" fill="#9aa8bc" text-anchor="middle">+ 5 candidats</text>
+
+        <rect x="220" y="30" width="200" height="52" rx="8" fill="#243044" stroke="#3b9eff"/>
+        <text x="320" y="52" fill="#e8eef7" text-anchor="middle" font-weight="700">Score lexical</text>
+        <text x="320" y="70" fill="#9aa8bc" text-anchor="middle">local, déterministe</text>
+
+        <rect x="220" y="100" width="200" height="52" rx="8" fill="#243044" stroke="#3dd68c"/>
+        <text x="320" y="122" fill="#e8eef7" text-anchor="middle" font-weight="700">Score JEV</text>
+        <text x="320" y="140" fill="#9aa8bc" text-anchor="middle">jev-1.14.0 (distant)</text>
+
+        <rect x="470" y="30" width="190" height="52" rx="8" fill="#243044" stroke="#2d3a4f"/>
+        <text x="565" y="61" fill="#e8eef7" text-anchor="middle">Classement lexical</text>
+        <rect x="470" y="100" width="190" height="52" rx="8" fill="#243044" stroke="#2d3a4f"/>
+        <text x="565" y="131" fill="#e8eef7" text-anchor="middle">Classement JEV</text>
+
+        <rect x="710" y="60" width="300" height="60" rx="8" fill="#243044" stroke="#2d3a4f"/>
+        <text x="860" y="86" fill="#e8eef7" text-anchor="middle" font-weight="700">MAP · MRR · P@1 · nDCG · recall@5</text>
+        <text x="860" y="105" fill="#9aa8bc" text-anchor="middle">comparaison sur les mêmes 40 cas</text>
+
+        <line x1="170" y1="80" x2="216" y2="58" stroke="#6b7b92" stroke-width="1.5"/>
+        <line x1="170" y1="100" x2="216" y2="124" stroke="#6b7b92" stroke-width="1.5"/>
+        <line x1="420" y1="56" x2="466" y2="56" stroke="#6b7b92" stroke-width="1.5"/>
+        <line x1="420" y1="126" x2="466" y2="126" stroke="#6b7b92" stroke-width="1.5"/>
+        <line x1="660" y1="56" x2="706" y2="82" stroke="#6b7b92" stroke-width="1.5"/>
+        <line x1="660" y1="126" x2="706" y2="100" stroke="#6b7b92" stroke-width="1.5"/>
+      </g>
+    </svg>
+  </div>
+
+  <table>
+    <thead><tr><th>Split</th><th class="num">MAP JEV</th><th class="num">MAP Lexical</th><th class="num">Δ MAP</th><th class="num">MRR JEV</th><th class="num">MRR Lexical</th></tr></thead>
+    <tbody>
+      <tr><td>dev (22)</td><td class="num">0,912</td><td class="num">0,715</td><td class="num pos">+0,196</td><td class="num">0,939</td><td class="num">0,733</td></tr>
+      <tr><td>validation (10)</td><td class="num">0,983</td><td class="num">0,858</td><td class="num pos">+0,125</td><td class="num">1,000</td><td class="num">0,883</td></tr>
+      <tr><td>exposed_test (8)</td><td class="num">0,979</td><td class="num">0,844</td><td class="num pos">+0,135</td><td class="num">1,000</td><td class="num">0,854</td></tr>
+      <tr><td><strong>overall (40)</strong></td><td class="num"><strong>0,943</strong></td><td class="num"><strong>0,777</strong></td><td class="num pos"><strong>+0,166</strong></td><td class="num"><strong>0,967</strong></td><td class="num"><strong>0,795</strong></td></tr>
+    </tbody>
+  </table>
+
+  <div class="chart">
+    <div class="chart-title">MAP / MRR / P@1 / nDCG@5 / graded nDCG@5 — overall (40 cas)</div>
+    <div class="legend"><span><span class="swatch" style="background:var(--accent)"></span>JEV</span><span><span class="swatch" style="background:#6b7b92"></span>Lexical</span></div>
+    <div class="group"><div class="group-name">MAP</div>
+      <div class="bar-row"><span class="bar-label">JEV</span><div class="bar-track"><div class="bar jev" style="width:94.3%"></div></div><span class="bar-val">0,943</span></div>
+      <div class="bar-row"><span class="bar-label">Lexical</span><div class="bar-track"><div class="bar lex" style="width:77.7%"></div></div><span class="bar-val">0,777</span></div>
+    </div>
+    <div class="group"><div class="group-name">MRR</div>
+      <div class="bar-row"><span class="bar-label">JEV</span><div class="bar-track"><div class="bar jev" style="width:96.7%"></div></div><span class="bar-val">0,967</span></div>
+      <div class="bar-row"><span class="bar-label">Lexical</span><div class="bar-track"><div class="bar lex" style="width:79.5%"></div></div><span class="bar-val">0,795</span></div>
+    </div>
+    <div class="group"><div class="group-name">P@1</div>
+      <div class="bar-row"><span class="bar-label">JEV</span><div class="bar-track"><div class="bar jev" style="width:95%"></div></div><span class="bar-val">0,950</span></div>
+      <div class="bar-row"><span class="bar-label">Lexical</span><div class="bar-track"><div class="bar lex" style="width:65%"></div></div><span class="bar-val">0,650</span></div>
+    </div>
+    <div class="group"><div class="group-name">nDCG@5</div>
+      <div class="bar-row"><span class="bar-label">JEV</span><div class="bar-track"><div class="bar jev" style="width:96.4%"></div></div><span class="bar-val">0,964</span></div>
+      <div class="bar-row"><span class="bar-label">Lexical</span><div class="bar-track"><div class="bar lex" style="width:84.2%"></div></div><span class="bar-val">0,842</span></div>
+    </div>
+    <div class="group"><div class="group-name">graded nDCG@5</div>
+      <div class="bar-row"><span class="bar-label">JEV</span><div class="bar-track"><div class="bar jev" style="width:96.8%"></div></div><span class="bar-val">0,968</span></div>
+      <div class="bar-row"><span class="bar-label">Lexical</span><div class="bar-track"><div class="bar lex" style="width:89.6%"></div></div><span class="bar-val">0,896</span></div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card"><h4>Intervalles (bootstrap 95 %)</h4><p>MAP Δ +0,166 [0,089 ; 0,250] · MRR Δ +0,172 [0,092 ; 0,261] · P@1 Δ +0,300 [0,175 ; 0,450]. Aucun n’inclut zéro.</p></div>
+    <div class="card"><h4>Recall@5</h4><p>1,0 des deux côtés. Le gain JEV porte sur l’<em>ordre</em> des bons passages, pas sur leur présence dans le top 5.</p></div>
+  </div>
+
+  <div class="callout warn">
+    <strong>Coût du scoring JEV :</strong> 76 184 tokens d’entrée mesurés, 200 appels, 0 échec.
+    Prix liste 0,042 $/M → <strong>0,00320 $</strong> <span class="badge warn">estimate</span>, jamais une facture
+    (<code>invoiced_usd = null</code>).
+  </div>
+</section>
+
+<section id="exp3">
+  <h2>6. Expérience 3 — RAG large vs Evidence Layer</h2>
+  <div class="diagram">
+    <svg viewBox="0 0 1040 240" role="img" aria-label="Protocole A vs B">
+      <g font-family="Segoe UI, sans-serif" font-size="13">
+        <rect x="20" y="90" width="140" height="58" rx="8" fill="#243044" stroke="#2d3a4f"/>
+        <text x="90" y="116" fill="#e8eef7" text-anchor="middle" font-weight="700">Question</text>
+        <text x="90" y="134" fill="#9aa8bc" text-anchor="middle">+ candidats</text>
+
+        <rect x="200" y="22" width="240" height="58" rx="8" fill="#243044" stroke="#3b9eff"/>
+        <text x="320" y="48" fill="#e8eef7" text-anchor="middle" font-weight="700">A — contexte large</text>
+        <text x="320" y="66" fill="#9aa8bc" text-anchor="middle">top 5 passages lexicaux</text>
+
+        <rect x="200" y="158" width="240" height="58" rx="8" fill="#243044" stroke="#3dd68c"/>
+        <text x="320" y="184" fill="#e8eef7" text-anchor="middle" font-weight="700">B — Evidence Layer</text>
+        <text x="320" y="202" fill="#9aa8bc" text-anchor="middle">top 3 passages JEV</text>
+
+        <rect x="490" y="22" width="200" height="58" rx="8" fill="#243044" stroke="#2d3a4f"/>
+        <text x="590" y="55" fill="#e8eef7" text-anchor="middle">Même LLM</text>
+        <rect x="490" y="158" width="200" height="58" rx="8" fill="#243044" stroke="#2d3a4f"/>
+        <text x="590" y="191" fill="#e8eef7" text-anchor="middle">Même LLM</text>
+
+        <rect x="740" y="22" width="270" height="58" rx="8" fill="#243044" stroke="#2d3a4f"/>
+        <text x="875" y="55" fill="#e8eef7" text-anchor="middle">Réponses (même question)</text>
+        <rect x="740" y="158" width="270" height="58" rx="8" fill="#243044" stroke="#f5a524"/>
+        <text x="875" y="184" fill="#e8eef7" text-anchor="middle" font-weight="700">Juge aveugle apparié</text>
+        <text x="875" y="202" fill="#9aa8bc" text-anchor="middle">ordre A/B masqué, score 0–2</text>
+
+        <line x1="160" y1="105" x2="196" y2="60" stroke="#6b7b92" stroke-width="1.5"/>
+        <line x1="160" y1="133" x2="196" y2="180" stroke="#6b7b92" stroke-width="1.5"/>
+        <line x1="440" y1="51" x2="486" y2="51" stroke="#6b7b92" stroke-width="1.5"/>
+        <line x1="440" y1="187" x2="486" y2="187" stroke="#6b7b92" stroke-width="1.5"/>
+        <line x1="690" y1="51" x2="736" y2="51" stroke="#6b7b92" stroke-width="1.5"/>
+        <line x1="690" y1="187" x2="736" y2="187" stroke="#6b7b92" stroke-width="1.5"/>
+      </g>
+    </svg>
+  </div>
+
+  <h3>6.1 Tokens par cas</h3>
+  <table>
+    <thead><tr><th>Modèle</th><th class="num">A tokens/cas</th><th class="num">B tokens/cas</th><th class="num">Δ</th><th>Intervalle bootstrap</th></tr></thead>
+    <tbody>
+      <tr><td>OpenAI <code>gpt-6.1-sol</code></td><td class="num">507,75</td><td class="num">386,10</td><td class="num pos">−24,0 %</td><td class="small">exclut zéro</td></tr>
+      <tr><td>DeepSeek V4 Pro</td><td class="num">728,95</td><td class="num">570,52</td><td class="num pos">−21,7 %</td><td class="small">exclut zéro</td></tr>
+      <tr><td>Claude Haiku 5.5</td><td class="num">906,15</td><td class="num">710,43</td><td class="num pos">−21,6 %</td><td class="small">−195,7 [−227,6 ; −164,6]</td></tr>
+      <tr><td>Claude Sonnet 5.5</td><td class="num">822,75</td><td class="num">631,68</td><td class="num pos">−23,2 %</td><td class="small">−191,1 [−203,6 ; −179,1]</td></tr>
+      <tr><td>Claude Opus 5.5</td><td class="num">915,75</td><td class="num">723,00</td><td class="num pos">−21,1 %</td><td class="small">−192,8 [−211,7 ; −174,3]</td></tr>
+    </tbody>
+  </table>
+
+  <div class="chart">
+    <div class="chart-title">Réduction des tokens totaux par cas (plus long = plus de réduction)</div>
+    <div class="group">
+      <div class="bar-row"><span class="bar-label">OpenAI</span><div class="bar-track"><div class="bar green" style="width:96%"></div></div><span class="bar-val">−24,0 %</span></div>
+      <div class="bar-row"><span class="bar-label">DeepSeek</span><div class="bar-track"><div class="bar green" style="width:86.9%"></div></div><span class="bar-val">−21,7 %</span></div>
+      <div class="bar-row"><span class="bar-label">Haiku</span><div class="bar-track"><div class="bar green" style="width:86.4%"></div></div><span class="bar-val">−21,6 %</span></div>
+      <div class="bar-row"><span class="bar-label">Sonnet</span><div class="bar-track"><div class="bar green" style="width:92.9%"></div></div><span class="bar-val">−23,2 %</span></div>
+      <div class="bar-row"><span class="bar-label">Opus</span><div class="bar-track"><div class="bar green" style="width:84.2%"></div></div><span class="bar-val">−21,1 %</span></div>
+    </div>
+    <p class="small">Échelle relative : 100 % correspondrait à 25 points de réduction.</p>
+  </div>
+
+  <h3>6.2 Qualité (juge automatisé, 0–2)</h3>
+  <div class="callout warn"><strong>Aucun gain de qualité n’est établi.</strong> Les scores sont proches du plafond et tous les intervalles des deltas de qualité incluent zéro.</div>
+  <table>
+    <thead><tr><th>Modèle</th><th class="num">Correctness A → B</th><th class="num">Completeness A → B</th><th class="num">Groundedness A → B</th><th>Qualité établie ?</th></tr></thead>
+    <tbody>
+      <tr><td>OpenAI</td><td class="num">1,950 → 1,950</td><td class="num">1,900 → 1,825</td><td class="num">2,000 → 2,000</td><td class="neu">Non</td></tr>
+      <tr><td>DeepSeek</td><td class="num">2,000 → 1,950</td><td class="num">1,850 → 1,875</td><td class="num">2,000 → 1,975</td><td class="neu">Non</td></tr>
+      <tr><td>Haiku</td><td class="num">1,975 → 2,000</td><td class="num">1,950 → 1,900</td><td class="num">1,950 → 1,975</td><td class="neu">Non (IC ⊃ 0)</td></tr>
+      <tr><td>Sonnet</td><td class="num">2,000 → 1,975</td><td class="num">1,950 → 1,925</td><td class="num">2,000 → 1,975</td><td class="neu">Non (IC ⊃ 0)</td></tr>
+      <tr><td>Opus</td><td class="num">2,000 → 2,000</td><td class="num">1,950 → 1,925</td><td class="num">2,000 → 2,000</td><td class="neu">Non (IC ⊃ 0)</td></tr>
+    </tbody>
+  </table>
+  <p class="small">Couverture des passages « or » : 1,000 → 0,979 (3 passages retenus au lieu de 5). La précision de pertinence des citations monte légèrement (points d’estimation, sans intervalle).</p>
+</section>
+
+<section id="couts">
+  <h2>7. Coûts : mesuré, estimé, facturé</h2>
+  <p>Les trois mots ne sont pas interchangeables :</p>
+  <div class="grid">
+    <div class="card"><h4><span class="badge ok">mesuré</span> LLM</h4><p>Calculé depuis l’usage tokens rapporté par le fournisseur, aux prix publiés. Reste une <em>borne inférieure</em> si un appel n’a pas conservé son usage.</p></div>
+    <div class="card"><h4><span class="badge warn">estimate</span> JEV</h4><p>Tokens mesurés × prix liste (0,042 $/M entrée). Aucune facture consultée : <code>invoiced_usd = null</code>.</p></div>
+    <div class="card"><h4><span class="badge no">exclu</span> Juge &amp; local</h4><p>Le juge automatisé (~0,24–0,48 $ par run) est un coût d’évaluation, hors coût de service. Le calcul local n’est pas tarifé.</p></div>
+  </div>
+
+  <table>
+    <thead><tr><th>Modèle</th><th class="num">A LLM $</th><th class="num">B LLM $</th><th class="num">JEV $ (estimate)</th><th class="num">B système $</th><th class="num">Δ système</th></tr></thead>
+    <tbody>
+      <tr><td>OpenAI gpt-6.1-sol</td><td class="num">0,069660</td><td class="num">0,058880</td><td class="num">0,003200</td><td class="num">0,062080</td><td class="num pos">−0,007580</td></tr>
+      <tr><td>DeepSeek V4 Pro</td><td class="num">0,032920</td><td class="num">0,028622</td><td class="num">0,003200</td><td class="num">0,031822</td><td class="num pos">−0,001099</td></tr>
+      <tr><td>Claude Haiku 5.5</td><td class="num">0,007754</td><td class="num">0,006765</td><td class="num">0,003200</td><td class="num">0,009965</td><td class="num neg">+0,002210</td></tr>
+      <tr><td>Claude Sonnet 5.5</td><td class="num">0,121724</td><td class="num">0,103798</td><td class="num">0,003200</td><td class="num">0,106998</td><td class="num pos">−0,014726</td></tr>
+      <tr><td>Claude Opus 5.5</td><td class="num">0,317848</td><td class="num">0,280656</td><td class="num">0,003200</td><td class="num">0,283856</td><td class="num pos">−0,033992</td></tr>
+    </tbody>
+  </table>
+
+  <div class="chart">
+    <div class="chart-title">Coût système estimé par run de 40 cas (A = LLM seul ; B = LLM + JEV estimé)</div>
+    <div class="group"><div class="group-name">OpenAI</div>
+      <div class="bar-row"><span class="bar-label">A</span><div class="bar-track"><div class="bar lex" style="width:21.9%"></div></div><span class="bar-val">0,0697</span></div>
+      <div class="bar-row"><span class="bar-label">B</span><div class="bar-track"><div class="bar jev" style="width:19.5%"></div></div><span class="bar-val">0,0621</span></div>
+    </div>
+    <div class="group"><div class="group-name">DeepSeek</div>
+      <div class="bar-row"><span class="bar-label">A</span><div class="bar-track"><div class="bar lex" style="width:10.4%"></div></div><span class="bar-val">0,0329</span></div>
+      <div class="bar-row"><span class="bar-label">B</span><div class="bar-track"><div class="bar jev" style="width:10.0%"></div></div><span class="bar-val">0,0318</span></div>
+    </div>
+    <div class="group"><div class="group-name">Claude Haiku</div>
+      <div class="bar-row"><span class="bar-label">A</span><div class="bar-track"><div class="bar lex" style="width:2.4%"></div></div><span class="bar-val">0,0078</span></div>
+      <div class="bar-row"><span class="bar-label">B</span><div class="bar-track"><div class="bar red" style="width:3.1%"></div></div><span class="bar-val">0,0100</span></div>
+    </div>
+    <div class="group"><div class="group-name">Claude Sonnet</div>
+      <div class="bar-row"><span class="bar-label">A</span><div class="bar-track"><div class="bar lex" style="width:38.3%"></div></div><span class="bar-val">0,1217</span></div>
+      <div class="bar-row"><span class="bar-label">B</span><div class="bar-track"><div class="bar jev" style="width:33.7%"></div></div><span class="bar-val">0,1070</span></div>
+    </div>
+    <div class="group"><div class="group-name">Claude Opus</div>
+      <div class="bar-row"><span class="bar-label">A</span><div class="bar-track"><div class="bar lex" style="width:100%"></div></div><span class="bar-val">0,3178</span></div>
+      <div class="bar-row"><span class="bar-label">B</span><div class="bar-track"><div class="bar jev" style="width:89.3%"></div></div><span class="bar-val">0,2839</span></div>
+    </div>
+    <p class="small">Échelle relative : 100 % = coût Opus A. Haiku B apparaît en rouge : la charge JEV estimée dépasse l’économie LLM.</p>
+  </div>
+
+  <div class="callout warn">
+    <strong>Allocation du JEV.</strong> Le tableau charge 0,0032 $ par modèle (scoring dédié). Les scores JEV ne dépendent que de (cas, candidat) : un scoring partagé entre les trois Claude coûterait 0,00107 $ par modèle. Haiku devient alors quasi neutre (+0,00008 $) ; Sonnet et Opus restent moins chers.
+  </div>
+</section>
+
+<section id="bilan">
+  <h2>8. Bilan honnête</h2>
+  <div class="kpi">
+    <div class="box"><div class="big pos">−21 à −24 %</div><div class="lbl">tokens totaux par réponse (5 modèles)</div></div>
+    <div class="box"><div class="big pos">+0,166 MAP</div><div class="lbl">JEV vs lexical (IC 0,089–0,250)</div></div>
+    <div class="box"><div class="big neu">0</div><div class="lbl">gain de qualité établi</div></div>
+    <div class="box"><div class="big warn">1 / 5</div><div class="lbl">modèles plus chers une fois le JEV estimé (Haiku)</div></div>
+  </div>
+  <div class="grid" style="margin-top:1rem">
+    <div class="card"><h4><span class="badge ok">Établi</span></h4><p>Moins de contexte, moins de tokens, coût LLM mesuré en baisse ; JEV classe nettement mieux que lexical.</p></div>
+    <div class="card"><h4><span class="badge warn">Non établi</span></h4><p>Meilleures réponses ; coût total toujours inférieur ; supériorité scientifique généralisable.</p></div>
+    <div class="card"><h4><span class="badge info">Décision</span></h4><p>Lexical reste le défaut production ; JEV reste optionnel et évaluatif jusqu’à adjudication indépendante et split réellement aveugle.</p></div>
+    <div class="card"><h4><span class="badge no">À ne pas affirmer</span></h4><p>« Facture JEV », « réponses meilleures », « gain garanti sur tous les modèles ».</p></div>
+  </div>
+</section>
+
+<section id="limites">
+  <h2>9. Limites</h2>
+  <ul>
+    <li><strong>Labels développeur</strong> : pertinence et faits requis rédigés par l’équipe ; pas d’adjudication humaine indépendante.</li>
+    <li><strong>Juge automatisé</strong> : modèle OpenAI, non indépendant du fournisseur OpenAI.</li>
+    <li><strong>Split exposé</strong> : les 8 cas de <code>exposed_test</code> ne sont pas aveugles.</li>
+    <li><strong>Effet plafond</strong> : scores qualité déjà à 2,0/2 ; un juge 0–2 ne peut guère montrer mieux.</li>
+    <li><strong>Profils hétérogènes</strong> : Anthropic avec adaptive thinking/8192, Phase 7 avec 800 en sortie totale.</li>
+    <li><strong>Frontières non exercées</strong> : 800 tokens visibles et plafond 8192 non atteints en live.</li>
+    <li><strong>Coût JEV estimé</strong>, pas facturé ; juge et calcul local exclus du coût de service.</li>
+  </ul>
+</section>
+
+<section id="sources">
+  <h2>10. Sources et artefacts</h2>
+  <table>
+    <thead><tr><th>Élément</th><th>Fichier</th></tr></thead>
+    <tbody>
+      <tr><td>Smoke live 8 modèles</td><td><code>docs/phase6-live-smoke-2026-11-06-full.jsonl</code></td></tr>
+      <tr><td>JEV vs lexical (brut)</td><td><code>reports/phase6_real_world_jev.json</code></td></tr>
+      <tr><td>JEV vs lexical (rapport)</td><td><code>docs/phase6-jev-vs-lexical-report.md</code></td></tr>
+      <tr><td>E2E OpenAI + DeepSeek</td><td><code>reports/phase7_end_to_end_rag.json</code>, <code>docs/phase7_end_to_end_benchmark.md</code></td></tr>
+      <tr><td>E2E Anthropic</td><td><code>reports/phase7_anthropic_end_to_end.json</code>, <code>docs/phase7_anthropic_end_to_end.md</code></td></tr>
+      <tr><td>Prix JEV</td><td><a href="https://docs.typesafe.ai/models">docs.typesafe.ai/models</a> (2026-11-06)</td></tr>
+    </tbody>
+  </table>
+</section>
+
+</main>
+<footer>
+  <div class="wrap">
+    Page statique, sans dépendance externe. Les chiffres proviennent des artefacts listés ci-dessus ; cette page ne les remplace pas.
+    Aucune clé, aucun prompt, aucun texte de réponse n’est inclus.
+  </div>
+</footer>
+</body>
+</html>
