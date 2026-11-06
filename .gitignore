@@ -43,6 +43,8 @@ reports/*
 !reports/phase6_real_world_lexical.json
 !reports/phase6_real_world_jev.json
 !reports/phase6_real_world_jev_manifest.json
+!reports/phase7_haiku_lexical_e2e.json
+!reports/phase7_haiku_lexical_e2e_manifest.json
 
 # Environment files (templates stay tracked)
 .env

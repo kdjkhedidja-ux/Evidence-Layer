@@ -73,8 +73,27 @@ describe("public information pages", () => {
     expect(screen.getByText(/not been independently human-reviewed/i)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "View the Phase 7 manifest" })).toHaveAttribute(
       "href",
-      expect.stringContaining("/0ec7e1144d1fbfc3e36ea931f1ba53f97897b0fc/"),
+      "/evaluation/phase7-manifest.html",
     );
+    expect(screen.getByRole("link", { name: "Read the Phase 7 report" })).toHaveAttribute(
+      "href",
+      "/evaluation/phase7-report.html",
+    );
+    expect(screen.getByRole("link", { name: "Read the Phase 6 report" })).toHaveAttribute(
+      "href",
+      "/evaluation/phase6-report.html",
+    );
+    expect(screen.getByRole("link", { name: "Read the Phase 7B report" })).toHaveAttribute(
+      "href",
+      "/evaluation/phase7b-report.html",
+    );
+    expect(screen.getByRole("link", { name: "View the Phase 7B manifest" })).toHaveAttribute(
+      "href",
+      "/evaluation/phase7b-manifest.html",
+    );
+    for (const link of screen.getAllByRole("link")) {
+      expect(link.getAttribute("href") ?? "").not.toMatch(/github\.com/i);
+    }
   });
 
   it("makes wide benchmark tables keyboard-scrollable and constrains public layouts on mobile", () => {

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Haiku 5.5 — Evidence Layer + lexical, sans JEV · Evidence Layer</title><style>
+:root{--bg:#f7f7f5;--card:#fff;--ink:#1d2321;--muted:#5c6662;--line:#dfe3df;--accent:#1f6f5c}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+main{max-width:880px;margin:0 auto;padding:40px 20px 64px}
+a{color:var(--accent)}
+h1{font-size:1.9rem;line-height:1.2;margin:.2rem 0 .6rem}
+h2{font-size:1.2rem;margin:2rem 0 .6rem;padding-bottom:.3rem;border-bottom:1px solid var(--line)}
+h3{font-size:1rem;margin:1.2rem 0 .4rem}
+p{margin:.6rem 0}
+.eyebrow{text-transform:uppercase;letter-spacing:.08em;font-size:.75rem;color:var(--muted);margin:0}
+.lede{color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:.9rem;margin:.8rem 0}
+th,td{border:1px solid var(--line);padding:.5rem .6rem;text-align:left;vertical-align:top}
+th{background:#eef1ee;font-weight:600}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.note{background:#fff;border:1px solid var(--line);border-left:3px solid var(--accent);padding:.7rem .9rem;margin:1rem 0}
+.warn{border-left-color:#b7791f}
+.ok{color:#1f6f5c;font-weight:600}
+.bad{color:#a33;font-weight:600}
+code{background:#eef1ee;padding:.1em .35em;border-radius:3px;font-size:.85em}
+ul{margin:.5rem 0 .8rem 1.2rem}
+.back{display:inline-block;margin-bottom:1.4rem;font-size:.9rem}
+footer{margin-top:2.5rem;color:var(--muted);font-size:.85rem}
+</style></head>
+<body><main>
+<a class="back" href="/cost-performance">← Retour à Cost &amp; Performance</a>
+<p class="eyebrow">Rapport · comparaison appariée</p><h1>Haiku 5.5 — Evidence Layer + lexical, sans JEV</h1>
+
+<p class="lede">Bras A : 5 passages lexicaux. Bras B : 3 passages sélectionnés par le même scorer lexical, avec le budget Evidence Layer. Aucun appel JEV, aucun score JEV lu.</p>
+<table><thead><tr><th>Mesure</th><th class="num">Traditional</th><th class="num">EL + lexical</th><th class="num">Écart</th></tr></thead><tbody>
+<tr><td>Tokens totaux / cas</td><td class="num">912,25</td><td class="num">701,00</td><td class="num ok">−211,25 (−23,16 %)</td></tr>
+<tr><td>Tokens d’entrée / cas</td><td class="num">648,05</td><td class="num">457,65</td><td class="num ok">−190,40</td></tr>
+<tr><td>Tokens de sortie / cas</td><td class="num">264,20</td><td class="num">243,35</td><td class="num ok">−20,85</td></tr>
+<tr><td>Correctness / 2</td><td class="num">2,000</td><td class="num">1,975</td><td class="num">−0,025 (IC ⊃ 0)</td></tr>
+<tr><td>Complétude / 2</td><td class="num">1,950</td><td class="num">1,725</td><td class="num bad">−0,225 (IC −0,40 ; −0,075)</td></tr>
+<tr><td>Groundedness / 2</td><td class="num">1,975</td><td class="num">2,000</td><td class="num">+0,025 (IC ⊃ 0)</td></tr>
+<tr><td>Citations correctes / 2</td><td class="num">1,975</td><td class="num">2,000</td><td class="num">+0,025 (IC ⊃ 0)</td></tr>
+<tr><td>Rappel des passages or</td><td class="num">1,0000</td><td class="num">0,8708</td><td class="num bad">−0,1292</td></tr>
+<tr><td>Précision de pertinence des citations</td><td class="num">0,8414</td><td class="num">0,8625</td><td class="num ok">+0,0211</td></tr>
+<tr><td>Coût LLM mesuré (40 cas)</td><td class="num">0,007876 $</td><td class="num">0,006698 $</td><td class="num ok">−14,96 %</td></tr>
+<tr><td>JEV</td><td class="num">n/a</td><td class="num">0 $ (non utilisé)</td><td class="num">—</td></tr>
+<tr><td>Coût système estimé</td><td class="num">0,007876 $</td><td class="num">0,006698 $</td><td class="num ok">−14,96 %</td></tr>
+<tr><td>Latence moyenne</td><td class="num">1 768 ms</td><td class="num">1 634 ms</td><td class="num ok">−134 ms</td></tr>
+</tbody></table>
+<p>Intervalles bootstrap 95 % : tokens totaux <strong>−211,25 [−238,85 ; −185,07]</strong> ; coût LLM <strong>−0,00003 [−0,00004 ; −0,00002]</strong> ; complétude <strong>−0,225 [−0,40 ; −0,075]</strong>. Les gains de tokens et de coût excluent zéro ; la baisse de complétude aussi.</p>
+<h2>Effet sur le surcoût Haiku</h2>
+<p>Avec l’estimation JEV antérieure, le bras Evidence Layer coûtait 0,009965 $ contre 0,007754 $ pour Traditional : <strong>+0,002210 $</strong>. Sans JEV, le coût système devient 0,006698 $ contre 0,007876 $ : <strong>−0,001178 $</strong>. La suppression du JEV corrige donc le surcoût, mais la complétude baisse de 0,225 et le rappel des passages or de 0,129 : ce n’est pas un gain gratuit.</p>
+<h2>Limites</h2>
+<ul><li>Jugements de pertinence et faits requis rédigés par les développeurs ; juge automatisé OpenAI.</li><li>Split exposé non aveugle ; 40 cas seulement.</li><li>Le bras B utilise le même scorer lexical que le bras A : seule la taille du contexte et la sélection changent.</li><li>Coûts LLM mesurés sur l’usage Anthropic ; pas de facture.</li></ul>
+
+<footer>Page locale générée à partir des artefacts du projet. Aucune clé, aucun prompt et aucun texte de réponse n’y figurent.</footer>
+</main></body></html>

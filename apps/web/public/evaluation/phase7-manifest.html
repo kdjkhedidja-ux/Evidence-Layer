@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phase 7 — Manifeste · Evidence Layer</title><style>
+:root{--bg:#f7f7f5;--card:#fff;--ink:#1d2321;--muted:#5c6662;--line:#dfe3df;--accent:#1f6f5c}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+main{max-width:880px;margin:0 auto;padding:40px 20px 64px}
+a{color:var(--accent)}
+h1{font-size:1.9rem;line-height:1.2;margin:.2rem 0 .6rem}
+h2{font-size:1.2rem;margin:2rem 0 .6rem;padding-bottom:.3rem;border-bottom:1px solid var(--line)}
+h3{font-size:1rem;margin:1.2rem 0 .4rem}
+p{margin:.6rem 0}
+.eyebrow{text-transform:uppercase;letter-spacing:.08em;font-size:.75rem;color:var(--muted);margin:0}
+.lede{color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:.9rem;margin:.8rem 0}
+th,td{border:1px solid var(--line);padding:.5rem .6rem;text-align:left;vertical-align:top}
+th{background:#eef1ee;font-weight:600}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.note{background:#fff;border:1px solid var(--line);border-left:3px solid var(--accent);padding:.7rem .9rem;margin:1rem 0}
+.warn{border-left-color:#b7791f}
+.ok{color:#1f6f5c;font-weight:600}
+.bad{color:#a33;font-weight:600}
+code{background:#eef1ee;padding:.1em .35em;border-radius:3px;font-size:.85em}
+ul{margin:.5rem 0 .8rem 1.2rem}
+.back{display:inline-block;margin-bottom:1.4rem;font-size:.9rem}
+footer{margin-top:2.5rem;color:var(--muted);font-size:.85rem}
+</style></head>
+<body><main>
+<a class="back" href="/cost-performance">← Retour à Cost &amp; Performance</a>
+<p class="eyebrow">Manifeste · intégrité des artefacts</p><h1>Phase 7 — Manifeste</h1>
+
+<p class="lede">Vue lisible du manifeste Phase 7. Les empreintes permettent de vérifier que le rapport correspond aux entrées exécutées.</p>
+<h2>Identité du run</h2>
+<table><tbody>
+<tr><th>Benchmark</th><td><code>phase7-real-world-v1-end-to-end-rag</code></td></tr>
+<tr><th>Run ID</th><td><code>45e479aa-3689-48ad-b555-1fb3452b9b3b</code></td></tr>
+<tr><th>Créé (UTC)</th><td>2026-10-31T15:58:14Z</td></tr>
+<tr><th>Rapport</th><td><code>reports/phase7_end_to_end_rag.json</code></td></tr>
+<tr><th>Données fixes</th><td>51 passages · 40 cas · 200 candidats</td></tr>
+</tbody></table>
+<h2>Empreintes SHA-256</h2>
+<table><thead><tr><th>Artefact</th><th>SHA-256</th></tr></thead><tbody>
+<tr><td>Rapport</td><td><code>17d270958719939d55f4ecf41de00c1879a52776a8209f6ea64f4e6674ffdd69</code></td></tr>
+<tr><td>Réponses</td><td><code>97beb4d96f47b0abf41a02313b10f23d8376b634a40d382bebbc8ca6a48c40b7</code></td></tr>
+<tr><td>Sorties du juge</td><td><code>926b805b818ce3140b6c09f9df5325d7a069ba32ca33fc21a41a8aa98b6ca0fa</code></td></tr>
+</tbody></table>
+<h2>Modèles et entrées</h2>
+<p>Modèles exécutés : <code>gpt-6.1-sol</code> (OpenAI) et <code>deepseek-v4-pro</code> (DeepSeek). Le manifeste épingle également 25 empreintes d’entrée (scripts, données, prompts) afin de détecter toute dérive après le run.</p>
+<div class="note">Cette page présente la substance du manifeste. Le fichier complet reste <code>reports/phase7_end_to_end_rag_manifest.json</code> dans le dépôt.</div>
+
+<footer>Page locale générée à partir des artefacts du projet. Aucune clé, aucun prompt et aucun texte de réponse n’y figurent.</footer>
+</main></body></html>

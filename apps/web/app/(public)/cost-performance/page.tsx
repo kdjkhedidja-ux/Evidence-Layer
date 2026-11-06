@@ -6,11 +6,12 @@ export const metadata: Metadata = {
   description: "Separate results for Phase 6 ranking, Phase 7 answer generation, and Phase 7B live JEV end-to-end cost validation.",
 };
 
-const phase6Report = "https://github.com/saidzeghidi31-bit/Evidence-Layer/blob/5f8a05352e6ae045ff005b173091afd80530471f/docs/phase6_real_world_jev_report.md";
-const phase7Report = "https://github.com/saidzeghidi31-bit/Evidence-Layer/blob/0ec7e1144d1fbfc3e36ea931f1ba53f97897b0fc/docs/phase7_end_to_end_benchmark.md";
-const phase7Manifest = "https://github.com/saidzeghidi31-bit/Evidence-Layer/blob/0ec7e1144d1fbfc3e36ea931f1ba53f97897b0fc/reports/phase7_end_to_end_rag_manifest.json";
-const phase7bReport = "https://github.com/saidzeghidi31-bit/Evidence-Layer/blob/23522d4d7f8fd00134b134e2c1760cd949b99170/docs/phase7b_live_cost_validation.md";
-const phase7bManifest = "https://github.com/saidzeghidi31-bit/Evidence-Layer/blob/23522d4d7f8fd00134b134e2c1760cd949b99170/reports/phase7b_live_end_to_end_rag_manifest.json";
+const phase6Report = "/evaluation/phase6-report.html";
+const phase7Report = "/evaluation/phase7-report.html";
+const phase7Manifest = "/evaluation/phase7-manifest.html";
+const phase7bReport = "/evaluation/phase7b-report.html";
+const phase7bManifest = "/evaluation/phase7b-manifest.html";
+const haikuLexicalReport = "/evaluation/haiku-lexical-report.html";
 
 export default function CostPerformancePage() {
   return (
@@ -66,7 +67,9 @@ export default function CostPerformancePage() {
           Traditional RAG passed the top five lexical candidates. Evidence Layer passed the top
           three candidates selected using saved Phase 6 JEV scores. The intended route difference
           was evidence selection and context size. Phase 7 made no new JEV calls; JEV API cost was
-          unavailable and total system cost cannot be determined from this phase.
+          unavailable and total system cost cannot be determined from this phase. A separate paired
+          Haiku run selects with the lexical scorer only and makes no JEV call at all; it appears
+          below next to the JEV-estimated Anthropic rows.
         </p>
         <ResponsiveTable label="Phase 7 answer-generation results by provider">
           <table className="public-table">
@@ -84,6 +87,50 @@ export default function CostPerformancePage() {
           and is not a fresh live end-to-end measurement. Automated answer judgments are not
           independent human review.
         </p>
+        <h3>Anthropic — Evidence Layer avec et sans JEV</h3>
+        <ResponsiveTable label="Phase 7 Anthropic results, with and without JEV">
+          <table className="public-table">
+            <caption>Claude 5.5 · Traditional RAG → Evidence Layer · coûts par bras de 40 cas</caption>
+            <thead><tr><th scope="col">Modèle et variante</th><th scope="col">Tokens / cas</th><th scope="col">Coût LLM mesuré</th><th scope="col">Coût système</th><th scope="col">Lecture qualité</th></tr></thead>
+            <tbody>
+              <tr>
+                <th scope="row">Haiku · EL + lexical<br /><span className="benchmark-tag">Sans JEV</span></th>
+                <td>912.25 → 701.00<br /><strong>−23.16 %</strong></td>
+                <td>$0.007876 → $0.006698<br /><strong>−14.96 %</strong></td>
+                <td>$0.007876 → $0.006698<br /><strong>−14.96 %</strong></td>
+                <td>Correctness 2.000 → 1.975 ; complétude 1.950 → 1.725 (IC −0.40 ; −0.075) ; groundedness 1.975 → 2.000. Aucun gain de qualité établi.</td>
+              </tr>
+              <tr>
+                <th scope="row">Haiku · EL + JEV estimé</th>
+                <td>906.15 → 710.43<br /><strong>−21.60 %</strong></td>
+                <td>$0.007754 → $0.006765</td>
+                <td>$0.007754 → $0.009965<br /><strong>+$0.002210</strong></td>
+                <td>Aucun gain de qualité établi.</td>
+              </tr>
+              <tr>
+                <th scope="row">Sonnet · EL + JEV estimé</th>
+                <td>822.75 → 631.68<br /><strong>−23.22 %</strong></td>
+                <td>$0.121724 → $0.103798</td>
+                <td>$0.121724 → $0.106998</td>
+                <td>Aucun gain de qualité établi.</td>
+              </tr>
+              <tr>
+                <th scope="row">Opus · EL + JEV estimé</th>
+                <td>915.75 → 723.00<br /><strong>−21.05 %</strong></td>
+                <td>$0.317848 → $0.280656</td>
+                <td>$0.317848 → $0.283856</td>
+                <td>Aucun gain de qualité établi.</td>
+              </tr>
+            </tbody>
+          </table>
+        </ResponsiveTable>
+        <p className="public-caveat">
+          La variante « sans JEV » n’a fait aucun appel JEV : coût système = coût LLM mesuré. Elle
+          corrige le surcoût Haiku observé avec l’estimation JEV, mais la complétude baisse de 0.225
+          et le rappel des passages or de 1.000 à 0.871. Les lignes « JEV estimé » utilisent un prix
+          liste, pas une facture.
+        </p>
+        <p className="public-report-links"><a href={haikuLexicalReport}>Read the Haiku lexical-only report</a></p>
         <p className="public-report-links"><a href={phase7Report}>Read the Phase 7 report</a><a href={phase7Manifest}>View the Phase 7 manifest</a></p>
       </section>
 
