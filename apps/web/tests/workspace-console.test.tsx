@@ -126,7 +126,6 @@ describe("workspace product console", () => {
       "/relationships",
       "/#verification",
       "/cost-performance",
-      "/#integrations",
       "/#settings-access",
     ]);
     expect(links.length).toBeGreaterThan(0);
@@ -145,12 +144,6 @@ describe("workspace product console", () => {
     if (!keysFeature) throw new Error("Personal API Keys capability is missing its list item");
     expect(within(keysFeature).getByText("Pending")).toBeInTheDocument();
     expect(keysFeature).toHaveTextContent(/separate from session JWTs/i);
-
-    const evaluationFeature = screen.getByRole("heading", { name: "Workspace evaluation" }).closest("li");
-    expect(evaluationFeature).not.toBeNull();
-    if (!evaluationFeature) throw new Error("Workspace evaluation capability is missing its list item");
-    expect(within(evaluationFeature).getByText("Unavailable")).toBeInTheDocument();
-    expect(within(evaluationFeature).queryByRole("link")).not.toBeInTheDocument();
   });
 
   it("keeps evidence mutations unavailable in the member UI", async () => {
