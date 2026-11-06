@@ -17,7 +17,7 @@ select ok(
 select is(
     (select count(*)::integer from pg_policies
      where schemaname = 'public' and tablename = 'evidence_relationships'),
-    4, 'four explicit relationship policies exist'
+    6, 'six explicit relationship policies exist'
 );
 select ok(
     not has_table_privilege('anon', 'public.evidence_relationships', 'SELECT')

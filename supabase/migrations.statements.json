@@ -15,7 +15,11 @@
     "catalog-seed-write": "INSERT ... SELECT into a reviewed catalogue table (the read-policy baseline). Values come from pg_catalog and pg_policies, not from user input; the row set is what the inventory guard diffs against later.",
     "temp-relation-cleanup": "DROP TABLE on a pg_temp relation created earlier in the same file by the admin-audit guard. Scoped to the migration session; nothing outside pg_temp is touched.",
     "catalog-assertion-call": "Calls a private.* assertion or seeding function (assert_snapshot_role_safe, assert_snapshot_verifier_function_acl_safe, assert_snapshot_verifier_allowlist_shape, ensure_snapshot_bucket). These are fail-closed self-checks and idempotent catalogue seeds defined by reviewed migrations; they take literal arguments, never user input.",
-    "fail-closed-rls-bootstrap": "DO block that replaces public.rls_auto_enable() with the reviewed fail-closed body. It refuses to replace a body that is neither the reviewed fail-open nor the reviewed fail-closed definition, re-raises ALTER failures with the table identity and the original SQLSTATE, asserts pg_class.relrowsecurity afterwards, and re-verifies the signature, owner, SECURITY DEFINER flag, fixed search_path, ACL and the ensure_rls event trigger. supabase/tests/rls_auto_enable.test.sql (plan 18) pins the observable contract and stops a silent revert to log-and-continue."
+    "lifecycle-function-ownership": "Transfers the Auth lifecycle provisioning trigger function to the dedicated NOLOGIN, NOINHERIT, NOBYPASSRLS provisioning role. The role is not granted to API/Auth identities; the migration's final privilege audit verifies those role attributes and memberships.",
+    "fail-closed-rls-bootstrap": "DO block that replaces public.rls_auto_enable() with the reviewed fail-closed body. It refuses to replace a body that is neither the reviewed fail-open nor the reviewed fail-closed definition, re-raises ALTER failures with the table identity and the original SQLSTATE, asserts pg_class.relrowsecurity afterwards, and re-verifies the signature, owner, SECURITY DEFINER flag, fixed search_path, ACL and the ensure_rls event trigger. supabase/tests/rls_auto_enable.test.sql (plan 18) pins the observable contract and stops a silent revert to log-and-continue.",
+    "lifecycle-view-definition": "Defines the private account-lifecycle self projection. It exposes only subject_id, state, and row_version through a security-invoker view; the surrounding migration grants it only to authenticated and keeps request_id and transition metadata private.",
+    "lifecycle-table-definition": "Defines the authoritative account lifecycle relation with constrained states, trusted transition metadata, request references, and a monotonic row version. RLS, forced RLS, grants, policies, and privilege assertions in the same migration bound access.",
+    "lifecycle-comment": "Documents the lifecycle relation and server-managed fields so the fail-closed state contract and retention boundary remain explicit without changing runtime privileges."
   },
   "entries": [
     {
@@ -23,7 +27,6 @@
       "file": "20261008000000_rls_auto_enable_prerequisite.sql",
       "line": 7,
       "verb": "do",
-      "statement": "do $migration$\ndeclare\n    expected_source text := $function$\nDECLARE\n  cmd record;\nBEGIN\n  FOR cmd IN\n    SELECT *\n    FROM pg_event_trigger_ddl_commands()\n   ",
       "rationale_ref": "procedural-block"
     },
     {
@@ -31,7 +34,6 @@
       "file": "20261016100000_saas_identity_workspace_boundary.sql",
       "line": 25,
       "verb": "alter table",
-      "statement": "alter table public . workspaces enable row level security",
       "rationale_ref": "relation-alter"
     },
     {
@@ -39,7 +41,6 @@
       "file": "20261016100000_saas_identity_workspace_boundary.sql",
       "line": 26,
       "verb": "alter table",
-      "statement": "alter table public . workspaces force row level security",
       "rationale_ref": "relation-alter"
     },
     {
@@ -47,7 +48,6 @@
       "file": "20261016100000_saas_identity_workspace_boundary.sql",
       "line": 27,
       "verb": "alter table",
-      "statement": "alter table public . workspace_memberships enable row level security",
       "rationale_ref": "relation-alter"
     },
     {
@@ -55,7 +55,6 @@
       "file": "20261016100000_saas_identity_workspace_boundary.sql",
       "line": 28,
       "verb": "alter table",
-      "statement": "alter table public . workspace_memberships force row level security",
       "rationale_ref": "relation-alter"
     },
     {
@@ -63,7 +62,6 @@
       "file": "20261016100000_saas_identity_workspace_boundary.sql",
       "line": 32,
       "verb": "revoke all",
-      "statement": "revoke all on table public . workspaces from public , anon , authenticated",
       "rationale_ref": "privilege-revoke"
     },
     {
@@ -71,7 +69,6 @@
       "file": "20261016100000_saas_identity_workspace_boundary.sql",
       "line": 33,
       "verb": "revoke all",
-      "statement": "revoke all on table public . workspace_memberships from public , anon , authenticated",
       "rationale_ref": "privilege-revoke"
     },
     {
@@ -79,7 +76,6 @@
       "file": "20261016100000_saas_identity_workspace_boundary.sql",
       "line": 34,
       "verb": "grant all",
-      "statement": "grant all on table public . workspaces , public . workspace_memberships to service_role",
       "rationale_ref": "privilege-grant-all-service-role"
     },
     {
@@ -87,7 +83,6 @@
       "file": "20261016100000_saas_identity_workspace_boundary.sql",
       "line": 36,
       "verb": "grant usage",
-      "statement": "grant usage on schema public to authenticated",
       "rationale_ref": "privilege-grant"
     },
     {
@@ -95,7 +90,6 @@
       "file": "20261016100000_saas_identity_workspace_boundary.sql",
       "line": 37,
       "verb": "grant select",
-      "statement": "grant select on table public . workspaces , public . workspace_memberships to authenticated",
       "rationale_ref": "privilege-grant"
     },
     {
@@ -103,7 +97,6 @@
       "file": "20261016100000_saas_identity_workspace_boundary.sql",
       "line": 38,
       "verb": "grant update",
-      "statement": "grant update ( name ) on table public . workspaces to authenticated",
       "rationale_ref": "privilege-grant"
     },
     {
@@ -111,7 +104,6 @@
       "file": "20261016100000_saas_identity_workspace_boundary.sql",
       "line": 40,
       "verb": "create policy",
-      "statement": "create policy workspaces_select_active_members on public . workspaces for select to authenticated using ( exists ( select 1 from public . workspace_memberships ",
       "rationale_ref": "rls-policy-create"
     },
     {
@@ -119,7 +111,6 @@
       "file": "20261016100000_saas_identity_workspace_boundary.sql",
       "line": 54,
       "verb": "create policy",
-      "statement": "create policy workspaces_update_active_owners on public . workspaces for update to authenticated using ( exists ( select 1 from public . workspace_memberships a",
       "rationale_ref": "rls-policy-create"
     },
     {
@@ -127,7 +118,6 @@
       "file": "20261016100000_saas_identity_workspace_boundary.sql",
       "line": 82,
       "verb": "create policy",
-      "statement": "create policy workspaces_client_insert_denied on public . workspaces as restrictive for insert to authenticated with check ( false )",
       "rationale_ref": "rls-policy-create"
     },
     {
@@ -135,7 +125,6 @@
       "file": "20261016100000_saas_identity_workspace_boundary.sql",
       "line": 89,
       "verb": "create policy",
-      "statement": "create policy workspaces_client_delete_denied on public . workspaces as restrictive for delete to authenticated using ( false )",
       "rationale_ref": "rls-policy-create"
     },
     {
@@ -143,7 +132,6 @@
       "file": "20261016100000_saas_identity_workspace_boundary.sql",
       "line": 96,
       "verb": "create policy",
-      "statement": "create policy workspace_memberships_select_own_active on public . workspace_memberships for select to authenticated using ( user_id = ( select auth . uid ( ) ) ",
       "rationale_ref": "rls-policy-create"
     },
     {
@@ -151,7 +139,6 @@
       "file": "20261016100000_saas_identity_workspace_boundary.sql",
       "line": 105,
       "verb": "create policy",
-      "statement": "create policy workspace_memberships_client_insert_denied on public . workspace_memberships as restrictive for insert to authenticated with check ( false )",
       "rationale_ref": "rls-policy-create"
     },
     {
@@ -159,7 +146,6 @@
       "file": "20261016100000_saas_identity_workspace_boundary.sql",
       "line": 112,
       "verb": "create policy",
-      "statement": "create policy workspace_memberships_client_update_denied on public . workspace_memberships as restrictive for update to authenticated using ( false ) with check",
       "rationale_ref": "rls-policy-create"
     },
     {
@@ -167,7 +153,6 @@
       "file": "20261016100000_saas_identity_workspace_boundary.sql",
       "line": 120,
       "verb": "create policy",
-      "statement": "create policy workspace_memberships_client_delete_denied on public . workspace_memberships as restrictive for delete to authenticated using ( false )",
       "rationale_ref": "rls-policy-create"
     },
     {
@@ -175,7 +160,6 @@
       "file": "20261018150000_workspace_scoped_evidence_records.sql",
       "line": 20,
       "verb": "alter table",
-      "statement": "alter table public . evidence_records enable row level security",
       "rationale_ref": "relation-alter"
     },
     {
@@ -183,7 +167,6 @@
       "file": "20261018150000_workspace_scoped_evidence_records.sql",
       "line": 21,
       "verb": "alter table",
-      "statement": "alter table public . evidence_records force row level security",
       "rationale_ref": "relation-alter"
     },
     {
@@ -191,7 +174,6 @@
       "file": "20261018150000_workspace_scoped_evidence_records.sql",
       "line": 25,
       "verb": "revoke all",
-      "statement": "revoke all on table public . evidence_records from public , anon , authenticated , service_role",
       "rationale_ref": "privilege-revoke"
     },
     {
@@ -199,7 +181,6 @@
       "file": "20261018150000_workspace_scoped_evidence_records.sql",
       "line": 27,
       "verb": "grant select",
-      "statement": "grant select on table public . evidence_records to authenticated",
       "rationale_ref": "privilege-grant"
     },
     {
@@ -207,7 +188,6 @@
       "file": "20261018150000_workspace_scoped_evidence_records.sql",
       "line": 28,
       "verb": "grant insert",
-      "statement": "grant insert ( workspace_id , content , source_label ) on table public . evidence_records to authenticated",
       "rationale_ref": "privilege-grant"
     },
     {
@@ -215,7 +195,6 @@
       "file": "20261018150000_workspace_scoped_evidence_records.sql",
       "line": 30,
       "verb": "grant update",
-      "statement": "grant update ( content , source_label ) on table public . evidence_records to authenticated",
       "rationale_ref": "privilege-grant"
     },
     {
@@ -223,7 +202,6 @@
       "file": "20261018150000_workspace_scoped_evidence_records.sql",
       "line": 32,
       "verb": "grant delete",
-      "statement": "grant delete on table public . evidence_records to authenticated",
       "rationale_ref": "privilege-grant"
     },
     {
@@ -231,7 +209,6 @@
       "file": "20261018150000_workspace_scoped_evidence_records.sql",
       "line": 34,
       "verb": "create policy",
-      "statement": "create policy evidence_records_select_active_members on public . evidence_records for select to authenticated using ( exists ( select 1 from public . workspace_",
       "rationale_ref": "rls-policy-create"
     },
     {
@@ -239,7 +216,6 @@
       "file": "20261018150000_workspace_scoped_evidence_records.sql",
       "line": 48,
       "verb": "create policy",
-      "statement": "create policy evidence_records_insert_active_members on public . evidence_records for insert to authenticated with check ( exists ( select 1 from public . works",
       "rationale_ref": "rls-policy-create"
     },
     {
@@ -247,7 +223,6 @@
       "file": "20261018150000_workspace_scoped_evidence_records.sql",
       "line": 62,
       "verb": "create policy",
-      "statement": "create policy evidence_records_update_active_members on public . evidence_records for update to authenticated using ( exists ( select 1 from public . workspace_",
       "rationale_ref": "rls-policy-create"
     },
     {
@@ -255,7 +230,6 @@
       "file": "20261018150000_workspace_scoped_evidence_records.sql",
       "line": 85,
       "verb": "create policy",
-      "statement": "create policy evidence_records_delete_active_members on public . evidence_records for delete to authenticated using ( exists ( select 1 from public . workspace_",
       "rationale_ref": "rls-policy-create"
     },
     {
@@ -263,7 +237,6 @@
       "file": "20261018150000_workspace_scoped_evidence_records.sql",
       "line": 101,
       "verb": "create or",
-      "statement": "create or replace function private . protect_evidence_record ( ) returns trigger language plpgsql set search_path = '' as $function$\nbegin\n    if new.workspace_",
       "rationale_ref": "function-definition"
     },
     {
@@ -271,7 +244,6 @@
       "file": "20261018150000_workspace_scoped_evidence_records.sql",
       "line": 117,
       "verb": "revoke all",
-      "statement": "revoke all on function private . protect_evidence_record ( ) from public , anon , authenticated , service_role",
       "rationale_ref": "privilege-revoke"
     },
     {
@@ -279,7 +251,6 @@
       "file": "20261019135502_personal_workspace_bootstrap.sql",
       "line": 4,
       "verb": "alter table",
-      "statement": "alter table public . workspaces add column personal_owner_id uuid references auth . users ( id ) on delete cascade",
       "rationale_ref": "relation-alter"
     },
     {
@@ -287,7 +258,6 @@
       "file": "20261019135502_personal_workspace_bootstrap.sql",
       "line": 10,
       "verb": "revoke select",
-      "statement": "revoke select on table public . workspaces from authenticated",
       "rationale_ref": "privilege-revoke"
     },
     {
@@ -295,7 +265,6 @@
       "file": "20261019135502_personal_workspace_bootstrap.sql",
       "line": 11,
       "verb": "revoke select",
-      "statement": "revoke select ( personal_owner_id ) on table public . workspaces from authenticated",
       "rationale_ref": "privilege-revoke"
     },
     {
@@ -303,7 +272,6 @@
       "file": "20261019135502_personal_workspace_bootstrap.sql",
       "line": 12,
       "verb": "grant select",
-      "statement": "grant select ( id , name , created_at ) on table public . workspaces to authenticated",
       "rationale_ref": "privilege-grant"
     },
     {
@@ -311,7 +279,6 @@
       "file": "20261019135502_personal_workspace_bootstrap.sql",
       "line": 18,
       "verb": "create function",
-      "statement": "create function public . ensure_personal_workspace ( ) returns table ( workspace_id uuid , workspace_name text , user_id uuid , role text ) language plpgsql sec",
       "rationale_ref": "function-definition"
     },
     {
@@ -319,7 +286,6 @@
       "file": "20261019135502_personal_workspace_bootstrap.sql",
       "line": 80,
       "verb": "revoke all",
-      "statement": "revoke all on function public . ensure_personal_workspace ( ) from public , anon , authenticated , service_role",
       "rationale_ref": "privilege-revoke"
     },
     {
@@ -327,7 +293,6 @@
       "file": "20261019135502_personal_workspace_bootstrap.sql",
       "line": 82,
       "verb": "grant execute",
-      "statement": "grant execute on function public . ensure_personal_workspace ( ) to authenticated",
       "rationale_ref": "privilege-grant"
     },
     {
@@ -335,7 +300,6 @@
       "file": "20261019152707_restrict_rls_auto_enable_execution.sql",
       "line": 1,
       "verb": "revoke execute",
-      "statement": "revoke execute on function public . rls_auto_enable ( ) from public , anon , authenticated",
       "rationale_ref": "privilege-revoke"
     },
     {
@@ -343,7 +307,6 @@
       "file": "20261022100000_source_snapshot_catalog.sql",
       "line": 19,
       "verb": "create or",
-      "statement": "create or replace function private . assert_snapshot_role_safe ( p_role_name name ) returns void language plpgsql set search_path = '' as $function$\ndeclare\n   ",
       "rationale_ref": "function-definition"
     },
     {
@@ -351,7 +314,6 @@
       "file": "20261022100000_source_snapshot_catalog.sql",
       "line": 129,
       "verb": "revoke all",
-      "statement": "revoke all on function private . assert_snapshot_role_safe ( name ) from public , anon , authenticated , service_role",
       "rationale_ref": "privilege-revoke"
     },
     {
@@ -359,175 +321,153 @@
       "file": "20261022100000_source_snapshot_catalog.sql",
       "line": 132,
       "verb": "do",
-      "statement": "do $$\nbegin\n    if not exists (select 1 from pg_catalog.pg_roles where rolname = 'snapshot_verifier') then\n        execute 'create role snapshot_verifier nologin noinherit nobypassrls nosuperuser nocreatedb nocreaterole noreplication';\n    end if;\nend\n$$",
       "rationale_ref": "procedural-block"
     },
     {
       "id": "4731003c1d97a717",
       "file": "20261022100000_source_snapshot_catalog.sql",
-      "line": 141,
+      "line": 140,
       "verb": "select private",
-      "statement": "select private . assert_snapshot_role_safe ( 'snapshot_verifier' )",
       "rationale_ref": "catalog-assertion-call"
     },
     {
       "id": "32e2228e45a33680",
       "file": "20261022100000_source_snapshot_catalog.sql",
-      "line": 196,
+      "line": 195,
       "verb": "alter table",
-      "statement": "alter table public . source_snapshots enable row level security",
       "rationale_ref": "relation-alter"
     },
     {
       "id": "b7f075d4e47ba8e8",
       "file": "20261022100000_source_snapshot_catalog.sql",
-      "line": 197,
+      "line": 196,
       "verb": "alter table",
-      "statement": "alter table public . source_snapshots force row level security",
       "rationale_ref": "relation-alter"
     },
     {
       "id": "8f0c7f009380218f",
       "file": "20261022100000_source_snapshot_catalog.sql",
-      "line": 198,
+      "line": 197,
       "verb": "alter table",
-      "statement": "alter table public . source_grants enable row level security",
       "rationale_ref": "relation-alter"
     },
     {
       "id": "9b5232173a87a0ed",
       "file": "20261022100000_source_snapshot_catalog.sql",
-      "line": 199,
+      "line": 198,
       "verb": "alter table",
-      "statement": "alter table public . source_grants force row level security",
       "rationale_ref": "relation-alter"
     },
     {
       "id": "5a883f35eaa483bb",
       "file": "20261022100000_source_snapshot_catalog.sql",
-      "line": 201,
+      "line": 200,
       "verb": "revoke all",
-      "statement": "revoke all on table public . source_snapshots , public . source_grants from public , anon , authenticated , service_role",
       "rationale_ref": "privilege-revoke"
     },
     {
       "id": "fb8bc41fc7e54138",
       "file": "20261022100000_source_snapshot_catalog.sql",
-      "line": 206,
+      "line": 205,
       "verb": "grant select",
-      "statement": "grant select on table public . source_snapshots to authenticated",
       "rationale_ref": "privilege-grant"
     },
     {
       "id": "50e878aed7cf1458",
       "file": "20261022100000_source_snapshot_catalog.sql",
-      "line": 207,
+      "line": 206,
       "verb": "grant insert",
-      "statement": "grant insert ( workspace_id , source_id , version_id , object_key , sha256 , size_bytes , state , created_by ) on table public . source_snapshots to authenticat",
       "rationale_ref": "privilege-grant"
     },
     {
       "id": "936a6a35efb64fb6",
       "file": "20261022100000_source_snapshot_catalog.sql",
-      "line": 212,
+      "line": 211,
       "verb": "grant select",
-      "statement": "grant select on table public . source_grants to authenticated",
       "rationale_ref": "privilege-grant"
     },
     {
       "id": "ef78b9b4db77b829",
       "file": "20261022100000_source_snapshot_catalog.sql",
-      "line": 213,
+      "line": 212,
       "verb": "grant insert",
-      "statement": "grant insert ( workspace_id , source_id , principal_id , grant_type , granted_by ) on table public . source_grants to authenticated",
       "rationale_ref": "privilege-grant"
     },
     {
       "id": "3e3a7f5909718140",
       "file": "20261022100000_source_snapshot_catalog.sql",
-      "line": 215,
+      "line": 214,
       "verb": "grant delete",
-      "statement": "grant delete on table public . source_grants to authenticated",
       "rationale_ref": "privilege-grant"
     },
     {
       "id": "169512dcd2d13ffc",
       "file": "20261022100000_source_snapshot_catalog.sql",
-      "line": 221,
+      "line": 220,
       "verb": "create policy",
-      "statement": "create policy source_snapshots_select_granted_published_or_own_staged on public . source_snapshots for select to authenticated using ( exists ( select 1 from pu",
       "rationale_ref": "rls-policy-create"
     },
     {
       "id": "74705f9edaf7c9be",
       "file": "20261022100000_source_snapshot_catalog.sql",
-      "line": 252,
+      "line": 251,
       "verb": "create policy",
-      "statement": "create policy source_snapshots_insert_active_owners on public . source_snapshots for insert to authenticated with check ( source_snapshots . state = 'staged' an",
       "rationale_ref": "rls-policy-create"
     },
     {
       "id": "8da981b258efb610",
       "file": "20261022100000_source_snapshot_catalog.sql",
-      "line": 272,
+      "line": 271,
       "verb": "create policy",
-      "statement": "create policy source_grants_select_own_or_owner on public . source_grants for select to authenticated using ( exists ( select 1 from public . workspace_membersh",
       "rationale_ref": "rls-policy-create"
     },
     {
       "id": "e4b7c04958aa987e",
       "file": "20261022100000_source_snapshot_catalog.sql",
-      "line": 297,
+      "line": 296,
       "verb": "create policy",
-      "statement": "create policy source_grants_insert_active_owners on public . source_grants for insert to authenticated with check ( source_grants . granted_by = ( select auth .",
       "rationale_ref": "rls-policy-create"
     },
     {
       "id": "18c923ff440a1e89",
       "file": "20261022100000_source_snapshot_catalog.sql",
-      "line": 313,
+      "line": 312,
       "verb": "create policy",
-      "statement": "create policy source_grants_delete_active_owners on public . source_grants for delete to authenticated using ( exists ( select 1 from public . workspace_members",
       "rationale_ref": "rls-policy-create"
     },
     {
       "id": "e1e154fdd0ba3847",
       "file": "20261022100000_source_snapshot_catalog.sql",
-      "line": 332,
+      "line": 331,
       "verb": "create or",
-      "statement": "create or replace function private . protect_source_snapshot ( ) returns trigger language plpgsql set search_path = '' as $function$\nbegin\n    if tg_op = 'INSER",
       "rationale_ref": "function-definition"
     },
     {
       "id": "c3104a24cb0a65c5",
       "file": "20261022100000_source_snapshot_catalog.sql",
-      "line": 379,
+      "line": 378,
       "verb": "create or",
-      "statement": "create or replace function private . reject_source_snapshot_delete ( ) returns trigger language plpgsql set search_path = '' as $function$\nbegin\n    raise excep",
       "rationale_ref": "function-definition"
     },
     {
       "id": "89507465fd74361c",
       "file": "20261022100000_source_snapshot_catalog.sql",
-      "line": 390,
+      "line": 389,
       "verb": "revoke all",
-      "statement": "revoke all on function private . protect_source_snapshot ( ) from public , anon , authenticated , service_role",
       "rationale_ref": "privilege-revoke"
     },
     {
       "id": "62bd94f8b8cc4cbd",
       "file": "20261022100000_source_snapshot_catalog.sql",
-      "line": 392,
+      "line": 391,
       "verb": "revoke all",
-      "statement": "revoke all on function private . reject_source_snapshot_delete ( ) from public , anon , authenticated , service_role",
       "rationale_ref": "privilege-revoke"
     },
     {
       "id": "4ce2147b1301cd20",
       "file": "20261022100000_source_snapshot_catalog.sql",
-      "line": 406,
+      "line": 405,
       "verb": "do",
-      "statement": "do $$\ndeclare\n    verifier_role oid := 'snapshot_verifier'::pg_catalog.regrole;\nbegin\n    if exists (\n        select 1\n        from pg_catalog.pg_roles as other",
       "rationale_ref": "procedural-block"
     },
     {
@@ -535,7 +475,6 @@
       "file": "20261022110000_source_snapshot_storage_policies.sql",
       "line": 14,
       "verb": "do",
-      "statement": "do $$\nbegin\n    if to_regclass('storage.objects') is null or to_regclass('storage.buckets') is null then\n        raise exception 'Supabase Storage must be enabl",
       "rationale_ref": "procedural-block"
     },
     {
@@ -543,7 +482,6 @@
       "file": "20261022110000_source_snapshot_storage_policies.sql",
       "line": 26,
       "verb": "create or",
-      "statement": "create or replace function private . ensure_snapshot_bucket ( p_id text , p_name text , p_public boolean , p_file_size_limit bigint , p_allowed_mime_types text ",
       "rationale_ref": "function-definition"
     },
     {
@@ -551,7 +489,6 @@
       "file": "20261022110000_source_snapshot_storage_policies.sql",
       "line": 89,
       "verb": "revoke all",
-      "statement": "revoke all on function private . ensure_snapshot_bucket ( text , text , boolean , bigint , text [ ] ) from public , anon , authenticated , service_role",
       "rationale_ref": "privilege-revoke"
     },
     {
@@ -559,7 +496,6 @@
       "file": "20261022110000_source_snapshot_storage_policies.sql",
       "line": 92,
       "verb": "select private",
-      "statement": "select private . ensure_snapshot_bucket ( 'source-snapshots' , 'source-snapshots' , false , 8388608 , array [ 'application/octet-stream' ] : : text [ ] )",
       "rationale_ref": "catalog-assertion-call"
     },
     {
@@ -567,7 +503,6 @@
       "file": "20261022110000_source_snapshot_storage_policies.sql",
       "line": 97,
       "verb": "create policy",
-      "statement": "create policy source_snapshots_objects_insert_staged_by_owner on storage . objects for insert to authenticated with check ( objects . bucket_id = 'source-snapsh",
       "rationale_ref": "rls-policy-create"
     },
     {
@@ -575,7 +510,6 @@
       "file": "20261022110000_source_snapshot_storage_policies.sql",
       "line": 117,
       "verb": "create policy",
-      "statement": "create policy source_snapshots_objects_select_granted_published on storage . objects for select to authenticated using ( objects . bucket_id = 'source-snapshots",
       "rationale_ref": "rls-policy-create"
     },
     {
@@ -583,7 +517,6 @@
       "file": "20261022110000_source_snapshot_storage_policies.sql",
       "line": 143,
       "verb": "create or",
-      "statement": "create or replace function private . require_stored_snapshot_object ( ) returns trigger language plpgsql set search_path = '' as $function$\nbegin\n    if new.sta",
       "rationale_ref": "function-definition"
     },
     {
@@ -591,7 +524,6 @@
       "file": "20261022110000_source_snapshot_storage_policies.sql",
       "line": 164,
       "verb": "revoke all",
-      "statement": "revoke all on function private . require_stored_snapshot_object ( ) from public , anon , authenticated , service_role",
       "rationale_ref": "privilege-revoke"
     },
     {
@@ -599,7 +531,6 @@
       "file": "20261022120000_snapshot_verifier_identity.sql",
       "line": 31,
       "verb": "do",
-      "statement": "do $$\nbegin\n    if not exists (\n        select 1 from information_schema.columns\n        where table_schema = 'storage' and table_name = 'objects' and column_na",
       "rationale_ref": "procedural-block"
     },
     {
@@ -607,407 +538,356 @@
       "file": "20261022120000_snapshot_verifier_identity.sql",
       "line": 48,
       "verb": "do",
-      "statement": "do $$\nbegin\n    if not exists (select 1 from pg_roles where rolname = 'snapshot_publisher_owner') then\n        execute 'create role snapshot_publisher_owner nologin noinherit nobypassrls nosuperuser nocreatedb nocreaterole noreplication';\n    end if;\nend\n$$",
       "rationale_ref": "procedural-block"
     },
     {
       "id": "774171cc7daf8b4b",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 59,
+      "line": 58,
       "verb": "select private",
-      "statement": "select private . assert_snapshot_role_safe ( 'snapshot_verifier' )",
       "rationale_ref": "catalog-assertion-call"
     },
     {
       "id": "7b02abf32b7e8422",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 60,
+      "line": 59,
       "verb": "select private",
-      "statement": "select private . assert_snapshot_role_safe ( 'snapshot_publisher_owner' )",
       "rationale_ref": "catalog-assertion-call"
     },
     {
       "id": "b63e51468c2996b0",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 62,
+      "line": 61,
       "verb": "do",
-      "statement": "do $$\nbegin\n    if exists (\n        select 1\n        from pg_catalog.pg_policies as policy\n        cross join lateral unnest(policy.roles) as granted_role(role_",
       "rationale_ref": "procedural-block"
     },
     {
       "id": "e1eebc2daf3abbc2",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 89,
+      "line": 88,
       "verb": "drop policy",
-      "statement": "drop policy if exists source_snapshots_select_verifier on public . source_snapshots",
       "rationale_ref": "rls-policy-drop"
     },
     {
       "id": "f11481e500f7433d",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 90,
+      "line": 89,
       "verb": "drop policy",
-      "statement": "drop policy if exists source_snapshots_update_verifier_staged on public . source_snapshots",
       "rationale_ref": "rls-policy-drop"
     },
     {
       "id": "2dc9654f32df4b78",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 91,
+      "line": 90,
       "verb": "drop policy",
-      "statement": "drop policy if exists source_snapshots_objects_select_verifier on storage . objects",
       "rationale_ref": "rls-policy-drop"
     },
     {
       "id": "62329abc9ceef765",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 106,
+      "line": 105,
       "verb": "alter table",
-      "statement": "alter table private . snapshot_verifier_allowlist enable row level security",
       "rationale_ref": "relation-alter"
     },
     {
       "id": "ba3b23a20984096d",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 107,
+      "line": 106,
       "verb": "alter table",
-      "statement": "alter table private . snapshot_verifier_allowlist force row level security",
       "rationale_ref": "relation-alter"
     },
     {
       "id": "b651f9139d18c8e7",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 108,
+      "line": 107,
       "verb": "revoke all",
-      "statement": "revoke all on table private . snapshot_verifier_allowlist from public , anon , authenticated , service_role",
       "rationale_ref": "privilege-revoke"
     },
     {
       "id": "75d1885b04043e6a",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 112,
+      "line": 111,
       "verb": "alter table",
-      "statement": "alter table public . source_snapshots add column if not exists storage_object_id uuid , add column if not exists storage_object_version text , add column if not",
       "rationale_ref": "relation-alter"
     },
     {
       "id": "91c89fa22b3c0c96",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 131,
+      "line": 130,
       "verb": "alter table",
-      "statement": "alter table public . source_snapshots add constraint source_snapshots_published_verifier_binding check ( state < > 'published' or ( verified_by is not null and ",
       "rationale_ref": "relation-alter"
     },
     {
       "id": "4adf8d68e4bc8091",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 145,
+      "line": 144,
       "verb": "alter policy",
-      "statement": "alter policy source_snapshots_select_granted_published_or_own_staged on public . source_snapshots using ( exists ( select 1 from public . workspace_memberships ",
       "rationale_ref": "rls-policy-alter"
     },
     {
       "id": "46a2ee505d61e54b",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 178,
+      "line": 177,
       "verb": "alter policy",
-      "statement": "alter policy source_snapshots_objects_select_granted_published on storage . objects using ( objects . bucket_id = 'source-snapshots' and exists ( select 1 from ",
       "rationale_ref": "rls-policy-alter"
     },
     {
       "id": "4b1e3a0511953247",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 208,
+      "line": 207,
       "verb": "grant usage",
-      "statement": "grant usage on schema private to snapshot_publisher_owner",
       "rationale_ref": "privilege-grant"
     },
     {
       "id": "7f68c42b1757cd1f",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 209,
+      "line": 208,
       "verb": "grant usage",
-      "statement": "grant usage on schema public to snapshot_publisher_owner",
       "rationale_ref": "privilege-grant"
     },
     {
       "id": "55580d2259ffc474",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 210,
+      "line": 209,
       "verb": "grant usage",
-      "statement": "grant usage on schema storage to snapshot_publisher_owner",
       "rationale_ref": "privilege-grant"
     },
     {
       "id": "625afd27d1110a90",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 213,
+      "line": 212,
       "verb": "grant create",
-      "statement": "grant create on schema public to snapshot_publisher_owner",
       "rationale_ref": "temporary-schema-ddl-window"
     },
     {
       "id": "13110314aac947a5",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 214,
+      "line": 213,
       "verb": "grant select",
-      "statement": "grant select on table private . snapshot_verifier_allowlist to snapshot_publisher_owner",
       "rationale_ref": "privilege-grant"
     },
     {
       "id": "cdc5f30018feae78",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 215,
+      "line": 214,
       "verb": "grant select",
-      "statement": "grant select on table public . source_snapshots to snapshot_publisher_owner",
       "rationale_ref": "privilege-grant"
     },
     {
       "id": "b1d229515582935f",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 216,
+      "line": 215,
       "verb": "grant update",
-      "statement": "grant update ( state , verified_sha256 , verified_size_bytes , verified_by , storage_object_id , storage_object_version ) on table public . source_snapshots to ",
       "rationale_ref": "privilege-grant"
     },
     {
       "id": "f327ba816fb98fa9",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 220,
+      "line": 219,
       "verb": "grant select",
-      "statement": "grant select on table storage . objects to snapshot_publisher_owner",
       "rationale_ref": "privilege-grant"
     },
     {
       "id": "bcefe94ab2088c79",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 225,
+      "line": 224,
       "verb": "create or",
-      "statement": "create or replace function private . verified_user_id ( ) returns uuid language sql stable set search_path = '' as $function$\n    select coalesce(\n        nulli",
       "rationale_ref": "function-definition"
     },
     {
       "id": "e3822d9822fd153c",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 237,
+      "line": 236,
       "verb": "revoke all",
-      "statement": "revoke all on function private . verified_user_id ( ) from public , anon , authenticated , service_role",
       "rationale_ref": "privilege-revoke"
     },
     {
       "id": "2b8538efcd21b59f",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 239,
+      "line": 238,
       "verb": "grant execute",
-      "statement": "grant execute on function private . verified_user_id ( ) to snapshot_publisher_owner",
       "rationale_ref": "privilege-grant"
     },
     {
       "id": "45a09efc84b5026d",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 241,
+      "line": 240,
       "verb": "create policy",
-      "statement": "create policy snapshot_verifier_allowlist_select_owner on private . snapshot_verifier_allowlist for select to snapshot_publisher_owner using ( true )",
       "rationale_ref": "rls-policy-create"
     },
     {
       "id": "63e7ff58f9b83880",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 247,
+      "line": 246,
       "verb": "create policy",
-      "statement": "create policy source_snapshots_select_publisher_owner on public . source_snapshots for select to snapshot_publisher_owner using ( true )",
       "rationale_ref": "rls-policy-create"
     },
     {
       "id": "3d35475eb453eb72",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 253,
+      "line": 252,
       "verb": "create policy",
-      "statement": "create policy source_snapshots_update_publisher_owner on public . source_snapshots for update to snapshot_publisher_owner using ( source_snapshots . state = 'st",
       "rationale_ref": "rls-policy-create"
     },
     {
       "id": "664d330fcdc1ed93",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 260,
+      "line": 259,
       "verb": "create policy",
-      "statement": "create policy source_snapshots_objects_select_publisher_owner on storage . objects for select to snapshot_publisher_owner using ( objects . bucket_id = 'source-",
       "rationale_ref": "rls-policy-create"
     },
     {
       "id": "35c9cd6a65aa83d0",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 270,
+      "line": 269,
       "verb": "create or",
-      "statement": "create or replace function private . require_verification_binding ( ) returns trigger language plpgsql set search_path = '' as $function$\nbegin\n    if new.state",
       "rationale_ref": "function-definition"
     },
     {
       "id": "5f85e15f8af3b8cf",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 304,
+      "line": 303,
       "verb": "revoke all",
-      "statement": "revoke all on function private . require_verification_binding ( ) from public , anon , authenticated , service_role",
       "rationale_ref": "privilege-revoke"
     },
     {
       "id": "e7bb2c501f282749",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 313,
+      "line": 312,
       "verb": "create or",
-      "statement": "create or replace function public . verifier_may_read_staged_object ( p_object_name text ) returns boolean language sql stable security definer set search_path ",
       "rationale_ref": "function-definition"
     },
     {
       "id": "54bf0e103b2065e8",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 331,
+      "line": 330,
       "verb": "create policy",
-      "statement": "create policy source_snapshots_objects_select_allowlisted_verifier on storage . objects for select to authenticated using ( objects . bucket_id = 'source-snapsh",
       "rationale_ref": "rls-policy-create"
     },
     {
       "id": "a209b0ffffd575ad",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 340,
+      "line": 339,
       "verb": "create or",
-      "statement": "create or replace function public . begin_snapshot_verification ( p_workspace_id uuid , p_source_id uuid , p_version_id uuid ) returns table ( out_object_key te",
       "rationale_ref": "function-definition"
     },
     {
       "id": "c25f8f7798ad66d6",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 390,
+      "line": 389,
       "verb": "create or",
-      "statement": "create or replace function public . publish_verified_snapshot ( p_workspace_id uuid , p_source_id uuid , p_version_id uuid , p_sha256 text , p_size_bytes bigint",
       "rationale_ref": "function-definition"
     },
     {
       "id": "ec04b0b0199292bf",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 460,
+      "line": 459,
       "verb": "revoke all",
-      "statement": "revoke all on function public . verifier_may_read_staged_object ( text ) from public , anon , authenticated , service_role",
       "rationale_ref": "privilege-revoke"
     },
     {
       "id": "4adbe455d4941140",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 462,
+      "line": 461,
       "verb": "revoke all",
-      "statement": "revoke all on function public . begin_snapshot_verification ( uuid , uuid , uuid ) from public , anon , authenticated , service_role",
       "rationale_ref": "privilege-revoke"
     },
     {
       "id": "a9b44b6dcd9c82df",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 464,
+      "line": 463,
       "verb": "revoke all",
-      "statement": "revoke all on function public . publish_verified_snapshot ( uuid , uuid , uuid , text , bigint , uuid , text ) from public , anon , authenticated , service_role",
       "rationale_ref": "privilege-revoke"
     },
     {
       "id": "f91c14ed12382906",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 466,
+      "line": 465,
       "verb": "grant execute",
-      "statement": "grant execute on function public . verifier_may_read_staged_object ( text ) to authenticated",
       "rationale_ref": "privilege-grant"
     },
     {
       "id": "06280e0a8f6c337e",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 467,
+      "line": 466,
       "verb": "grant execute",
-      "statement": "grant execute on function public . begin_snapshot_verification ( uuid , uuid , uuid ) to authenticated",
       "rationale_ref": "privilege-grant"
     },
     {
       "id": "04c87c2dd1794d08",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 468,
+      "line": 467,
       "verb": "grant execute",
-      "statement": "grant execute on function public . publish_verified_snapshot ( uuid , uuid , uuid , text , bigint , uuid , text ) to authenticated",
       "rationale_ref": "privilege-grant"
     },
     {
       "id": "2894570f3abca584",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 473,
+      "line": 472,
       "verb": "do",
-      "statement": "do $$\nbegin\n    execute format(\n        'grant snapshot_publisher_owner to %I with set true, inherit false',\n        current_user\n    );\nend\n$$",
       "rationale_ref": "procedural-block"
     },
     {
       "id": "9723542b34bca5dc",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 482,
+      "line": 481,
       "verb": "alter function",
-      "statement": "alter function public . verifier_may_read_staged_object ( text ) owner to snapshot_publisher_owner",
       "rationale_ref": "function-ownership"
     },
     {
       "id": "a1b4a5c28fd86206",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 484,
+      "line": 483,
       "verb": "alter function",
-      "statement": "alter function public . begin_snapshot_verification ( uuid , uuid , uuid ) owner to snapshot_publisher_owner",
       "rationale_ref": "function-ownership"
     },
     {
       "id": "393255f3509eeb48",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 486,
+      "line": 485,
       "verb": "alter function",
-      "statement": "alter function public . publish_verified_snapshot ( uuid , uuid , uuid , text , bigint , uuid , text ) owner to snapshot_publisher_owner",
       "rationale_ref": "function-ownership"
     },
     {
       "id": "5c24bb97365c83b7",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 489,
+      "line": 488,
       "verb": "do",
-      "statement": "do $$\nbegin\n    execute format('revoke snapshot_publisher_owner from %I', current_user);\n    if exists (\n        select 1\n        from pg_catalog.pg_auth_member",
       "rationale_ref": "procedural-block"
     },
     {
       "id": "6d0edac1836bd9c3",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 512,
+      "line": 511,
       "verb": "revoke create",
-      "statement": "revoke create on schema public from snapshot_publisher_owner",
       "rationale_ref": "temporary-schema-ddl-window"
     },
     {
       "id": "2b8d5a17d5308d14",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 516,
+      "line": 515,
       "verb": "create or",
-      "statement": "create or replace function private . assert_snapshot_verifier_function_acl_safe ( ) returns void language plpgsql set search_path = '' as $function$\ndeclare\n   ",
       "rationale_ref": "function-definition"
     },
     {
       "id": "304b1c0b1f12075a",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 619,
+      "line": 618,
       "verb": "revoke all",
-      "statement": "revoke all on function private . assert_snapshot_verifier_function_acl_safe ( ) from public , anon , authenticated , service_role",
       "rationale_ref": "privilege-revoke"
     },
     {
       "id": "9ed2f12935aaf217",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 621,
+      "line": 620,
       "verb": "select private",
-      "statement": "select private . assert_snapshot_verifier_function_acl_safe ( )",
       "rationale_ref": "catalog-assertion-call"
     },
     {
       "id": "55599163da851f62",
       "file": "20261022120000_snapshot_verifier_identity.sql",
-      "line": 625,
+      "line": 624,
       "verb": "do",
-      "statement": "do $$\ndeclare\n    owner_role oid := 'snapshot_publisher_owner'::pg_catalog.regrole;\n    verifier_role oid := 'snapshot_verifier'::pg_catalog.regrole;\n    api_ro",
       "rationale_ref": "procedural-block"
     },
     {
@@ -1015,7 +895,6 @@
       "file": "20261022130000_snapshot_verifier_fail_closed_guards.sql",
       "line": 6,
       "verb": "create or",
-      "statement": "create or replace function private . assert_snapshot_verifier_allowlist_shape ( p_relation pg_catalog . regclass ) returns void language plpgsql set search_path",
       "rationale_ref": "function-definition"
     },
     {
@@ -1023,7 +902,6 @@
       "file": "20261022130000_snapshot_verifier_fail_closed_guards.sql",
       "line": 257,
       "verb": "revoke all",
-      "statement": "revoke all on function private . assert_snapshot_verifier_allowlist_shape ( pg_catalog . regclass ) from public , anon , authenticated , service_role",
       "rationale_ref": "privilege-revoke"
     },
     {
@@ -1031,7 +909,6 @@
       "file": "20261022130000_snapshot_verifier_fail_closed_guards.sql",
       "line": 260,
       "verb": "select private",
-      "statement": "select private . assert_snapshot_verifier_allowlist_shape ( 'private.snapshot_verifier_allowlist' : : pg_catalog . regclass )",
       "rationale_ref": "catalog-assertion-call"
     },
     {
@@ -1039,7 +916,6 @@
       "file": "20261022130000_snapshot_verifier_fail_closed_guards.sql",
       "line": 264,
       "verb": "create or",
-      "statement": "create or replace function private . assert_snapshot_api_role_cannot_assume ( p_api_role name , p_target_role name ) returns void language plpgsql set search_pa",
       "rationale_ref": "function-definition"
     },
     {
@@ -1047,7 +923,6 @@
       "file": "20261022130000_snapshot_verifier_fail_closed_guards.sql",
       "line": 291,
       "verb": "revoke all",
-      "statement": "revoke all on function private . assert_snapshot_api_role_cannot_assume ( name , name ) from public , anon , authenticated , service_role",
       "rationale_ref": "privilege-revoke"
     },
     {
@@ -1055,7 +930,6 @@
       "file": "20261022130000_snapshot_verifier_fail_closed_guards.sql",
       "line": 294,
       "verb": "do",
-      "statement": "do $role_preflight$\ndeclare\n    role_name text;\n    role_id oid;\nbegin\n    foreach role_name in array array['snapshot_verifier', 'snapshot_publisher_owner']\n   ",
       "rationale_ref": "procedural-block"
     },
     {
@@ -1063,7 +937,6 @@
       "file": "20261022130000_snapshot_verifier_fail_closed_guards.sql",
       "line": 346,
       "verb": "create or",
-      "statement": "create or replace function private . assert_snapshot_read_policy_inventory ( p_fences_required boolean ) returns void language plpgsql set search_path = '' as $",
       "rationale_ref": "function-definition"
     },
     {
@@ -1071,7 +944,6 @@
       "file": "20261022130000_snapshot_verifier_fail_closed_guards.sql",
       "line": 450,
       "verb": "revoke all",
-      "statement": "revoke all on function private . assert_snapshot_read_policy_inventory ( boolean ) from public , anon , authenticated , service_role",
       "rationale_ref": "privilege-revoke"
     },
     {
@@ -1079,7 +951,6 @@
       "file": "20261022130000_snapshot_verifier_fail_closed_guards.sql",
       "line": 456,
       "verb": "do",
-      "statement": "do $install_read_fences$\ndeclare\n    source_fence_count integer;\n    storage_fence_count integer;\nbegin\n    -- Each relation carries three role-scoped restricti",
       "rationale_ref": "procedural-block"
     },
     {
@@ -1087,7 +958,6 @@
       "file": "20261022130000_snapshot_verifier_fail_closed_guards.sql",
       "line": 677,
       "verb": "do",
-      "statement": "do $atomic_owner_transfer$\ndeclare\n    migration_role oid := current_user::pg_catalog.regrole;\n    migration_name name := current_user::pg_catalog.name;\n    own",
       "rationale_ref": "procedural-block"
     },
     {
@@ -1095,7 +965,6 @@
       "file": "20261022130000_snapshot_verifier_fail_closed_guards.sql",
       "line": 809,
       "verb": "select private",
-      "statement": "select private . assert_snapshot_verifier_function_acl_safe ( )",
       "rationale_ref": "catalog-assertion-call"
     },
     {
@@ -1103,7 +972,6 @@
       "file": "20261023150000_snapshot_verifier_admin_audit_guards.sql",
       "line": 13,
       "verb": "do",
-      "statement": "do $role_preflight$\ndeclare\n    role_name text;\n    role_oid oid;\n    current_is_superuser boolean;\n    current_can_create_roles boolean;\nbegin\n    if current_s",
       "rationale_ref": "procedural-block"
     },
     {
@@ -1111,7 +979,6 @@
       "file": "20261023150000_snapshot_verifier_admin_audit_guards.sql",
       "line": 253,
       "verb": "alter table",
-      "statement": "alter table pg_temp . source_snapshots enable row level security",
       "rationale_ref": "relation-alter"
     },
     {
@@ -1119,7 +986,6 @@
       "file": "20261023150000_snapshot_verifier_admin_audit_guards.sql",
       "line": 254,
       "verb": "alter table",
-      "statement": "alter table pg_temp . objects enable row level security",
       "rationale_ref": "relation-alter"
     },
     {
@@ -1127,7 +993,6 @@
       "file": "20261023150000_snapshot_verifier_admin_audit_guards.sql",
       "line": 256,
       "verb": "create policy",
-      "statement": "create policy expected_source_snapshot_verifier_role_gate_restrictive_fence on pg_temp . source_snapshots as restrictive for select to public using ( current_us",
       "rationale_ref": "rls-policy-create"
     },
     {
@@ -1135,7 +1000,6 @@
       "file": "20261023150000_snapshot_verifier_admin_audit_guards.sql",
       "line": 263,
       "verb": "create policy",
-      "statement": "create policy expected_source_snapshot_authenticated_restrictive_fence on pg_temp . source_snapshots as restrictive for select to authenticated using ( ( ( sour",
       "rationale_ref": "rls-policy-create"
     },
     {
@@ -1143,7 +1007,6 @@
       "file": "20261023150000_snapshot_verifier_admin_audit_guards.sql",
       "line": 294,
       "verb": "create policy",
-      "statement": "create policy expected_source_snapshot_publisher_owner_restrictive_fence on pg_temp . source_snapshots as restrictive for select to snapshot_publisher_owner usi",
       "rationale_ref": "rls-policy-create"
     },
     {
@@ -1151,7 +1014,6 @@
       "file": "20261023150000_snapshot_verifier_admin_audit_guards.sql",
       "line": 305,
       "verb": "create policy",
-      "statement": "create policy expected_storage_snapshot_verifier_role_gate_restrictive_fence on pg_temp . objects as restrictive for select to public using ( objects . bucket_i",
       "rationale_ref": "rls-policy-create"
     },
     {
@@ -1159,7 +1021,6 @@
       "file": "20261023150000_snapshot_verifier_admin_audit_guards.sql",
       "line": 313,
       "verb": "create policy",
-      "statement": "create policy expected_storage_snapshot_authenticated_restrictive_fence on pg_temp . objects as restrictive for select to authenticated using ( objects . bucket",
       "rationale_ref": "rls-policy-create"
     },
     {
@@ -1167,7 +1028,6 @@
       "file": "20261023150000_snapshot_verifier_admin_audit_guards.sql",
       "line": 339,
       "verb": "create policy",
-      "statement": "create policy expected_storage_snapshot_publisher_owner_restrictive_fence on pg_temp . objects as restrictive for select to snapshot_publisher_owner using ( obj",
       "rationale_ref": "rls-policy-create"
     },
     {
@@ -1175,7 +1035,6 @@
       "file": "20261023150000_snapshot_verifier_admin_audit_guards.sql",
       "line": 356,
       "verb": "do",
-      "statement": "do $predicate_preflight$\ndeclare\n    actual_expression text;\n    expected_expression text;\n    actual_count integer;\n    expected_binding_expression text;\n    a",
       "rationale_ref": "procedural-block"
     },
     {
@@ -1183,7 +1042,6 @@
       "file": "20261023150000_snapshot_verifier_admin_audit_guards.sql",
       "line": 542,
       "verb": "revoke all",
-      "statement": "revoke all on table private . snapshot_verifier_read_policy_baseline from public , anon , authenticated , service_role , snapshot_verifier , snapshot_publisher_",
       "rationale_ref": "privilege-revoke"
     },
     {
@@ -1191,7 +1049,6 @@
       "file": "20261023150000_snapshot_verifier_admin_audit_guards.sql",
       "line": 553,
       "verb": "insert into",
-      "statement": "insert into private . snapshot_verifier_read_policy_baseline ( relation_oid , policy_name , command , is_permissive , roles , using_expression ) select actual .",
       "rationale_ref": "catalog-seed-write"
     },
     {
@@ -1199,7 +1056,6 @@
       "file": "20261023150000_snapshot_verifier_admin_audit_guards.sql",
       "line": 593,
       "verb": "create or",
-      "statement": "create or replace function private . assert_snapshot_read_policy_inventory_v2 ( p_fences_required boolean ) returns void language plpgsql security definer set s",
       "rationale_ref": "function-definition"
     },
     {
@@ -1207,7 +1063,6 @@
       "file": "20261023150000_snapshot_verifier_admin_audit_guards.sql",
       "line": 697,
       "verb": "revoke all",
-      "statement": "revoke all on function private . assert_snapshot_read_policy_inventory_v2 ( boolean ) from public , anon , authenticated , service_role , snapshot_verifier , sn",
       "rationale_ref": "privilege-revoke"
     },
     {
@@ -1215,7 +1070,6 @@
       "file": "20261023150000_snapshot_verifier_admin_audit_guards.sql",
       "line": 702,
       "verb": "create or",
-      "statement": "create or replace function private . assert_snapshot_verifier_allowlist_admin_shape ( p_relation pg_catalog . regclass ) returns void language plpgsql security ",
       "rationale_ref": "function-definition"
     },
     {
@@ -1223,7 +1077,6 @@
       "file": "20261023150000_snapshot_verifier_admin_audit_guards.sql",
       "line": 986,
       "verb": "revoke all",
-      "statement": "revoke all on function private . assert_snapshot_verifier_allowlist_admin_shape ( pg_catalog . regclass ) from public , anon , authenticated , service_role , sn",
       "rationale_ref": "privilege-revoke"
     },
     {
@@ -1231,7 +1084,6 @@
       "file": "20261023150000_snapshot_verifier_admin_audit_guards.sql",
       "line": 994,
       "verb": "do",
-      "statement": "do $atomic_admin_install$\ndeclare\n    current_is_superuser boolean;\n    existing_owner oid;\nbegin\n    select rolsuper into current_is_superuser\n    from pg_cata",
       "rationale_ref": "procedural-block"
     },
     {
@@ -1239,7 +1091,6 @@
       "file": "20261023150000_snapshot_verifier_admin_audit_guards.sql",
       "line": 1362,
       "verb": "drop table",
-      "statement": "drop table pg_temp . expected_binding",
       "rationale_ref": "temp-relation-cleanup"
     },
     {
@@ -1247,7 +1098,6 @@
       "file": "20261023150000_snapshot_verifier_admin_audit_guards.sql",
       "line": 1363,
       "verb": "drop table",
-      "statement": "drop table pg_temp . objects",
       "rationale_ref": "temp-relation-cleanup"
     },
     {
@@ -1255,7 +1105,6 @@
       "file": "20261023150000_snapshot_verifier_admin_audit_guards.sql",
       "line": 1364,
       "verb": "drop table",
-      "statement": "drop table pg_temp . source_snapshots",
       "rationale_ref": "temp-relation-cleanup"
     },
     {
@@ -1263,176 +1112,1449 @@
       "file": "20261028120000_rls_auto_enable_fail_closed.sql",
       "line": 24,
       "verb": "do",
-      "statement": "do $migration$ declare expected_source text := $expected_function$ ; ... $migration$",
       "rationale_ref": "fail-closed-rls-bootstrap"
     },
     {
       "id": "3f12903e8000b983",
       "file": "20261101120000_evidence_source_version_links.sql",
-      "line": "16",
+      "line": 16,
       "verb": "alter table",
-      "statement": "alter table public.evidence_records add column source_id uuid null, add column source_version_id uuid null",
       "rationale_ref": "relation-alter"
     },
     {
       "id": "55686d783ac89758",
       "file": "20261101120000_evidence_source_version_links.sql",
-      "line": "20",
+      "line": 20,
       "verb": "alter table",
-      "statement": "alter table public.evidence_records add constraint evidence_records_source_link_pair check ((source_id is null) = (source_version_id is null)), add constraint evidence_records_source_link_fkey foreign key (workspace_id, source_id, source_version_id) references public.source_snapshots (workspace_id, source_id, version_id) on delete restrict",
       "rationale_ref": "relation-alter"
     },
     {
       "id": "208c906c1d3757de",
       "file": "20261101120000_evidence_source_version_links.sql",
-      "line": "32",
+      "line": 32,
       "verb": "grant insert",
-      "statement": "grant insert (source_id, source_version_id) on public.evidence_records to authenticated",
       "rationale_ref": "privilege-grant"
     },
     {
       "id": "a44671ac1df9b08d",
       "file": "20261101120000_evidence_source_version_links.sql",
-      "line": "34",
+      "line": 34,
       "verb": "grant update",
-      "statement": "grant update (source_id, source_version_id) on public.evidence_records to authenticated",
       "rationale_ref": "privilege-grant"
     },
     {
       "id": "338be214bb32a4b3",
       "file": "20261101130000_workspace_evidence_relationships.sql",
-      "line": "9",
+      "line": 9,
       "verb": "drop policy",
-      "statement": "drop policy evidence_records_insert_active_members on public . evidence_records",
       "rationale_ref": "rls-policy-drop"
     },
     {
       "id": "466d865f9c7d8994",
       "file": "20261101130000_workspace_evidence_relationships.sql",
-      "line": "10",
+      "line": 10,
       "verb": "drop policy",
-      "statement": "drop policy evidence_records_update_active_members on public . evidence_records",
       "rationale_ref": "rls-policy-drop"
     },
     {
       "id": "ca49a34d70e6ca51",
       "file": "20261101130000_workspace_evidence_relationships.sql",
-      "line": "11",
+      "line": 11,
       "verb": "drop policy",
-      "statement": "drop policy evidence_records_delete_active_members on public . evidence_records",
       "rationale_ref": "rls-policy-drop"
     },
     {
       "id": "6fcecac1b41959dc",
       "file": "20261101130000_workspace_evidence_relationships.sql",
-      "line": "13",
+      "line": 13,
       "verb": "create policy",
-      "statement": "create policy evidence_records_insert_active_owners on public . evidence_records for insert to authenticated with check ( exists ( select 1 from public . workspace_memberships as membership where membership . workspace_id = evidence_records . workspace_id and membership . user_id = ( select auth . uid ( ) ) and membership . role = 'owner' and membership . status = 'active' ) )",
       "rationale_ref": "rls-policy-create"
     },
     {
       "id": "328538bcb4508955",
       "file": "20261101130000_workspace_evidence_relationships.sql",
-      "line": "28",
+      "line": 28,
       "verb": "create policy",
-      "statement": "create policy evidence_records_update_active_owners on public . evidence_records for update to authenticated using ( exists ( select 1 from public . workspace_memberships as membership where membership . workspace_id = evidence_records . workspace_id and membership . user_id = ( select auth . uid ( ) ) and membership . role = 'owner' and membership . status = 'active' ) ) with check ( exists ( select 1 from public . workspace_memberships as membership where membership . workspace_id = evidence_records . workspace_id and membership . user_id = ( select auth . uid ( ) ) and membership . role = 'owner' and membership . status = 'active' ) )",
       "rationale_ref": "rls-policy-create"
     },
     {
       "id": "6c60a424bef685fb",
       "file": "20261101130000_workspace_evidence_relationships.sql",
-      "line": "53",
+      "line": 53,
       "verb": "create policy",
-      "statement": "create policy evidence_records_delete_active_owners on public . evidence_records for delete to authenticated using ( exists ( select 1 from public . workspace_memberships as membership where membership . workspace_id = evidence_records . workspace_id and membership . user_id = ( select auth . uid ( ) ) and membership . role = 'owner' and membership . status = 'active' ) )",
       "rationale_ref": "rls-policy-create"
     },
     {
       "id": "94424218d0d385f7",
       "file": "20261101130000_workspace_evidence_relationships.sql",
-      "line": "101",
+      "line": 101,
       "verb": "alter table",
-      "statement": "alter table public . evidence_relationships enable row level security",
       "rationale_ref": "relation-alter"
     },
     {
       "id": "c0c686ccab8fd9bd",
       "file": "20261101130000_workspace_evidence_relationships.sql",
-      "line": "102",
+      "line": 102,
       "verb": "alter table",
-      "statement": "alter table public . evidence_relationships force row level security",
       "rationale_ref": "relation-alter"
     },
     {
       "id": "df1241f8fea86dc2",
       "file": "20261101130000_workspace_evidence_relationships.sql",
-      "line": "104",
+      "line": 104,
       "verb": "revoke all",
-      "statement": "revoke all on table public . evidence_relationships from public , anon , authenticated , service_role",
       "rationale_ref": "privilege-revoke"
     },
     {
       "id": "4af1b80b23926239",
       "file": "20261101130000_workspace_evidence_relationships.sql",
-      "line": "106",
+      "line": 106,
       "verb": "grant select",
-      "statement": "grant select , insert , delete on table public . evidence_relationships to authenticated",
       "rationale_ref": "privilege-grant"
     },
     {
       "id": "d9924084f5002205",
       "file": "20261101130000_workspace_evidence_relationships.sql",
-      "line": "107",
+      "line": 107,
       "verb": "grant update",
-      "statement": "grant update ( relation_type , rationale , provenance_note ) on table public . evidence_relationships to authenticated",
       "rationale_ref": "privilege-grant"
     },
     {
       "id": "4e628b38539cd164",
       "file": "20261101130000_workspace_evidence_relationships.sql",
-      "line": "110",
+      "line": 110,
       "verb": "create policy",
-      "statement": "create policy evidence_relationships_select_active_members on public . evidence_relationships for select to authenticated using ( exists ( select 1 from public . workspace_memberships as membership where membership . workspace_id = evidence_relationships . workspace_id and membership . user_id = ( select auth . uid ( ) ) and membership . status = 'active' ) )",
       "rationale_ref": "rls-policy-create"
     },
     {
       "id": "75e4017fe2481b98",
       "file": "20261101130000_workspace_evidence_relationships.sql",
-      "line": "124",
+      "line": 124,
       "verb": "create policy",
-      "statement": "create policy evidence_relationships_insert_active_owners on public . evidence_relationships for insert to authenticated with check ( evidence_relationships . created_by = ( select auth . uid ( ) ) and evidence_relationships . updated_by = ( select auth . uid ( ) ) and exists ( select 1 from public . workspace_memberships as membership where membership . workspace_id = evidence_relationships . workspace_id and membership . user_id = ( select auth . uid ( ) ) and membership . role = 'owner' and membership . status = 'active' ) )",
       "rationale_ref": "rls-policy-create"
     },
     {
       "id": "f45b6e6210993a5d",
       "file": "20261101130000_workspace_evidence_relationships.sql",
-      "line": "141",
+      "line": 141,
       "verb": "create policy",
-      "statement": "create policy evidence_relationships_update_active_owners on public . evidence_relationships for update to authenticated using ( exists ( select 1 from public . workspace_memberships as membership where membership . workspace_id = evidence_relationships . workspace_id and membership . user_id = ( select auth . uid ( ) ) and membership . role = 'owner' and membership . status = 'active' ) ) with check ( exists ( select 1 from public . workspace_memberships as membership where membership . workspace_id = evidence_relationships . workspace_id and membership . user_id = ( select auth . uid ( ) ) and membership . role = 'owner' and membership . status = 'active' ) )",
       "rationale_ref": "rls-policy-create"
     },
     {
       "id": "a317c3c4ab5a533a",
       "file": "20261101130000_workspace_evidence_relationships.sql",
-      "line": "166",
+      "line": 166,
       "verb": "create policy",
-      "statement": "create policy evidence_relationships_delete_active_owners on public . evidence_relationships for delete to authenticated using ( exists ( select 1 from public . workspace_memberships as membership where membership . workspace_id = evidence_relationships . workspace_id and membership . user_id = ( select auth . uid ( ) ) and membership . role = 'owner' and membership . status = 'active' ) )",
       "rationale_ref": "rls-policy-create"
     },
     {
       "id": "34943d3d3983e3a7",
       "file": "20261101130000_workspace_evidence_relationships.sql",
-      "line": "181",
+      "line": 181,
       "verb": "create or",
-      "statement": "create or replace function private . protect_evidence_relationship ( ) returns trigger language plpgsql set search_path = '' as $function$\nbegin\n    if tg_op = 'UPDATE' then\n        if new.id is distinct from old.id\n            or new.workspace_id is distinct from old.workspace_id\n            or new.evidence_id_a is distinct from old.evidence_id_a\n            or new.evidence_id_b is distinct from old.evidence_id_b\n            or new.created_by is distinct from old.created_by\n            or new.created_at is distinct from old.created_at then\n            raise exception 'relationship identity and provenance cannot be changed'\n                using errcode = '42501';\n        end if;\n    end if;\n\n    new.updated_by := auth.uid();\n    new.updated_at := now();\n    return new;\nend;\n$function$",
       "rationale_ref": "function-definition"
     },
     {
       "id": "be66bca15ae3abba",
       "file": "20261101130000_workspace_evidence_relationships.sql",
-      "line": "205",
+      "line": 205,
       "verb": "revoke all",
-      "statement": "revoke all on function private . protect_evidence_relationship ( ) from public , anon , authenticated , service_role",
       "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "f12eb9903f9c561c",
+      "file": "20261102120000_account_lifecycle.sql",
+      "line": 9,
+      "verb": "do",
+      "rationale_ref": "procedural-block"
+    },
+    {
+      "id": "3e649604e5e65482",
+      "file": "20261102120000_account_lifecycle.sql",
+      "line": 20,
+      "verb": "do",
+      "rationale_ref": "procedural-block"
+    },
+    {
+      "id": "aa229c48d4730f98",
+      "file": "20261102120000_account_lifecycle.sql",
+      "line": 38,
+      "verb": "select private",
+      "rationale_ref": "catalog-assertion-call"
+    },
+    {
+      "id": "0182bc3df977287c",
+      "file": "20261102120000_account_lifecycle.sql",
+      "line": 39,
+      "verb": "select private",
+      "rationale_ref": "catalog-assertion-call"
+    },
+    {
+      "id": "6d34c3baab4d0f09",
+      "file": "20261102120000_account_lifecycle.sql",
+      "line": 42,
+      "verb": "grant account_lifecycle_provisioner",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "791eced466dc306f",
+      "file": "20261102120000_account_lifecycle.sql",
+      "line": 43,
+      "verb": "grant account_lifecycle_transition_writer",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "68818b4245753d49",
+      "file": "20261102120000_account_lifecycle.sql",
+      "line": 44,
+      "verb": "grant usage",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "8da37319751b7344",
+      "file": "20261102120000_account_lifecycle.sql",
+      "line": 97,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "64cb5aa23852b2a7",
+      "file": "20261102120000_account_lifecycle.sql",
+      "line": 98,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "67e86a4f4576ec06",
+      "file": "20261102120000_account_lifecycle.sql",
+      "line": 99,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "6efee5e809d84ecd",
+      "file": "20261102120000_account_lifecycle.sql",
+      "line": 102,
+      "verb": "grant usage",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "ea6829563b5372b3",
+      "file": "20261102120000_account_lifecycle.sql",
+      "line": 103,
+      "verb": "grant usage",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "59a86d1871ffeb6a",
+      "file": "20261102120000_account_lifecycle.sql",
+      "line": 104,
+      "verb": "grant insert",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "ada70e39d355d79b",
+      "file": "20261102120000_account_lifecycle.sql",
+      "line": 109,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "dbf8cf6792a3297f",
+      "file": "20261102120000_account_lifecycle.sql",
+      "line": 120,
+      "verb": "grant usage",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "30c0723f9c9c826d",
+      "file": "20261102120000_account_lifecycle.sql",
+      "line": 121,
+      "verb": "grant select",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "3395a7f57086c10b",
+      "file": "20261102120000_account_lifecycle.sql",
+      "line": 123,
+      "verb": "grant update",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "bc4ed9c6240a299d",
+      "file": "20261102120000_account_lifecycle.sql",
+      "line": 126,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "d9cea1933240c25b",
+      "file": "20261102120000_account_lifecycle.sql",
+      "line": 131,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "92cf96fd98cd7b7f",
+      "file": "20261102120000_account_lifecycle.sql",
+      "line": 137,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "fd1257dfa18ce5b1",
+      "file": "20261102120000_account_lifecycle.sql",
+      "line": 142,
+      "verb": "grant select",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "6cdacbdb4c639e16",
+      "file": "20261102120000_account_lifecycle.sql",
+      "line": 145,
+      "verb": "create view",
+      "rationale_ref": "lifecycle-view-definition"
+    },
+    {
+      "id": "bab50fcb1959e6a4",
+      "file": "20261102120000_account_lifecycle.sql",
+      "line": 151,
+      "verb": "grant usage",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "965fd549a57bc4f8",
+      "file": "20261102120000_account_lifecycle.sql",
+      "line": 152,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "cd0f9a3bf047bb9a",
+      "file": "20261102120000_account_lifecycle.sql",
+      "line": 154,
+      "verb": "grant select",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "8d017a8a5fe96426",
+      "file": "20261102120000_account_lifecycle.sql",
+      "line": 156,
+      "verb": "create function",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "bee80ce510098ff9",
+      "file": "20261102120000_account_lifecycle.sql",
+      "line": 180,
+      "verb": "create function",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "9e2c67b8e66758a5",
+      "file": "20261102120000_account_lifecycle.sql",
+      "line": 227,
+      "verb": "grant create",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "d600fd25708ebd9b",
+      "file": "20261102120000_account_lifecycle.sql",
+      "line": 229,
+      "verb": "create function",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "e4d46b8da0d2791d",
+      "file": "20261102120000_account_lifecycle.sql",
+      "line": 247,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "853316f63806aa64",
+      "file": "20261102120000_account_lifecycle.sql",
+      "line": 252,
+      "verb": "do",
+      "rationale_ref": "procedural-block"
+    },
+    {
+      "id": "b08157b90f56205f",
+      "file": "20261102120000_account_lifecycle.sql",
+      "line": 271,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "240930d1edede416",
+      "file": "20261102120000_account_lifecycle.sql",
+      "line": 281,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "60baa12b179e7e16",
+      "file": "20261102120000_account_lifecycle.sql",
+      "line": 286,
+      "verb": "do",
+      "rationale_ref": "procedural-block"
+    },
+    {
+      "id": "a37687def4c819bb",
+      "file": "20261102120000_account_lifecycle.sql",
+      "line": 319,
+      "verb": "drop policy",
+      "rationale_ref": "rls-policy-drop"
+    },
+    {
+      "id": "aa1ddd7c28e2bdea",
+      "file": "20261102120000_account_lifecycle.sql",
+      "line": 320,
+      "verb": "drop policy",
+      "rationale_ref": "rls-policy-drop"
+    },
+    {
+      "id": "07e0ed39224ef14b",
+      "file": "20261102120000_account_lifecycle.sql",
+      "line": 335,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "de24f6434e3f2acd",
+      "file": "20261102120000_account_lifecycle.sql",
+      "line": 337,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "9ec524a1c13f7767",
+      "file": "20261102120000_account_lifecycle.sql",
+      "line": 341,
+      "verb": "do",
+      "rationale_ref": "procedural-block"
+    },
+    {
+      "id": "1ca021fcb14d92c3",
+      "file": "20261102120000_account_lifecycle.sql",
+      "line": 347,
+      "verb": "alter function",
+      "rationale_ref": "lifecycle-function-ownership"
+    },
+    {
+      "id": "1c5d85566d33128f",
+      "file": "20261102120000_account_lifecycle.sql",
+      "line": 350,
+      "verb": "do",
+      "rationale_ref": "procedural-block"
+    },
+    {
+      "id": "faadb3bd8f3d772c",
+      "file": "20261102120000_account_lifecycle.sql",
+      "line": 357,
+      "verb": "revoke create",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "6f3fbdbcfd540916",
+      "file": "20261102120000_account_lifecycle.sql",
+      "line": 359,
+      "verb": "do",
+      "rationale_ref": "procedural-block"
+    },
+    {
+      "id": "6af5e49f9db9dcf7",
+      "file": "20261105100000_evidence_deletion_audit.sql",
+      "line": 19,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "32567a24e45b4828",
+      "file": "20261105100000_evidence_deletion_audit.sql",
+      "line": 20,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "7874edab8a21dbb5",
+      "file": "20261105100000_evidence_deletion_audit.sql",
+      "line": 22,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "d3fca032b2285fb8",
+      "file": "20261105100000_evidence_deletion_audit.sql",
+      "line": 27,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "398f47604d95bdfb",
+      "file": "20261105100000_evidence_deletion_audit.sql",
+      "line": 31,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "bd38e058ef4b62c7",
+      "file": "20261105100000_evidence_deletion_audit.sql",
+      "line": 35,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "5cbdade95ef3df09",
+      "file": "20261105100000_evidence_deletion_audit.sql",
+      "line": 39,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "a1b93f344e95c58a",
+      "file": "20261105100000_evidence_deletion_audit.sql",
+      "line": 43,
+      "verb": "create or",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "3437d6242880dfd5",
+      "file": "20261105100000_evidence_deletion_audit.sql",
+      "line": 66,
+      "verb": "create or",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "8970b41a7f776c3e",
+      "file": "20261105100000_evidence_deletion_audit.sql",
+      "line": 96,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "cecf9103a97dd5d8",
+      "file": "20261105100000_evidence_deletion_audit.sql",
+      "line": 97,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "e6f58fa49a1db8cb",
+      "file": "20261105100000_evidence_deletion_audit.sql",
+      "line": 107,
+      "verb": "create or",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "4a444bef36d88593",
+      "file": "20261105100000_evidence_deletion_audit.sql",
+      "line": 119,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "a4f1e8e9a7a9f971",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 4,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "98c2decf2dd2726a",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 7,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "dae35438ea2ab046",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 11,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "81f5b31b0fd57828",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 15,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "d973e49502fe4326",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 21,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "76256f88caf2ed14",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 25,
+      "verb": "grant insert",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "edcd337b509ebc9d",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 28,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "fc1fe44921f3674c",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 67,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "60ffdd5a2c5b9996",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 73,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "48f6cee93849524d",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 74,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "8c6510ba01259ea0",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 75,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "57a24778c28743c3",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 77,
+      "verb": "grant usage",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "d744ae71ee428003",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 78,
+      "verb": "grant insert",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "81f66189c559e6e0",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 80,
+      "verb": "grant select",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "aba7b9ad1d0f96fb",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 83,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "f08b6ef521814cc7",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 100,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "65ae6eeb4268ac48",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 105,
+      "verb": "grant select",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "fb02ce1d9f74d7c6",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 107,
+      "verb": "grant update",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "25ee484cb12701db",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 110,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "4a037bc26305fb9c",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 115,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "6dc78ba335f77bc7",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 134,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "90cbe1cb461e8246",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 135,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "2c85f428b5e9af1d",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 136,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "ae37ebb9f537be2e",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 138,
+      "verb": "grant select",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "252535de12790b0b",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 139,
+      "verb": "grant select",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "657a49511395b437",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 142,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "b6e81802d9781f04",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 154,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "f563db5b79d6c9a2",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 159,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "02808dc31607c86b",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 172,
+      "verb": "create function",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "f048d540f1f2f498",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 194,
+      "verb": "create function",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "cdc4969693d6cdb3",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 205,
+      "verb": "create function",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "662a5b2c4322ac15",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 223,
+      "verb": "create function",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "0cc33421e86a8402",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 247,
+      "verb": "create function",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "bdbda416456bc983",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 304,
+      "verb": "grant create",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "b587e2b98bbbd7cf",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 307,
+      "verb": "do",
+      "rationale_ref": "procedural-block"
+    },
+    {
+      "id": "f76b66ef8a77072d",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 313,
+      "verb": "alter function",
+      "rationale_ref": "lifecycle-function-ownership"
+    },
+    {
+      "id": "47145d4c43121f76",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 316,
+      "verb": "do",
+      "rationale_ref": "procedural-block"
+    },
+    {
+      "id": "8fa725fcab7d4ba9",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 322,
+      "verb": "revoke create",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "cdf88894dac3282c",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 324,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "21aac8b4295b177d",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 325,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "f09633b9d7993599",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 326,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "cddc35442b4c6d7f",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 327,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "69bdbb36ede0cc8e",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 328,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "4948fb1674735511",
+      "file": "20261105110000_deletion_request_manifest.sql",
+      "line": 329,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "0994582b02ac1e57",
+      "file": "20261105120000_account_deletion_worker_slice.sql",
+      "line": 5,
+      "verb": "do",
+      "rationale_ref": "procedural-block"
+    },
+    {
+      "id": "caa7ffb0a5668369",
+      "file": "20261105120000_account_deletion_worker_slice.sql",
+      "line": 15,
+      "verb": "grant account_deletion_worker",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "7a75124e30c18d50",
+      "file": "20261105120000_account_deletion_worker_slice.sql",
+      "line": 16,
+      "verb": "grant usage",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "7701f77511b49e7a",
+      "file": "20261105120000_account_deletion_worker_slice.sql",
+      "line": 17,
+      "verb": "grant usage",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "20b0cacbdef4c917",
+      "file": "20261105120000_account_deletion_worker_slice.sql",
+      "line": 19,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "8af1db9715f8c813",
+      "file": "20261105120000_account_deletion_worker_slice.sql",
+      "line": 22,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "b10979e3c448966f",
+      "file": "20261105120000_account_deletion_worker_slice.sql",
+      "line": 25,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "8012d36b7a4d2ef6",
+      "file": "20261105120000_account_deletion_worker_slice.sql",
+      "line": 32,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "e13a01a938228cb5",
+      "file": "20261105120000_account_deletion_worker_slice.sql",
+      "line": 36,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "1f1100339c5131bc",
+      "file": "20261105120000_account_deletion_worker_slice.sql",
+      "line": 39,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "c1a40bd80b992cfb",
+      "file": "20261105120000_account_deletion_worker_slice.sql",
+      "line": 54,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "753db2aabe36c98d",
+      "file": "20261105120000_account_deletion_worker_slice.sql",
+      "line": 57,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "a3ea99dfc2f0018f",
+      "file": "20261105120000_account_deletion_worker_slice.sql",
+      "line": 67,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "5e67336f6c3d00b7",
+      "file": "20261105120000_account_deletion_worker_slice.sql",
+      "line": 76,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "c219c8815fc7c896",
+      "file": "20261105120000_account_deletion_worker_slice.sql",
+      "line": 79,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "a61715688b42ad6e",
+      "file": "20261105120000_account_deletion_worker_slice.sql",
+      "line": 86,
+      "verb": "grant usage",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "9ddfec8b1fdc8ff3",
+      "file": "20261105120000_account_deletion_worker_slice.sql",
+      "line": 87,
+      "verb": "grant select",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "26e3646bddedbb6b",
+      "file": "20261105120000_account_deletion_worker_slice.sql",
+      "line": 88,
+      "verb": "grant update",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "6319a1488395933b",
+      "file": "20261105120000_account_deletion_worker_slice.sql",
+      "line": 91,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "b1f7aee6ec6a214f",
+      "file": "20261105120000_account_deletion_worker_slice.sql",
+      "line": 96,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "7d8ffc4580e6075d",
+      "file": "20261105120000_account_deletion_worker_slice.sql",
+      "line": 107,
+      "verb": "grant select",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "9ca779759fc72ef7",
+      "file": "20261105120000_account_deletion_worker_slice.sql",
+      "line": 110,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "8a043a9b744d1d35",
+      "file": "20261105120000_account_deletion_worker_slice.sql",
+      "line": 121,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "7de66a345a45a4ed",
+      "file": "20261105120000_account_deletion_worker_slice.sql",
+      "line": 136,
+      "verb": "grant select",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "35fed60ec736155c",
+      "file": "20261105120000_account_deletion_worker_slice.sql",
+      "line": 138,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "b803eb3dbdba4613",
+      "file": "20261105120000_account_deletion_worker_slice.sql",
+      "line": 150,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "9d9218bc2f4ff5fc",
+      "file": "20261105120000_account_deletion_worker_slice.sql",
+      "line": 162,
+      "verb": "grant insert",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "971a4cb0cd9e6484",
+      "file": "20261105120000_account_deletion_worker_slice.sql",
+      "line": 165,
+      "verb": "create or",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "81f04f6e352ff6b4",
+      "file": "20261105120000_account_deletion_worker_slice.sql",
+      "line": 211,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "b4569911f4db032f",
+      "file": "20261105120000_account_deletion_worker_slice.sql",
+      "line": 226,
+      "verb": "create function",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "bba88b2498bb0a41",
+      "file": "20261105120000_account_deletion_worker_slice.sql",
+      "line": 271,
+      "verb": "create function",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "5a4898bd9fd7110d",
+      "file": "20261105120000_account_deletion_worker_slice.sql",
+      "line": 375,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "92755e13d83eea54",
+      "file": "20261105120000_account_deletion_worker_slice.sql",
+      "line": 377,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "e5a2c251d4e47786",
+      "file": "20261105120000_account_deletion_worker_slice.sql",
+      "line": 379,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "09f746f023f9cc1a",
+      "file": "20261105120000_account_deletion_worker_slice.sql",
+      "line": 385,
+      "verb": "do",
+      "rationale_ref": "procedural-block"
+    },
+    {
+      "id": "bfadf734b7ed2edd",
+      "file": "20261105130000_account_application_purge_slice.sql",
+      "line": 4,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "d69dbca8673470a7",
+      "file": "20261105130000_account_application_purge_slice.sql",
+      "line": 7,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "ab98ee08c787c770",
+      "file": "20261105130000_account_application_purge_slice.sql",
+      "line": 34,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "12715500da8b8783",
+      "file": "20261105130000_account_application_purge_slice.sql",
+      "line": 35,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "a5e190e34608e776",
+      "file": "20261105130000_account_application_purge_slice.sql",
+      "line": 36,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "87422ab61c7b32db",
+      "file": "20261105130000_account_application_purge_slice.sql",
+      "line": 38,
+      "verb": "grant select",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "6b72c073906770f5",
+      "file": "20261105130000_account_application_purge_slice.sql",
+      "line": 41,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "0b6057c2578a13df",
+      "file": "20261105130000_account_application_purge_slice.sql",
+      "line": 48,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "35287524eedebe50",
+      "file": "20261105130000_account_application_purge_slice.sql",
+      "line": 61,
+      "verb": "grant select",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "573d50dd6e9870d5",
+      "file": "20261105130000_account_application_purge_slice.sql",
+      "line": 64,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "f8a517e039b1af20",
+      "file": "20261105130000_account_application_purge_slice.sql",
+      "line": 77,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "5375a82f44187cf5",
+      "file": "20261105130000_account_application_purge_slice.sql",
+      "line": 90,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "4326cfc3cceb666f",
+      "file": "20261105130000_account_application_purge_slice.sql",
+      "line": 105,
+      "verb": "create or",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "d3879f5116d6e94f",
+      "file": "20261105140000_account_evidence_ownership_purge.sql",
+      "line": 5,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "b985744b0594c1e5",
+      "file": "20261105140000_account_evidence_ownership_purge.sql",
+      "line": 8,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "b81d393314ba73e6",
+      "file": "20261105140000_account_evidence_ownership_purge.sql",
+      "line": 12,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "e27f9e0dd7ae332e",
+      "file": "20261105140000_account_evidence_ownership_purge.sql",
+      "line": 15,
+      "verb": "update public",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "1f83f4c866f75c30",
+      "file": "20261105140000_account_evidence_ownership_purge.sql",
+      "line": 19,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "4fe22aaf569d1835",
+      "file": "20261105140000_account_evidence_ownership_purge.sql",
+      "line": 22,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "a07955910e627758",
+      "file": "20261105140000_account_evidence_ownership_purge.sql",
+      "line": 26,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "5a82cb0dd2af5d1c",
+      "file": "20261105140000_account_evidence_ownership_purge.sql",
+      "line": 40,
+      "verb": "create or",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "aa650a0595d392f6",
+      "file": "20261105140000_account_evidence_ownership_purge.sql",
+      "line": 79,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "f93fde90a73a1128",
+      "file": "20261105140000_account_evidence_ownership_purge.sql",
+      "line": 82,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "e2fa19f434f8c25e",
+      "file": "20261105140000_account_evidence_ownership_purge.sql",
+      "line": 85,
+      "verb": "grant select",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "47a0964af221154c",
+      "file": "20261105140000_account_evidence_ownership_purge.sql",
+      "line": 86,
+      "verb": "grant select",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "e5e60432722cda5d",
+      "file": "20261105140000_account_evidence_ownership_purge.sql",
+      "line": 87,
+      "verb": "grant select",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "f29474397b860b09",
+      "file": "20261105140000_account_evidence_ownership_purge.sql",
+      "line": 89,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "228874c36e631ed6",
+      "file": "20261105140000_account_evidence_ownership_purge.sql",
+      "line": 99,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "a3498374a1ba46c3",
+      "file": "20261105140000_account_evidence_ownership_purge.sql",
+      "line": 109,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "d643ab1dad6f691f",
+      "file": "20261105140000_account_evidence_ownership_purge.sql",
+      "line": 119,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "6b7ff07d9820413a",
+      "file": "20261105140000_account_evidence_ownership_purge.sql",
+      "line": 129,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "bb5f588190c04d72",
+      "file": "20261105140000_account_evidence_ownership_purge.sql",
+      "line": 139,
+      "verb": "create or",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "e9a7ec8291fb942c",
+      "file": "20261105140000_account_evidence_ownership_purge.sql",
+      "line": 168,
+      "verb": "create or",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "fd4e4cfcb05e7382",
+      "file": "20261105140000_account_evidence_ownership_purge.sql",
+      "line": 208,
+      "verb": "create or",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "7ed2b4f677ca0127",
+      "file": "20261105150000_deletion_restore_reconciliation.sql",
+      "line": 4,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "1f3059fb8ca4f233",
+      "file": "20261105150000_deletion_restore_reconciliation.sql",
+      "line": 7,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "021af1ce2e718c43",
+      "file": "20261105150000_deletion_restore_reconciliation.sql",
+      "line": 15,
+      "verb": "create or",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "212cdb502b7b6fec",
+      "file": "20261105150000_deletion_restore_reconciliation.sql",
+      "line": 59,
+      "verb": "create function",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "24c82723f70a41a4",
+      "file": "20261105150000_deletion_restore_reconciliation.sql",
+      "line": 138,
+      "verb": "grant create",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "c52defcc9fd342ad",
+      "file": "20261105150000_deletion_restore_reconciliation.sql",
+      "line": 141,
+      "verb": "do",
+      "rationale_ref": "procedural-block"
+    },
+    {
+      "id": "ceb9c94e7f8b87ee",
+      "file": "20261105150000_deletion_restore_reconciliation.sql",
+      "line": 147,
+      "verb": "alter function",
+      "rationale_ref": "lifecycle-function-ownership"
+    },
+    {
+      "id": "dccb1276633b1a08",
+      "file": "20261105150000_deletion_restore_reconciliation.sql",
+      "line": 150,
+      "verb": "alter function",
+      "rationale_ref": "lifecycle-function-ownership"
+    },
+    {
+      "id": "ed6a6924aadee498",
+      "file": "20261105150000_deletion_restore_reconciliation.sql",
+      "line": 153,
+      "verb": "do",
+      "rationale_ref": "procedural-block"
+    },
+    {
+      "id": "35b30d4e23f79427",
+      "file": "20261105150000_deletion_restore_reconciliation.sql",
+      "line": 159,
+      "verb": "revoke create",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "e00c13c7781efac6",
+      "file": "20261105150000_deletion_restore_reconciliation.sql",
+      "line": 161,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "d01bab293a028ede",
+      "file": "20261105150000_deletion_restore_reconciliation.sql",
+      "line": 163,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "711ed1e99fc6483b",
+      "file": "20261105150000_deletion_restore_reconciliation.sql",
+      "line": 166,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "8121af781d00626c",
+      "file": "20261105150000_deletion_restore_reconciliation.sql",
+      "line": 183,
+      "verb": "grant account_lifecycle_provisioner",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "45f763e565b5bab7",
+      "file": "20261105150000_deletion_restore_reconciliation.sql",
+      "line": 184,
+      "verb": "grant account_lifecycle_transition_writer",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "d16018c8a5772542",
+      "file": "20261105150000_deletion_restore_reconciliation.sql",
+      "line": 185,
+      "verb": "grant account_deletion_worker",
+      "rationale_ref": "privilege-grant"
     }
   ]
 }

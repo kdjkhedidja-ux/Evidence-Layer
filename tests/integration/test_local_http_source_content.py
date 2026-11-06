@@ -24,6 +24,7 @@ import uvicorn
 
 from evidence_service.app import create_app
 from evidence_service.config import SupabaseSettings
+from account_lifecycle_test_support import OpenRecoveryFenceReader
 
 CONTENT = b"end-to-end authorized snapshot bytes with an exact sha-256 digest"
 
@@ -56,7 +57,9 @@ def http_service(stack):
     the same wiring a production composition would use, bound to the isolated
     project only.
     """
-    app = create_app(_service_settings(stack))
+    app = create_app(
+        _service_settings(stack), recovery_fence_reader=OpenRecoveryFenceReader()
+    )
     config = uvicorn.Config(
         app,
         host="127.0.0.1",

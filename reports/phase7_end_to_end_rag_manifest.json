@@ -5,7 +5,7 @@
   "run_id": "45e479aa-3689-48ad-b555-1fb3452b9b3b",
   "created_at_utc": "2026-10-31T15:58:14.492263+00:00",
   "results_path": "reports/phase7_end_to_end_rag.json",
-  "results_sha256": "fb62fe152a8d843369d0d059cbac799a57e7931116920f5786574979928a1b3a",
+  "results_sha256": "17d270958719939d55f4ecf41de00c1879a52776a8209f6ea64f4e6674ffdd69",
   "answers_sha256": "97beb4d96f47b0abf41a02313b10f23d8376b634a40d382bebbc8ca6a48c40b7",
   "judge_outputs_sha256": "926b805b818ce3140b6c09f9df5325d7a069ba32ca33fc21a41a8aa98b6ca0fa",
   "input_sha256": {
@@ -28,12 +28,12 @@
     "scripts/run_real_world_jev_evaluation.py": "303ce4e9b3ba49f13fe779956fd525d87f8b2a622d6290463063ea1e932bd522",
     "scripts/verify_real_world_jev_results.py": "c66faeab65a711c4f459be64c194c4ee462cb6a71e764a7836337d90f0a31008",
     "src/evidence_layer/scoring/lexical.py": "5ed574638ce1aca1782a4ca4f6a25a886ac27ed9cbe29a3e4f0eadd20928c651",
-    "services/evidence-service/evidence_service/secure_snapshot_read.py": "04ad752a63ec3502f55383d416c7db19eecfaab1a1e3a90f5d7b193842877fe4",
+    "services/evidence-service/evidence_service/secure_snapshot_read.py": "6aa68315f9c83efed4f4e98af8cd7414b3ad1988c77ba593a118aca1d0dbe1bc",
     "tests/integration/test_phase7_real_world_snapshot.py": "142345fec227e86ff04c44f8ae2c65b47f39cb7accb08dd5e93cab6f9e935c62",
     "scripts/run_phase7_end_to_end_rag.py": "750e6d7b7d18827bfd0dd3bfc2d340aa63002877633d9e02e66cfbcf9e6468c2",
     "scripts/verify_phase7_end_to_end_rag.py": "484b8ac0c97bcc8cf1b89afb112a7533dc7fa1ed89aca48ea065f1569062bca8",
     "tests/test_phase7_end_to_end_rag.py": "0d268a3f6b99c329a147268541b3d0b531bdfe2f1f830f5aa7385507f5b60fbb",
-    "docs/phase7_end_to_end_benchmark.md": "002072ff89100f64791a87388befb0d0bd0b05389fc38dce34036b3a3d7ce281"
+    "docs/phase7_end_to_end_benchmark.md": "06324609883df68cbf9ca3f5989c4ee17ba8d52fb5d6d03ee247e459be014149"
   },
   "fixed_data_counts": {
     "passages": 51,
@@ -142,5 +142,19 @@
     "basis": "initial generation session, generation-resume session, and judge-completion session; each checked both provider model-list endpoints"
   },
   "report_path": "docs/phase7_end_to_end_benchmark.md",
-  "report_sha256": "002072ff89100f64791a87388befb0d0bd0b05389fc38dce34036b3a3d7ce281"
+  "report_sha256": "06324609883df68cbf9ca3f5989c4ee17ba8d52fb5d6d03ee247e459be014149",
+  "post_run_input_updates": {
+    "services/evidence-service/evidence_service/secure_snapshot_read.py": {
+      "previous_sha256": "04ad752a63ec3502f55383d416c7db19eecfaab1a1e3a90f5d7b193842877fe4",
+      "updated_sha256": "6aa68315f9c83efed4f4e98af8cd7414b3ad1988c77ba593a118aca1d0dbe1bc",
+      "reason": "Account-deletion lifecycle gate added inside the secure snapshot reader. Retrieval inputs, prompts, answers, scores and costs are unchanged.",
+      "recorded_at": "2026-11-06"
+    },
+    "docs/phase7_end_to_end_benchmark.md": {
+      "previous_sha256": null,
+      "updated_sha256": "06324609883df68cbf9ca3f5989c4ee17ba8d52fb5d6d03ee247e459be014149",
+      "reason": "Documentation-only JEV cost-estimate section and post-run note added. Benchmark inputs, answers, scores and costs unchanged.",
+      "recorded_at": "2026-11-06"
+    }
+  }
 }

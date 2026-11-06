@@ -1,0 +1,10 @@
+Timestamp (UTC): 2026-11-01
+$ git status --short --branch
+## fix/live-explorer-css-scope...origin/fix/live-explorer-css-scope
+?? supabase/tests/gate4_migration_edges.test.sql
+$ git branch --show-current
+fix/live-explorer-css-scope
+$ git rev-parse HEAD
+c97ff096091311b002ad4e7379cb4edcd94c1d16
+$ git status --porcelain=v1
+?? supabase/tests/gate4_migration_edges.test.sql

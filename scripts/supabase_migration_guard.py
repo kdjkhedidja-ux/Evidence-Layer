@@ -54,6 +54,13 @@ V_FAIL_CLOSED = "20261022130000"
 V_ADMIN_AUDIT = "20261023150000"
 V_EVIDENCE_SOURCE_LINKS = "20261101120000"
 V_EVIDENCE_RELATIONSHIPS = "20261101130000"
+V_ACCOUNT_LIFECYCLE = "20261102120000"
+V_EVIDENCE_DELETION_AUDIT = "20261105100000"
+V_DELETION_REQUEST_MANIFEST = "20261105110000"
+V_ACCOUNT_DELETION_WORKER = "20261105120000"
+V_ACCOUNT_APPLICATION_PURGE = "20261105130000"
+V_ACCOUNT_EVIDENCE_OWNERSHIP = "20261105140000"
+V_DELETION_RESTORE_RECONCILIATION = "20261105150000"
 
 VERSION_RE = re.compile(r"^[0-9]{14}_[a-z0-9_]+\.sql$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -456,6 +463,13 @@ def expected_roles(versions: list[str]) -> set[str]:
             "snapshot_verifier_allowlist_manager",
             "snapshot_verifier_audit_owner",
         })
+    if V_ACCOUNT_LIFECYCLE in present:
+        roles.update({
+            "account_lifecycle_provisioner",
+            "account_lifecycle_transition_writer",
+        })
+    if V_ACCOUNT_DELETION_WORKER in present:
+        roles.add("account_deletion_worker")
     return roles
 
 
@@ -469,6 +483,11 @@ def expected_policy_identity(policy: str) -> str:
         ("evidence_relationships_", "public", "evidence_relationships"),
         ("source_snapshots_", "public", "source_snapshots"),
         ("source_grants_", "public", "source_grants"),
+        ("account_lifecycle_", "public", "account_lifecycle"),
+        ("evidence_deletion_audit_", "public", "evidence_deletion_audit"),
+        ("data_deletion_requests_", "public", "data_deletion_requests"),
+        ("data_deletion_manifest_", "public", "data_deletion_manifest"),
+        ("data_deletion_work_set_", "public", "data_deletion_work_set"),
         ("snapshot_verifier_allowlist_audit_", "private", "snapshot_verifier_allowlist_audit"),
         ("snapshot_verifier_allowlist_", "private", "snapshot_verifier_allowlist"),
     )
@@ -487,6 +506,13 @@ def expected_catalog(versions: list[str]) -> dict:
     evidence = V_EVIDENCE in present
     evidence_links = V_EVIDENCE_SOURCE_LINKS in present
     relationships = V_EVIDENCE_RELATIONSHIPS in present
+    account_lifecycle = V_ACCOUNT_LIFECYCLE in present
+    deletion_audit = V_EVIDENCE_DELETION_AUDIT in present
+    deletion_requests = V_DELETION_REQUEST_MANIFEST in present
+    deletion_worker = V_ACCOUNT_DELETION_WORKER in present
+    application_purge = V_ACCOUNT_APPLICATION_PURGE in present
+    evidence_ownership = V_ACCOUNT_EVIDENCE_OWNERSHIP in present
+    restore_reconciliation = V_DELETION_RESTORE_RECONCILIATION in present
     source = V_SOURCE_CATALOG in present
     storage = V_SNAPSHOT_STORAGE in present
     verifier = V_VERIFIER_IDENTITY in present
@@ -511,6 +537,15 @@ def expected_catalog(versions: list[str]) -> dict:
     if admin:
         tables["private.snapshot_verifier_read_policy_baseline"] = (False, False)
         tables["private.snapshot_verifier_allowlist_audit"] = (True, True)
+    if account_lifecycle:
+        tables["public.account_lifecycle"] = (True, True)
+    if deletion_audit:
+        tables["public.evidence_deletion_audit"] = (True, True)
+    if deletion_requests:
+        tables["public.data_deletion_requests"] = (True, True)
+        tables["public.data_deletion_manifest"] = (True, True)
+    if application_purge:
+        tables["public.data_deletion_work_set"] = (True, True)
 
     indexes: set[str] = set()
     if identity:
@@ -546,6 +581,31 @@ def expected_catalog(versions: list[str]) -> dict:
             "private.snapshot_verifier_read_policy_baseline_pkey",
             "private.snapshot_verifier_allowlist_audit_pkey",
         })
+    if account_lifecycle:
+        indexes.update({
+            "public.account_lifecycle_pkey",
+            "public.account_lifecycle_transition_id_key",
+        })
+    if deletion_audit:
+        indexes.add("public.evidence_deletion_audit_pkey")
+        indexes.add("public.evidence_deletion_audit_request_action_key")
+    if deletion_requests:
+        indexes.update({
+            "public.data_deletion_requests_pkey",
+            "public.data_deletion_requests_open_scope_key",
+            "public.data_deletion_requests_idempotency_key",
+            "public.data_deletion_manifest_pkey",
+            "public.data_deletion_manifest_request_id_ordinal_key",
+            "public.data_deletion_manifest_request_id_target_type_target_id_key",
+        })
+    if application_purge:
+        indexes.update({
+            "public.data_deletion_work_set_pkey",
+            "public.data_deletion_work_set_request_idx",
+            "public.data_deletion_work_set_request_id_target_type_workspace_id_source_id_principal_id_key",
+        })
+    if evidence_ownership:
+        indexes.add("public.data_deletion_work_set_request_target_key")
 
     policies: set[str] = set()
     if identity:
@@ -618,6 +678,59 @@ def expected_catalog(versions: list[str]) -> dict:
             "private.snapshot_verifier_allowlist_audit_insert_owner",
             "private.snapshot_verifier_allowlist_audit_select_manager",
         })
+    if account_lifecycle:
+        policies.update({
+            "public.account_lifecycle_insert_provisioner",
+            "public.account_lifecycle_transition_writer_select",
+            "public.account_lifecycle_transition_writer_update",
+            "public.account_lifecycle_select_self",
+        })
+    if deletion_audit:
+        policies.update({
+            "public.evidence_deletion_audit_select_denied",
+            "public.evidence_deletion_audit_insert_denied",
+            "public.evidence_deletion_audit_update_denied",
+            "public.evidence_deletion_audit_delete_denied",
+        })
+        policies.add("public.evidence_deletion_audit_insert_transition_writer")
+    if deletion_requests:
+        policies.update({
+            "public.data_deletion_requests_insert_self",
+            "public.data_deletion_requests_select_self",
+            "public.data_deletion_requests_transition_writer_select",
+            "public.data_deletion_requests_transition_writer_update",
+            "public.data_deletion_manifest_select_self",
+            "public.data_deletion_manifest_transition_writer_select",
+            "public.data_deletion_manifest_transition_writer_insert",
+        })
+    if deletion_worker:
+        policies.update({
+            "public.data_deletion_requests_worker_select_claimable",
+            "public.data_deletion_requests_worker_update_claim",
+            "public.account_lifecycle_worker_select_bound_request",
+            "public.account_lifecycle_worker_update_bound_request",
+            "public.source_grants_delete_worker_bound_request",
+            "public.source_grants_select_worker_bound_request",
+            "public.evidence_deletion_audit_insert_worker",
+        })
+    if application_purge:
+        policies.update({
+            "public.data_deletion_work_set_worker_select",
+            "public.data_deletion_work_set_worker_insert",
+            "public.workspace_memberships_worker_select_member_rows",
+            "public.workspace_memberships_worker_delete_member_rows",
+            "public.evidence_deletion_audit_insert_worker_workset",
+        })
+    if evidence_ownership:
+        policies.update({
+            "public.workspace_memberships_worker_select_eligible_workspace",
+            "public.evidence_records_worker_select_eligible_workspace",
+            "public.evidence_records_worker_delete_eligible_workspace",
+            "public.evidence_relationships_worker_select_eligible_workspace",
+            "public.evidence_relationships_worker_delete_eligible_workspace",
+        })
+    if restore_reconciliation:
+        policies.add("public.evidence_deletion_audit_insert_worker_reconciliation")
 
     triggers: set[str] = set()
     if evidence:
@@ -635,6 +748,27 @@ def expected_catalog(versions: list[str]) -> dict:
         triggers.add("public.source_snapshots_require_verification_binding")
     if admin:
         triggers.add("private.snapshot_verifier_allowlist_audit_changes")
+    if account_lifecycle:
+        triggers.update({
+            "public.account_lifecycle_validate_insert",
+            "public.account_lifecycle_version_transition",
+            "auth.account_lifecycle_after_auth_insert",
+        })
+    if deletion_audit:
+        triggers.update({
+            "public.evidence_records_audit_delete",
+            "public.evidence_relationships_audit_delete",
+            "public.evidence_deletion_audit_append_only",
+        })
+    if deletion_requests:
+        triggers.update({
+            "public.data_deletion_requests_validate_insert",
+            "public.data_deletion_requests_audit_created",
+            "public.data_deletion_manifest_append_only",
+            "public.data_deletion_manifest_audit_frozen",
+        })
+    if deletion_worker:
+        triggers.add("public.account_lifecycle_worker_transition")
 
     functions: set[str] = set()
     if rls_auto:
@@ -677,6 +811,35 @@ def expected_catalog(versions: list[str]) -> dict:
             "private.assert_snapshot_verifier_allowlist_admin_shape",
             "private.audit_snapshot_verifier_allowlist_change",
         })
+    if account_lifecycle:
+        functions.update({
+            "private.enforce_account_lifecycle_insert",
+            "private.enforce_account_lifecycle_transition",
+            "private.provision_account_lifecycle_for_auth_user",
+        })
+    if deletion_audit:
+        functions.update({
+            "private.audit_evidence_delete",
+            "private.audit_relationship_delete",
+            "private.reject_evidence_deletion_audit_mutation",
+        })
+    if deletion_requests:
+        functions.update({
+            "private.enforce_deletion_request_insert",
+            "private.reject_deletion_manifest_mutation",
+            "private.audit_deletion_request_created",
+            "private.audit_deletion_manifest_frozen",
+            "public.accept_account_deletion",
+        })
+    if deletion_worker:
+        functions.update({
+            "private.enforce_account_deletion_worker_transition",
+            "private.run_account_deletion_slice",
+        })
+    if evidence_ownership:
+        functions.add("private.deletion_workspace_is_sole_owner")
+    if restore_reconciliation:
+        functions.add("private.reconcile_account_deletion_slice")
 
     foreign_keys: set[tuple[str, str, str, str]] = set()
     if identity:
@@ -704,6 +867,76 @@ def expected_catalog(versions: list[str]) -> dict:
             ("source_snapshots_created_by_fkey", "public.source_snapshots", "auth.users", "a"),
             ("source_grants_member_fkey", "public.source_grants", "public.workspace_memberships", "c"),
             ("source_grants_granted_by_fkey", "public.source_grants", "auth.users", "a"),
+        })
+    if account_lifecycle:
+        foreign_keys.add((
+            "account_lifecycle_subject_id_fkey",
+            "public.account_lifecycle",
+            "auth.users",
+            "r",
+        ))
+    if deletion_audit:
+        foreign_keys.update({
+            (
+                "evidence_deletion_audit_actor_user_id_fkey",
+                "public.evidence_deletion_audit",
+                "auth.users",
+                "r",
+            ),
+            (
+                "evidence_deletion_audit_workspace_id_fkey",
+                "public.evidence_deletion_audit",
+                "public.workspaces",
+                "r",
+            ),
+        })
+    if deletion_requests:
+        foreign_keys.update({
+            (
+                "account_lifecycle_request_id_fkey",
+                "public.account_lifecycle",
+                "public.data_deletion_requests",
+                "r",
+            ),
+            (
+                "data_deletion_requests_requester_user_id_fkey",
+                "public.data_deletion_requests",
+                "auth.users",
+                "r",
+            ),
+            (
+                "data_deletion_requests_scope_id_fkey",
+                "public.data_deletion_requests",
+                "auth.users",
+                "r",
+            ),
+            (
+                "data_deletion_manifest_request_id_fkey",
+                "public.data_deletion_manifest",
+                "public.data_deletion_requests",
+                "r",
+            ),
+            (
+                "data_deletion_manifest_target_id_fkey",
+                "public.data_deletion_manifest",
+                "auth.users",
+                "r",
+            ),
+        })
+    if application_purge:
+        foreign_keys.update({
+            (
+                "data_deletion_work_set_request_id_fkey",
+                "public.data_deletion_work_set",
+                "public.data_deletion_requests",
+                "r",
+            ),
+            (
+                "data_deletion_work_set_principal_id_fkey",
+                "public.data_deletion_work_set",
+                "auth.users",
+                "r",
+            ),
         })
     if verifier:
         foreign_keys.update({

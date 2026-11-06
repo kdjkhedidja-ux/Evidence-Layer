@@ -1,11 +1,16 @@
 from __future__ import annotations
 
 import asyncio
+from collections import deque
 from datetime import datetime, timezone
 from uuid import UUID
 
 import httpx
 
+from account_lifecycle_test_support import (
+    AvailableAccountLifecycleReader,
+    OpenRecoveryFenceReader,
+)
 from evidence_layer.source_access import (
     SourceReadDenial,
     SourceReadDenialReason,
@@ -90,10 +95,12 @@ class FakeReadPath:
         return self.result
 
 
-def make_client(*, directory, read_path):
+def make_client(*, directory, read_path, recovery_fence_reader=None):
     app = create_app(
         settings(),
         token_verifier=StaticVerifier(),
+        account_lifecycle_reader=AvailableAccountLifecycleReader(),
+        recovery_fence_reader=recovery_fence_reader or OpenRecoveryFenceReader(),
         workspace_directory=directory,
         source_read_path=read_path,
     )
@@ -122,6 +129,39 @@ def test_authorized_member_receives_verified_content() -> None:
         assert len(read_path.calls) == 1
         assert read_path.calls[0][1:] == (WORKSPACE, SOURCE, VERSION)
 
+
+    asyncio.run(run())
+
+
+def test_recovery_fence_closing_at_final_snapshot_boundary_withholds_body_and_digest() -> None:
+    class ClosingRecoveryFence:
+        def __init__(self) -> None:
+            self.statuses = deque([True, True, True, False])
+            self.calls = 0
+
+        async def is_open(self) -> bool | None:
+            self.calls += 1
+            return self.statuses.popleft()
+
+    async def run() -> None:
+        fence = ClosingRecoveryFence()
+        read_path = FakeReadPath(
+            result=VerifiedSnapshot(manifest=manifest(), content=CONTENT)
+        )
+        async with make_client(
+            directory=MembershipDirectory(),
+            read_path=read_path,
+            recovery_fence_reader=fence,
+        ) as client:
+            response = await client.get(url(), headers={"Authorization": f"Bearer {TOKEN}"})
+
+        assert response.status_code == 503
+        assert response.content != CONTENT
+        assert response.json() == {"detail": "Service is unavailable"}
+        assert "content-digest" not in response.headers
+        assert "location" not in response.headers
+        assert fence.calls == 4
+        assert len(read_path.calls) == 1
 
     asyncio.run(run())
 

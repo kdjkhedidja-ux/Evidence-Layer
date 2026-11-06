@@ -51,3 +51,6 @@ reports/*
 
 # Supabase CLI local link metadata (may contain connection details)
 supabase/.temp/
+
+# Supabase CLI local state
+supabase/.branches/

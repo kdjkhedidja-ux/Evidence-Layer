@@ -11,7 +11,7 @@ Evidence Layer consistently reduced the answer context and total generated token
 
 The automated answer-quality scores do not show a general quality gain. OpenAI correctness and groundedness were unchanged while completeness was lower by 0.075 points on a 0–2 scale. DeepSeek correctness, groundedness, and citation rubric scores were each 0.025–0.05 points lower, while completeness was 0.025 points higher. The 95% paired intervals include zero for these small score changes. Gold evidence coverage fell from 1.000 to 0.979 in both provider arms; every generated citation label resolved, and provisional-grade citation relevance rose modestly, with intervals that include zero.
 
-LLM generation cost estimates were lower in both arms: 15.48% for OpenAI and 13.05% for DeepSeek. DeepSeek's paired cost interval slightly crosses zero. **Total system cost cannot be determined:** Phase 6's JEV response did not report its financial cost, and three earlier incomplete DeepSeek responses did not preserve usage. The measured LLM amounts are therefore a lower bound; they do not establish that Evidence Layer lowers total cost after JEV.
+LLM generation cost estimates were lower in both arms: 15.48% for OpenAI and 13.05% for DeepSeek. DeepSeek's paired cost interval slightly crosses zero. **Total system cost is only partly determinable.** Phase 6's JEV response did not report a financial charge, and three earlier incomplete DeepSeek responses did not preserve usage. Two components now exist with different status: LLM spend is `measured` but a lower bound, and JEV is an `estimate` from measured Phase 6 tokens at the published list price. See the cost accounting section for the explicit fields. The reduced LLM cost still does not by itself prove a lower total cost after JEV.
 
 With the Phase 6 historical JEV latency added only to the Evidence Layer arm, the estimated mean end-to-end increase was 796 ms for OpenAI and 121 ms for DeepSeek. The DeepSeek interval crosses zero. These are estimates from Phase 6 JEV timing, not live Phase 7 JEV calls. No claim of scientific validation follows from this small developer-labeled dataset and automated evaluator.
 
@@ -19,10 +19,10 @@ With the Phase 6 historical JEV latency added only to the Evidence Layer arm, th
 
 1. **Does Evidence Layer improve answer quality?** Not established. Quality was near the rubric ceiling in both arms; the paired LLM-judge deltas are small and their confidence intervals include zero. Evidence coverage decreased slightly.
 2. **Does it reduce tokens?** Yes in this run. It used about 24% fewer total tokens per OpenAI answer and 22% fewer per DeepSeek answer; the paired 95% intervals exclude zero.
-3. **Does it reduce total cost?** Unknown. LLM-only costs decreased at the point estimate, but JEV cost is unavailable, and DeepSeek's paired LLM cost interval reaches slightly above zero.
+3. **Does it reduce total cost?** Not established, but no longer unknown in the same way. LLM-only spend decreased at the point estimate, and an estimated JEV component is now available ($0.003199728, `estimate`, not billed); at the point estimate the LLM reduction exceeds it in both provider arms. DeepSeek's paired LLM interval reaches slightly above zero, local compute is unpriced, and the JEV amount is an estimate, so no total-cost claim follows.
 4. **Are answers and citations preserved?** Citation references were valid in every answer. The automated quality scores remain high, but they do not prove human-validated correctness; evidence coverage was 2.1 percentage points lower.
 5. **Does it improve both providers?** Token use decreased for both. The quality results do not establish a benefit for either provider; small negative and positive deltas vary by metric.
-6. **Does the benefit outweigh added latency and complexity?** Not demonstrated. Live-JEV latency estimates add overhead; JEV total cost is unknown, and no clear quality improvement was measured.
+6. **Does the benefit outweigh added latency and complexity?** Not demonstrated. Live-JEV latency estimates add overhead; JEV spend is only an `estimate` ($0.003199728 at list price), total cost stays partly unknown, and no clear quality improvement was measured.
 
 ## Dataset and status of judgments
 
@@ -43,7 +43,7 @@ Each provider received the same 40 question texts and fixed five-candidate pool.
 | Traditional RAG (A) | Existing deterministic `LexicalScorer`, cosine over the existing token representation, `score desc / candidate_id asc`, top 5 passed through as context. |
 | Evidence Layer (B) | The saved real JEV scores from the completed Phase 6 run, verified against all 200 query/candidate hashes; same deterministic tie-break; top 3 selected passages passed as context. |
 
-The Phase 6 JEV artifact reports 200 successful scores from `jev-1.14.0` using `typesafe-sdk 0.7.2`. Phase 7 made **zero new JEV calls** and reused those exact outputs. This avoids re-scoring the identical frozen inputs, but means the live-JEV latency is estimated from Phase 6's five per-candidate latencies, and JEV cost remains whatever Phase 6 could not report. The baseline has no JEV dependency and is assigned zero JEV latency.
+The Phase 6 JEV artifact reports 200 successful scores from `jev-1.14.0` using `typesafe-sdk 0.7.2`. Phase 7 made **zero new JEV calls** and reused those exact outputs. This avoids re-scoring the identical frozen inputs, but means the live-JEV latency is estimated from Phase 6's five per-candidate latencies, and JEV spend can only be estimated from Phase 6's measured tokens at the published list price (see cost accounting). The baseline has no JEV dependency and is assigned zero JEV latency.
 
 The source passages were read in the isolated local Supabase integration through `SecureSnapshotReadPath`; workspace membership, source ACL, and snapshot digest checks were verified. The source hash is recorded in the result. The original checkpoint did not preserve the setup read duration, so setup latency is null and excluded from per-question latency. Per-question wall-clock aggregates sum recorded request and preparation durations; they exclude idle time between the three resumed run sessions. No production `/retrieve`, Supabase, Railway, or Egress settings were changed.
 
@@ -124,7 +124,27 @@ Deltas are Evidence Layer minus Traditional RAG. The 95% percentile intervals us
 - Judge API requests: 80. Judge cost was **$0.4796125**, separately reported as evaluation overhead and excluded from serving costs.
 - Model-list checks: 6 GET requests across three resumable run sessions (both providers checked per session). Total Phase 7 provider HTTP requests were 250: 164 generation attempts, 80 paired judge calls, and 6 model-list checks; JEV calls: 0. No secret values were saved or printed.
 - Known answer-generation LLM cost across the 40 questions: OpenAI A `$0.069660`, B `$0.058880`; DeepSeek A `$0.032920184`, B `$0.028621956`. These amounts include captured usage for retried calls, but not the three unpriced incomplete HTTP 200 responses.
-- Evidence Layer local deterministic ranking/selection incurred no separately billable API charge; local compute was not priced. Phase 6 reported JEV financial cost as null with reason “not reported by the System One response; no invoice/billing API queried.” Therefore Phase 7 JEV cost and total system cost are null, not zero. The reduction in LLM cost alone does not prove reduced total cost.
+- Evidence Layer local deterministic ranking/selection incurred no separately billable API charge; local compute was not priced.
+- JEV cost: Phase 6 reported a null financial charge, so nothing is billed here. Phase 7 made 0 new JEV calls and reused the same 200 saved records, so the estimate is a re-attribution of Phase 6's measured tokens, not a second charge.
+
+  ```text
+  estimated_jev_usd = (76,184 measured input tokens / 1,000,000) * $0.042 per million
+                    = $0.003199728  (estimate, not invoice)
+  ```
+
+  Price source: <https://docs.typesafe.ai/models>, Jev 1.14 row; output tokens are free. Retrieved 2026-11-06. No prepaid/pack rate is documented on that page, so no pack sensitivity is shown.
+
+- Combined per-route view. JEV applies only to route B (Evidence Layer), which reuses all five candidate scores per case; route A makes no JEV call.
+
+| Provider | Route | Measured LLM USD | JEV USD | JEV status | Combined USD | Combined status |
+|---|---|---:|---:|---|---:|---|
+| OpenAI | A — Traditional RAG | 0.069660 | 0.000000 | `not_applicable` | 0.069660 | `measured LLM; lower bound` |
+| OpenAI | B — Evidence Layer | 0.058880 | 0.003199728 | `estimate` | 0.062079728 | `measured LLM + estimated JEV` |
+| DeepSeek | A — Traditional RAG | 0.032920184 | 0.000000 | `not_applicable` | 0.032920184 | `measured LLM; lower bound` |
+| DeepSeek | B — Evidence Layer | 0.028621956 | 0.003199728 | `estimate` | 0.031821684 | `measured LLM + estimated JEV` |
+
+  At the point estimate, route B remains below route A for both providers once the JEV estimate is included (OpenAI saves $0.010780 in LLM against $0.003200 estimated JEV; DeepSeek saves $0.004298 against the same). These are point estimates: LLM is a lower bound, JEV is list-price estimate, judge cost is excluded, local compute is unpriced, and no interval was computed for the combined figure. This is not a billing statement.
+- Therefore the billed JEV and total-system amounts are `null`, and the estimated JEV and combined amounts are `estimate`, not zero and not invoiced. The reduction in LLM cost alone does not prove reduced total cost.
 
 ## Recovery and analysis corrections
 
@@ -150,7 +170,13 @@ The live runner is `scripts/run_phase7_end_to_end_rag.py`. Rerunning it performs
 2. Relevance judgments and required facts are developer-authored. No independent human adjudication was performed.
 3. The automated evaluator is not human, is not independent of the tested OpenAI model, and may infer the route from evidence formatting/amount.
 4. Evidence Layer selected 3 passages versus 5 in baseline; lower token counts are a direct consequence of smaller context. The run does not isolate whether reranking, passage filtering, or context size caused answer changes.
-5. JEV scores were reused from Phase 6; Phase 7 did not measure fresh JEV latency or financial cost. Live-JEV latency is an estimate; JEV and total system costs remain unknown.
+5. JEV scores were reused from Phase 6; Phase 7 did not measure fresh JEV latency or financial cost. Live-JEV latency is an estimate. JEV spend is an `estimate` ($0.003199728 at list price) and total system cost remains partly unknown: billed JEV is `null`, LLM spend is a lower bound, and local compute is unpriced.
 6. Three incomplete provider responses from the legacy checkpoint lack usage. Known LLM costs are lower bounds by an unknown amount.
 7. Paired bootstrap intervals are exploratory, with 40 cases and no multiplicity adjustment. They do not replace a newly collected blinded set or independent review.
 8. Secure snapshot setup timing was not persisted in the initial checkpoint and is excluded from per-question latency.
+
+## Post-run integrity update (2026-11-06)
+
+The secure snapshot reader (`services/evidence-service/evidence_service/secure_snapshot_read.py`) gained account-lifecycle gate checks after this benchmark ran. The file is one of the Phase 7 input fingerprints, so its recorded hash was updated in the result and manifest, and the change is listed under `post_run_input_updates` in the manifest.
+
+This is a security-only change to the read path. It does not alter the benchmark inputs, prompts, answers, scores, token counts, or costs reported above.
