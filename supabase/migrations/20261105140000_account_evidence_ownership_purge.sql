@@ -3,6 +3,13 @@
 -- Owner memberships, workspace rows, snapshots, and Storage objects remain.
 
 alter table public.data_deletion_work_set
+    drop constraint data_deletion_work_set_target_type_check;
+
+alter table public.data_deletion_work_set
+    add constraint data_deletion_work_set_target_type_check
+        check (target_type in ('source_grant', 'workspace_membership', 'evidence_record', 'relationship'));
+
+alter table public.data_deletion_work_set
     add column target_id uuid;
 
 update public.data_deletion_work_set
@@ -71,6 +78,9 @@ $function$;
 
 revoke all on function private.deletion_workspace_is_sole_owner(uuid, uuid)
     from public, anon, authenticated, service_role, account_deletion_worker;
+
+grant execute on function private.deletion_workspace_is_sole_owner(uuid, uuid)
+    to account_deletion_worker;
 
 grant select on table public.workspace_memberships to account_deletion_worker;
 grant select, delete on table public.evidence_records to account_deletion_worker;
@@ -164,7 +174,16 @@ as $function$
 declare
     actor uuid := auth.uid();
 begin
-    if pg_catalog.pg_trigger_depth() > 1 then
+    -- A relationship removed by the evidence FK cascade is a dependent effect,
+    -- not a second client DELETE. If either endpoint evidence row is already
+    -- gone, this is the cascade and the evidence event is authoritative.
+    if not exists (
+        select 1 from public.evidence_records as evidence
+        where evidence.id = old.evidence_id_a
+    ) or not exists (
+        select 1 from public.evidence_records as evidence
+        where evidence.id = old.evidence_id_b
+    ) then
         return old;
     end if;
     if actor is null then

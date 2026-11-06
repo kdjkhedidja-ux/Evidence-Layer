@@ -252,7 +252,7 @@ set search_path = ''
 as $function$
 declare
     request_row public.data_deletion_requests;
-    actor uuid := auth.uid();
+    actor uuid := nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
 begin
     if actor is null then
         raise exception 'deletion acceptance requires an authenticated actor' using errcode = '42501';

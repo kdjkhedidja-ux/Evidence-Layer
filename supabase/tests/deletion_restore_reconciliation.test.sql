@@ -26,15 +26,20 @@ insert into public.data_deletion_requests (
     'b1000000-0000-4000-8000-000000000001', 'account',
     'b1000000-0000-4000-8000-000000000001', 'p5-key'
 );
-grant account_lifecycle_transition_writer to postgres with set true, inherit false;
 set local role account_lifecycle_transition_writer;
 update public.data_deletion_requests set status = 'accepted', accepted_at = clock_timestamp()
 where request_id = 'b4000000-0000-4000-8000-000000000001';
+
+update public.account_lifecycle
+set state = 'revocation_pending', request_id = 'b4000000-0000-4000-8000-000000000001'
+where subject_id = (select requester_user_id from public.data_deletion_requests where request_id = 'b4000000-0000-4000-8000-000000000001');
 
 set local role account_deletion_worker;
 select ok((private.run_account_deletion_slice(
     'b4000000-0000-4000-8000-000000000001'
 ) ->> 'status') = 'purge_pending', 'worker slice reaches purge_pending');
+
+set local role postgres;
 select is((select count(*)::integer from public.evidence_records
     where id = 'b3000000-0000-4000-8000-000000000001'), 0,
     'successful slice removes the frozen evidence target');
@@ -65,6 +70,8 @@ select is((select status from public.data_deletion_requests
 select is((select state from public.account_lifecycle
     where subject_id = 'b1000000-0000-4000-8000-000000000001'), 'purge_failed',
     'lifecycle remains blocked after restore inconsistency');
+set local role postgres;
+
 select is((select count(*)::integer from public.evidence_deletion_audit
     where request_id = 'b4000000-0000-4000-8000-000000000001'
       and action = 'reconciliation_failed'), 1,

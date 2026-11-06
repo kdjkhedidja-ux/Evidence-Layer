@@ -45,7 +45,7 @@ select ok((select reloptions @> array['security_invoker=true']
 select is((select count(*)::integer
     from pg_catalog.pg_policies
     where schemaname = 'public' and tablename = 'account_lifecycle'),
-    4, 'the table has only the self-read and minimal trusted-role policies');
+    6, 'the table has the self-read, trusted-role and worker policies');
 select ok((select position('account_lifecycle' in coalesce(qual, '')) = 0
     from pg_catalog.pg_policies
     where schemaname = 'public' and tablename = 'account_lifecycle'
@@ -230,8 +230,16 @@ reset role;
 -- A trusted test-only transition uses the isolated internal role. The role is
 -- never granted to any API identity and the C4-gated post-denial states remain
 -- unavailable in B1.
-grant account_lifecycle_transition_writer to postgres with set true, inherit false;
-grant usage on schema extensions to account_lifecycle_transition_writer;
+-- The lifecycle request reference must exist (foreign key added in P1).
+set local role authenticated;
+insert into public.data_deletion_requests (
+    request_id, requester_user_id, scope_type, scope_id, idempotency_key
+) values (
+    '88000000-0000-4000-8000-000000000011',
+    '88000000-0000-4000-8000-000000000001', 'account',
+    '88000000-0000-4000-8000-000000000001', 'lifecycle-fk-test'
+);
+reset role;
 set local role account_lifecycle_transition_writer;
 update public.account_lifecycle
 set state = 'revocation_pending',

@@ -11,6 +11,11 @@ exception when duplicate_object then
 end
 $role$;
 
+-- The migration and test harness actor may assume the isolated worker role.
+grant account_deletion_worker to postgres with set true, inherit false;
+grant usage on schema private to account_deletion_worker;
+grant usage on schema extensions to account_deletion_worker;
+
 alter table public.evidence_deletion_audit
     drop constraint evidence_deletion_audit_action_check;
 
@@ -27,6 +32,37 @@ alter table public.evidence_deletion_audit
 alter table public.evidence_deletion_audit
     add constraint evidence_deletion_audit_result_check
         check (result in ('success', 'failure'));
+
+alter table public.account_lifecycle
+    drop constraint account_lifecycle_transition_reason_check;
+
+alter table public.account_lifecycle
+    add constraint account_lifecycle_transition_reason_check check (
+        transition_reason in (
+            'auth_identity_created',
+            'existing_identity_backfill',
+            'local_denial_committed',
+            'access_surfaces_verified',
+            'purge_authorized',
+            'purge_started',
+            'purge_verified',
+            'purge_failed',
+            'purged'
+        )
+    );
+
+alter table public.account_lifecycle
+    drop constraint account_lifecycle_transition_actor_check;
+
+alter table public.account_lifecycle
+    add constraint account_lifecycle_transition_actor_check check (
+        transition_actor in (
+            'auth_provisioning',
+            'existing_user_backfill',
+            'account_lifecycle_transition_writer',
+            'account_deletion_worker'
+        )
+    );
 
 alter table public.data_deletion_requests
     add column claim_id uuid,

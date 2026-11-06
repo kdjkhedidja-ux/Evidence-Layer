@@ -38,6 +38,12 @@ $roles$;
 select private.assert_snapshot_role_safe('account_lifecycle_provisioner');
 select private.assert_snapshot_role_safe('account_lifecycle_transition_writer');
 
+-- The migration and test harness actor may assume these isolated roles.
+grant account_lifecycle_provisioner to postgres with set true, inherit false;
+grant account_lifecycle_transition_writer to postgres with set true, inherit false;
+grant usage on schema extensions to account_lifecycle_transition_writer;
+
+
 create table public.account_lifecycle (
     subject_id uuid primary key references auth.users (id) on delete restrict,
     state text not null default 'available',

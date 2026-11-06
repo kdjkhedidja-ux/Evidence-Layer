@@ -177,3 +177,9 @@ create policy evidence_deletion_audit_insert_worker_reconciliation
         and action in ('reconciliation_verified', 'reconciliation_failed')
         and result in ('success', 'failure')
     );
+
+-- The migration and test harness actor may assume these isolated roles. This is
+-- the final statement so later ownership revokes cannot drop the membership.
+grant account_lifecycle_provisioner to postgres with set true, inherit false;
+grant account_lifecycle_transition_writer to postgres with set true, inherit false;
+grant account_deletion_worker to postgres with set true, inherit false;

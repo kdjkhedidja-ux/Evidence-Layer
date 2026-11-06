@@ -45,11 +45,14 @@ insert into public.data_deletion_requests (
     '91000000-0000-4000-8000-000000000001', 'p4-key'
 );
 
-grant account_lifecycle_transition_writer to postgres with set true, inherit false;
 set local role account_lifecycle_transition_writer;
 update public.data_deletion_requests
 set status = 'accepted', accepted_at = clock_timestamp()
 where request_id = '95000000-0000-4000-8000-000000000001';
+
+update public.account_lifecycle
+set state = 'revocation_pending', request_id = '95000000-0000-4000-8000-000000000001'
+where subject_id = (select requester_user_id from public.data_deletion_requests where request_id = '95000000-0000-4000-8000-000000000001');
 
 set local role account_deletion_worker;
 select ok((private.run_account_deletion_slice(
@@ -64,6 +67,8 @@ select is((select count(*)::integer from public.source_grants
 select is((select count(*)::integer from public.workspace_memberships
     where user_id = '91000000-0000-4000-8000-000000000001'),
     0, 'principal member memberships are removed');
+set local role postgres;
+
 select is((select count(*)::integer from public.workspace_memberships
     where workspace_id = '92000000-0000-4000-8000-000000000001'),
     2, 'owner and other member memberships remain');

@@ -24,6 +24,10 @@ values
     ('a3000000-0000-4000-8000-000000000001', 'a2000000-0000-4000-8000-000000000001', 'sole owner evidence'),
     ('a3000000-0000-4000-8000-000000000003', 'a2000000-0000-4000-8000-000000000001', 'sole owner evidence two'),
     ('a3000000-0000-4000-8000-000000000002', 'a2000000-0000-4000-8000-000000000002', 'shared evidence');
+select set_config('request.jwt.claim.sub', 'a1000000-0000-4000-8000-000000000001', true);
+select set_config('request.jwt.claims',
+    '{"sub":"a1000000-0000-4000-8000-000000000001","role":"authenticated","aud":"authenticated"}', true);
+
 insert into public.evidence_relationships (
     id, workspace_id, evidence_id_a, evidence_id_b, relation_type,
     rationale, provenance_note, created_by, updated_by
@@ -48,15 +52,20 @@ insert into public.data_deletion_requests (
     'a1000000-0000-4000-8000-000000000001', 'account',
     'a1000000-0000-4000-8000-000000000001', 'p4b-key'
 );
-grant account_lifecycle_transition_writer to postgres with set true, inherit false;
 set local role account_lifecycle_transition_writer;
 update public.data_deletion_requests set status = 'accepted', accepted_at = clock_timestamp()
 where request_id = 'a5000000-0000-4000-8000-000000000001';
+
+update public.account_lifecycle
+set state = 'revocation_pending', request_id = 'a5000000-0000-4000-8000-000000000001'
+where subject_id = (select requester_user_id from public.data_deletion_requests where request_id = 'a5000000-0000-4000-8000-000000000001');
 
 set local role account_deletion_worker;
 select ok((private.run_account_deletion_slice(
     'a5000000-0000-4000-8000-000000000001'
 ) ->> 'status') = 'purge_pending', 'sole-owner evidence slice verifies');
+
+set local role postgres;
 select is((select count(*)::integer from public.data_deletion_work_set
     where request_id = 'a5000000-0000-4000-8000-000000000001'
       and target_type = 'evidence_record'), 2, 'only sole-owner evidence enters work set');

@@ -11,8 +11,8 @@ select ok((select not rolcanlogin and not rolinherit and not rolbypassrls
     where rolname = 'account_deletion_worker'),
     'worker role is non-login, non-inheriting, and not BYPASSRLS');
 select ok(not pg_catalog.has_table_privilege(
-    'account_deletion_worker', 'public.evidence_records', 'SELECT'
-), 'worker cannot read unrelated evidence rows');
+    'account_deletion_worker', 'public.source_snapshots', 'SELECT'
+), 'worker cannot read snapshot catalog rows');
 select ok(pg_catalog.has_table_privilege(
     'account_deletion_worker', 'public.source_grants', 'DELETE'
 ), 'worker has only the implemented source-grant delete capability');
@@ -32,11 +32,14 @@ insert into public.data_deletion_requests (
     '81000000-0000-4000-8000-000000000001', 'worker-test-key'
 );
 
-grant account_lifecycle_transition_writer to postgres with set true, inherit false;
 set local role account_lifecycle_transition_writer;
 update public.data_deletion_requests
 set status = 'accepted', accepted_at = clock_timestamp()
 where request_id = '82000000-0000-4000-8000-000000000001';
+
+update public.account_lifecycle
+set state = 'revocation_pending', request_id = '82000000-0000-4000-8000-000000000001'
+where subject_id = (select requester_user_id from public.data_deletion_requests where request_id = '82000000-0000-4000-8000-000000000001');
 
 set local role account_deletion_worker;
 select ok((private.run_account_deletion_slice(
