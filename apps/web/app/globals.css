@@ -3964,3 +3964,59 @@ select:focus-visible,
   font-size: 0.84rem;
   cursor: pointer;
 }
+
+/* Account panel · deletion request */
+.account-deletion {
+  margin-top: 1rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.account-deletion h3 {
+  margin: 0 0 0.35rem;
+  font-size: 0.98rem;
+}
+
+.account-deletion-scope {
+  color: var(--text-muted);
+  font-size: 0.86rem;
+}
+
+.account-deletion-state p {
+  margin: 0.3rem 0;
+  font-size: 0.88rem;
+}
+
+.account-deletion-confirm {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+  font-size: 0.86rem;
+}
+
+.account-deletion-actions,
+.account-deletion-lookup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.55rem 0;
+}
+
+.account-deletion-lookup label {
+  color: var(--text-muted);
+  font-size: 0.84rem;
+}
+
+.account-deletion-lookup input {
+  flex: 1 1 16rem;
+  min-height: 38px;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--border-control-color);
+  border-radius: 5px;
+  background: var(--bg-secondary);
+  color: var(--text-main);
+  font: inherit;
+  font-size: 0.84rem;
+}
