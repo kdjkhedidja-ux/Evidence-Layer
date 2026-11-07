@@ -1,6 +1,8 @@
 # Deletion migrations closure — 2026-11-07
 
-Status: **STEP BLOCKED**. The official release path stopped at `plan`. No migration was applied, no ad-hoc SQL was executed, and the Delete-account flag remains OFF.
+Status: **STEP BLOCKED**. The hosted production apply could not start because the
+`Production` environment database credential is rejected. No migration was
+applied, no ad-hoc SQL was executed, and the Delete-account flag remains OFF.
 
 ## Target
 
@@ -13,35 +15,36 @@ Status: **STEP BLOCKED**. The official release path stopped at `plan`. No migrat
 
 The ref matches the live app. No secret values are recorded here.
 
-## Preconditions
+## Apply
 
-| Check | Result |
+**APPLY: NO.**
+
+| Item | Result |
 |---|---|
-| `SUPABASE_PROJECT_REF` | Set to the production ref; project readable with the access token. |
-| `SUPABASE_ACCESS_TOKEN` | Set; can read the production project. |
-| `SUPABASE_DB_PASSWORD` | Set (value not printed). |
-| R2 rollback dump | Present: `dumps/2026-11-07/evidence-layer.dump`, 127,007 bytes, SHA-256 metadata recorded. |
-| Delete-account flag | **OFF**: `NEXT_PUBLIC_DELETION_REQUESTS_ENABLED` is unset. |
-| Release jobs | **Disabled** by literal `&& false` (`\.github/workflows/supabase-migrations.yml:58,100`). |
-| Recovery point < 48 h | Supabase: `pitr_enabled: false`, `backups: 0`. External attestation: accepted for `dumps/2026-11-07/evidence-layer.dump` with drill PASS. |
+| Migrations applied | **none** |
+| Plan digest used | `322ca806989feb1f2b1b703a9cc1d4ac5b11435f61604ee729551007cd41e709` (commit `8e7b72651a330912b9c8f76a6cd69e2e8374d175`) |
+| Previously approved plan | `f657c90c193329d8a08350f59a5c0716bca1c73b07ab1154854f81c6bbf6afbc` (commit `8f676916d332223b81d6d888098d74764095e465`) |
+| Difference between plans | Release plumbing only (PR #82/#83); the 21 migration files and their SHA-256 hashes are identical, so the 7 pending versions are unchanged. |
+| Remote history | 14 applied; the same 7 pending after the attempt |
+| Recovery mode | External R2 attestation (`supabase/recovery-attestation.json`): bucket `evidence-layer-db-backups`, object `dumps/2026-11-07/evidence-layer.dump`, 127,007 bytes, SHA-256 `6450cabf…32b73e`, non-production restore drill PASS. Supabase PITR is still **off** and there are **0** managed backups. Attestation age at the attempt: ~1.2 h (valid). |
 
-## Guard results
+## Gate progression and exact failure
 
-| Command | Result |
+| Step | Result |
 |---|---|
 | `supabase_migration_guard.py validate` | **PASS** — manifest conforms to the reviewed inventory (21 files). |
 | `supabase_migration_guard.py classify` | **PASS** — 435 statements, 362 registry-approved, 0 hard-denied. |
-| `supabase_migration_guard.py plan` | **PASS** — 7 pending; target/history/catalog/grants pass; recovery satisfied by the external attestation. The digest is generated per reviewed commit. |
+| Local `plan` on production | **PASS** — 7 pending; target/history/catalog/grants pass; recovery satisfied by the external attestation. |
+| PR #82 — enable reviewed plan and manual apply | Merged. Plan runs on `main`; apply requires `workflow_dispatch` with `operation=apply` and a typed project ref. A push to `main` never applies. |
+| PR #83 — empty-ref fail-closed + reviewed default | Merged. The `Production` environment has no `SUPABASE_PROJECT_REF` variable and the available credential cannot create one (Actions variables/secrets API returns HTTP 403), so the workflow now falls back to the reviewed production ref. The guard now rejects an empty ref before any request. |
+| Hosted `production-plan` — guard step | **PASS** — target, history, catalog, grants, and recovery verified in GitHub Actions. |
+| Hosted `production-plan` — link/preview step | **FAIL** — the `Production` environment `SUPABASE_DB_PASSWORD` is rejected by Postgres: `FATAL: password authentication failed for user "postgres" (SQLSTATE 28P01)`. |
+| Rotate the `Production` secret | **NOT POSSIBLE with the available credential** — writing environment secrets/variables returns HTTP 403 (`Resource not accessible by integration`). |
 
-The guard was retargeted from `ayrtyjgqlgtuiwuyigbz` / `Evidence-test` (HTTP 404) to production `slxfsjnsrvfkdtxayiud` / `Evidence Layer`, with `SUPABASE_PROJECT_REF` still able to override an explicitly reviewed environment. `plan` now reaches the project and passes the target, history, catalog, and grant checks.
-
-One guard rule was corrected during the retarget: management read-only queries run as `supabase_read_only_user`, so the membership audit now recognises exactly one admin membership held by the project owner `postgres`, while still requiring `admin_option`, no `SET`, and no `INHERIT`.
-
-Supabase still reports no completed backup and PITR disabled. The recovery gate is instead satisfied by `supabase/recovery-attestation.json`: R2 bucket `evidence-layer-db-backups`, object `dumps/2026-11-07/evidence-layer.dump`, SHA-256 `6450cabf…32b73e`, 127,007 bytes, and a non-production restore drill marked PASS. The attestation expires after 48 hours from the recorded timestamps and is part of the plan digest, so any refresh requires a new plan.
-
-## Apply
-
-**NOT RUN.** No `production-plan`/`production-apply` workflow execution, no `supabase db push`, no direct DDL. The release jobs are disabled and the plan did not pass.
+The credential that works from this workspace was not used for a local
+`supabase db push`: the runbook designates GitHub Actions as the single
+production migration mechanism, and the mission requires the official apply
+path. No local push, direct DDL, migration repair, or restore was performed.
 
 ## Pending migrations (7)
 
@@ -53,43 +56,47 @@ Supabase still reports no completed backup and PITR disabled. The recovery gate 
 6. `20261105140000_account_evidence_ownership_purge.sql`
 7. `20261105150000_deletion_restore_reconciliation.sql`
 
-Production history contains 14 applied migrations; these seven are absent.
+## Post-checks (read-only; no apply occurred)
 
-## Post-checks (read-only, unchanged)
-
-| Object | Result |
+| Check | Result |
 |---|---|
-| `public.account_lifecycle` | `null` — absent |
-| `public.data_deletion_requests` | `null` — absent |
-| `public.data_deletion_manifest` | `null` — absent |
-| `public.evidence_deletion_audit` | `null` — absent |
-| `public.data_deletion_work_set` | `null` — absent |
-| `public.evidence_records` (existing) | present; anonymous SELECT denied |
+| `public.account_lifecycle` | absent (`pg_class` query; REST would be `PGRST205`) |
+| `public.data_deletion_requests` | absent |
+| `public.data_deletion_manifest` | absent |
+| `public.data_deletion_work_set` | absent |
+| `public.evidence_deletion_audit` | absent |
+| Applied migration count | 14 (unchanged) |
+| Anonymous evidence deny | not re-checked this run; no apply changed it |
 
 ## Feature flag
 
-`NEXT_PUBLIC_DELETION_REQUESTS_ENABLED` is **OFF** before and after this step. The Delete-account panel is not rendered.
+`NEXT_PUBLIC_DELETION_REQUESTS_ENABLED` is **OFF** before and after this step.
+The Delete-account panel is not rendered.
 
 ## Residual risks
 
-- No PITR and no Supabase-managed backup; the logical dump is a secondary safety net only.
+- The `Production` environment has **no protection rules** (no required
+  reviewers, no main-only deployment branch policy); enabling the jobs exposes
+  a manual apply path without a reviewer gate.
+- The `Production` environment `SUPABASE_DB_PASSWORD` is stale/incorrect and must
+  be rotated by a credential with Actions secret write access.
+- No PITR and no Supabase-managed backup; the external logical dump is a
+  secondary safety net and expires from the guard's view 48 h after upload.
 - The logical dump excludes Auth, Storage, and extensions.
 - The deployed Evidence Service still returns 404 for deletion routes.
-- The flag must remain OFF until the schema is applied, the service is deployed, and an authenticated deletion smoke passes.
+- The flag must remain OFF until the schema is applied, the service is deployed,
+  and an authenticated deletion smoke passes.
 
 ## Step outcome
 
-**STEP BLOCKED for apply; PLAN PASS.**
+**STEP BLOCKED — APPLY: NO — FLAG: OFF — ATTESTATION: valid — TABLES: unchanged/absent.**
 
-1. `plan` passes against production; its digest is generated per reviewed commit and changes with the commit or attestation.
-2. No apply was run: `production-plan`/`production-apply` remain disabled by `&& false`, and the `Production` environment gates have not been verified through GitHub.
-3. The external attestation expires after 48 hours; a stale attestation blocks the next plan.
+Exact gate: `production-plan` fails at `supabase link`/`migration list` with
+`FATAL: password authentication failed for user "postgres" (SQLSTATE 28P01)`
+because the `Production` environment `SUPABASE_DB_PASSWORD` secret is wrong, and
+the available credential cannot update it (HTTP 403).
 
-Release jobs remain disabled, as required by the runbook until the recovery gate and environment controls are satisfied.
-
-## Recommended next step
-
-1. Configure/verify the `Production` environment gates (main-only, required reviewers) and GitHub secrets.
-2. Enable `production-plan`/`production-apply`, run `plan`, review digest `b713b6dd…`, then approve `apply`.
-3. Refresh the external attestation if more than 48 hours have passed, then re-plan.
-4. Deploy the Evidence Service with the deletion routes and run the authenticated delete smoke — with the flag still OFF until that smoke passes.
+Next step: rotate the `Production` environment `SUPABASE_DB_PASSWORD` (and add
+`SUPABASE_PROJECT_REF` plus required reviewers), re-run `plan`, then dispatch
+`apply`; afterwards deploy the Evidence Service with deletion routes and run an
+authenticated delete smoke with the flag still OFF.
