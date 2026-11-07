@@ -94,6 +94,7 @@ local Mailpit results do not establish hosted SMTP delivery.
 | `NEXT_PUBLIC_SUPABASE_URL` | Public | Supabase project API URL |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Public | `sb_publishable_...` key used by Supabase Auth SDK |
 | `EVIDENCE_SERVICE_URL` | Server-only | Evidence Service base URL used by same-origin Next.js route handlers |
+| `NEXT_PUBLIC_DELETION_REQUESTS_ENABLED` | Public | Enables the account deletion panel. Defaults to disabled; set to exactly `true` only after the deletion migrations are applied to the target database. |
 
 Copy placeholders from `apps/web/.env.example`. The Resend SMTP password is
 not an application variable. The service keeps its separate required JWT and
@@ -101,6 +102,13 @@ Data API configuration documented in
 `services/evidence-service/.env.example`.
 Set both `NEXT_PUBLIC_*` values in the app's build environment before building:
 Next.js embeds public-prefixed variables in the browser bundle at build time.
+
+The deletion panel is hidden by default. The production database did not contain
+`account_lifecycle`, `data_deletion_requests`, `data_deletion_manifest`,
+`data_deletion_work_set`, or `evidence_deletion_audit` as of the 2026-11-07
+verification. Leave `NEXT_PUBLIC_DELETION_REQUESTS_ENABLED` unset until those
+migrations are applied and verified through the release process; then set it to
+`true` and redeploy.
 
 ## Hosted Staging authentication smoke test
 
