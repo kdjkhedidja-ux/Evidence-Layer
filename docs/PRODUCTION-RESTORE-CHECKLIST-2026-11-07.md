@@ -6,11 +6,11 @@ Read-only attempt. **No restore was executed.** This document records what could
 
 | Action | Result | Detail |
 |---|---|---|
-| `GET /v1/projects/slxfsjnsrvfkdtxayiud` with the available management token | **403** | The token does not have access to this project. |
-| `GET /v1/projects/slxfsjnsrvfkdtxayiud/database/backups` | **403** | `Missing required permission(s): backups_read`. |
-| `pitr_enabled`, latest backup, retention | **UNKNOWN** | Not readable with current access. |
+| `GET /v1/projects/slxfsjnsrvfkdtxayiud` | **200** | `Evidence Layer`, `ACTIVE_HEALTHY`, `eu-central-1`, created `2026-10-07T19:21:06Z`, org `vvveiefymwolihvgpflb`. |
+| `GET /v1/projects/slxfsjnsrvfkdtxayiud/database/backups` | **200** | `pitr_enabled: false`, `walg_enabled: true`, `backups: 0`, `physical_backup_data: 0`, region `eu-central-1`. |
+| Recovery point available | **FAIL** | No backup entry and PITR disabled: there is no recoverable point recorded by the API. |
 
-A management token exists in the environment, but it is scoped to another project/organisation. It was not used to modify anything.
+The earlier `403` was caused by a token scoped to another project. With the production-scoped token the metadata is readable, and it shows **no usable recovery point**.
 
 ## Why this blocks a migration apply
 
@@ -54,7 +54,7 @@ Expected minimum in the second response: `pitr_enabled: true` **or** at least on
 
 ## Decision
 
-**NO-GO for the deletion migration apply.** The smoke's authenticated checks are unrun and the production recovery point is unverified. The core public/auth surface passed the anonymous checks, but that does not establish rollback safety for a schema change.
+**NO-GO for the deletion migration apply.** The production project reports `pitr_enabled: false` and zero backups, so there is no verified recovery point. Authenticated smoke checks are also unrun. The core public/auth surface passes anonymous checks, but that does not establish rollback safety for a schema change.
 
 Re-evaluate when:
 
