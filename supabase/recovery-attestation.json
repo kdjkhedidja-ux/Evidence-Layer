@@ -1,0 +1,17 @@
+{
+  "provider": "r2",
+  "bucket": "evidence-layer-db-backups",
+  "object_key": "dumps/2026-11-07/evidence-layer.dump",
+  "endpoint": "https://7b52588f0e52079bcc49b92c6318056b.r2.cloudflarestorage.com",
+  "sha256": "6450cabff82f64a09a28616ae4d5a2284575bedf2bb869e9b24867732d32b73e",
+  "size_bytes": 127007,
+  "uploaded_at": "2026-11-07T22:04:30Z",
+  "drill": {
+    "status": "PASS",
+    "completed_at": "2026-11-07T22:06:00Z",
+    "target": "disposable PostgreSQL 17 (non-prod)",
+    "evidence": "docs/PRODUCTION-RESTORE-CHECKLIST-2026-11-07.md"
+  },
+  "attested_by": "operations (Codespace agent run)",
+  "reviewed_by": "pending Production environment approval"
+}

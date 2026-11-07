@@ -23,7 +23,7 @@ The ref matches the live app. No secret values are recorded here.
 | R2 rollback dump | Present: `dumps/2026-11-07/evidence-layer.dump`, 127,007 bytes, SHA-256 metadata recorded. |
 | Delete-account flag | **OFF**: `NEXT_PUBLIC_DELETION_REQUESTS_ENABLED` is unset. |
 | Release jobs | **Disabled** by literal `&& false` (`\.github/workflows/supabase-migrations.yml:58,100`). |
-| Recovery point < 48 h | **Missing**: `pitr_enabled: false`, `backups: 0`, `physical_backup_data: 0`. |
+| Recovery point < 48 h | Supabase: `pitr_enabled: false`, `backups: 0`. External attestation: accepted for `dumps/2026-11-07/evidence-layer.dump` with drill PASS. |
 
 ## Guard results
 
@@ -31,13 +31,13 @@ The ref matches the live app. No secret values are recorded here.
 |---|---|
 | `supabase_migration_guard.py validate` | **PASS** — manifest conforms to the reviewed inventory (21 files). |
 | `supabase_migration_guard.py classify` | **PASS** — 435 statements, 362 registry-approved, 0 hard-denied. |
-| `supabase_migration_guard.py plan` | **FAIL** — "No recent completed backup or PITR recovery point verified". The plan now reaches production; target, history, catalog, and grant checks pass. |
+| `supabase_migration_guard.py plan` | **PASS** — 7 pending; target/history/catalog/grants pass; recovery satisfied by the external attestation. The digest is generated per reviewed commit. |
 
 The guard was retargeted from `ayrtyjgqlgtuiwuyigbz` / `Evidence-test` (HTTP 404) to production `slxfsjnsrvfkdtxayiud` / `Evidence Layer`, with `SUPABASE_PROJECT_REF` still able to override an explicitly reviewed environment. `plan` now reaches the project and passes the target, history, catalog, and grant checks.
 
 One guard rule was corrected during the retarget: management read-only queries run as `supabase_read_only_user`, so the membership audit now recognises exactly one admin membership held by the project owner `postgres`, while still requiring `admin_option`, no `SET`, and no `INHERIT`.
 
-The remaining plan gate requires a completed backup or PITR point newer than 48 hours (`scripts/supabase_migration_guard.py:1207-1222,1233-1234`). Production has neither.
+Supabase still reports no completed backup and PITR disabled. The recovery gate is instead satisfied by `supabase/recovery-attestation.json`: R2 bucket `evidence-layer-db-backups`, object `dumps/2026-11-07/evidence-layer.dump`, SHA-256 `6450cabf…32b73e`, 127,007 bytes, and a non-production restore drill marked PASS. The attestation expires after 48 hours from the recorded timestamps and is part of the plan digest, so any refresh requires a new plan.
 
 ## Apply
 
@@ -79,18 +79,17 @@ Production history contains 14 applied migrations; these seven are absent.
 
 ## Step outcome
 
-**STEP BLOCKED** by the recovery gate:
+**STEP BLOCKED for apply; PLAN PASS.**
 
-1. `plan` now reaches production and passes target/history/catalog/grants, but fails with "No recent completed backup or PITR recovery point verified".
-2. Production has `pitr_enabled: false` and zero backups, so no recovery point within 48 hours exists.
-
-The release jobs remain disabled until that gate and the environment controls are satisfied.
+1. `plan` passes against production; its digest is generated per reviewed commit and changes with the commit or attestation.
+2. No apply was run: `production-plan`/`production-apply` remain disabled by `&& false`, and the `Production` environment gates have not been verified through GitHub.
+3. The external attestation expires after 48 hours; a stale attestation blocks the next plan.
 
 Release jobs remain disabled, as required by the runbook until the recovery gate and environment controls are satisfied.
 
 ## Recommended next step
 
-1. Enable a recovery point (PITR or completed backup) and verify it is newer than 48 hours.
-2. Configure/verify the `Production` environment gates, then enable `production-plan`/`production-apply`.
-3. Run `plan`, review the digest and dry-run, then approve `apply`.
+1. Configure/verify the `Production` environment gates (main-only, required reviewers) and GitHub secrets.
+2. Enable `production-plan`/`production-apply`, run `plan`, review digest `b713b6dd…`, then approve `apply`.
+3. Refresh the external attestation if more than 48 hours have passed, then re-plan.
 4. Deploy the Evidence Service with the deletion routes and run the authenticated delete smoke — with the flag still OFF until that smoke passes.

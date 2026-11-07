@@ -1,6 +1,6 @@
 # R2 backup bucket — status and runbook
 
-Date: 2026-11-07. Status: **BACKUP_VERIFIED** — the private bucket holds a real production dump with a recorded checksum, and that dump passed a non-production restore drill.
+Date: 2026-11-07. Status: **BACKUP_VERIFIED** — the private bucket holds a real production dump with a recorded checksum, that dump passed a non-production restore drill, and the migration guard accepts `supabase/recovery-attestation.json` as a 48-hour recovery substitute while PITR is unavailable.
 
 ## Verified state
 

@@ -1224,6 +1224,67 @@ def recovery_is_recent(backup: dict) -> bool:
     return False
 
 
+EXTERNAL_RECOVERY_PATH = ROOT / "supabase" / "recovery-attestation.json"
+RECOVERY_MAX_AGE_SECONDS = 48 * 3600
+
+
+def _is_recent(timestamp: str) -> bool:
+    try:
+        parsed = datetime.fromisoformat(str(timestamp).replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return False
+    age = (datetime.now(timezone.utc) - parsed).total_seconds()
+    return 0 <= age <= RECOVERY_MAX_AGE_SECONDS
+
+
+def load_external_recovery(path: Path | None = None) -> dict | None:
+    configured = os.environ.get("SUPABASE_EXTERNAL_RECOVERY_ATTESTATION", "")
+    candidate = Path(configured) if configured else (path or EXTERNAL_RECOVERY_PATH)
+    if not candidate.is_file():
+        return None
+    try:
+        data = json.loads(candidate.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def external_recovery_is_recent(attestation: dict | None) -> bool:
+    """A documented substitute for Supabase PITR: an uploaded, drilled dump.
+
+    The attestation is repository-reviewed, expires after 48 hours, and must
+    point at an existing drill report. It does not replace Supabase backups when
+    one is available.
+    """
+    if not isinstance(attestation, dict):
+        return False
+    drill = attestation.get("drill")
+    if not isinstance(drill, dict):
+        return False
+    evidence = drill.get("evidence")
+    return bool(
+        attestation.get("provider") == "r2"
+        and attestation.get("bucket") == "evidence-layer-db-backups"
+        and isinstance(attestation.get("object_key"), str)
+        and re.fullmatch(r"dumps/[0-9A-Za-z._/-]+\.dump", attestation["object_key"])
+        and isinstance(attestation.get("endpoint"), str)
+        and re.fullmatch(r"https://[a-z0-9]+\.r2\.cloudflarestorage\.com", attestation["endpoint"])
+        and isinstance(attestation.get("sha256"), str)
+        and re.fullmatch(r"[0-9a-f]{64}", attestation["sha256"])
+        and type(attestation.get("size_bytes")) is int
+        and attestation["size_bytes"] > 0
+        and isinstance(attestation.get("attested_by"), str)
+        and bool(attestation["attested_by"].strip())
+        and _is_recent(attestation.get("uploaded_at", ""))
+        and drill.get("status") == "PASS"
+        and isinstance(drill.get("target"), str)
+        and "non-prod" in drill["target"].lower()
+        and isinstance(evidence, str)
+        and (ROOT / evidence).is_file()
+        and _is_recent(drill.get("completed_at", ""))
+    )
+
+
 def build_plan(api: Supabase, inventory: list[dict[str, str]], require_recovery: bool) -> dict:
     api.target()
     local_versions = [item["version"] for item in inventory]
@@ -1232,13 +1293,19 @@ def build_plan(api: Supabase, inventory: list[dict[str, str]], require_recovery:
     assert_catalog(api.catalog(), remote_versions)
     assert_grants(api, remote_versions)
     backup = api.backup()
+    external = load_external_recovery()
+    external_ok = external_recovery_is_recent(external)
     if require_recovery:
-        require(recovery_is_recent(backup), "No recent completed backup or PITR recovery point verified")
+        require(
+            recovery_is_recent(backup) or external_ok,
+            "No recent completed backup, PITR, or valid external recovery attestation verified",
+        )
     commit = os.environ.get("GITHUB_SHA", "")
     require(bool(re.fullmatch(r"[0-9a-f]{40}", commit)), "GITHUB_SHA must identify the exact reviewed commit")
     plan = {"target_ref": PROJECT_REF, "target_name": PROJECT_NAME, "commit": commit,
             "files": inventory, "remote_applied": remote_versions,
-            "pending": local_versions[len(remote_versions):], "recovery": backup}
+            "pending": local_versions[len(remote_versions):], "recovery": backup,
+            "external_recovery": external if external_ok else None}
     plan["digest"] = hashlib.sha256(json.dumps(plan, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     return plan
 
