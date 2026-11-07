@@ -98,7 +98,7 @@ jobs:
     # Disabled until Production requires per-run reviewers and main-only
     # deployments. The approver must inspect this run's plan artifact first.
     if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.operation == 'apply') && false }}
-    name: Approve Evidence-test (ayrtyjgqlgtuiwuyigbz) plan ${{ needs.production-plan.outputs.digest }}
+    name: Approve production plan ${{ needs.production-plan.outputs.digest }}
     runs-on: ubuntu-latest
     environment: Production
     env:
@@ -121,7 +121,9 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         run: |
           test "$OPERATION" = apply
-          test "$CONFIRM_PROJECT_REF" = ayrtyjgqlgtuiwuyigbz
+          test -n "$CONFIRM_PROJECT_REF"
+          test -n "$SUPABASE_PROJECT_REF"
+          test "$CONFIRM_PROJECT_REF" = "$SUPABASE_PROJECT_REF"
       - name: Recheck exact approved plan and remote recovery state
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}

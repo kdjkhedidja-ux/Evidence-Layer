@@ -31,11 +31,13 @@ The ref matches the live app. No secret values are recorded here.
 |---|---|
 | `supabase_migration_guard.py validate` | **PASS** — manifest conforms to the reviewed inventory (21 files). |
 | `supabase_migration_guard.py classify` | **PASS** — 435 statements, 362 registry-approved, 0 hard-denied. |
-| `supabase_migration_guard.py plan` | **FAIL** — "Configured project ref does not match the reviewed production target". |
+| `supabase_migration_guard.py plan` | **FAIL** — "No recent completed backup or PITR recovery point verified". The plan now reaches production; target, history, catalog, and grant checks pass. |
 
-The guard is pinned to `ayrtyjgqlgtuiwuyigbz` / `Evidence-test` (`scripts/supabase_migration_guard.py:39-40`), which returned HTTP 404 in the previous attempt. Production is a different project, so the current guard cannot plan against it.
+The guard was retargeted from `ayrtyjgqlgtuiwuyigbz` / `Evidence-test` (HTTP 404) to production `slxfsjnsrvfkdtxayiud` / `Evidence Layer`, with `SUPABASE_PROJECT_REF` still able to override an explicitly reviewed environment. `plan` now reaches the project and passes the target, history, catalog, and grant checks.
 
-Even after retargeting the guard, the plan's recovery gate requires a completed backup or PITR point newer than 48 hours (`scripts/supabase_migration_guard.py:1207-1222,1233-1234`). Production has neither.
+One guard rule was corrected during the retarget: management read-only queries run as `supabase_read_only_user`, so the membership audit now recognises exactly one admin membership held by the project owner `postgres`, while still requiring `admin_option`, no `SET`, and no `INHERIT`.
+
+The remaining plan gate requires a completed backup or PITR point newer than 48 hours (`scripts/supabase_migration_guard.py:1207-1222,1233-1234`). Production has neither.
 
 ## Apply
 
@@ -77,17 +79,18 @@ Production history contains 14 applied migrations; these seven are absent.
 
 ## Step outcome
 
-**STEP BLOCKED**, for two independent reasons:
+**STEP BLOCKED** by the recovery gate:
 
-1. The official guard targets `ayrtyjgqlgtuiwuyigbz` (404), not production `slxfsjnsrvfkdtxayiud`; `plan` refuses the mismatch.
-2. Production has no recovery point within 48 hours, so the plan's recovery gate would fail even after retargeting.
+1. `plan` now reaches production and passes target/history/catalog/grants, but fails with "No recent completed backup or PITR recovery point verified".
+2. Production has `pitr_enabled: false` and zero backups, so no recovery point within 48 hours exists.
+
+The release jobs remain disabled until that gate and the environment controls are satisfied.
 
 Release jobs remain disabled, as required by the runbook until the recovery gate and environment controls are satisfied.
 
 ## Recommended next step
 
-1. Update the reviewed guard target to production and record the change, after human review.
-2. Enable a recovery point (PITR or completed backup) and verify it is newer than 48 hours.
-3. Configure/verify the `Production` environment gates, then enable `production-plan`/`production-apply`.
-4. Run `plan`, review the digest and dry-run, then approve `apply`.
-5. Deploy the Evidence Service with the deletion routes and run the authenticated delete smoke — with the flag still OFF until that smoke passes.
+1. Enable a recovery point (PITR or completed backup) and verify it is newer than 48 hours.
+2. Configure/verify the `Production` environment gates, then enable `production-plan`/`production-apply`.
+3. Run `plan`, review the digest and dry-run, then approve `apply`.
+4. Deploy the Evidence Service with the deletion routes and run the authenticated delete smoke — with the flag still OFF until that smoke passes.

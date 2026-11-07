@@ -157,4 +157,4 @@ The Python migration guard checks below are source-text checks only. pgTAP
 assertions need an isolated local database and are not evidence about Supabase
 Storage API versioning or hosted project permissions. No migration or test in
 this section is considered run until a separately approved local validation is
-completed. Production and `Evidence-test` remain outside this local workflow.
+completed. Production remains outside this local workflow.

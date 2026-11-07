@@ -262,7 +262,10 @@ class ReadOnlyManagementApiTests(unittest.TestCase):
         self.assertIn("membership.admin_option", membership_queries[0])
         self.assertIn("membership.set_option", membership_queries[0])
         self.assertIn("membership.inherit_option", membership_queries[0])
-        self.assertIn("membership.member=current_user::pg_catalog.regrole", membership_queries[0])
+        self.assertIn(
+            "membership.member in (current_user::pg_catalog.regrole, 'postgres'::pg_catalog.regrole)",
+            membership_queries[0],
+        )
         self.assertIn("and not membership.set_option", membership_queries[0])
         self.assertIn("and not membership.inherit_option", membership_queries[0])
 
