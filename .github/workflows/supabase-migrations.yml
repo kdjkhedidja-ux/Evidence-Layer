@@ -58,7 +58,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: Production
     env:
-      SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+      SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF || 'slxfsjnsrvfkdtxayiud' }}
     outputs:
       digest: ${{ steps.digest.outputs.value }}
     steps:
@@ -101,7 +101,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: Production
     env:
-      SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+      SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF || 'slxfsjnsrvfkdtxayiud' }}
       CONFIRM_PROJECT_REF: ${{ inputs.confirm_project_ref }}
       OPERATION: ${{ inputs.operation }}
     steps:
