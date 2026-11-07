@@ -2,21 +2,30 @@
 
 GitHub Actions is the intended single production migration mechanism. The
 Supabase GitHub integration remains disconnected, so it cannot independently
-apply the same migration files. The existing `Evidence-test` project has ref
-`ayrtyjgqlgtuiwuyigbz`. Do not create another project or deploy the local
-`config.toml` to this project: its Auth URLs are local development settings.
+apply the same migration files. The production project is `Evidence Layer`
+with ref `slxfsjnsrvfkdtxayiud`. Do not create another project or deploy the
+local `config.toml` to this project: its Auth URLs are local development
+settings.
+
+The guard default was retargeted from the historical `Evidence-test` project
+(`ayrtyjgqlgtuiwuyigbz`, now HTTP 404 for the available credentials) to
+production; `SUPABASE_PROJECT_REF` can still override it for an explicitly
+reviewed environment.
 
 ## Current safety state
 
-On 2026-10-19, authenticated Management API reads confirmed the project name,
-ref, and healthy status. Its migration history table, user tables, indexes,
-policies, triggers, and `vector` extension were absent. All four repository
-migrations are pending. The backups API reported no completed backup and PITR
-disabled; no usable recovery point was verified. GitHub's `Production`
-environment had no protection rules or deployment branch policy. The available
-GitHub token received HTTP 403 for branch protection, environment secret, and
-environment variable APIs. Production planning and application jobs in the
-workflow are therefore explicitly disabled.
+On 2026-11-07 the production project reports 14 applied migrations and 7
+pending deletion/lifecycle migrations. Its backups API reports
+`pitr_enabled: false` and zero backups, so no recovery point within 48 hours
+exists and `plan` stops at the recovery gate. The `Production` environment
+gates and secrets still need to be verified through GitHub. Production
+planning and application jobs in the workflow remain explicitly disabled by
+`&& false` until those gates are satisfied.
+
+Historical context: an earlier 2026-10-19 inspection targeted `Evidence-test`
+(`ayrtyjgqlgtuiwuyigbz`), which had an empty history and no recovery point. That
+project is no longer the release target and is unreachable with the current
+credentials.
 
 ## Gates before enabling hosted deployment
 

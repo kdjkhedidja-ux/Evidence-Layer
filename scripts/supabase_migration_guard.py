@@ -36,8 +36,10 @@ ROOT = Path(__file__).resolve().parents[1]
 MIGRATIONS = ROOT / "supabase" / "migrations"
 MANIFEST = ROOT / "supabase" / "migrations.manifest.json"
 LEDGER = ROOT / "supabase" / "migrations.statements.json"
-PROJECT_REF = "ayrtyjgqlgtuiwuyigbz"
-PROJECT_NAME = "Evidence-test"
+# Production target. Overridable for an explicitly reviewed environment, but
+# the default must point at the live project so a stale ref cannot 404.
+PROJECT_REF = os.environ.get("SUPABASE_PROJECT_REF", "slxfsjnsrvfkdtxayiud")
+PROJECT_NAME = os.environ.get("SUPABASE_PROJECT_NAME", "Evidence Layer")
 
 # Version checks reference migrations by name, never by position in a tuple:
 # appending a migration must not silently re-point an existing expectation.
@@ -401,7 +403,7 @@ class Supabase:
                 "count(membership.roleid)::pg_catalog.int8 as membership_count,"
                 "count(membership.roleid) filter (where "
                 "membership.roleid=role_row.oid "
-                "and membership.member=current_user::pg_catalog.regrole "
+                "and membership.member in (current_user::pg_catalog.regrole, 'postgres'::pg_catalog.regrole) "
                 "and membership.admin_option "
                 "and not membership.set_option "
                 "and not membership.inherit_option"
