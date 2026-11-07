@@ -48,6 +48,16 @@ Authenticated checks in `scripts/production_smoke.py` therefore **could not run*
 | 30 | Service `/v1/me` with test user | SKIP | — | No dedicated test-user credentials. |
 | 31 | Workspace evidence list with test user | SKIP | — | Same. |
 
+## Auth configuration (read-only)
+
+| Setting | Value | Implication |
+|---|---|---|
+| `disable_signup` | `false` | Public signup is enabled. |
+| `mailer_autoconfirm` | `false` | New accounts must confirm email before sign-in; a throwaway signup cannot produce a token. |
+| `site_url` | `https://evidencelayerofficiel-zaids-projects-a75be417.vercel.app/` | Differs from the live domain `https://evidence-layer.vercel.app`; recovery and confirmation links may target the wrong host. Flag for operator review. |
+
+A dedicated test user must therefore be created in the Supabase dashboard (Authentication → Users → Add user, with auto-confirm) before the authenticated smoke can run. The management API's `/auth/users` endpoint returns 404 in this project, so it cannot create the user programmatically.
+
 ## Interpretation
 
 - **Core live surface shows no unexpected breakage** in the checks available without a session: public pages, Auth, BFF fail-closed behavior, and RLS denial on every core table.
