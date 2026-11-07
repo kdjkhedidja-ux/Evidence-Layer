@@ -53,9 +53,8 @@ jobs:
 
   production-plan:
     needs: local-validation
-    # Disabled until environment review, main protection, credentials,
-    # and a usable recovery point are independently verified.
-    if: ${{ github.ref == 'refs/heads/main' && false }}
+    # Read-only planning may run on main. Apply stays manual and reviewed.
+    if: ${{ github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     environment: Production
     env:
@@ -95,9 +94,9 @@ jobs:
 
   production-apply:
     needs: [local-validation, production-plan]
-    # Disabled until Production requires per-run reviewers and main-only
-    # deployments. The approver must inspect this run's plan artifact first.
-    if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.operation == 'apply') && false }}
+    # Apply only on a manual dispatch that explicitly selects `apply` and types
+    # the reviewed project ref. A push to main plans but never applies.
+    if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.operation == 'apply' }}
     name: Approve production plan ${{ needs.production-plan.outputs.digest }}
     runs-on: ubuntu-latest
     environment: Production
