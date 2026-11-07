@@ -38,7 +38,7 @@ MANIFEST = ROOT / "supabase" / "migrations.manifest.json"
 LEDGER = ROOT / "supabase" / "migrations.statements.json"
 # Production target. Overridable for an explicitly reviewed environment, but
 # the default must point at the live project so a stale ref cannot 404.
-PROJECT_REF = os.environ.get("SUPABASE_PROJECT_REF", "slxfsjnsrvfkdtxayiud")
+PROJECT_REF = os.environ.get("SUPABASE_PROJECT_REF") or "slxfsjnsrvfkdtxayiud"
 PROJECT_NAME = os.environ.get("SUPABASE_PROJECT_NAME", "Evidence Layer")
 
 # Version checks reference migrations by name, never by position in a tuple:
@@ -289,7 +289,7 @@ class Supabase:
         return rows
 
     def target(self) -> None:
-        configured = os.environ.get("SUPABASE_PROJECT_REF", "")
+        configured = os.environ.get("SUPABASE_PROJECT_REF") or ""
         require(configured == PROJECT_REF, "Configured project ref does not match the reviewed production target")
         project = self.request("")
         require(project.get("ref") == PROJECT_REF and project.get("name") == PROJECT_NAME, "Authenticated project metadata does not match the reviewed target")

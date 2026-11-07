@@ -443,6 +443,13 @@ class ReadOnlyManagementApiTests(unittest.TestCase):
         with self.assertRaises(guard.GuardError):
             guard.assert_policy_inventory([], expected)
 
+    def test_target_rejects_empty_project_ref_before_any_request(self):
+        with patch.dict(os.environ, {"SUPABASE_PROJECT_REF": ""}):
+            with patch("scripts.supabase_migration_guard.urllib.request.urlopen") as urlopen:
+                with self.assertRaisesRegex(guard.GuardError, "Configured project ref"):
+                    self.api.target()
+                urlopen.assert_not_called()
+
     def test_plan_stops_after_read_only_query_auth_transport_or_response_failure(self):
         project = {
             "ref": guard.PROJECT_REF,
