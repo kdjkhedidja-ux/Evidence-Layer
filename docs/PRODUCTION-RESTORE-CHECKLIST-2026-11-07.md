@@ -1,62 +1,72 @@
 # Production restore verification — 2026-11-07
 
-Read-only attempt. **No restore was executed.** This document records what could be verified and the minimum evidence an operator must capture before any migration apply.
+Status: **LOGICAL BACKUP + RESTORE DRILL PASS**. A real production dump was uploaded to the private R2 bucket and restored into a disposable PostgreSQL 17 instance. No production restore was executed.
 
-## Attempt result
+## Production project
 
-| Action | Result | Detail |
-|---|---|---|
-| `GET /v1/projects/slxfsjnsrvfkdtxayiud` | **200** | `Evidence Layer`, `ACTIVE_HEALTHY`, `eu-central-1`, created `2026-10-07T19:21:06Z`, org `vvveiefymwolihvgpflb`. |
-| `GET /v1/projects/slxfsjnsrvfkdtxayiud/database/backups` | **200** | `pitr_enabled: false`, `walg_enabled: true`, `backups: 0`, `physical_backup_data: 0`, region `eu-central-1`. |
-| Recovery point available | **FAIL** | No backup entry and PITR disabled: there is no recoverable point recorded by the API. |
+| Item | Value |
+|---|---|
+| Project | `Evidence Layer` (`slxfsjnsrvfkdtxayiud`) |
+| Status | `ACTIVE_HEALTHY`, `eu-central-1` |
+| Database size | 14 MB |
+| `pitr_enabled` | **false** |
+| API-listed backups | **0** |
+| Connection used | IPv4 Supavisor pooler, session mode |
 
-The earlier `403` was caused by a token scoped to another project. With the production-scoped token the metadata is readable, and it shows **no usable recovery point**.
+Direct `db.<ref>.supabase.co:5432` is IPv6-only and unreachable from this Codespace; the pooler was required.
 
-## Why this blocks a migration apply
+## Backup artifact
 
-The deletion migrations are additive, but a failed or partial apply still requires a verified recovery point. Without `pitr_enabled` and a recent backup timestamp, the release cannot claim rollback safety.
+| Item | Value |
+|---|---|
+| Scope | schemas `public` + `private` (no `auth`, `storage`, `extensions`) |
+| Format | PostgreSQL custom dump |
+| Size | 127,007 bytes |
+| SHA-256 | `6450cabff82f64a09a28616ae4d5a2284575bedf2bb869e9b24867732d32b73e` |
+| Object key | `dumps/2026-11-07/evidence-layer.dump` |
+| Checksum object | `dumps/2026-11-07/evidence-layer.dump.sha256` |
+| Bucket | `evidence-layer-db-backups` (private; `r2.dev` disabled, 0 custom domains) |
 
-## Minimum evidence to capture before any apply
+The local dump was deleted after upload; the drill container was removed.
 
-Record all of the following from the Supabase dashboard (`Database → Backups`) or the Management API with a token that has `backups_read`:
+## Restore drill
 
-| Field | Example / source | Required |
-|---|---|---|
-| Project ref | `slxfsjnsrvfkdtxayiud` | yes |
-| Project name and organisation | Dashboard project settings | yes |
-| Plan and PITR add-on | Dashboard billing / backups page | yes |
-| `pitr_enabled` | `GET /v1/projects/{ref}/database/backups` → `pitr_enabled` | yes |
-| Latest backup timestamp (UTC) | `backups[]` / `physical_backup_data` | yes |
-| Backup retention window | Dashboard backups page | yes |
-| Backup region / storage location | Dashboard project settings | yes |
-| Restore owner (named person) | Runbook/roster | yes |
-| Restore destination for a drill | Disposable project or isolated DB | yes |
-| Date of last successful restore drill | Operations log | yes |
-| Chosen RPO / RTO and acceptance | Owner decision | yes |
+Target: disposable `postgres:17-alpine`, no production data attached.
 
-## Safe read-only commands
+Preparation: create roles referenced by policies (`anon`, `authenticated`, `service_role`, `snapshot_publisher_owner`, `snapshot_verifier`, allowlist manager/owner/audit, `rls_enabled`, lifecycle worker roles), `auth.uid()` stub, and `auth.users` stub populated with the owner IDs referenced by the restored rows.
 
-```sh
-REF=slxfsjnsrvfkdtxayiud
-curl -s -H "Authorization: Bearer $TOKEN_WITH_BACKUPS_READ" \
-  "https://api.supabase.com/v1/projects/$REF"
-curl -s -H "Authorization: Bearer $TOKEN_WITH_BACKUPS_READ" \
-  "https://api.supabase.com/v1/projects/$REF/database/backups"
-```
+Result:
 
-Expected minimum in the second response: `pitr_enabled: true` **or** at least one recent entry in `backups` / `physical_backup_data`, plus a recorded timestamp within the agreed window.
+| Check | Result |
+|---|---|
+| `pg_restore` exit / errors | **0 errors** |
+| Tables (public + private) | 9 |
+| Policies restored | 32 |
+| FKs to `auth.users` validated | 8 |
+| `workspaces` rows | 2 (matches source) |
+| `workspace_memberships` rows | 2 (matches source) |
+| `evidence_records` | 0 (matches source) |
+| `evidence_relationships` | 0 (matches source) |
+| `source_snapshots` / `source_grants` | 0 / 0 (matches source) |
 
-## Do not do in this step
+## Limits
 
-- Do not trigger a restore.
-- Do not create a new project for restore without owner approval.
-- Do not paste tokens or backup URLs into git, docs, or chat.
+- `auth`, `storage`, and `extensions` schemas are outside the dump. Authentication identities and Storage objects are not covered by this artifact; Supabase's own backups remain required for those.
+- The drill used an `auth.users` stub because the dump intentionally excludes Auth. FK validation is meaningful for the restored schema, not proof of Auth restore.
+- PITR is still disabled and no scheduled backup is listed by the API. This is a logical backup, not point-in-time recovery.
+- No production restore was attempted.
 
 ## Decision
 
-**NO-GO for the deletion migration apply.** The production project reports `pitr_enabled: false` and zero backups, so there is no verified recovery point. Authenticated smoke checks are also unrun. The core public/auth surface passes anonymous checks, but that does not establish rollback safety for a schema change.
+**GO for the deletion schema migration apply** from a backup standpoint:
 
-Re-evaluate when:
+- live authenticated smoke: PASS (`/healthz`, `/v1/me`, evidence list);
+- verified logical dump exists with a recorded checksum;
+- a clean non-production restore reproduced the row counts, policies, and FK validation.
 
-1. `production_smoke.py` has run with a dedicated test account and the result is recorded, and
-2. a backup/PITR recovery point for `slxfsjnsrvfkdtxayiud` is captured above with a named restore owner.
+Conditions:
+
+1. Keep the dump for at least 14 days.
+2. Apply during a maintenance window through the release process; do not hand-apply.
+3. The **Delete account** feature flag stays off until the Evidence Service with the deletion routes is deployed and an authenticated deletion smoke passes.
+4. Broader disaster recovery remains partial while PITR is disabled and Auth/Storage are outside the dump.
