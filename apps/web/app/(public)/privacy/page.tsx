@@ -177,8 +177,36 @@ export default function PrivacyPage() {
         <p className="public-source-note">Reference: <a href="https://www.edpb.europa.eu/contact/frequently-asked-questions_en" rel="noreferrer">EDPB FAQ on cookies and consent</a>.</p>
       </section>
 
+      <section className="public-section" aria-labelledby="privacy-deletion">
+        <h2 id="privacy-deletion">9. Account deletion requests</h2>
+        <p>
+          A signed-in person can create an account-scoped deletion request from the account panel.
+          The request is idempotent, and accepting it blocks access to the account&apos;s data
+          immediately. The current implementation does not offer cancellation after acceptance.
+        </p>
+        <p>
+          The implemented deletion slice removes the principal&apos;s source grants, member
+          (non-owner) workspace memberships, and evidence and relationships in workspaces where the
+          account is the sole active owner and no other active members exist. It records a
+          content-free audit event for each successful deletion: actor, workspace, resource
+          identifier, action, and result. It does not store the deleted text in that audit record.
+        </p>
+        <p>
+          This slice retains workspaces and owner memberships, evidence and relationships in shared
+          workspaces, the source catalogue and snapshot metadata, stored objects, and the
+          authentication identity. A request therefore does not yet achieve complete account
+          erasure, and stored files or published snapshots are not deleted. Terminal purge and full
+          erasure require separate work and are not offered by this interface.
+        </p>
+        <p>
+          If a request fails or is blocked, the account remains denied rather than silently
+          returning to service. Requests, statuses, and the implementing scope are shown in the
+          product and in the project&apos;s deletion documentation.
+        </p>
+      </section>
+
       <section className="public-section" aria-labelledby="privacy-changes">
-        <h2 id="privacy-changes">9. Changes and contact</h2>
+        <h2 id="privacy-changes">10. Changes and contact</h2>
         <p>
           Material changes to processing should be reflected here before the affected feature is
           activated. For privacy questions, contact <strong>[insert verified privacy contact]</strong>.
