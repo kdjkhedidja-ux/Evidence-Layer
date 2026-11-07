@@ -45,8 +45,20 @@ Authenticated checks in `scripts/production_smoke.py` therefore **could not run*
 | 27 | Service source content route without token | PASS | 401 | Core route present. |
 | 28 | Service `/v1/deletion-requests` | **FAIL (expected)** | 404 | Deployed service predates the deletion endpoints. |
 | 29 | Service `/v1/deletion-requests/{id}` and `/accept` | **FAIL (expected)** | 404 | Same. |
-| 30 | Service `/v1/me` with test user | SKIP | — | No dedicated test-user credentials. |
-| 31 | Workspace evidence list with test user | SKIP | — | Same. |
+| 30 | Service `/v1/me` with dedicated test user | PASS | 200 | `user_id` present, 1 authorized workspace. |
+| 31 | Workspace evidence list with test user | PASS | 200 | Read-only; 0 records returned. Token cleared after the run. |
+
+## Authenticated run (executed)
+
+Date: 2026-11-07. A dedicated test account was used through the password-grant helper; the access token stayed in process memory and was cleared before exit.
+
+```text
+healthz:        200 {"status":"ok"}
+me:             200 user_id present, workspace_count 1
+evidence_list:  200 records 0
+```
+
+Result: **PASS**. Read-only; no rows created, updated, or deleted.
 
 ## Auth configuration (read-only)
 
@@ -63,7 +75,7 @@ A dedicated test user must therefore be created in the Supabase dashboard (Authe
 - **Core live surface shows no unexpected breakage** in the checks available without a session: public pages, Auth, BFF fail-closed behavior, and RLS denial on every core table.
 - **Deletion/lifecycle tables are absent**, as expected from the audit. Any route that reaches PostgREST for those tables will fail; the Delete account UI remains feature-flagged off.
 - **The deployed Evidence Service predates the deletion work.** All core `/v1` routes exist (401 without a token), while every deletion route returns 404. The account-lifecycle gate is therefore **not active in production**, which removes the earlier 503 risk on core routes.
-- **Authenticated behavior is still unverified**: no dedicated test user was available, so owner/member authorization and real CRUD responses remain unproven by this smoke.
+- **Authenticated read behavior is verified** for one dedicated test account: `/v1/me` returns the account and one workspace, and the workspace evidence list returns 200. The smoke performs reads only; it does not exercise create/update/delete or member-vs-owner differences.
 - **Deletion requires both** a service deployment that contains the new routes and the database migrations. Neither is present.
 
 ## Obtaining a test token (password grant)
