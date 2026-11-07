@@ -25,6 +25,7 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
   const [deletionMessage, setDeletionMessage] = useState("");
   const [deletionConfirmed, setDeletionConfirmed] = useState(false);
   const [lookupId, setLookupId] = useState("");
+  const deletionRequestsEnabled = process.env.NEXT_PUBLIC_DELETION_REQUESTS_ENABLED === "true";
 
   const loadWorkspaces = useCallback(async (): Promise<Workspace[] | null> => {
     setState("loading");
@@ -269,6 +270,7 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
       )}
       {message && <p className="account-message" role="status">{message}</p>}
       <p className="account-sample-note">The Explorer shows only records your verified account is authorized to read; no sample records are substituted.</p>
+      {deletionRequestsEnabled ? (
       <section className="account-deletion" aria-labelledby="account-deletion-title">
         <h3 id="account-deletion-title">Delete account</h3>
         <p className="account-deletion-scope">
@@ -339,6 +341,7 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
         </div>
         {deletionMessage ? <p className="account-message" role="alert">{deletionMessage}</p> : null}
       </section>
+      ) : null}
     </section>
   );
 }

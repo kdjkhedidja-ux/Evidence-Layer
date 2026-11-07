@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import AuthAccount from "../components/auth-account";
 
 const mocks = vi.hoisted(() => {
@@ -138,6 +138,15 @@ describe("authenticated workspace controls", () => {
 });
 
 describe("account deletion request", () => {
+  beforeEach(() => {
+    vi.stubEnv("NEXT_PUBLIC_DELETION_REQUESTS_ENABLED", "true");
+    mocks.signOut.mockResolvedValue({ error: null });
+    mocks.onAuthStateChange.mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } });
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   const workspace = { id: "10000000-0000-4000-8000-000000000002", name: "Personal", role: "owner" };
   const deletion = {
     request_id: "72000000-0000-4000-8000-000000000001",
@@ -166,9 +175,13 @@ describe("account deletion request", () => {
     return fetchMock;
   }
 
-  beforeEach(() => {
-    mocks.signOut.mockResolvedValue({ error: null });
-    mocks.onAuthStateChange.mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } });
+  it("stays hidden unless the deployment explicitly enables it", async () => {
+    vi.stubEnv("NEXT_PUBLIC_DELETION_REQUESTS_ENABLED", "false");
+    mockDeletionFlow();
+    render(<AuthAccount userId="user-a" email="a@example.test" />);
+    await waitFor(() => expect(screen.queryByText("Checking workspace access…")).not.toBeInTheDocument());
+    expect(screen.queryByRole("heading", { name: "Delete account" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Request account deletion" })).not.toBeInTheDocument();
   });
 
   it("states the real deletion scope without promising full erasure", async () => {
