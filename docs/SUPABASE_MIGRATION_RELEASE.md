@@ -16,8 +16,10 @@ reviewed environment.
 
 On 2026-11-07 the production project reports 14 applied migrations and 7
 pending deletion/lifecycle migrations. Its backups API reports
-`pitr_enabled: false` and zero backups, so no recovery point within 48 hours
-exists and `plan` stops at the recovery gate. The `Production` environment
+`pitr_enabled: false` and zero backups; the recovery gate is therefore met by
+the reviewed external attestation for `dumps/2026-11-07/evidence-layer.dump`
+and its passing non-production restore drill. `plan` passes. The digest is generated per reviewed commit and changes when
+the commit or attestation changes. The `Production` environment
 gates and secrets still need to be verified through GitHub. Production
 planning and application jobs in the workflow remain explicitly disabled by
 `&& false` until those gates are satisfied.
@@ -39,10 +41,16 @@ credentials.
    environment secrets. Set `SUPABASE_PROJECT_REF` as an environment variable
    to the verified ref. Use a project-scoped token with only required rights.
    Codespaces secrets are not GitHub Actions secrets.
-4. Verify a recent completed backup or PITR recovery point on the actual
-   project. Decide whether its age and retention meet the release's recovery
-   objective, and identify the owner who can authorize a restore. The guard
-   refuses to plan without a recovery point within 48 hours.
+4. Provide a recovery point within 48 hours. The guard accepts either a
+   Supabase completed backup / PITR point, or a reviewed external attestation
+   for an uploaded dump plus a passing non-production restore drill. The
+   attestation lives at `supabase/recovery-attestation.json` (override with
+   `SUPABASE_EXTERNAL_RECOVERY_ATTESTATION`) and must name the R2 bucket, object
+   key, endpoint, SHA-256, size, upload time, drill status/target/evidence path,
+   and attester. It expires after 48 hours and is included in the plan digest,
+   so changing or refreshing it changes the approved plan. Identify the owner
+   who can authorize a restore. The guard refuses to plan when neither source is
+   valid.
 5. After those controls are verified, a reviewed PR may remove the literal
    `false` from the two production job conditions. The `main` condition must
    remain. Run a manual plan first, inspect its JSON artifact and CLI dry-run,

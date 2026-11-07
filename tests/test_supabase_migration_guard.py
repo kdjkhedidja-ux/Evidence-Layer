@@ -52,9 +52,59 @@ class MigrationGuardTests(unittest.TestCase):
                 guard.build_plan(FakeProject(["20200101000000"]), self.inventory, require_recovery=False)
 
     def test_no_verified_recovery_point_blocks_release(self):
-        with patch.dict(os.environ, {"GITHUB_SHA": self.sha}):
+        with patch.dict(os.environ, {
+            "GITHUB_SHA": self.sha,
+            "SUPABASE_EXTERNAL_RECOVERY_ATTESTATION": "/nonexistent/attestation.json",
+        }):
             with self.assertRaisesRegex(guard.GuardError, "No recent completed backup"):
                 guard.build_plan(FakeProject(), self.inventory, require_recovery=True)
+
+    def test_reviewed_external_recovery_attestation_satisfies_the_gate(self):
+        with patch.dict(os.environ, {"GITHUB_SHA": self.sha}):
+            plan = guard.build_plan(FakeProject(), self.inventory, require_recovery=True)
+        self.assertIsNotNone(plan["external_recovery"])
+        self.assertEqual(plan["external_recovery"]["object_key"], "dumps/2026-11-07/evidence-layer.dump")
+
+    def test_stale_or_invalid_external_attestation_is_rejected(self):
+        import json
+        import tempfile
+        base = {
+            "provider": "r2",
+            "bucket": "evidence-layer-db-backups",
+            "object_key": "dumps/2026-11-07/evidence-layer.dump",
+            "endpoint": "https://7b52588f0e52079bcc49b92c6318056b.r2.cloudflarestorage.com",
+            "sha256": "6450cabff82f64a09a28616ae4d5a2284575bedf2bb869e9b24867732d32b73e",
+            "size_bytes": 127007,
+            "uploaded_at": "2026-11-07T22:04:30Z",
+            "drill": {
+                "status": "PASS",
+                "completed_at": "2026-11-07T22:06:00Z",
+                "target": "disposable PostgreSQL 17 (non-prod)",
+                "evidence": "docs/PRODUCTION-RESTORE-CHECKLIST-2026-11-07.md",
+            },
+            "attested_by": "operations",
+        }
+        invalid = [
+            {**base, "uploaded_at": "2020-01-01T00:00:00Z"},
+            {**base, "sha256": "not-a-hash"},
+            {**base, "drill": {**base["drill"], "status": "FAIL"}},
+            {**base, "object_key": "dumps/2026-11-07/evidence-layer.sql"},
+            {**base, "provider": "s3"},
+        ]
+        for payload in invalid:
+            with self.subTest(payload=payload):
+                with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as handle:
+                    json.dump(payload, handle)
+                    path = handle.name
+                try:
+                    with patch.dict(os.environ, {
+                        "GITHUB_SHA": self.sha,
+                        "SUPABASE_EXTERNAL_RECOVERY_ATTESTATION": path,
+                    }):
+                        with self.assertRaisesRegex(guard.GuardError, "external recovery attestation"):
+                            guard.build_plan(FakeProject(), self.inventory, require_recovery=True)
+                finally:
+                    os.unlink(path)
 
     def test_history_claiming_uncreated_schema_blocks_release(self):
         with patch.dict(os.environ, {"GITHUB_SHA": self.sha}):
