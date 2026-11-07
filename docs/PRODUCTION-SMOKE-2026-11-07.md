@@ -6,8 +6,8 @@ Read-only. No migration, no restore, no worker, no feature-flag change, no write
 
 | Variable | Status | Notes |
 |---|---|---|
-| `EVIDENCE_SERVICE_URL` | missing | Server-only value lives in the Vercel project, not in this Codespace. |
-| `SMOKE_ACCESS_TOKEN` | missing | No dedicated test-user session was available. |
+| `EVIDENCE_SERVICE_URL` | available | Configured in the Codespace environment; the value is not recorded here. |
+| `SMOKE_ACCESS_TOKEN` | missing | No dedicated test-user session; the password-grant helper can obtain one (see below). |
 | Supabase publishable key | available (public) | Recovered from the public client bundle; safe by design. |
 
 Authenticated checks in `scripts/production_smoke.py` therefore **could not run**. The anonymous checks below were executed directly.
@@ -36,15 +36,51 @@ Authenticated checks in `scripts/production_smoke.py` therefore **could not run*
 | 18 | `account_lifecycle` present | **FAIL (expected)** | 404 `PGRST205` | Deletion/lifecycle schema not applied. |
 | 19 | `data_deletion_requests` present | **FAIL (expected)** | 404 `PGRST205` | |
 | 20 | `evidence_deletion_audit` present | **FAIL (expected)** | 404 `PGRST205` | |
-| 21 | Service `/healthz` | SKIP | — | Missing `EVIDENCE_SERVICE_URL`. |
-| 22 | Service `/v1/me` with test user | SKIP | — | Missing `EVIDENCE_SERVICE_URL` and `SMOKE_ACCESS_TOKEN`. |
-| 23 | Workspace evidence list with test user | SKIP | — | Same. |
+| 21 | Service `/healthz` | PASS | 200 | `{"status":"ok"}` on the deployed service. |
+| 22 | Service `/v1/me` without token | PASS | 401 | Route present; requires a bearer token. |
+| 23 | Service `/v1/workspaces/{id}` without token | PASS | 401 | Core route present. |
+| 24 | Service `/v1/workspaces/{id}/sources` without token | PASS | 401 | Core route present. |
+| 25 | Service `/v1/workspaces/{id}/evidence` without token | PASS | 401 | Core route present. |
+| 26 | Service `/v1/workspaces/{id}/relationships` without token | PASS | 401 | Core route present. |
+| 27 | Service source content route without token | PASS | 401 | Core route present. |
+| 28 | Service `/v1/deletion-requests` | **FAIL (expected)** | 404 | Deployed service predates the deletion endpoints. |
+| 29 | Service `/v1/deletion-requests/{id}` and `/accept` | **FAIL (expected)** | 404 | Same. |
+| 30 | Service `/v1/me` with test user | SKIP | — | No dedicated test-user credentials. |
+| 31 | Workspace evidence list with test user | SKIP | — | Same. |
 
 ## Interpretation
 
 - **Core live surface shows no unexpected breakage** in the checks available without a session: public pages, Auth, BFF fail-closed behavior, and RLS denial on every core table.
 - **Deletion/lifecycle tables are absent**, as expected from the audit. Any route that reaches PostgREST for those tables will fail; the Delete account UI remains feature-flagged off.
-- **Authenticated service health is unverified.** If the deployed Evidence Service already contains the lifecycle gate, protected routes could return 503. This is the main open risk and requires the operator run below.
+- **The deployed Evidence Service predates the deletion work.** All core `/v1` routes exist (401 without a token), while every deletion route returns 404. The account-lifecycle gate is therefore **not active in production**, which removes the earlier 503 risk on core routes.
+- **Authenticated behavior is still unverified**: no dedicated test user was available, so owner/member authorization and real CRUD responses remain unproven by this smoke.
+- **Deletion requires both** a service deployment that contains the new routes and the database migrations. Neither is present.
+
+## Obtaining a test token (password grant)
+
+`access_token` is not available from Edge Function Secrets. Use a dedicated test user and the publishable key:
+
+```sh
+curl -sS -X POST "$SUPABASE_URL/auth/v1/token?grant_type=password" \
+  -H "apikey: $SUPABASE_PUBLISHABLE_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"<test-user-email>","password":"<test-user-password>"}'
+```
+
+The response contains a short-lived `access_token`. Do not store it, commit it, or paste it into chat.
+
+The helper below performs the grant in memory, never prints the token, and immediately runs the read-only smoke:
+
+```sh
+EVIDENCE_SERVICE_URL=https://<service> \
+SUPABASE_URL=https://<project>.supabase.co \
+SUPABASE_PUBLISHABLE_KEY=<publishable-key> \
+SMOKE_USER_EMAIL=<test-user> \
+SMOKE_USER_PASSWORD=<test-password> \
+python scripts/production_smoke_auth.py --json
+```
+
+Use a test account only. The token is removed from the process environment before exit.
 
 ## Operator checklist (authenticated smoke)
 

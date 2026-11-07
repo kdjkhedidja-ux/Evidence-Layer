@@ -12,7 +12,30 @@ Purpose: detect whether the deployed Evidence Service still serves protected rou
 
 It never writes, never deletes, never calls a model, and never prints the token.
 
-## Run
+## Run with a test token
+
+```sh
+EVIDENCE_SERVICE_URL=https://<evidence-service> \
+SMOKE_ACCESS_TOKEN=<test-user-jwt> \
+python scripts/production_smoke.py --json
+```
+
+## Run with a password grant
+
+If no token is at hand, a dedicated test user can exchange email/password for a short-lived token. The helper keeps it in memory and never prints it:
+
+```sh
+EVIDENCE_SERVICE_URL=https://<service> \
+SUPABASE_URL=https://<project>.supabase.co \
+SUPABASE_PUBLISHABLE_KEY=<publishable-key> \
+SMOKE_USER_EMAIL=<test-user> \
+SMOKE_USER_PASSWORD=<test-password> \
+python scripts/production_smoke_auth.py --json
+```
+
+`access_token` is not available from Edge Function Secrets; it must come from an Auth sign-in.
+
+## Run (existing token)
 
 ```sh
 EVIDENCE_SERVICE_URL=https://<evidence-service> \
