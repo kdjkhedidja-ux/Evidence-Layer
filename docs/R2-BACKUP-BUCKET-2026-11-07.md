@@ -1,6 +1,6 @@
 # R2 backup bucket — status and runbook
 
-Date: 2026-11-07. Status: **READY_FOR_DUMP** — the private bucket is verified and the S3 credentials can read, write, and delete within it. No dump was uploaded in this step.
+Date: 2026-11-07. Status: **BACKUP_VERIFIED** — the private bucket holds a real production dump with a recorded checksum, and that dump passed a non-production restore drill.
 
 ## Verified state
 
@@ -14,7 +14,9 @@ Date: 2026-11-07. Status: **READY_FOR_DUMP** — the private bucket is verified 
 | Managed `r2.dev` domain | **disabled** |
 | Custom domains | **0** |
 | S3 endpoint | `https://7b52588f0e52079bcc49b92c6318056b.r2.cloudflarestorage.com` |
-| Object count after probe | **0** |
+| Object count after probe | 0 (probe removed) |
+| Backup object | `dumps/2026-11-07/evidence-layer.dump` |
+| Backup size / SHA-256 | 127,007 bytes / `6450cabf…32b73e` |
 
 ## S3 credential probe
 
@@ -72,6 +74,12 @@ Suggested layout: `dumps/<date>/<database>.dump`. Keep `.dump` files out of git 
 ## Retention
 
 Recommended: **14 days**, with at least one restore-verified copy kept longer. No lifecycle rule was created; add one only after the data owner approves the retention policy.
+
+## Restore evidence
+
+A production dump of `public` + `private` was uploaded and restored into a disposable PostgreSQL 17 instance: **0 restore errors**, matching row counts (2 workspaces, 2 memberships, 0 evidence), 32 policies, and 8 validated FKs. Details: `docs/PRODUCTION-RESTORE-CHECKLIST-2026-11-07.md`.
+
+Limits: `auth`, `storage`, and `extensions` are not in the dump, and PITR is still disabled.
 
 ## Bucket ready is not restore GO
 
