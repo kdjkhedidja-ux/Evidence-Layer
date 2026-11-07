@@ -4139,7 +4139,8 @@ p, li {
 .roi-field select:focus-visible,
 .account-deletion-lookup input:focus-visible,
 .auth-form input:focus-visible {
-  outline: none;
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
   border-color: var(--accent-color);
   box-shadow: var(--ring-accent);
 }
