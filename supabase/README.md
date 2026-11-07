@@ -158,3 +158,12 @@ assertions need an isolated local database and are not evidence about Supabase
 Storage API versioning or hosted project permissions. No migration or test in
 this section is considered run until a separately approved local validation is
 completed. Production remains outside this local workflow.
+
+## Hosted release state
+
+Production migrations are applied only by the reviewed GitHub Actions release
+workflow. `production-plan` is read-only and runs on `main`; `production-apply`
+requires a manual `workflow_dispatch` with `operation=apply` and the reviewed
+project ref. The Delete-account feature flag stays OFF until the schema is
+applied, the Evidence Service is deployed with the deletion routes, and an
+authenticated deletion smoke passes.
