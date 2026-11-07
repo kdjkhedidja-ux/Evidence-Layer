@@ -4020,3 +4020,206 @@ select:focus-visible,
   font: inherit;
   font-size: 0.84rem;
 }
+
+/* ---------------------------------------------------------------------------
+   Visual polish pass (design only)
+   Calmer density and clearer hierarchy; no layout or behaviour changes.
+--------------------------------------------------------------------------- */
+:root {
+  --radius-card: 14px;
+  --radius-control: 8px;
+  --radius-pill: 999px;
+  --shadow-card: 0 1px 2px rgb(32 41 37 / 5%), 0 10px 28px rgb(32 41 37 / 6%);
+  --shadow-raised: 0 1px 2px rgb(32 41 37 / 7%), 0 16px 40px rgb(32 41 37 / 9%);
+  --ring-accent: 0 0 0 3px rgb(40 102 80 / 18%);
+  --surface-quiet: rgb(255 255 255 / 55%);
+}
+
+:root[data-theme="dark"] {
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 30%), 0 12px 32px rgb(0 0 0 / 32%);
+  --shadow-raised: 0 1px 2px rgb(0 0 0 / 36%), 0 18px 44px rgb(0 0 0 / 40%);
+  --ring-accent: 0 0 0 3px rgb(119 217 184 / 22%);
+  --surface-quiet: rgb(255 255 255 / 4%);
+}
+
+body {
+  line-height: 1.55;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3 {
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+
+p, li {
+  text-wrap: pretty;
+}
+
+/* Public shell rhythm */
+.public-header {
+  min-height: 68px;
+  border-bottom-color: var(--border-color);
+}
+
+.public-navigation a {
+  border-radius: var(--radius-pill);
+  padding: 0.38rem 0.7rem;
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+.public-navigation a:hover,
+.public-navigation a:focus-visible {
+  background: var(--bg-hover);
+}
+
+.public-main {
+  padding-top: clamp(1.5rem, 4vw, 2.6rem);
+  padding-bottom: clamp(2rem, 5vw, 3.5rem);
+}
+
+.public-section {
+  border-radius: var(--radius-card);
+  border-color: var(--border-color);
+  padding: clamp(1.15rem, 2.6vw, 1.9rem);
+  box-shadow: var(--shadow-card);
+}
+
+.public-section h2 {
+  letter-spacing: -0.03em;
+}
+
+/* Panels and cards */
+.workspace-panel,
+.relationship-canvas,
+.account-panel,
+.auth-card {
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.workspace-panel {
+  padding: clamp(1.15rem, 2.8vw, 1.85rem);
+  border-color: var(--border-color);
+}
+
+.workspace-capability-group {
+  border-radius: var(--radius-control);
+}
+
+.auth-card {
+  box-shadow: var(--shadow-raised);
+}
+
+/* Controls: consistent radius, height and focus ring */
+.workspace-form button,
+.workspace-source-form button,
+.workspace-record-actions button,
+.workspace-empty button,
+.workspace-capability-toggle,
+.account-panel button,
+.account-action,
+.account-signout,
+.auth-submit,
+.roi-field input,
+.roi-field select,
+.workspace-form input,
+.workspace-form textarea,
+.workspace-form select,
+.workspace-source-form input,
+.account-deletion-lookup input {
+  border-radius: var(--radius-control);
+}
+
+.workspace-form input:focus-visible,
+.workspace-form textarea:focus-visible,
+.workspace-form select:focus-visible,
+.workspace-source-form input:focus-visible,
+.roi-field input:focus-visible,
+.roi-field select:focus-visible,
+.account-deletion-lookup input:focus-visible,
+.auth-form input:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+  border-color: var(--accent-color);
+  box-shadow: var(--ring-accent);
+}
+
+.workspace-form button,
+.workspace-source-form button,
+.workspace-record-actions button,
+.workspace-empty button,
+.workspace-capability-toggle,
+.account-panel button,
+.auth-submit {
+  transition: background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.workspace-form button:hover:not(:disabled),
+.workspace-record-actions button:hover:not(:disabled),
+.workspace-capability-toggle:hover:not(:disabled),
+.account-panel button:hover:not(:disabled) {
+  border-color: var(--accent-color);
+}
+
+.auth-submit:hover:not(:disabled) {
+  box-shadow: 0 8px 22px rgb(40 102 80 / 18%);
+}
+
+/* Tables: quieter header, calmer rows */
+.public-table thead th {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.public-table tbody tr {
+  transition: background-color 120ms ease;
+}
+
+.public-table tbody tr:hover {
+  background: var(--bg-hover);
+}
+
+/* Small status chips */
+.benchmark-tag,
+.workspace-count,
+.workspace-role,
+.workspace-capability-state {
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-color);
+  background: var(--surface-quiet);
+  padding: 0.14rem 0.55rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.01em;
+}
+
+.workspace-capability-state {
+  border-color: transparent;
+  background: var(--bg-hover);
+  font-weight: 650;
+}
+
+/* Section eyebrows: slightly quieter */
+.public-eyebrow,
+.eyebrow,
+.live-eyebrow {
+  letter-spacing: 0.09em;
+  font-weight: 650;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .public-navigation a,
+  .public-table tbody tr,
+  .workspace-form button,
+  .workspace-source-form button,
+  .workspace-record-actions button,
+  .workspace-empty button,
+  .workspace-capability-toggle,
+  .account-panel button,
+  .auth-submit {
+    transition: none;
+  }
+}
