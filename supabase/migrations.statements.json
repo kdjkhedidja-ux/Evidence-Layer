@@ -2877,6 +2877,27 @@
       "line": 359,
       "verb": "grant execute",
       "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "8ea162cb02c5c620",
+      "file": "20261108140000_audit_identifiers_and_request_grants.sql",
+      "line": 4,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "8f760d2b00cbc696",
+      "file": "20261108140000_audit_identifiers_and_request_grants.sql",
+      "line": 7,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "426dbf626ffbd5b8",
+      "file": "20261108140000_audit_identifiers_and_request_grants.sql",
+      "line": 12,
+      "verb": "grant select",
+      "rationale_ref": "privilege-grant"
     }
   ]
 }

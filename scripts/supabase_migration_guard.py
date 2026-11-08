@@ -65,6 +65,7 @@ V_ACCOUNT_EVIDENCE_OWNERSHIP = "20261105140000"
 V_DELETION_RESTORE_RECONCILIATION = "20261105150000"
 V_PERSONAL_WORKSPACE_DELETION = "20261108120000"
 V_INDIVIDUAL_ACCOUNT_TERMINAL = "20261108130000"
+V_AUDIT_FK_DROP = "20261108140000"
 
 VERSION_RE = re.compile(r"^[0-9]{14}_[a-z0-9_]+\.sql$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -540,6 +541,7 @@ def expected_catalog(versions: list[str]) -> dict:
     restore_reconciliation = V_DELETION_RESTORE_RECONCILIATION in present
     personal_deletion = V_PERSONAL_WORKSPACE_DELETION in present
     individual_terminal = V_INDIVIDUAL_ACCOUNT_TERMINAL in present
+    audit_fk_drop = V_AUDIT_FK_DROP in present
     source = V_SOURCE_CATALOG in present
     storage = V_SNAPSHOT_STORAGE in present
     verifier = V_VERIFIER_IDENTITY in present
@@ -927,7 +929,7 @@ def expected_catalog(versions: list[str]) -> dict:
             "auth.users",
             "r",
         ))
-    if deletion_audit:
+    if deletion_audit and not audit_fk_drop:
         audit_fk_action = "n" if personal_deletion else "r"
         foreign_keys.update({
             (
