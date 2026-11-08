@@ -132,7 +132,7 @@
     {
       "file": "20261108120000_personal_workspace_deletion.sql",
       "version": "20261108120000",
-      "sha256": "8f26d37ee2bec8275fd1a115026026a8a4ce83eb3e6622559e93bad945a479a8",
+      "sha256": "ba729e193db344df6808e07a2be4e30c4c113341aa2953f711c97923cac24afa",
       "provenance": "Individual-account personal workspace data/delete closure (owner-only, audit retained)."
     },
     {
