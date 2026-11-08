@@ -37,7 +37,7 @@ alter table public.evidence_deletion_audit
 
 alter table public.evidence_deletion_audit
     add constraint evidence_deletion_audit_resource_type_check
-        check (resource_type in ('evidence', 'relationship', 'workspace', 'deletion_request'));
+        check (resource_type in ('evidence', 'relationship', 'workspace', 'deletion_request', 'deletion_manifest'));
 
 alter table public.evidence_deletion_audit
     drop constraint if exists evidence_deletion_audit_action_check;

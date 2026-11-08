@@ -347,6 +347,8 @@ $$;
 
 revoke create on schema private from account_deletion_worker;
 
+grant account_deletion_worker to postgres with set true, inherit false;
+
 revoke all on function private.prepare_individual_account_purge(uuid)
     from public, anon, authenticated, service_role;
 revoke all on function private.mark_account_purged(uuid)

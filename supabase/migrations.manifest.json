@@ -132,13 +132,13 @@
     {
       "file": "20261108120000_personal_workspace_deletion.sql",
       "version": "20261108120000",
-      "sha256": "ba729e193db344df6808e07a2be4e30c4c113341aa2953f711c97923cac24afa",
+      "sha256": "217cf7768032e0026ac4fe91f02a24b55f324e0e56401f44a58bf2db909ce982",
       "provenance": "Individual-account personal workspace data/delete closure (owner-only, audit retained)."
     },
     {
       "file": "20261108130000_individual_account_purge_terminal.sql",
       "version": "20261108130000",
-      "sha256": "9eb60b447bf3db47142def3237ccf261804b06f81a3237a4be3a436d2442c8aa",
+      "sha256": "e03a1a83e2a0b84ae33427126774e7cf9b847a7b6e4cda4b737365e0b527aea8",
       "provenance": "Individual-account terminal purge: owned workspaces/snapshots, Storage queue, Auth handoff, mark purged."
     }
   ]

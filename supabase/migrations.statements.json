@@ -2606,7 +2606,7 @@
       "rationale_ref": "relation-alter"
     },
     {
-      "id": "dad9b57f7813c5ca",
+      "id": "5f31672965a26ca9",
       "file": "20261108120000_personal_workspace_deletion.sql",
       "line": 38,
       "verb": "alter table",
@@ -2844,30 +2844,37 @@
       "rationale_ref": "privilege-revoke"
     },
     {
-      "id": "887c38c39294c6b4",
+      "id": "6e471cf077e92199",
       "file": "20261108130000_individual_account_purge_terminal.sql",
       "line": 350,
-      "verb": "revoke all",
-      "rationale_ref": "privilege-revoke"
+      "verb": "grant account_deletion_worker",
+      "rationale_ref": "privilege-grant"
     },
     {
-      "id": "c24f6a98c1e348c6",
+      "id": "887c38c39294c6b4",
       "file": "20261108130000_individual_account_purge_terminal.sql",
       "line": 352,
       "verb": "revoke all",
       "rationale_ref": "privilege-revoke"
     },
     {
+      "id": "c24f6a98c1e348c6",
+      "file": "20261108130000_individual_account_purge_terminal.sql",
+      "line": 354,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
       "id": "db489084a6eca582",
       "file": "20261108130000_individual_account_purge_terminal.sql",
-      "line": 355,
+      "line": 357,
       "verb": "grant execute",
       "rationale_ref": "privilege-grant"
     },
     {
       "id": "76593d8b05b812de",
       "file": "20261108130000_individual_account_purge_terminal.sql",
-      "line": 357,
+      "line": 359,
       "verb": "grant execute",
       "rationale_ref": "privilege-grant"
     }
