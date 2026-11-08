@@ -146,6 +146,12 @@
       "version": "20261108140000",
       "sha256": "280133b3f555abff1d0f1b80ae024aaf32cc00ea8f16d87eba221fe93966fdaf",
       "provenance": "Drop live audit FKs so append-only rows survive workspace/Auth deletion; grant authenticated request insert."
+    },
+    {
+      "file": "20261108150000_accept_account_deletion_auth_uid.sql",
+      "version": "20261108150000",
+      "sha256": "802941235c4cc24f0adbb879cbc3e95e59e6c6159759c452ecc585e11db63733",
+      "provenance": "Use auth.uid() for acceptance and grant transition-writer update privileges."
     }
   ]
 }

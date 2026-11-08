@@ -66,6 +66,7 @@ V_DELETION_RESTORE_RECONCILIATION = "20261105150000"
 V_PERSONAL_WORKSPACE_DELETION = "20261108120000"
 V_INDIVIDUAL_ACCOUNT_TERMINAL = "20261108130000"
 V_AUDIT_FK_DROP = "20261108140000"
+V_ACCEPT_V2 = "20261108150000"
 
 VERSION_RE = re.compile(r"^[0-9]{14}_[a-z0-9_]+\.sql$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -542,6 +543,7 @@ def expected_catalog(versions: list[str]) -> dict:
     personal_deletion = V_PERSONAL_WORKSPACE_DELETION in present
     individual_terminal = V_INDIVIDUAL_ACCOUNT_TERMINAL in present
     audit_fk_drop = V_AUDIT_FK_DROP in present
+    accept_v2 = V_ACCEPT_V2 in present
     source = V_SOURCE_CATALOG in present
     storage = V_SNAPSHOT_STORAGE in present
     verifier = V_VERIFIER_IDENTITY in present
@@ -894,6 +896,8 @@ def expected_catalog(versions: list[str]) -> dict:
             "private.mark_account_purged",
             "private.purge_snapshot_catalog_for_account",
         })
+    if accept_v2:
+        functions.add("public.accept_account_deletion_v2")
 
     foreign_keys: set[tuple[str, str, str, str]] = set()
     if identity:

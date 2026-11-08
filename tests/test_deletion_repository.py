@@ -61,7 +61,7 @@ def test_accept_uses_authenticated_rpc_and_status_is_requester_filtered() -> Non
 
     async def handler(request: httpx.Request) -> httpx.Response:
         calls.append(request)
-        if request.url.path.endswith("/rpc/accept_account_deletion"):
+        if request.url.path.endswith("/rpc/accept_account_deletion_v2"):
             return httpx.Response(200, json=[row("journal_ack_pending")], request=request)
         return httpx.Response(200, json=[], request=request)
 
@@ -75,6 +75,6 @@ def test_accept_uses_authenticated_rpc_and_status_is_requester_filtered() -> Non
 
     assert accepted.status == "journal_ack_pending"
     assert status is None
-    assert calls[0].url.path == "/rest/v1/rpc/accept_account_deletion"
+    assert calls[0].url.path == "/rest/v1/rpc/accept_account_deletion_v2"
     assert json.loads(calls[0].content) == {"p_request_id": str(REQUEST)}
     assert calls[1].url.params["requester_user_id"] == f"eq.{PRINCIPAL}"
