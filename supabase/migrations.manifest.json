@@ -140,6 +140,12 @@
       "version": "20261108130000",
       "sha256": "e03a1a83e2a0b84ae33427126774e7cf9b847a7b6e4cda4b737365e0b527aea8",
       "provenance": "Individual-account terminal purge: owned workspaces/snapshots, Storage queue, Auth handoff, mark purged."
+    },
+    {
+      "file": "20261108140000_audit_identifiers_and_request_grants.sql",
+      "version": "20261108140000",
+      "sha256": "280133b3f555abff1d0f1b80ae024aaf32cc00ea8f16d87eba221fe93966fdaf",
+      "provenance": "Drop live audit FKs so append-only rows survive workspace/Auth deletion; grant authenticated request insert."
     }
   ]
 }
