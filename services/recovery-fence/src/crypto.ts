@@ -101,6 +101,20 @@ async function ed25519Valid(publicKey: string, payload: string, signature: strin
   }
 }
 
+export async function signEd25519(privateKey: string, payload: string): Promise<string> {
+  if (!/^[A-Za-z0-9_-]+$/u.test(privateKey)) throw new Error("invalid signing key");
+  const key = await crypto.subtle.importKey(
+    "pkcs8",
+    decodeBase64Url(privateKey) as BufferSource,
+    { name: "Ed25519" },
+    false,
+    ["sign"],
+  );
+  return encodeBase64Url(
+    await crypto.subtle.sign("Ed25519", key, encoder.encode(payload) as BufferSource),
+  );
+}
+
 export function parseReadAuthorization(request: Request): ReadAuthorization | null {
   const keyId = request.headers.get("x-recovery-key-id") ?? "";
   const timestamp = Number(request.headers.get("x-recovery-timestamp"));

@@ -107,6 +107,26 @@ export class RecoveryState extends DurableObject<Env> {
     return this.snapshotNow();
   }
 
+  /**
+   * Test-only PITR helpers. The public worker gates these routes behind a
+   * separate random secret and does not expose them when that secret is unset.
+   */
+  async currentBookmark(): Promise<string> {
+    return this.ctx.storage.getCurrentBookmark();
+  }
+
+  async bookmarkForTime(timestamp: number): Promise<string> {
+    return this.ctx.storage.getBookmarkForTime(timestamp);
+  }
+
+  async scheduleRestore(bookmark: string): Promise<string> {
+    return this.ctx.storage.onNextSessionRestoreBookmark(bookmark);
+  }
+
+  async abortNow(): Promise<void> {
+    this.ctx.abort();
+  }
+
   private snapshotNow(): RecoverySnapshot {
     const row = this.ctx.storage.sql
       .exec<StateRow>("SELECT * FROM recovery_state WHERE singleton = 1")

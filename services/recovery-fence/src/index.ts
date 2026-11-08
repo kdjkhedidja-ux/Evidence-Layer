@@ -11,6 +11,7 @@ import {
 import { RecoveryState } from "./state";
 
 export { RecoveryState };
+export { LedgerState } from "./ledger";
 
 const READ_PATH = "/v1/recovery";
 
@@ -75,6 +76,40 @@ function sameHead(snapshot: RecoverySnapshot, head: LedgerHead): boolean {
 export async function fetchHandler(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   if (request.method === "GET" && url.pathname === READ_PATH) return readStatus(request, env);
+  if (url.pathname.startsWith("/internal/test/") && env.RESTORE_TEST_KEY) {
+    if (request.headers.get("x-test-restore-key") !== env.RESTORE_TEST_KEY) {
+      return json({ error: "not found" }, 404);
+    }
+    const state = singleton(env);
+    if (request.method === "GET" && url.pathname === "/internal/test/bookmark") {
+      return json({ bookmark: await state.currentBookmark() });
+    }
+    if (request.method === "POST" && url.pathname === "/internal/test/restore") {
+      let body: { bookmark?: unknown; timestamp?: unknown };
+      try {
+        body = await request.json() as { bookmark?: unknown; timestamp?: unknown };
+      } catch {
+        return json({ error: "invalid bookmark" }, 400);
+      }
+      const bookmark = typeof body.bookmark === "string"
+        ? body.bookmark
+        : typeof body.timestamp === "number"
+          ? await state.bookmarkForTime(body.timestamp)
+          : null;
+      if (!bookmark) return json({ error: "invalid bookmark" }, 400);
+      try {
+        const undo = await state.scheduleRestore(bookmark);
+        return json({ scheduled: true, undo_bookmark: undo });
+      } catch {
+        return json({ error: "restore unavailable" }, 503);
+      }
+    }
+    if (request.method === "POST" && url.pathname === "/internal/test/abort") {
+      await state.abortNow();
+      return json({ aborted: true });
+    }
+    return json({ error: "not found" }, 404);
+  }
   return json({ error: "not found" }, 404);
 }
 
