@@ -2989,6 +2989,13 @@
       "line": 105,
       "verb": "grant execute",
       "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "f5b81a4e826aeb42",
+      "file": "20261108160000_accept_v2_auth_schema_grant.sql",
+      "line": 4,
+      "verb": "grant usage",
+      "rationale_ref": "privilege-grant"
     }
   ]
 }
