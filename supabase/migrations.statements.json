@@ -2900,72 +2900,93 @@
       "rationale_ref": "privilege-grant"
     },
     {
-      "id": "6e5891eecf97fc86",
+      "id": "619216c9ca21ff73",
       "file": "20261108150000_accept_account_deletion_auth_uid.sql",
       "line": 12,
       "verb": "grant select",
       "rationale_ref": "privilege-grant"
     },
     {
-      "id": "d55e180caec128de",
+      "id": "6c3d1dabbcad4882",
       "file": "20261108150000_accept_account_deletion_auth_uid.sql",
-      "line": 15,
+      "line": 14,
+      "verb": "grant update",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "afddb5b6bb96f11e",
+      "file": "20261108150000_accept_account_deletion_auth_uid.sql",
+      "line": 17,
       "verb": "grant select",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "e1e75fb08740b3df",
+      "file": "20261108150000_accept_account_deletion_auth_uid.sql",
+      "line": 19,
+      "verb": "grant update",
       "rationale_ref": "privilege-grant"
     },
     {
       "id": "40e8f3c7e25d51b0",
       "file": "20261108150000_accept_account_deletion_auth_uid.sql",
-      "line": 18,
+      "line": 22,
       "verb": "create function",
       "rationale_ref": "function-definition"
     },
     {
       "id": "4a2a71fce8f45d99",
       "file": "20261108150000_accept_account_deletion_auth_uid.sql",
-      "line": 78,
+      "line": 82,
       "verb": "grant create",
       "rationale_ref": "privilege-grant"
     },
     {
       "id": "ebafccb8c50ceb41",
       "file": "20261108150000_accept_account_deletion_auth_uid.sql",
-      "line": 80,
+      "line": 84,
       "verb": "do",
       "rationale_ref": "procedural-block"
     },
     {
       "id": "140f7fc23ae3e3d7",
       "file": "20261108150000_accept_account_deletion_auth_uid.sql",
-      "line": 86,
+      "line": 90,
       "verb": "alter function",
       "rationale_ref": "function-ownership"
     },
     {
       "id": "a588e62160353bee",
       "file": "20261108150000_accept_account_deletion_auth_uid.sql",
-      "line": 89,
+      "line": 93,
       "verb": "do",
       "rationale_ref": "procedural-block"
     },
     {
+      "id": "ced0cd7c77f7218e",
+      "file": "20261108150000_accept_account_deletion_auth_uid.sql",
+      "line": 99,
+      "verb": "grant account_lifecycle_transition_writer",
+      "rationale_ref": "privilege-grant"
+    },
+    {
       "id": "1b5c7041c0417733",
       "file": "20261108150000_accept_account_deletion_auth_uid.sql",
-      "line": 95,
+      "line": 101,
       "verb": "revoke create",
       "rationale_ref": "privilege-revoke"
     },
     {
       "id": "03ce24679922b3cd",
       "file": "20261108150000_accept_account_deletion_auth_uid.sql",
-      "line": 97,
+      "line": 103,
       "verb": "revoke all",
       "rationale_ref": "privilege-revoke"
     },
     {
       "id": "9d8e023e970c25a6",
       "file": "20261108150000_accept_account_deletion_auth_uid.sql",
-      "line": 99,
+      "line": 105,
       "verb": "grant execute",
       "rationale_ref": "privilege-grant"
     }

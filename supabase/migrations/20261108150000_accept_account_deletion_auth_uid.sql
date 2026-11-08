@@ -9,10 +9,14 @@
 -- The service calls accept_account_deletion_v2. The original function remains
 -- for backward compatibility but is no longer used by this service.
 
-grant select, update on table public.data_deletion_requests
+grant select on table public.data_deletion_requests
+    to account_lifecycle_transition_writer;
+grant update (status, accepted_at) on table public.data_deletion_requests
     to account_lifecycle_transition_writer;
 
-grant select, update on table public.account_lifecycle
+grant select on table public.account_lifecycle
+    to account_lifecycle_transition_writer;
+grant update (state, request_id) on table public.account_lifecycle
     to account_lifecycle_transition_writer;
 
 create function public.accept_account_deletion_v2(p_request_id uuid)
@@ -91,6 +95,8 @@ begin
     execute format('revoke account_lifecycle_transition_writer from %I', current_user);
 end
 $$;
+
+grant account_lifecycle_transition_writer to postgres with set true, inherit false;
 
 revoke create on schema public from account_lifecycle_transition_writer;
 
