@@ -361,7 +361,7 @@ class Supabase:
                 "from pg_catalog.pg_trigger t "
                 "join pg_catalog.pg_class c on c.oid=t.tgrelid "
                 "join pg_catalog.pg_namespace n on n.oid=c.relnamespace "
-                "where n.nspname in ('public','private') and not t.tgisinternal "
+                "where n.nspname in ('public','private','auth') and not t.tgisinternal "
                 "order by 1,2",
                 {"schema": str, "name": str},
             ),
@@ -386,7 +386,8 @@ class Supabase:
                 "select rolname as name,rolcanlogin as canlogin,rolinherit as inherit,"
                 "rolsuper as super,rolbypassrls as bypassrls,rolcreaterole as createrole,"
                 "rolcreatedb as createdb,rolreplication as replication "
-                "from pg_catalog.pg_roles where rolname like 'snapshot\\_%' order by rolname",
+                "from pg_catalog.pg_roles where rolname like 'snapshot\\_%' "
+                "or rolname like 'account\\_%' order by rolname",
                 {
                     "name": str,
                     "canlogin": bool,
@@ -407,16 +408,24 @@ class Supabase:
                 "and membership.admin_option "
                 "and not membership.set_option "
                 "and not membership.inherit_option"
-                ")::pg_catalog.int8 as allowed_admin_memberships "
+                ")::pg_catalog.int8 as allowed_admin_memberships,"
+                "count(membership.roleid) filter (where "
+                "membership.roleid=role_row.oid "
+                "and membership.member in (current_user::pg_catalog.regrole, 'postgres'::pg_catalog.regrole) "
+                "and not membership.admin_option "
+                "and membership.set_option "
+                "and not membership.inherit_option"
+                ")::pg_catalog.int8 as allowed_set_memberships "
                 "from pg_catalog.pg_roles as role_row "
                 "left join pg_catalog.pg_auth_members as membership "
                 "on membership.roleid=role_row.oid or membership.member=role_row.oid "
-                "where role_row.rolname like 'snapshot\\_%' "
+                "where role_row.rolname like 'snapshot\\_%' or role_row.rolname like 'account\\_%' "
                 "group by role_row.oid,role_row.rolname order by role_row.rolname",
                 {
                     "name": str,
                     "membership_count": int,
                     "allowed_admin_memberships": int,
+                    "allowed_set_memberships": int,
                 },
             ),
             "event_triggers": (
@@ -473,6 +482,17 @@ def expected_roles(versions: list[str]) -> set[str]:
     if V_ACCOUNT_DELETION_WORKER in present:
         roles.add("account_deletion_worker")
     return roles
+
+
+# The account migrations grant these isolated NOLOGIN roles to the migration
+# actor with SET (never INHERIT) so ownership transfers and the test harness can
+# assume them. That is one documented SET edge per role; any other edge is
+# unexpected. Snapshot roles have no such grant.
+SET_MEMBERSHIP_ROLES = frozenset({
+    "account_lifecycle_provisioner",
+    "account_lifecycle_transition_writer",
+    "account_deletion_worker",
+})
 
 
 def expected_policy_identity(policy: str) -> str:
@@ -604,8 +624,9 @@ def expected_catalog(versions: list[str]) -> dict:
         indexes.update({
             "public.data_deletion_work_set_pkey",
             "public.data_deletion_work_set_request_idx",
-            "public.data_deletion_work_set_request_id_target_type_workspace_id_source_id_principal_id_key",
         })
+        if not evidence_ownership:
+            indexes.add("public.data_deletion_work_set_request_id_target_type_workspace_id_source_id_principal_id_key")
     if evidence_ownership:
         indexes.add("public.data_deletion_work_set_request_target_key")
 
@@ -1012,13 +1033,14 @@ def assert_role_memberships(actual: list[dict], expected_roles: set[str]) -> Non
     for index, row in enumerate(actual):
         require(isinstance(row, dict), f"Unexpected role membership row at index {index}")
         require(
-            set(row) == {"name", "membership_count", "allowed_admin_memberships"},
+            set(row) == {"name", "membership_count", "allowed_admin_memberships", "allowed_set_memberships"},
             f"Unexpected role membership columns at index {index}",
         )
         require(
             isinstance(row["name"], str)
             and type(row["membership_count"]) is int
-            and type(row["allowed_admin_memberships"]) is int,
+            and type(row["allowed_admin_memberships"]) is int
+            and type(row["allowed_set_memberships"]) is int,
             f"Unexpected role membership value type at index {index}",
         )
         require(row["name"] not in found, f"Duplicate role membership audit row for {row['name']}")
@@ -1030,10 +1052,12 @@ def assert_role_memberships(actual: list[dict], expected_roles: set[str]) -> Non
     )
     for role_name, row in found.items():
         membership_count = row["membership_count"]
-        allowed_count = row["allowed_admin_memberships"]
+        admin_count = row["allowed_admin_memberships"]
+        set_count = row["allowed_set_memberships"]
+        expected_set = 1 if role_name in SET_MEMBERSHIP_ROLES else 0
         require(
-            membership_count >= 0 and allowed_count in (0, 1)
-            and membership_count == allowed_count,
+            admin_count in (0, 1) and set_count in (0, 1) and set_count == expected_set
+            and membership_count == admin_count + set_count,
             f"Snapshot role {role_name} has an unexpected direct or transitive membership",
         )
 
