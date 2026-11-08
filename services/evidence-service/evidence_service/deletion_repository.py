@@ -105,7 +105,7 @@ class SupabaseDeletionRepository:
         try:
             async with self._client() as client:
                 response = await client.post(
-                    f"{self._base_url}/rest/v1/rpc/accept_account_deletion_v2",
+                    f"{self._base_url}/rest/v1/rpc/accept_account_deletion_v3",
                     headers=self._headers(access_token),
                     json={"p_request_id": str(request_id)},
                 )

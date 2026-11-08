@@ -2996,6 +2996,83 @@
       "line": 4,
       "verb": "grant usage",
       "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "8767be843a6f4865",
+      "file": "20261108170000_accept_v3_and_lifecycle_cascade.sql",
+      "line": 6,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "dc22074fcbc170b1",
+      "file": "20261108170000_accept_v3_and_lifecycle_cascade.sql",
+      "line": 9,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "27952ac87d90f023",
+      "file": "20261108170000_accept_v3_and_lifecycle_cascade.sql",
+      "line": 13,
+      "verb": "create function",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "e4d4def7cc61a3cc",
+      "file": "20261108170000_accept_v3_and_lifecycle_cascade.sql",
+      "line": 73,
+      "verb": "grant create",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "c0d5dcb526a914bc",
+      "file": "20261108170000_accept_v3_and_lifecycle_cascade.sql",
+      "line": 75,
+      "verb": "do",
+      "rationale_ref": "procedural-block"
+    },
+    {
+      "id": "1dbe875aac67ad89",
+      "file": "20261108170000_accept_v3_and_lifecycle_cascade.sql",
+      "line": 81,
+      "verb": "alter function",
+      "rationale_ref": "function-ownership"
+    },
+    {
+      "id": "6d9ae3ba76c8159f",
+      "file": "20261108170000_accept_v3_and_lifecycle_cascade.sql",
+      "line": 84,
+      "verb": "do",
+      "rationale_ref": "procedural-block"
+    },
+    {
+      "id": "8927261bb695a62f",
+      "file": "20261108170000_accept_v3_and_lifecycle_cascade.sql",
+      "line": 90,
+      "verb": "grant account_lifecycle_transition_writer",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "bdbb82fb18a22bed",
+      "file": "20261108170000_accept_v3_and_lifecycle_cascade.sql",
+      "line": 92,
+      "verb": "revoke create",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "df07a9c2a2e43838",
+      "file": "20261108170000_accept_v3_and_lifecycle_cascade.sql",
+      "line": 94,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "c25452eaf1a5db90",
+      "file": "20261108170000_accept_v3_and_lifecycle_cascade.sql",
+      "line": 96,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
     }
   ]
 }

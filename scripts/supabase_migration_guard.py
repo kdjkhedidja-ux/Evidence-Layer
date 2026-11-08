@@ -67,6 +67,7 @@ V_PERSONAL_WORKSPACE_DELETION = "20261108120000"
 V_INDIVIDUAL_ACCOUNT_TERMINAL = "20261108130000"
 V_AUDIT_FK_DROP = "20261108140000"
 V_ACCEPT_V2 = "20261108150000"
+V_ACCEPT_V3 = "20261108170000"
 
 VERSION_RE = re.compile(r"^[0-9]{14}_[a-z0-9_]+\.sql$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -544,6 +545,7 @@ def expected_catalog(versions: list[str]) -> dict:
     individual_terminal = V_INDIVIDUAL_ACCOUNT_TERMINAL in present
     audit_fk_drop = V_AUDIT_FK_DROP in present
     accept_v2 = V_ACCEPT_V2 in present
+    accept_v3 = V_ACCEPT_V3 in present
     source = V_SOURCE_CATALOG in present
     storage = V_SNAPSHOT_STORAGE in present
     verifier = V_VERIFIER_IDENTITY in present
@@ -898,6 +900,8 @@ def expected_catalog(versions: list[str]) -> dict:
         })
     if accept_v2:
         functions.add("public.accept_account_deletion_v2")
+    if accept_v3:
+        functions.add("public.accept_account_deletion_v3")
 
     foreign_keys: set[tuple[str, str, str, str]] = set()
     if identity:
@@ -931,7 +935,7 @@ def expected_catalog(versions: list[str]) -> dict:
             "account_lifecycle_subject_id_fkey",
             "public.account_lifecycle",
             "auth.users",
-            "r",
+            "c" if accept_v3 else "r",
         ))
     if deletion_audit and not audit_fk_drop:
         audit_fk_action = "n" if personal_deletion else "r"

@@ -158,6 +158,12 @@
       "version": "20261108160000",
       "sha256": "138bdc87c81cc79b5063d7dd3b71a8eccef63f9fa0350a4e314493f516a98080",
       "provenance": "Grant auth schema usage to the accept v2 function owner."
+    },
+    {
+      "file": "20261108170000_accept_v3_and_lifecycle_cascade.sql",
+      "version": "20261108170000",
+      "sha256": "fec8ce826c2d9f5352238dbb907e46a934fa112c299d4659b1a335fd97f53527",
+      "provenance": "Accept v3 reads JWT claims JSON; lifecycle FK cascades on Auth deletion."
     }
   ]
 }
