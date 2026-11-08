@@ -3,18 +3,20 @@
 - **Status:** CLOSED — design and local protocol contract only.
 - **Date:** 2026-11-03.
 - **Branch / HEAD at review:** `fix/live-explorer-css-scope` / `5fc77bf9ca29d2ecac2800b591dbae5783cc732c`.
-- **Operational readiness:** BLOCKED. This closure does not prove an independent provider, live operator authorization, or rollback resistance.
-- **B2:** BLOCKED. **B3:** NOT STARTED.
+- **Operational readiness for the deferred provider-backed journal:** BLOCKED (deferred optional hardening per ADR 0009; not a Phase 8 exit gate). This closure does not prove an independent provider, live operator authorization, or rollback resistance.
+- **B2:** DEFERRED (out of Phase 8 scope per ADR 0009; optional hardening). **B3:** NOT STARTED.
+
+> **Scope note (2026-11-08):** ADR 0009 removes the external immutable deletion journal from Phase 8 exit criteria. The provider-backed independent journal (B2) is deferred optional hardening, not a Phase 8 blocker. The local protocol contract status below is unchanged, and the fence is not claimed Production-ready.
 
 ## Scope closed
 
-This record closes the local Recovery Fence design and the local Independent Unified Journal contract represented by ADR 0006, ADR 0007, ADR 0008, and the Recovery Fence Workers package. It closes documentation and deterministic local protocol validation. It does not close B2 or authorize a provider, cloud resource, data ingress, C0 deletion execution, or Production use.
+This record closes the local Recovery Fence design and the local Independent Unified Journal contract represented by ADR 0006, ADR 0007, ADR 0008, and the Recovery Fence Workers package. It closes documentation and deterministic local protocol validation. It does not close B2 (deferred optional hardening per ADR 0009, not a Phase 8 exit gate) or authorize a provider, cloud resource, data ingress, C0 deletion execution, or Production use.
 
 ## Relationship between ADRs
 
 - **ADR 0006 — Phase 8 External Recovery Fence:** defines the SQLite Durable Object as a local operational mirror, the fail-closed read boundary, and the requirement for an independently administered authority. It does not select or prove a live provider.
-- **ADR 0007 — Independent Recovery Ledger and Restore Reconciliation:** records the Recovery-only local event/replay prototype and the unresolved provider, administration, and real Restore proof. Its Recovery-specific envelope describes that prototype; it does not satisfy C0's deletion journal.
-- **ADR 0008 — Unified Independent Deletion and Recovery Journal:** defines the local target contract for one signed, append-only global event history covering C0 deletion events and Recovery events. It adds a global ledger sequence while preserving per-request/per-Recovery aggregate sequence, Recovery generation/state version, and fixed deletion scope binding. The local validator is not wired to a durable provider and does not claim to be the deployed journal.
+- **ADR 0007 — Independent Recovery Ledger and Restore Reconciliation:** records the Recovery-only local event/replay prototype and the unresolved provider, administration, and real Restore proof. Its Recovery-specific envelope describes that prototype; it does not satisfy C0's deletion journal (deferred optional hardening per ADR 0009).
+- **ADR 0008 — Unified Independent Deletion and Recovery Journal:** defines the local target contract for one signed, append-only global event history covering C0 deletion events and Recovery events. It adds a global ledger sequence while preserving per-request/per-Recovery aggregate sequence, Recovery generation/state version, and fixed deletion scope binding. The local validator is not wired to a durable provider and does not claim to be the deployed journal; provider work is deferred optional hardening per ADR 0009.
 
 These records preserve the approved architecture. ADR 0008 resolves the local event-contract shape; it does not retroactively claim that the ADR 0007 Recovery-only test ledger became a provider-backed implementation.
 
@@ -63,7 +65,7 @@ The earlier B1 migration/tests, B2 Evidence Service and acceptance-test changes,
 
 ## Deferred operational acceptance gates
 
-These items are outside the closed design/local-contract phase and are requirements for a separately authorized operational proof phase:
+These items are outside the closed design/local-contract phase and are requirements for a separately authorized operational proof phase. Under ADR 0009, items 1, 2, and 5 are deferred optional hardening and are not Phase 8 exit gates; items 3, 4, 6, and 7 remain evidence items.
 
 1. Select and approve an independent provider after the isolated evaluation.
 2. Prove journal durability and administrative/operational independence.
@@ -78,5 +80,5 @@ No provider, bucket, retention lock, IAM role, key, Cloudflare namespace, or oth
 ## Final phase status
 
 1. **Recovery Fence design and local protocol contract — CLOSED.** The documentation and local validation listed above are complete.
-2. **B2 — BLOCKED** until independent journal durability, private administration, real Restore/PITR evidence, and C0 journal integration pass review.
+2. **B2 — DEFERRED** (out of Phase 8 scope per ADR 0009; optional hardening) until independent journal durability, private administration, real Restore/PITR evidence, and C0 journal integration pass review.
 3. **B3 — NOT STARTED.** No user-data ingress is authorized by this closure.

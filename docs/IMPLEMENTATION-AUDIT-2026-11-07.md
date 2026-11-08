@@ -49,7 +49,7 @@ Legend: **Code** = implemented and tested locally; **Prod** = deployed and usabl
 - Storage object deletion (staged or published) and bucket policy changes.
 - Published snapshot physical purge and terminal `purged` state.
 - Workspace-specific lifecycle and owner-unanimity deletion flow.
-- External independent deletion journal and durable acknowledgement.
+- **Deferred optional hardening (ADR 0009):** external independent deletion journal and durable acknowledgement (no longer a Phase 8 exit gate).
 - Production PITR/restore drill tied to deletion history.
 - Billing, connectors, live JEV provider integration, exports.
 

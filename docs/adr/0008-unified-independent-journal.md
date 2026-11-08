@@ -5,6 +5,8 @@
 - **Scope:** A single append-only event protocol for C0 deletion requests and Recovery Fence state, plus a local validator/replay prototype.
 - **Does not:** amend C0, satisfy its external-journal requirement, implement a provider, authorize a cloud resource, complete B2, or permit B3/data ingress.
 
+> **Scope note (2026-11-08):** ADR 0009 removes the external immutable journal from Phase 8 exit criteria. This ADR's technical contract remains valid; provider work is deferred optional hardening.
+
 ## Decision summary
 
 Use one logical, globally ordered, signed event history for deletion and Recovery events. Keep separate per-aggregate sequences and domain state machines inside that history. A deletion event binds an immutable server-generated scope hash and encrypted-manifest reference; a Recovery event binds the Recovery transition and reconciliation evidence. The Durable Object is only a cacheable operational projection and never the history authority.

@@ -2,6 +2,8 @@
 
 Status: **Phase A complete; Phase B architecture approved; Phase C authorized; C0 logical-contract review passed; C1 isolation proof is blocked by Docker storage exhaustion; Phase D has not started.** The 2026-11-02 approval fixes the architectural decisions listed in §12. No migration, SQL, code, RLS/Storage policy, Production operation, deployment, or Phase D verification has been performed. Local-only implementation and synthetic data remain mandatory.
 
+**Scope amendment (2026-11-08):** ADR 0009 removes the external immutable deletion journal (WORM / independent Object Lock) from Phase 8 exit criteria. The C0 logical-contract review remains PASSED; only the external-journal component of the §12 V1 requirements is deferred optional hardening. Phase 8 acceptance relies on account lifecycle gating, the in-database deletion audit, scoped purge slices, fail-closed access, and documented restore/fence behavior. No other §12 decision is reopened.
+
 Audited revision: `5a99770aa13b63149601d062d0cb7299e9f69391` on `fix/live-explorer-css-scope` (2026-11-02). Existing local changes were present at audit start and were left untouched.
 
 ## Audit findings
@@ -340,14 +342,14 @@ These are future test requirements. No executable tests, migrations, recovery jo
 
 ## 12. Phase B approval record and remaining review items
 
-The user approved Phase B architecture on 2026-11-02 and authorized Phase C execution, beginning with C0. The following are fixed V1 requirements: the distinct `version_purge`, `source_purge` and `staged_purge` scopes; unanimous approval by every active Workspace owner; member exports limited to readable data and full Workspace export limited to an active owner; 365-day deletion-audit and 30-day digest/identifier retention with a limited publication receipt; no Auth identity deletion in V1; no direct Snapshot links and lifecycle checks on every download; a durable independent deletion journal before reporting acceptance; account lifecycle checks on every protected request with fail-closed behavior; and a closed read gate after Restore until reconciliation and verification complete.
+The user approved Phase B architecture on 2026-11-02 and authorized Phase C execution, beginning with C0. The following are fixed V1 requirements: the distinct `version_purge`, `source_purge` and `staged_purge` scopes; unanimous approval by every active Workspace owner; member exports limited to readable data and full Workspace export limited to an active owner; 365-day deletion-audit and 30-day digest/identifier retention with a limited publication receipt; no Auth identity deletion in V1; no direct Snapshot links and lifecycle checks on every download; a durable independent deletion journal before reporting acceptance (**deferred optional hardening per ADR 0009; not a Phase 8 exit gate**); account lifecycle checks on every protected request with fail-closed behavior; and a closed read gate after Restore until reconciliation and verification complete.
 
 The current authorization covers Phase C local implementation only after C0 review and C1 isolation proof. It does not authorize Production access, Production migrations, deployment, or Phase D. No data worker may use `service_role`, `BYPASSRLS`, table-owner authority, or generic Storage deletion. There is no direct-link exception in V1. Auth identity deletion remains excluded.
 
 The remaining items are implementation details or evidence gates, not reopened Phase B decisions:
 
 1. Review the C0 logical schema, constraints, indexes, lock order, transaction boundaries, API contracts, and worker restrictions in §13. Resolve any contradiction before authoring a migration.
-2. Select and verify the actual independent journal/recovery-gate provider, key custody/recovery, durable acknowledgement, and finite backup/replica/archive restore horizons. Reconcile any replay binding that stays linkable beyond the approved 30-day identifier period through explicit retention approval. Until proven locally, unknown history or watermark mismatch keeps reads closed.
+2. **Optional hardening (ADR 0009; not a Phase 8 exit gate):** select and verify the actual independent journal/recovery-gate provider, key custody/recovery, durable acknowledgement, and finite backup/replica/archive restore horizons. Reconcile any replay binding that stays linkable beyond the approved 30-day identifier period through explicit retention approval. Until proven locally, unknown history or watermark mismatch keeps reads closed.
 3. Confirm the exact minimal publication-receipt fields and its finite retention duration. The proposed 365 days remains a proposal; the approved 30-day digest/identifier and 365-day deletion-audit periods do not imply indefinite receipt retention.
 4. Define the final member-export field allowlist and map every included object to the caller's read permission. Full Workspace export remains active-owner-only.
 5. Define the administrative resolution procedure for an unavailable/sole active owner without weakening unanimity or silently shrinking the required owner set.
@@ -357,6 +359,8 @@ The remaining items are implementation details or evidence gates, not reopened P
 ## 13. C0 implementation contract — logical design for review
 
 This section defines the contract that a later migration and service implementation must preserve. It is not SQL and does not claim that any proposed relation, constraint, index, route, worker or policy exists. The C0 exit review must check these rules against one another before migration authoring.
+
+Under ADR 0009, external-journal dependencies in this contract (for example, withholding acceptance until a durable external acknowledgement) are deferred optional hardening. The Phase 8 in-scope implementation uses the local atomic acceptance and in-database audit boundary recorded in `docs/PHASE8-CLOSURE-STATUS-2026-11-08.md`; the external-journal clauses remain part of the deferred hardening design, not a Phase 8 exit gate.
 
 ### 13.1 Lifecycle and request records
 
