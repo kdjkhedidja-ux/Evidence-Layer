@@ -11,10 +11,6 @@ grant select, delete on table public.workspace_memberships
     to account_deletion_worker;
 grant select, delete on table public.workspaces
     to account_deletion_worker;
-grant select, delete on table public.source_snapshots
-    to account_deletion_worker;
-grant select, insert, update, delete on table public.data_deletion_storage_queue
-    to account_deletion_worker;
 
 create policy workspaces_worker_select_owned
     on public.workspaces
@@ -59,52 +55,6 @@ create policy workspace_memberships_worker_delete_subject
               and request.status in ('purge_pending', 'purge_failed')
         )
     );
-
-create policy source_snapshots_worker_select_owned
-    on public.source_snapshots
-    for select to account_deletion_worker
-    using (
-        private.deletion_workspace_is_sole_owner(
-            nullif(current_setting('app.deletion_request_id', true), '')::uuid,
-            workspace_id
-        )
-        or workspace_id in (
-            select workspace.id
-            from public.workspaces as workspace
-            where workspace.personal_owner_id = (
-                select request.scope_id
-                from public.data_deletion_requests as request
-                where request.request_id = nullif(current_setting('app.deletion_request_id', true), '')::uuid
-                  and request.status in ('purge_pending', 'purge_failed')
-            )
-        )
-    );
-
-create policy source_snapshots_worker_delete_owned
-    on public.source_snapshots
-    for delete to account_deletion_worker
-    using (
-        private.deletion_workspace_is_sole_owner(
-            nullif(current_setting('app.deletion_request_id', true), '')::uuid,
-            workspace_id
-        )
-        or workspace_id in (
-            select workspace.id
-            from public.workspaces as workspace
-            where workspace.personal_owner_id = (
-                select request.scope_id
-                from public.data_deletion_requests as request
-                where request.request_id = nullif(current_setting('app.deletion_request_id', true), '')::uuid
-                  and request.status in ('purge_pending', 'purge_failed')
-            )
-        )
-    );
-
-create policy data_deletion_storage_queue_worker_all
-    on public.data_deletion_storage_queue
-    for all to account_deletion_worker
-    using (true)
-    with check (true);
 
 drop policy account_lifecycle_worker_update_bound_request
     on public.account_lifecycle;
@@ -180,23 +130,22 @@ create trigger account_lifecycle_worker_transition
     for each row when (new.state in ('purge_pending', 'purge_failed', 'purged'))
     execute function private.enforce_account_deletion_worker_transition();
 
-create function private.prepare_individual_account_purge(p_request_id uuid)
+-- The snapshot catalog is immutable for every API and worker role. This helper
+-- is owned by the migration actor, bypasses RLS deliberately, verifies the
+-- request, and is the only path that removes catalog rows for a terminal purge.
+create function private.purge_snapshot_catalog_for_account(p_request_id uuid)
 returns jsonb
 language plpgsql
 security definer
 set search_path = ''
+set row_security = off
 as $function$
 declare
     request_row public.data_deletion_requests;
     actor uuid;
     owned_workspace_ids uuid[];
     queued integer := 0;
-    deleted_grants integer := 0;
-    deleted_relationships integer := 0;
-    deleted_evidence integer := 0;
     deleted_snapshots integer := 0;
-    deleted_memberships integer := 0;
-    deleted_workspaces integer := 0;
 begin
     perform pg_catalog.set_config('app.deletion_request_id', p_request_id::text, true);
 
@@ -225,6 +174,67 @@ begin
     on conflict (workspace_id, object_key) do nothing;
     get diagnostics queued = row_count;
 
+    perform pg_catalog.set_config('evidence.allow_snapshot_delete', 'on', true);
+    delete from public.source_snapshots
+     where source_snapshots.workspace_id = any(owned_workspace_ids);
+    get diagnostics deleted_snapshots = row_count;
+    perform pg_catalog.set_config('evidence.allow_snapshot_delete', 'off', true);
+
+    return pg_catalog.jsonb_build_object(
+        'storage_cleanup_queued', queued,
+        'snapshots_deleted', deleted_snapshots
+    );
+end;
+$function$;
+
+revoke all on function private.purge_snapshot_catalog_for_account(uuid)
+    from public, anon, authenticated, service_role;
+grant execute on function private.purge_snapshot_catalog_for_account(uuid)
+    to account_deletion_worker;
+
+create function private.prepare_individual_account_purge(p_request_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+    request_row public.data_deletion_requests;
+    actor uuid;
+    owned_workspace_ids uuid[];
+    snapshot_result jsonb;
+    queued integer := 0;
+    deleted_grants integer := 0;
+    deleted_relationships integer := 0;
+    deleted_evidence integer := 0;
+    deleted_snapshots integer := 0;
+    deleted_memberships integer := 0;
+    deleted_workspaces integer := 0;
+begin
+    perform pg_catalog.set_config('app.deletion_request_id', p_request_id::text, true);
+
+    select * into request_row
+      from public.data_deletion_requests
+     where request_id = p_request_id
+     for update;
+    if not found or request_row.status <> 'purge_pending' then
+        raise exception 'deletion request is not purge-pending' using errcode = '55000';
+    end if;
+    actor := request_row.requester_user_id;
+
+    select pg_catalog.array_agg(workspace.id)
+      into owned_workspace_ids
+      from public.workspaces as workspace
+     where workspace.personal_owner_id = actor
+        or private.deletion_workspace_is_sole_owner(p_request_id, workspace.id);
+    if owned_workspace_ids is null then
+        owned_workspace_ids := '{}'::uuid[];
+    end if;
+
+    snapshot_result := private.purge_snapshot_catalog_for_account(p_request_id);
+    queued := (snapshot_result ->> 'storage_cleanup_queued')::integer;
+    deleted_snapshots := (snapshot_result ->> 'snapshots_deleted')::integer;
+
     delete from public.source_grants
      where source_grants.principal_id = actor;
     get diagnostics deleted_grants = row_count;
@@ -236,12 +246,6 @@ begin
     delete from public.evidence_records
      where evidence_records.workspace_id = any(owned_workspace_ids);
     get diagnostics deleted_evidence = row_count;
-
-    perform pg_catalog.set_config('evidence.allow_snapshot_delete', 'on', true);
-    delete from public.source_snapshots
-     where source_snapshots.workspace_id = any(owned_workspace_ids);
-    get diagnostics deleted_snapshots = row_count;
-    perform pg_catalog.set_config('evidence.allow_snapshot_delete', 'off', true);
 
     delete from public.workspace_memberships
      where workspace_memberships.user_id = actor;

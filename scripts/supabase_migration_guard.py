@@ -771,9 +771,6 @@ def expected_catalog(versions: list[str]) -> dict:
             "public.workspaces_worker_select_owned",
             "public.workspaces_worker_delete_owned",
             "public.workspace_memberships_worker_delete_subject",
-            "public.source_snapshots_worker_select_owned",
-            "public.source_snapshots_worker_delete_owned",
-            "public.data_deletion_storage_queue_worker_all",
         })
 
     triggers: set[str] = set()
@@ -893,6 +890,7 @@ def expected_catalog(versions: list[str]) -> dict:
         functions.update({
             "private.prepare_individual_account_purge",
             "private.mark_account_purged",
+            "private.purge_snapshot_catalog_for_account",
         })
 
     foreign_keys: set[tuple[str, str, str, str]] = set()
