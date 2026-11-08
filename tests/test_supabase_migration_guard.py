@@ -260,6 +260,7 @@ class ReadOnlyManagementApiTests(unittest.TestCase):
                     "name": "snapshot_test",
                     "membership_count": 0,
                     "allowed_admin_memberships": 0,
+                    "allowed_set_memberships": 0,
                 }
             elif "from pg_catalog.pg_roles" in sql:
                 row = {
@@ -403,26 +404,38 @@ class ReadOnlyManagementApiTests(unittest.TestCase):
 
     def test_role_membership_audit_rejects_unexpected_edges_and_incomplete_rows(self):
         guard.assert_role_memberships(
-            [{"name": "snapshot_verifier", "membership_count": 0, "allowed_admin_memberships": 0}],
+            [{"name": "snapshot_verifier", "membership_count": 0, "allowed_admin_memberships": 0, "allowed_set_memberships": 0}],
             {"snapshot_verifier"},
         )
         guard.assert_role_memberships(
-            [{"name": "snapshot_verifier", "membership_count": 1, "allowed_admin_memberships": 1}],
+            [{"name": "snapshot_verifier", "membership_count": 1, "allowed_admin_memberships": 1, "allowed_set_memberships": 0}],
             {"snapshot_verifier"},
+        )
+        guard.assert_role_memberships(
+            [{"name": "account_deletion_worker", "membership_count": 2, "allowed_admin_memberships": 1, "allowed_set_memberships": 1}],
+            {"account_deletion_worker"},
         )
         invalid_rows = (
             [],
-            [{"name": "snapshot_verifier", "membership_count": 1, "allowed_admin_memberships": 0}],
-            [{"name": "snapshot_verifier", "membership_count": 2, "allowed_admin_memberships": 1}],
-            [{"name": "snapshot_verifier", "membership_count": 0, "allowed_admin_memberships": True}],
+            [{"name": "snapshot_verifier", "membership_count": 1, "allowed_admin_memberships": 0, "allowed_set_memberships": 0}],
+            [{"name": "snapshot_verifier", "membership_count": 2, "allowed_admin_memberships": 1, "allowed_set_memberships": 0}],
+            [{"name": "snapshot_verifier", "membership_count": 0, "allowed_admin_memberships": True, "allowed_set_memberships": 0}],
+            [{"name": "snapshot_verifier", "membership_count": 1, "allowed_admin_memberships": 0, "allowed_set_memberships": 1}],
+            [{"name": "account_deletion_worker", "membership_count": 1, "allowed_admin_memberships": 1, "allowed_set_memberships": 0}],
+            [{"name": "account_deletion_worker", "membership_count": 3, "allowed_admin_memberships": 1, "allowed_set_memberships": 1}],
             [
-                {"name": "snapshot_verifier", "membership_count": 0, "allowed_admin_memberships": 0},
-                {"name": "snapshot_verifier", "membership_count": 0, "allowed_admin_memberships": 0},
+                {"name": "snapshot_verifier", "membership_count": 0, "allowed_admin_memberships": 0, "allowed_set_memberships": 0},
+                {"name": "snapshot_verifier", "membership_count": 0, "allowed_admin_memberships": 0, "allowed_set_memberships": 0},
             ],
         )
         for rows in invalid_rows:
             with self.subTest(rows=rows), self.assertRaises(guard.GuardError):
                 guard.assert_role_memberships(rows, {"snapshot_verifier"})
+        with self.assertRaises(guard.GuardError):
+            guard.assert_role_memberships(
+                [{"name": "account_deletion_worker", "membership_count": 2, "allowed_admin_memberships": 1, "allowed_set_memberships": 1}],
+                {"snapshot_verifier"},
+            )
 
     def test_policy_inventory_rejects_missing_or_misplaced_policy(self):
         expected = {"storage.source_snapshots_objects_select_granted_published"}
@@ -1056,6 +1069,14 @@ class CatalogCompletenessTests(unittest.TestCase):
             if schema == "pg_temp":
                 continue
             found.add(f"{schema}.{match.group(3)}")
+        # A later migration may intentionally drop a constraint/index created
+        # earlier. Only names that are never re-added leave the final catalog.
+        drop_constraint = re.compile(r"\bdrop\s+constraint\s+(?:if\s+exists\s+)?([a-z_][a-z0-9_]*)", re.I)
+        add_constraint = re.compile(r"\badd\s+constraint\s+([a-z_][a-z0-9_]*)", re.I)
+        dropped = {match.group(1) for match in drop_constraint.finditer(joined)}
+        readded = {match.group(1) for match in add_constraint.finditer(joined)}
+        for name in dropped - readded:
+            found.discard(f"public.{name}")
         self.assertEqual(found, expected["indexes"])
 
     def test_every_extension_and_event_trigger_is_catalogued(self):

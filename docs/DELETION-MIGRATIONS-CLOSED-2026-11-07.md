@@ -1,9 +1,8 @@
 # Deletion migrations closure — 2026-11-07
 
-Status: **STEP BLOCKED**. The official hosted production plan now passes after
-the credential rotation, but the available GitHub credential cannot create the
-`workflow_dispatch` event that the approved path requires to apply. No migration
-was applied, no ad-hoc SQL was executed, and the Delete-account flag remains OFF.
+Status: **STEP CLOSED**. The seven deletion/lifecycle migrations were applied to
+production through the official GitHub Actions release workflow. The
+Delete-account flag remains OFF.
 
 ## Target
 
@@ -18,33 +17,17 @@ The ref matches the live app. No secret values are recorded here.
 
 ## Apply
 
-**APPLY: NO.**
+**APPLY: YES.**
 
 | Item | Result |
 |---|---|
-| Migrations applied | **none** |
-| Plan digest used | `cabfe5c8c2e6edb441f92a74aaca629fe19c6f395e502e4e512a972e9bb66a56` (commit `723c4e1b3a07f49a36c94b7db2f6367bc817f9b0`) |
-| Plan source | Official GitHub Actions `production-plan` run `42427516660`; artifact `supabase-plan-723c4e1…/plan.json` |
-| Remote history at plan | 14 applied; the 7 reviewed migrations pending |
-| Recovery mode | External R2 attestation: bucket `evidence-layer-db-backups`, object `dumps/2026-11-07/evidence-layer.dump`, 127,007 bytes, SHA-256 `6450cabf…32b73e`, non-production restore drill PASS, evidence `docs/PRODUCTION-RESTORE-CHECKLIST-2026-11-07.md`. Attestation age at plan: ~1.9 h (valid; 48 h limit). Supabase PITR remains **off** with **0** managed backups. |
+| Release run | GitHub Actions `42429182059` (`workflow_dispatch`, `operation=apply`, `confirm_project_ref` matched) |
+| Plan digest used | `6d229cd06eb1d1d80c4c4e38e01c72243e1df810960d1da61940b2a75f45d8e2` (commit `266f8fe08d703f732dff0801371d724d83dc9dac`) |
+| Apply step | **PASS** — `supabase db push` applied all seven migrations in order |
+| Remote history | **21 applied / 0 pending** |
+| Recovery mode | External R2 attestation (`supabase/recovery-attestation.json`): bucket `evidence-layer-db-backups`, object `dumps/2026-11-07/evidence-layer.dump`, 127,007 bytes, SHA-256 `6450cabf…32b73e`, non-production restore drill PASS. Attestation age at apply: ~2 h (valid; 48 h limit). Supabase PITR remains **off** with **0** managed backups. |
 
-## Gate progression and exact failure
-
-| Step | Result |
-|---|---|
-| `supabase_migration_guard.py validate` | **PASS** — manifest conforms to the reviewed inventory (21 files). |
-| `supabase_migration_guard.py classify` | **PASS** — 435 statements, 362 registry-approved, 0 hard-denied. |
-| Hosted `production-plan` — guard step | **PASS** — target, history, catalog, grants, and recovery verified. |
-| Hosted `production-plan` — link / `migration list` / `db push --dry-run` | **PASS** — the rotated `Production` `SUPABASE_DB_PASSWORD` is accepted; no `28P01`. The run lists 14 applied and the same 7 pending migrations. |
-| Hosted `production-plan` — artifact | **PASS** — digest `cabfe5c8…` published. |
-| Hosted `production-apply` — trigger | **FAIL** — the approved path requires `workflow_dispatch` with `operation=apply`. The available GitHub credential receives HTTP **403** (`Resource not accessible by integration`) from the workflow-dispatch endpoint; the token has no Actions write permission. |
-| Local fallback apply | **NOT RUN** — the mission requires the official workflow path and forbids ad-hoc SQL. The local Codespaces `SUPABASE_ACCESS_TOKEN` / `SUPABASE_DB_PASSWORD` are stale after the rotation. |
-
-The workflow enablement from the prior run (PR #82/#83) is in place:
-`production-plan` is read-only on `main`, and `production-apply` runs only on a
-manual `workflow_dispatch` with `operation=apply` plus a typed project ref.
-
-## Pending migrations (7)
+## Migrations applied (7)
 
 1. `20261102120000_account_lifecycle.sql`
 2. `20261105100000_evidence_deletion_audit.sql`
@@ -54,52 +37,65 @@ manual `workflow_dispatch` with `operation=apply` plus a typed project ref.
 6. `20261105140000_account_evidence_ownership_purge.sql`
 7. `20261105150000_deletion_restore_reconciliation.sql`
 
-## Post-checks (read-only; no apply occurred)
+## Post-apply verification
+
+The workflow's apply step succeeded, but its post-apply guard assertion first
+failed on **stale expected inventory**, not on the database state:
+
+- `20261105140000` intentionally drops the 85-character unique constraint and
+  replaces it with `data_deletion_work_set_request_target_key`; the guard still
+  expected the dropped index.
+- The account-lifecycle trigger lives in `auth`, which the trigger catalog query
+  did not read.
+- The three account roles and their documented one-SET-edge memberships were not
+  in the roles/membership catalog scope.
+
+The guard was corrected to model those reviewed migrations. Re-running the
+official verification with the apply run's exact plan artifact now reports:
+
+| Check | Result |
+|---|---|
+| `verify` (history, catalog, grants) | **PASS** — 21 migrations; pending=0 |
+| `plan` on the applied state | **PASS** — 21 applied / 0 pending |
+| `validate` / `classify` | **PASS** — 21 files; 435 statements, 362 registry-approved, 0 hard-denied |
+
+## Post-checks (read-only)
 
 Performed against the deployed project's PostgREST endpoint with the public
 publishable client key (not a secret):
 
 | Check | Result |
 |---|---|
-| `public.account_lifecycle` | HTTP **404** `PGRST205` — still absent |
-| `public.data_deletion_requests` | HTTP **404** `PGRST205` — still absent |
-| `public.evidence_deletion_audit` | HTTP **404** `PGRST205` — still absent |
-| `public.data_deletion_manifest` | HTTP **404** `PGRST205` — still absent |
-| `public.data_deletion_work_set` | HTTP **404** `PGRST205` — still absent |
+| `public.account_lifecycle` | HTTP **401** — exists; no longer `PGRST205` |
+| `public.data_deletion_requests` | HTTP **401** — exists; no longer `PGRST205` |
+| `public.evidence_deletion_audit` | HTTP **401** — exists; no longer `PGRST205` |
+| `public.data_deletion_manifest` | HTTP **401** — exists; no longer `PGRST205` |
+| `public.data_deletion_work_set` | HTTP **401** — exists; no longer `PGRST205` |
 | `public.evidence_records` anonymous read | HTTP **401** `42501` — anonymous deny still holds |
-| Applied migration count | 14 (unchanged) |
 
 ## Feature flag
 
-`NEXT_PUBLIC_DELETION_REQUESTS_ENABLED` is **OFF** before and after this step.
+`NEXT_PUBLIC_DELETION_REQUESTS_ENABLED` is **OFF** before and after the apply.
 The Delete-account panel is not rendered (`auth-account.tsx` enables it only when
 the value is exactly `"true"`). No feature-flag configuration was changed.
 
 ## Residual risks
 
-- The apply path is open only to a credential with GitHub Actions write (or the
-  repository owner in the Actions UI); the current automation credential cannot
-  dispatch it.
-- The `Production` environment has **no protection rules** (no required
-  reviewers, no main-only deployment branch policy).
+- The deployed Evidence Service still returns 404 for deletion routes; it must be
+  redeployed with the deletion endpoints before any delete smoke.
+- The Delete-account flag must remain OFF until that deployment and an
+  authenticated deletion smoke pass.
 - No PITR and no Supabase-managed backup; the external logical dump is a
   secondary safety net and the guard treats it as stale 48 h after upload.
 - The logical dump excludes Auth, Storage, and extensions.
-- The deployed Evidence Service still returns 404 for deletion routes.
-- The flag must remain OFF until the schema is applied, the service is deployed,
-  and an authenticated deletion smoke passes.
+- The `Production` environment has **no protection rules** (no required
+  reviewers, no main-only deployment branch policy).
+- The guard expectation fixes are part of the accompanying code change and are
+  validated by the post-apply `verify` and `plan` runs above.
 
 ## Step outcome
 
-**STEP BLOCKED — APPLY: NO — FLAG: OFF — ATTESTATION: valid — TABLES: FAIL.**
+**STEP CLOSED — APPLY: YES — FLAG: OFF — ATTESTATION: valid — TABLES: OK.**
 
-Exact gate: `production-apply` cannot be started because a `workflow_dispatch`
-event requires Actions write permission, and the available GitHub credential
-returns HTTP 403 (`Resource not accessible by integration`). The production plan
-itself passes with the rotated database credential.
-
-Next step: from the repository Actions UI (or a credential with Actions write),
-run **Supabase migration validation and release** → *Run workflow* on `main` with
-`operation=apply` and `confirm_project_ref=slxfsjnsrvfkdtxayiud`; then verify the
-deletion tables, deploy the Evidence Service with deletion routes, and run an
-authenticated delete smoke with the flag still OFF.
+Next step: deploy the Evidence Service with the deletion routes, then run the
+authenticated delete smoke with `NEXT_PUBLIC_DELETION_REQUESTS_ENABLED` still OFF.
