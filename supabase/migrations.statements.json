@@ -2898,6 +2898,41 @@
       "line": 12,
       "verb": "grant select",
       "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "6e5891eecf97fc86",
+      "file": "20261108150000_accept_account_deletion_auth_uid.sql",
+      "line": 7,
+      "verb": "grant select",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "d55e180caec128de",
+      "file": "20261108150000_accept_account_deletion_auth_uid.sql",
+      "line": 10,
+      "verb": "grant select",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "431e9d0b2752e442",
+      "file": "20261108150000_accept_account_deletion_auth_uid.sql",
+      "line": 13,
+      "verb": "create or",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "ff89eaceb5730f7d",
+      "file": "20261108150000_accept_account_deletion_auth_uid.sql",
+      "line": 73,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "e29b71ddbc043a0c",
+      "file": "20261108150000_accept_account_deletion_auth_uid.sql",
+      "line": 75,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
     }
   ]
 }
