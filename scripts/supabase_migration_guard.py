@@ -69,6 +69,7 @@ V_AUDIT_FK_DROP = "20261108140000"
 V_ACCEPT_V2 = "20261108150000"
 V_ACCEPT_V3 = "20261108170000"
 V_AUDIT_ACTIONS_V2 = "20261108200000"
+V_AUTH_IDENTIFIER_FKS = "20261108210000"
 
 VERSION_RE = re.compile(r"^[0-9]{14}_[a-z0-9_]+\.sql$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -548,6 +549,7 @@ def expected_catalog(versions: list[str]) -> dict:
     accept_v2 = V_ACCEPT_V2 in present
     accept_v3 = V_ACCEPT_V3 in present
     audit_actions_v2 = V_AUDIT_ACTIONS_V2 in present
+    auth_identifier_fks = V_AUTH_IDENTIFIER_FKS in present
     source = V_SOURCE_CATALOG in present
     storage = V_SNAPSHOT_STORAGE in present
     verifier = V_VERIFIER_IDENTITY in present
@@ -972,45 +974,47 @@ def expected_catalog(versions: list[str]) -> dict:
                 "r",
             ),
             (
-                "data_deletion_requests_requester_user_id_fkey",
-                "public.data_deletion_requests",
-                "auth.users",
-                "r",
-            ),
-            (
-                "data_deletion_requests_scope_id_fkey",
-                "public.data_deletion_requests",
-                "auth.users",
-                "r",
-            ),
-            (
                 "data_deletion_manifest_request_id_fkey",
                 "public.data_deletion_manifest",
                 "public.data_deletion_requests",
                 "r",
             ),
-            (
-                "data_deletion_manifest_target_id_fkey",
-                "public.data_deletion_manifest",
-                "auth.users",
-                "r",
-            ),
         })
+        if not auth_identifier_fks:
+            foreign_keys.update({
+                (
+                    "data_deletion_requests_requester_user_id_fkey",
+                    "public.data_deletion_requests",
+                    "auth.users",
+                    "r",
+                ),
+                (
+                    "data_deletion_requests_scope_id_fkey",
+                    "public.data_deletion_requests",
+                    "auth.users",
+                    "r",
+                ),
+                (
+                    "data_deletion_manifest_target_id_fkey",
+                    "public.data_deletion_manifest",
+                    "auth.users",
+                    "r",
+                ),
+            })
     if application_purge:
-        foreign_keys.update({
-            (
-                "data_deletion_work_set_request_id_fkey",
-                "public.data_deletion_work_set",
-                "public.data_deletion_requests",
-                "r",
-            ),
-            (
+        foreign_keys.add((
+            "data_deletion_work_set_request_id_fkey",
+            "public.data_deletion_work_set",
+            "public.data_deletion_requests",
+            "r",
+        ))
+        if not auth_identifier_fks:
+            foreign_keys.add((
                 "data_deletion_work_set_principal_id_fkey",
                 "public.data_deletion_work_set",
                 "auth.users",
                 "r",
-            ),
-        })
+            ))
     if verifier:
         foreign_keys.update({
             ("source_snapshots_verified_by_fkey", "public.source_snapshots", "auth.users", "a"),

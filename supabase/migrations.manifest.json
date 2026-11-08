@@ -176,6 +176,12 @@
       "version": "20261108200000",
       "sha256": "5a199754c170ae8f5258f6a24006206ccafd26bb23e9de7f38568b62869f2f10",
       "provenance": "Distinct terminal audit actions for prepare/mark; unique action guard preserved."
+    },
+    {
+      "file": "20261108210000_auth_deletion_identifier_fks.sql",
+      "version": "20261108210000",
+      "sha256": "3d3ab5a11f1579727f879d8532dffd8b9fa8e41244fc3ff24cda9f0d47c1412d",
+      "provenance": "Drop live Auth FKs from retained deletion proof records so Auth deletion succeeds."
     }
   ]
 }
