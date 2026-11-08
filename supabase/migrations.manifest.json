@@ -162,7 +162,7 @@
     {
       "file": "20261108170000_accept_v3_and_lifecycle_cascade.sql",
       "version": "20261108170000",
-      "sha256": "fec8ce826c2d9f5352238dbb907e46a934fa112c299d4659b1a335fd97f53527",
+      "sha256": "987b07d23348471d947707e874b600ab40dccf7516a0bd45818837409f364ea9",
       "provenance": "Accept v3 reads JWT claims JSON; lifecycle FK cascades on Auth deletion."
     }
   ]

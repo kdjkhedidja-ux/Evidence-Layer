@@ -901,7 +901,10 @@ def expected_catalog(versions: list[str]) -> dict:
     if accept_v2:
         functions.add("public.accept_account_deletion_v2")
     if accept_v3:
-        functions.add("public.accept_account_deletion_v3")
+        functions.update({
+            "public.accept_account_deletion_v3",
+            "private.delete_account_lifecycle_for_purge",
+        })
 
     foreign_keys: set[tuple[str, str, str, str]] = set()
     if identity:
@@ -935,7 +938,7 @@ def expected_catalog(versions: list[str]) -> dict:
             "account_lifecycle_subject_id_fkey",
             "public.account_lifecycle",
             "auth.users",
-            "c" if accept_v3 else "r",
+            "r",
         ))
     if deletion_audit and not audit_fk_drop:
         audit_fk_action = "n" if personal_deletion else "r"

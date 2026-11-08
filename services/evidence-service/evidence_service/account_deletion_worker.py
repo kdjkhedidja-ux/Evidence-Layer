@@ -133,6 +133,21 @@ def run_account_deletion(
                 **storage_result,
             }
 
+        with connection.cursor() as cursor:
+            lifecycle = _call_json(
+                cursor,
+                "select private.delete_account_lifecycle_for_purge(%s)",
+                (str(request_id),),
+            )
+            connection.commit()
+        if not isinstance(lifecycle, dict):
+            return {
+                "status": "purge_pending",
+                "subject_id": subject_id,
+                "stage": "lifecycle_cleanup",
+                "failure": "lifecycle_cleanup_failed",
+            }
+
         auth_status = delete_auth_identity(
             auth_client, base_url, service_key, subject_id
         )
