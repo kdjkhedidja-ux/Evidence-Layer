@@ -152,6 +152,12 @@
       "version": "20261108150000",
       "sha256": "802941235c4cc24f0adbb879cbc3e95e59e6c6159759c452ecc585e11db63733",
       "provenance": "Use auth.uid() for acceptance and grant transition-writer update privileges."
+    },
+    {
+      "file": "20261108160000_accept_v2_auth_schema_grant.sql",
+      "version": "20261108160000",
+      "sha256": "138bdc87c81cc79b5063d7dd3b71a8eccef63f9fa0350a4e314493f516a98080",
+      "provenance": "Grant auth schema usage to the accept v2 function owner."
     }
   ]
 }
