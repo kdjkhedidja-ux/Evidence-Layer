@@ -322,6 +322,8 @@ begin
 end;
 $function$;
 
+grant create on schema private to account_deletion_worker;
+
 do $$
 begin
     execute format('grant account_deletion_worker to %I with set true, inherit false', current_user);
@@ -338,6 +340,8 @@ begin
     execute format('revoke account_deletion_worker from %I', current_user);
 end
 $$;
+
+revoke create on schema private from account_deletion_worker;
 
 revoke all on function private.prepare_individual_account_purge(uuid)
     from public, anon, authenticated, service_role;

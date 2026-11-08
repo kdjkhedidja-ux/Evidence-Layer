@@ -138,7 +138,7 @@
     {
       "file": "20261108130000_individual_account_purge_terminal.sql",
       "version": "20261108130000",
-      "sha256": "ee7da7507d2cb219064a23c50b017620113d673cc7fe7d914f61852029cfbb4d",
+      "sha256": "1abb86928a9eb58a866a12933dbbcf11ac09842d3d73a9ff260172358292c974",
       "provenance": "Individual-account terminal purge: owned workspaces/snapshots, Storage queue, Auth handoff, mark purged."
     }
   ]
