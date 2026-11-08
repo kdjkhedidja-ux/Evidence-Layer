@@ -150,7 +150,7 @@
     {
       "file": "20261108150000_accept_account_deletion_auth_uid.sql",
       "version": "20261108150000",
-      "sha256": "4c6fa1f7bcf730d808a766dba1be153acbed5e5788ea86f507571430dc0a24d5",
+      "sha256": "c61901634f66bda30506b67ba21ac58e00bbcea9fb9f85a6a3b168fb2c21e6bd",
       "provenance": "Use auth.uid() for acceptance and grant transition-writer update privileges."
     }
   ]

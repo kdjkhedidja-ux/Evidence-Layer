@@ -1,8 +1,13 @@
--- Fix the account-deletion acceptance path:
+-- Fix the account-deletion acceptance path without replacing a function owned
+-- by another role (the migration guard forbids session role switches).
+--
 --   * PostgREST sets request.jwt.claims and auth.uid(), not the legacy
---     request.jwt.claim.sub GUC; fall back to the legacy value for tests.
+--     request.jwt.claim.sub GUC; the v2 function supports both.
 --   * The function owner (account_lifecycle_transition_writer) needs table
 --     UPDATE privileges; RLS policies alone do not grant them.
+--
+-- The service calls accept_account_deletion_v2. The original function remains
+-- for backward compatibility but is no longer used by this service.
 
 grant select, update on table public.data_deletion_requests
     to account_lifecycle_transition_writer;
@@ -10,7 +15,7 @@ grant select, update on table public.data_deletion_requests
 grant select, update on table public.account_lifecycle
     to account_lifecycle_transition_writer;
 
-create or replace function public.accept_account_deletion(p_request_id uuid)
+create function public.accept_account_deletion_v2(p_request_id uuid)
 returns public.data_deletion_requests
 language plpgsql
 security definer
@@ -70,7 +75,26 @@ begin
 end;
 $function$;
 
-revoke all on function public.accept_account_deletion(uuid)
+grant create on schema public to account_lifecycle_transition_writer;
+
+do $$
+begin
+    execute format('grant account_lifecycle_transition_writer to %I with set true, inherit false', current_user);
+end
+$$;
+
+alter function public.accept_account_deletion_v2(uuid)
+    owner to account_lifecycle_transition_writer;
+
+do $$
+begin
+    execute format('revoke account_lifecycle_transition_writer from %I', current_user);
+end
+$$;
+
+revoke create on schema public from account_lifecycle_transition_writer;
+
+revoke all on function public.accept_account_deletion_v2(uuid)
     from public, anon, service_role;
-grant execute on function public.accept_account_deletion(uuid)
+grant execute on function public.accept_account_deletion_v2(uuid)
     to authenticated;
