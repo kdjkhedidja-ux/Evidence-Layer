@@ -28,6 +28,7 @@ service = [
     "uvicorn>=0.30,<1",
     "httpx>=0.27,<1",
     "PyJWT[crypto]>=2.10,<3",
+    "psycopg[binary]>=3.2,<4",
 ]
 
 [tool.setuptools.packages.find]
