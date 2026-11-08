@@ -128,6 +128,18 @@
       "version": "20261105150000",
       "sha256": "6a4c9a0d186f0a58b85f8b0f32f944cb095e48da9a1fcf18b6a3a5192bb06f0c",
       "provenance": "P5 local restore reconciliation against immutable deletion work sets; no provider PITR or terminal purge."
+    },
+    {
+      "file": "20261108120000_personal_workspace_deletion.sql",
+      "version": "20261108120000",
+      "sha256": "8f26d37ee2bec8275fd1a115026026a8a4ce83eb3e6622559e93bad945a479a8",
+      "provenance": "Individual-account personal workspace data/delete closure (owner-only, audit retained)."
+    },
+    {
+      "file": "20261108130000_individual_account_purge_terminal.sql",
+      "version": "20261108130000",
+      "sha256": "ee7da7507d2cb219064a23c50b017620113d673cc7fe7d914f61852029cfbb4d",
+      "provenance": "Individual-account terminal purge: owned workspaces/snapshots, Storage queue, Auth handoff, mark purged."
     }
   ]
 }

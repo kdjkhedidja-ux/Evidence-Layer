@@ -24,6 +24,8 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
   const [deletionPending, setDeletionPending] = useState(false);
   const [deletionMessage, setDeletionMessage] = useState("");
   const [deletionConfirmed, setDeletionConfirmed] = useState(false);
+  const [personalDeletionPending, setPersonalDeletionPending] = useState(false);
+  const [personalDeletionMessage, setPersonalDeletionMessage] = useState("");
   const [lookupId, setLookupId] = useState("");
   const deletionRequestsEnabled = process.env.NEXT_PUBLIC_DELETION_REQUESTS_ENABLED === "true";
 
@@ -222,6 +224,67 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
     }
   }, [deletion, readDeletionResponse]);
 
+  const deletePersonalData = useCallback(async () => {
+    if (!window.confirm("Delete all data in your personal workspace? Your account and workspace remain.")) {
+      return;
+    }
+    setPersonalDeletionPending(true);
+    setPersonalDeletionMessage("");
+    try {
+      const response = await fetch("/api/evidence/me/data-deletions", {
+        method: "POST",
+        cache: "no-store",
+      });
+      if (response.status === 401) { setState("expired"); return; }
+      if (!response.ok) {
+        setPersonalDeletionMessage("Personal workspace data could not be deleted.");
+        return;
+      }
+      const payload = (await response.json()) as {
+        evidence_deleted?: number;
+        storage_cleanup_required?: boolean;
+      };
+      setPersonalDeletionMessage(
+        `Deleted ${payload.evidence_deleted ?? 0} evidence records.` +
+          (payload.storage_cleanup_required ? " Storage cleanup is queued." : ""),
+      );
+      await loadWorkspaces();
+    } catch {
+      setPersonalDeletionMessage("Personal workspace data could not be deleted.");
+    } finally {
+      setPersonalDeletionPending(false);
+    }
+  }, [loadWorkspaces]);
+
+  const deletePersonalWorkspace = useCallback(async () => {
+    if (!window.confirm("Delete your personal workspace and all of its data? Your account remains.")) {
+      return;
+    }
+    setPersonalDeletionPending(true);
+    setPersonalDeletionMessage("");
+    try {
+      const response = await fetch("/api/evidence/me/personal-workspace", {
+        method: "DELETE",
+        cache: "no-store",
+      });
+      if (response.status === 401) { setState("expired"); return; }
+      if (!response.ok) {
+        setPersonalDeletionMessage("Personal workspace could not be deleted.");
+        return;
+      }
+      const payload = (await response.json()) as { storage_cleanup_required?: boolean };
+      setPersonalDeletionMessage(
+        "Personal workspace deleted." +
+          (payload.storage_cleanup_required ? " Storage cleanup is queued." : ""),
+      );
+      await loadWorkspaces();
+    } catch {
+      setPersonalDeletionMessage("Personal workspace could not be deleted.");
+    } finally {
+      setPersonalDeletionPending(false);
+    }
+  }, [loadWorkspaces]);
+
   return (
     <section className="account-panel" id="account-panel" aria-labelledby="account-heading">
       <div className="account-panel-heading">
@@ -272,6 +335,29 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
       <p className="account-sample-note">The Explorer shows only records your verified account is authorized to read; no sample records are substituted.</p>
       {deletionRequestsEnabled ? (
       <section className="account-deletion" aria-labelledby="account-deletion-title">
+        <h3>Personal workspace deletion</h3>
+        <p className="account-deletion-scope">
+          Delete the data in your personal workspace, or the workspace itself. Your account remains.
+        </p>
+        <div className="account-deletion-actions">
+          <button
+            type="button"
+            disabled={personalDeletionPending || pending}
+            onClick={() => void deletePersonalData()}
+          >
+            {personalDeletionPending ? "Deleting…" : "Delete personal workspace data"}
+          </button>
+          <button
+            type="button"
+            disabled={personalDeletionPending || pending}
+            onClick={() => void deletePersonalWorkspace()}
+          >
+            Delete personal workspace
+          </button>
+        </div>
+        {personalDeletionMessage && (
+          <p className="account-message" role="status">{personalDeletionMessage}</p>
+        )}
         <h3 id="account-deletion-title">Delete account</h3>
         <p className="account-deletion-scope">
           This requests deletion of the account data this service manages. Evidence and
