@@ -3213,6 +3213,34 @@
       "line": 202,
       "verb": "grant execute",
       "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "53c376a38daec944",
+      "file": "20261108210000_auth_deletion_identifier_fks.sql",
+      "line": 5,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "13c7cb0a5034ed4a",
+      "file": "20261108210000_auth_deletion_identifier_fks.sql",
+      "line": 7,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "b4fd4c7120fe6a57",
+      "file": "20261108210000_auth_deletion_identifier_fks.sql",
+      "line": 9,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "1be9816ed2490bd5",
+      "file": "20261108210000_auth_deletion_identifier_fks.sql",
+      "line": 11,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
     }
   ]
 }
