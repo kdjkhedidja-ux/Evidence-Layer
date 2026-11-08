@@ -170,6 +170,12 @@
       "version": "20261108180000",
       "sha256": "16137e36fdc7df3889eb0fab8d1c4b15f10e4f641c94bff39255c56a03cedd84",
       "provenance": "Local manifest ack moves the request to accepted per ADR 0009."
+    },
+    {
+      "file": "20261108190000_worker_function_grants.sql",
+      "version": "20261108190000",
+      "sha256": "b60038f738eab6f67cb96cd65fc204373a0ff217ec5b5ea80a1cf9454438ee4d",
+      "provenance": "Grant EXECUTE on worker purge functions to the postgres worker connection."
     }
   ]
 }

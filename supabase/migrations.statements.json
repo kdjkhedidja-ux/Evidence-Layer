@@ -3087,6 +3087,27 @@
       "line": 5,
       "verb": "create or",
       "rationale_ref": "function-definition"
+    },
+    {
+      "id": "630d22a44adefa3d",
+      "file": "20261108190000_worker_function_grants.sql",
+      "line": 5,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "e7724fcd935e4806",
+      "file": "20261108190000_worker_function_grants.sql",
+      "line": 6,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "6b6050ffb59e309c",
+      "file": "20261108190000_worker_function_grants.sql",
+      "line": 7,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
     }
   ]
 }

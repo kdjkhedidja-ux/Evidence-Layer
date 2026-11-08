@@ -45,6 +45,10 @@ def main() -> int:
         try:
             print(json.dumps(process_pending(connection), default=str), flush=True)
         except Exception as exc:  # keep the worker alive; retry next interval
+            try:
+                connection.rollback()
+            except Exception:
+                pass
             print(
                 json.dumps(
                     {"error": type(exc).__name__, "message": str(exc)[:200]}
