@@ -164,6 +164,12 @@
       "version": "20261108170000",
       "sha256": "987b07d23348471d947707e874b600ab40dccf7516a0bd45818837409f364ea9",
       "provenance": "Accept v3 reads JWT claims JSON; lifecycle FK cascades on Auth deletion."
+    },
+    {
+      "file": "20261108180000_local_manifest_ack.sql",
+      "version": "20261108180000",
+      "sha256": "16137e36fdc7df3889eb0fab8d1c4b15f10e4f641c94bff39255c56a03cedd84",
+      "provenance": "Local manifest ack moves the request to accepted per ADR 0009."
     }
   ]
 }
