@@ -3087,6 +3087,132 @@
       "line": 5,
       "verb": "create or",
       "rationale_ref": "function-definition"
+    },
+    {
+      "id": "740bb4ec36c9e681",
+      "file": "20261108200000_account_purge_audit_actions.sql",
+      "line": 4,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "623b4e8fd0fb29c2",
+      "file": "20261108200000_account_purge_audit_actions.sql",
+      "line": 6,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "738cc16d668cd969",
+      "file": "20261108200000_account_purge_audit_actions.sql",
+      "line": 16,
+      "verb": "drop policy",
+      "rationale_ref": "rls-policy-drop"
+    },
+    {
+      "id": "61fd549b94e124f9",
+      "file": "20261108200000_account_purge_audit_actions.sql",
+      "line": 18,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "6245655bc156da14",
+      "file": "20261108200000_account_purge_audit_actions.sql",
+      "line": 36,
+      "verb": "create function",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "5cc345553eb76135",
+      "file": "20261108200000_account_purge_audit_actions.sql",
+      "line": 129,
+      "verb": "create function",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "23f6d06cad6889f8",
+      "file": "20261108200000_account_purge_audit_actions.sql",
+      "line": 170,
+      "verb": "grant create",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "23f6d06cad6889f8",
+      "file": "20261108200000_account_purge_audit_actions.sql",
+      "line": 173,
+      "verb": "grant create",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "1f87633d8459687b",
+      "file": "20261108200000_account_purge_audit_actions.sql",
+      "line": 175,
+      "verb": "do",
+      "rationale_ref": "procedural-block"
+    },
+    {
+      "id": "a842e52c700b8597",
+      "file": "20261108200000_account_purge_audit_actions.sql",
+      "line": 181,
+      "verb": "alter function",
+      "rationale_ref": "function-ownership"
+    },
+    {
+      "id": "2fce7526380c7a60",
+      "file": "20261108200000_account_purge_audit_actions.sql",
+      "line": 183,
+      "verb": "alter function",
+      "rationale_ref": "function-ownership"
+    },
+    {
+      "id": "0757e863a163e8d1",
+      "file": "20261108200000_account_purge_audit_actions.sql",
+      "line": 186,
+      "verb": "do",
+      "rationale_ref": "procedural-block"
+    },
+    {
+      "id": "ec852c956162747a",
+      "file": "20261108200000_account_purge_audit_actions.sql",
+      "line": 192,
+      "verb": "grant account_deletion_worker",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "648a0e520e919b7a",
+      "file": "20261108200000_account_purge_audit_actions.sql",
+      "line": 194,
+      "verb": "revoke create",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "be4b535bd3ac75fd",
+      "file": "20261108200000_account_purge_audit_actions.sql",
+      "line": 196,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "577e50baae85ca04",
+      "file": "20261108200000_account_purge_audit_actions.sql",
+      "line": 198,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "b91dc1c0f29d68a4",
+      "file": "20261108200000_account_purge_audit_actions.sql",
+      "line": 200,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "fc7c3c07efcfb66f",
+      "file": "20261108200000_account_purge_audit_actions.sql",
+      "line": 202,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
     }
   ]
 }

@@ -170,6 +170,12 @@
       "version": "20261108180000",
       "sha256": "16137e36fdc7df3889eb0fab8d1c4b15f10e4f641c94bff39255c56a03cedd84",
       "provenance": "Local manifest ack moves the request to accepted per ADR 0009."
+    },
+    {
+      "file": "20261108200000_account_purge_audit_actions.sql",
+      "version": "20261108200000",
+      "sha256": "5a199754c170ae8f5258f6a24006206ccafd26bb23e9de7f38568b62869f2f10",
+      "provenance": "Distinct terminal audit actions for prepare/mark; unique action guard preserved."
     }
   ]
 }
