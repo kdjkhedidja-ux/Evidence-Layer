@@ -3080,6 +3080,13 @@
       "line": 123,
       "verb": "grant execute",
       "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "7fa9748e6ac1503e",
+      "file": "20261108180000_local_manifest_ack.sql",
+      "line": 5,
+      "verb": "create or",
+      "rationale_ref": "function-definition"
     }
   ]
 }
