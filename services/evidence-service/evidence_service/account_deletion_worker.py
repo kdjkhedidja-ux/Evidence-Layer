@@ -91,6 +91,7 @@ def run_account_deletion(
                 raise RuntimeError(f"deletion request is not runnable ({status})")
 
             if status == "accepted":
+                cursor.execute("set local role account_deletion_worker")
                 slice_result = _call_json(
                     cursor,
                     "select private.run_account_deletion_slice(%s)",
@@ -105,6 +106,7 @@ def run_account_deletion(
                         "stage": "scoped_slice",
                     }
 
+            cursor.execute("set local role account_deletion_worker")
             prepared = _call_json(
                 cursor,
                 "select private.prepare_individual_account_purge(%s)",
@@ -134,6 +136,7 @@ def run_account_deletion(
             }
 
         with connection.cursor() as cursor:
+            cursor.execute("set local role account_deletion_worker")
             lifecycle = _call_json(
                 cursor,
                 "select private.delete_account_lifecycle_for_purge(%s)",
@@ -160,6 +163,7 @@ def run_account_deletion(
             }
 
         with connection.cursor() as cursor:
+            cursor.execute("set local role account_deletion_worker")
             marked = _call_json(
                 cursor,
                 "select private.mark_account_purged(%s)",
