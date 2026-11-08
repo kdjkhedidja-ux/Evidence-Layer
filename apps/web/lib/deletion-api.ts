@@ -129,3 +129,106 @@ export async function proxyDeletionRequest({
   if (!parsed) return json(502, { error: "Evidence service returned an invalid response." });
   return json(upstream.status, parsed);
 }
+
+export type PersonalDeletionView = {
+  workspace_id: string;
+  evidence_deleted: number;
+  relationships_deleted: number;
+  source_grants_deleted: number;
+  snapshots_deleted: number;
+  storage_cleanup_queued: number;
+  storage_cleanup_required: boolean;
+  workspace_deleted: boolean;
+};
+
+function nonNegativeInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+}
+
+export function safePersonalDeletion(value: unknown): PersonalDeletionView | null {
+  if (!value || typeof value !== "object") return null;
+  const candidate = value as Record<string, unknown>;
+  if (
+    typeof candidate.workspace_id !== "string" ||
+    !UUID_PATTERN.test(candidate.workspace_id) ||
+    !nonNegativeInteger(candidate.evidence_deleted) ||
+    !nonNegativeInteger(candidate.relationships_deleted) ||
+    !nonNegativeInteger(candidate.source_grants_deleted) ||
+    !nonNegativeInteger(candidate.snapshots_deleted) ||
+    !nonNegativeInteger(candidate.storage_cleanup_queued) ||
+    typeof candidate.storage_cleanup_required !== "boolean" ||
+    typeof candidate.workspace_deleted !== "boolean"
+  ) {
+    return null;
+  }
+  return {
+    workspace_id: candidate.workspace_id,
+    evidence_deleted: candidate.evidence_deleted,
+    relationships_deleted: candidate.relationships_deleted,
+    source_grants_deleted: candidate.source_grants_deleted,
+    snapshots_deleted: candidate.snapshots_deleted,
+    storage_cleanup_queued: candidate.storage_cleanup_queued,
+    storage_cleanup_required: candidate.storage_cleanup_required,
+    workspace_deleted: candidate.workspace_deleted,
+  };
+}
+
+type PersonalDeletionProxyOptions = {
+  endpoint: string;
+  method: "POST" | "DELETE";
+  request: Request;
+};
+
+export async function proxyPersonalDeletion({
+  endpoint,
+  method,
+  request,
+}: PersonalDeletionProxyOptions): Promise<Response> {
+  if (!sameOrigin(request)) {
+    return json(403, { error: "Request origin was not accepted." });
+  }
+
+  const auth = await getVerifiedAuthContext();
+  if (auth.kind === "unauthenticated") {
+    return json(401, { error: "Authentication is required." });
+  }
+  if (auth.kind === "unavailable") {
+    return json(503, { error: "Identity verification is unavailable." });
+  }
+
+  const serviceUrl = getEvidenceServiceBaseUrl();
+  if (!serviceUrl) return json(503, { error: "Evidence service is unavailable." });
+
+  let upstream: Response;
+  try {
+    upstream = await fetch(`${serviceUrl}${endpoint}`, {
+      method,
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${auth.accessToken}`,
+      },
+      cache: "no-store",
+      redirect: "manual",
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch {
+    return json(503, { error: "Evidence service is unavailable." });
+  }
+
+  if (upstream.status === 401) return json(401, { error: "Your session is no longer valid." });
+  if (upstream.status === 403) return json(403, { error: "This action is not available for this account." });
+  if (upstream.status !== 200 && upstream.status !== 202) {
+    return json(503, { error: "Evidence service is unavailable." });
+  }
+
+  let payload: unknown;
+  try {
+    payload = await upstream.json();
+  } catch {
+    return json(502, { error: "Evidence service returned an invalid response." });
+  }
+
+  const parsed = safePersonalDeletion(payload);
+  if (!parsed) return json(502, { error: "Evidence service returned an invalid response." });
+  return json(upstream.status, parsed);
+}

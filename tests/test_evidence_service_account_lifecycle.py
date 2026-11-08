@@ -155,6 +155,31 @@ class DeletionRepositorySpy:
             return None
         return self.request
 
+    async def delete_personal_workspace_data(self, access_token):
+        self.calls.append(("delete_data", self.request.request_id))
+        return {
+            "workspace_id": str(self.request.request_id),
+            "evidence_deleted": 1,
+            "relationships_deleted": 1,
+            "source_grants_deleted": 1,
+            "snapshots_deleted": 1,
+            "storage_cleanup_queued": 1,
+            "storage_cleanup_required": True,
+        }
+
+    async def delete_personal_workspace(self, access_token):
+        self.calls.append(("delete_workspace", self.request.request_id))
+        return {
+            "workspace_id": str(self.request.request_id),
+            "evidence_deleted": 1,
+            "relationships_deleted": 1,
+            "source_grants_deleted": 1,
+            "snapshots_deleted": 1,
+            "storage_cleanup_queued": 1,
+            "storage_cleanup_required": True,
+            "workspace_deleted": True,
+        }
+
 
 class ScriptedRecoveryFenceReader:
     def __init__(self, sequence=(), *, result=True, events=None) -> None:
@@ -616,9 +641,10 @@ def test_new_v1_routes_must_bind_the_lifecycle_dependency_and_healthz_is_public(
             for dependency in dependant.dependencies
         )
 
-    # 14 data routes plus 3 deletion control routes (create/accept/status).
-    # All require authentication; only data routes use the lifecycle data gate.
-    assert len(protected) == 17
+    # 14 data routes, 3 deletion control routes (create/accept/status), and
+    # 2 personal deletion routes. All require authentication; only data routes
+    # use the lifecycle data gate.
+    assert len(protected) == 19
     assert all(has_auth_dependency(route.dependant) for route in protected)
     assert [(route.path, route.methods) for route in public] == [
         ("/healthz", {"GET"})
@@ -784,3 +810,49 @@ def test_supabase_reader_fails_closed_for_non_success_or_malformed_response() ->
         )
         with pytest.raises(AccountLifecycleReadError):
             asyncio.run(reader.read_state(SUBJECT, TOKEN))
+
+
+def test_personal_data_deletion_route_returns_accepted_and_queues_storage() -> None:
+    repository = DeletionRepositorySpy(deletion_request())
+    app, _, _, _, _ = make_app(
+        ScriptedLifecycleReader(), deletion_repository=repository
+    )
+
+    with TestClient(app) as client:
+        response = client.post("/v1/me/data-deletions", headers=auth_headers())
+
+    assert response.status_code == 202
+    payload = response.json()
+    assert payload["storage_cleanup_required"] is True
+    assert payload["workspace_deleted"] is False
+    assert ("delete_data", repository.request.request_id) in repository.calls
+
+
+def test_personal_workspace_deletion_route_returns_accepted() -> None:
+    repository = DeletionRepositorySpy(deletion_request())
+    app, _, _, _, _ = make_app(
+        ScriptedLifecycleReader(), deletion_repository=repository
+    )
+
+    with TestClient(app) as client:
+        response = client.delete("/v1/me/personal-workspace", headers=auth_headers())
+
+    assert response.status_code == 202
+    assert response.json()["workspace_deleted"] is True
+    assert ("delete_workspace", repository.request.request_id) in repository.calls
+
+
+def test_personal_deletion_is_denied_before_repository_when_account_blocked() -> None:
+    repository = DeletionRepositorySpy(deletion_request())
+    app, _, _, _, _ = make_app(
+        ScriptedLifecycleReader(state="revocation_pending"),
+        deletion_repository=repository,
+    )
+
+    with TestClient(app) as client:
+        data = client.post("/v1/me/data-deletions", headers=auth_headers())
+        workspace = client.delete("/v1/me/personal-workspace", headers=auth_headers())
+
+    assert data.status_code == 403
+    assert workspace.status_code == 403
+    assert repository.calls == []

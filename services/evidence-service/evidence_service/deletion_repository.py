@@ -39,6 +39,14 @@ class DeletionRepository(Protocol):
         self, access_token: str, *, principal_id: UUID, request_id: UUID
     ) -> DeletionRequest | None: ...
 
+    async def delete_personal_workspace_data(
+        self, access_token: str
+    ) -> dict[str, object]: ...
+
+    async def delete_personal_workspace(
+        self, access_token: str
+    ) -> dict[str, object]: ...
+
 
 class SupabaseDeletionRepository:
     def __init__(
@@ -155,6 +163,41 @@ class SupabaseDeletionRepository:
         if len(rows) != 1:
             raise DeletionRequestUnavailable
         return self._parse_row(rows[0])
+
+    async def delete_personal_workspace_data(
+        self, access_token: str
+    ) -> dict[str, object]:
+        return await self._personal_deletion_rpc(
+            access_token, "delete_personal_workspace_data"
+        )
+
+    async def delete_personal_workspace(
+        self, access_token: str
+    ) -> dict[str, object]:
+        return await self._personal_deletion_rpc(
+            access_token, "delete_personal_workspace"
+        )
+
+    async def _personal_deletion_rpc(
+        self, access_token: str, function_name: str
+    ) -> dict[str, object]:
+        try:
+            async with self._client() as client:
+                response = await client.post(
+                    f"{self._base_url}/rest/v1/rpc/{function_name}",
+                    headers=self._headers(access_token),
+                    json={},
+                )
+            if response.status_code not in {200, 201}:
+                raise DeletionRequestUnavailable
+            payload = response.json()
+            if not isinstance(payload, dict):
+                raise DeletionRequestUnavailable
+            return payload
+        except DeletionRequestUnavailable:
+            raise
+        except (httpx.HTTPError, ValueError, TypeError) as exc:
+            raise DeletionRequestUnavailable from exc
 
     def _client(self) -> httpx.AsyncClient:
         return httpx.AsyncClient(

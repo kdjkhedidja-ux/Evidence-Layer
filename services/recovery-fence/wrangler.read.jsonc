@@ -1,0 +1,19 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "evidence-recovery-fence-test",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-03",
+  "workers_dev": true,
+  "observability": { "enabled": false },
+  "durable_objects": {
+    "bindings": [
+      { "name": "RECOVERY_STATE", "class_name": "RecoveryState" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["RecoveryState"] }
+  ],
+  "services": [
+    { "binding": "EVENT_LEDGER", "service": "evidence-recovery-ledger-test" }
+  ]
+}

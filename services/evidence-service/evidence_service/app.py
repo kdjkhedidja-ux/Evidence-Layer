@@ -215,6 +215,17 @@ class DeletionRequestResponse(BaseModel):
     accepted_at: datetime | None
 
 
+class PersonalDeletionResponse(BaseModel):
+    workspace_id: UUID
+    evidence_deleted: int = 0
+    relationships_deleted: int = 0
+    source_grants_deleted: int = 0
+    snapshots_deleted: int = 0
+    storage_cleanup_queued: int = 0
+    storage_cleanup_required: bool = False
+    workspace_deleted: bool = False
+
+
 bearer_scheme = HTTPBearer(auto_error=False)
 _Result = TypeVar("_Result")
 
@@ -744,6 +755,52 @@ def create_app(
         if request_row is None:
             raise HTTPException(status_code=404, detail="Deletion request not found")
         return _deletion_response(request_row)
+
+    @application.post(
+        "/v1/me/data-deletions",
+        response_model=PersonalDeletionResponse,
+        status_code=202,
+    )
+    async def delete_personal_data(
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> PersonalDeletionResponse:
+        try:
+            result = await _with_account_gate(
+                request,
+                auth,
+                lambda: _deletion_repository(request).delete_personal_workspace_data(
+                    auth.access_token
+                ),
+            )
+        except DeletionRequestUnavailable as exc:
+            raise HTTPException(
+                status_code=503, detail="Deletion service is unavailable"
+            ) from exc
+        return PersonalDeletionResponse(**result)
+
+    @application.delete(
+        "/v1/me/personal-workspace",
+        response_model=PersonalDeletionResponse,
+        status_code=202,
+    )
+    async def delete_personal_workspace_route(
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> PersonalDeletionResponse:
+        try:
+            result = await _with_account_gate(
+                request,
+                auth,
+                lambda: _deletion_repository(request).delete_personal_workspace(
+                    auth.access_token
+                ),
+            )
+        except DeletionRequestUnavailable as exc:
+            raise HTTPException(
+                status_code=503, detail="Deletion service is unavailable"
+            ) from exc
+        return PersonalDeletionResponse(**result)
 
     @application.get("/v1/me", response_model=MeResponse)
     async def me(

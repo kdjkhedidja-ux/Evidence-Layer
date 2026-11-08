@@ -61,6 +61,7 @@ export interface LedgerEventPage {
 
 export interface Env {
   RECOVERY_STATE: DurableObjectNamespace<RecoveryState>;
+  LEDGER_STATE?: DurableObjectNamespace;
   EVENT_LEDGER?: Fetcher;
   READ_KEY_ID?: string;
   READ_KEY_SECRET?: string;
@@ -74,6 +75,8 @@ export interface Env {
   LEDGER_PUBLIC_KEY?: string;
   LEDGER_PREVIOUS_KEY_ID?: string;
   LEDGER_PREVIOUS_PUBLIC_KEY?: string;
+  LEDGER_PRIVATE_KEY?: string;
+  RESTORE_TEST_KEY?: string;
   CLOCK_SKEW_SECONDS?: string;
 }
 

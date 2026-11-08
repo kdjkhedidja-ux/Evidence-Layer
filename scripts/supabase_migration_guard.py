@@ -63,6 +63,8 @@ V_ACCOUNT_DELETION_WORKER = "20261105120000"
 V_ACCOUNT_APPLICATION_PURGE = "20261105130000"
 V_ACCOUNT_EVIDENCE_OWNERSHIP = "20261105140000"
 V_DELETION_RESTORE_RECONCILIATION = "20261105150000"
+V_PERSONAL_WORKSPACE_DELETION = "20261108120000"
+V_INDIVIDUAL_ACCOUNT_TERMINAL = "20261108130000"
 
 VERSION_RE = re.compile(r"^[0-9]{14}_[a-z0-9_]+\.sql$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -510,6 +512,7 @@ def expected_policy_identity(policy: str) -> str:
         ("data_deletion_requests_", "public", "data_deletion_requests"),
         ("data_deletion_manifest_", "public", "data_deletion_manifest"),
         ("data_deletion_work_set_", "public", "data_deletion_work_set"),
+        ("data_deletion_storage_queue_", "public", "data_deletion_storage_queue"),
         ("snapshot_verifier_allowlist_audit_", "private", "snapshot_verifier_allowlist_audit"),
         ("snapshot_verifier_allowlist_", "private", "snapshot_verifier_allowlist"),
     )
@@ -535,6 +538,8 @@ def expected_catalog(versions: list[str]) -> dict:
     application_purge = V_ACCOUNT_APPLICATION_PURGE in present
     evidence_ownership = V_ACCOUNT_EVIDENCE_OWNERSHIP in present
     restore_reconciliation = V_DELETION_RESTORE_RECONCILIATION in present
+    personal_deletion = V_PERSONAL_WORKSPACE_DELETION in present
+    individual_terminal = V_INDIVIDUAL_ACCOUNT_TERMINAL in present
     source = V_SOURCE_CATALOG in present
     storage = V_SNAPSHOT_STORAGE in present
     verifier = V_VERIFIER_IDENTITY in present
@@ -568,6 +573,8 @@ def expected_catalog(versions: list[str]) -> dict:
         tables["public.data_deletion_manifest"] = (True, True)
     if application_purge:
         tables["public.data_deletion_work_set"] = (True, True)
+    if personal_deletion:
+        tables["public.data_deletion_storage_queue"] = (True, True)
 
     indexes: set[str] = set()
     if identity:
@@ -589,6 +596,11 @@ def expected_catalog(versions: list[str]) -> dict:
         })
     if personal:
         indexes.add("public.workspaces_personal_owner_unique")
+    if personal_deletion:
+        indexes.update({
+            "public.data_deletion_storage_queue_pkey",
+            "public.data_deletion_storage_queue_workspace_object_key",
+        })
     if source:
         indexes.update({
             "public.source_snapshots_pkey",
@@ -754,6 +766,12 @@ def expected_catalog(versions: list[str]) -> dict:
         })
     if restore_reconciliation:
         policies.add("public.evidence_deletion_audit_insert_worker_reconciliation")
+    if individual_terminal:
+        policies.update({
+            "public.workspaces_worker_select_owned",
+            "public.workspaces_worker_delete_owned",
+            "public.workspace_memberships_worker_delete_subject",
+        })
 
     triggers: set[str] = set()
     if evidence:
@@ -863,6 +881,17 @@ def expected_catalog(versions: list[str]) -> dict:
         functions.add("private.deletion_workspace_is_sole_owner")
     if restore_reconciliation:
         functions.add("private.reconcile_account_deletion_slice")
+    if personal_deletion:
+        functions.update({
+            "public.delete_personal_workspace_data",
+            "public.delete_personal_workspace",
+        })
+    if individual_terminal:
+        functions.update({
+            "private.prepare_individual_account_purge",
+            "private.mark_account_purged",
+            "private.purge_snapshot_catalog_for_account",
+        })
 
     foreign_keys: set[tuple[str, str, str, str]] = set()
     if identity:
@@ -899,18 +928,19 @@ def expected_catalog(versions: list[str]) -> dict:
             "r",
         ))
     if deletion_audit:
+        audit_fk_action = "n" if personal_deletion else "r"
         foreign_keys.update({
             (
                 "evidence_deletion_audit_actor_user_id_fkey",
                 "public.evidence_deletion_audit",
                 "auth.users",
-                "r",
+                audit_fk_action,
             ),
             (
                 "evidence_deletion_audit_workspace_id_fkey",
                 "public.evidence_deletion_audit",
                 "public.workspaces",
-                "r",
+                audit_fk_action,
             ),
         })
     if deletion_requests:

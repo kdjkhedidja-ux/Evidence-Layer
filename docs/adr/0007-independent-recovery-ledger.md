@@ -5,6 +5,8 @@
 - **Scope:** External Recovery Fence event history and replay of a stale Durable Object mirror.
 - **Does not:** close B2, satisfy the C0 deletion journal, authorize data ingress, or permit Production use.
 
+> **Scope note (2026-11-08):** ADR 0009 removes the external immutable journal from Phase 8 exit criteria. This ADR's technical contract remains valid; provider work is deferred optional hardening.
+
 ## Context
 
 ADR 0006 correctly treats the SQLite-backed Durable Object (DO) as a mirror and requires a separately administered ledger to be authoritative. That ledger has not been selected, provisioned, or tested. A signed response from a test double does not prove independent durability or resistance to a real platform restore.
