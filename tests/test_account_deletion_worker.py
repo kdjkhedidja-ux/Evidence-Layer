@@ -32,6 +32,8 @@ class FakeCursor:
             self.current = (self.slice_result,)
         elif "prepare_individual_account_purge" in sql:
             self.current = (self.prepared,)
+        elif "delete_account_lifecycle_for_purge" in sql:
+            self.current = ({"deleted": True},)
         elif "mark_account_purged" in sql:
             self.current = (self.marked,)
         else:
@@ -110,7 +112,8 @@ class AccountDeletionWorkerTests(unittest.TestCase):
         self.assertTrue(any("run_account_deletion_slice" in sql for sql in cursor.executions))
         self.assertTrue(any("prepare_individual_account_purge" in sql for sql in cursor.executions))
         self.assertTrue(any("mark_account_purged" in sql for sql in cursor.executions))
-        self.assertGreaterEqual(connection.commits, 3)
+        self.assertTrue(any("delete_account_lifecycle_for_purge" in sql for sql in cursor.executions))
+        self.assertGreaterEqual(connection.commits, 4)
 
     def test_storage_failure_stops_before_auth_and_mark(self):
         result, cursor, _, auth = self._run(
