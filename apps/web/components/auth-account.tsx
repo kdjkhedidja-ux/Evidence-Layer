@@ -433,7 +433,7 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
       )}
       {message && <p className="account-message" role="status">{message}</p>}
       <p className="account-sample-note">The Explorer shows only records your verified account is authorized to read; no sample records are substituted.</p>
-      {state === "ready" && (
+      {state !== "expired" && (
         <section className="account-organization" aria-labelledby="account-organization-title">
           <h3 id="account-organization-title">Organization</h3>
           {accountType === "organization" ? (
