@@ -188,6 +188,9 @@ def test_valid_access_token_returns_verified_subject_and_memberships() -> None:
     assert response.json() == {
         "user_id": str(SUBJECT_A),
         "issuer": ISSUER,
+        "account_type": "individual",
+        "organization_name": None,
+        "can_manage_workspace": False,
         "workspaces": [{"id": str(WORKSPACE_A), "name": "A primary", "role": "owner"}],
     }
     assert directory.calls == [("list", SUBJECT_A, token)]
