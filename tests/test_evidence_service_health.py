@@ -42,6 +42,7 @@ def test_service_routes_are_limited_and_docs_are_disabled() -> None:
         ("POST", "/v1/deletion-requests/{request_id}/accept"),
         ("GET", "/v1/deletion-requests/{request_id}"),
         ("GET", "/v1/me"),
+        ("GET", "/v1/me/deletion-request"),
         ("POST", "/v1/me/data-deletions"),
         ("PUT", "/v1/me/personal-workspace"),
         ("DELETE", "/v1/me/personal-workspace"),
