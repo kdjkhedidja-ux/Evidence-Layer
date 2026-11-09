@@ -61,13 +61,13 @@ export const CAPABILITY_GROUPS: readonly CapabilityGroup[] = [
       {
         name: "Roles",
         status: "Limited / Read only",
-        detail: "The current user's owner or member role is shown; role changes are unavailable.",
+        detail: "The current user's owner, admin, or member role is shown; role changes are unavailable.",
         href: "/workspace#membership-heading",
       },
       {
         name: "Permissions",
         status: "Limited / Read only",
-        detail: "Current owner/member limits are enforced by the service and RLS. There is no permissions editor.",
+        detail: "Current owner, admin, and member limits are enforced by the service and RLS. There is no permissions editor.",
         href: "/workspace#membership-heading",
       },
     ],
@@ -84,19 +84,19 @@ export const CAPABILITY_GROUPS: readonly CapabilityGroup[] = [
       {
         name: "Create",
         status: "Partially available",
-        detail: "Workspace owners can create records; members have read-only access.",
+        detail: "Workspace owners and admins can create records; members have read-only access.",
         href: "/workspace#records-heading",
       },
       {
         name: "Edit",
         status: "Partially available",
-        detail: "Workspace owners can edit records; members have read-only access.",
+        detail: "Workspace owners and admins can edit records; members have read-only access.",
         href: "/workspace#records-heading",
       },
       {
         name: "Delete",
         status: "Partially available",
-        detail: "Workspace owners can delete records; members have read-only access.",
+        detail: "Workspace owners and admins can delete records; members have read-only access.",
         href: "/workspace#records-heading",
       },
       {
