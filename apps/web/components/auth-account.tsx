@@ -363,9 +363,9 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
         )}
         <h3 id="account-deletion-title">Delete account</h3>
         <p className="account-deletion-scope">
-          This requests deletion of the account data this service manages. Evidence and
-          relationships in shared workspaces, workspace ownership, snapshots, and stored files are
-          retained by the current deletion slice. Accepting a request blocks access immediately and
+          This deletes your personal workspace and its data, snapshots, stored files,
+          memberships, and sign-in identity. Shared workspace content owned by other
+          members is not deleted. Accepting a request blocks access immediately and
           cannot be cancelled.
         </p>
         {deletion ? (
