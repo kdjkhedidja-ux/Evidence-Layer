@@ -200,6 +200,12 @@
       "version": "20261109120000",
       "sha256": "bc75b5538353f944d62328b26921aa9fab80384aa9c9d41083042a31216597c2",
       "provenance": "Stage A account type and organization provisioning."
+    },
+    {
+      "file": "20261109130000_organizations_and_group_workspaces.sql",
+      "version": "20261109130000",
+      "sha256": "1aa18a26e9a7617de1c19c57fa1a5c87dd5777a0f73fd99e71e5a1cd64c1bfcb",
+      "provenance": "Stage B organizations, memberships, group workspaces, and admin APIs."
     }
   ]
 }

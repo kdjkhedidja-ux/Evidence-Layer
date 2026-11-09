@@ -65,6 +65,7 @@ V_ACCOUNT_EVIDENCE_OWNERSHIP = "20261105140000"
 V_DELETION_RESTORE_RECONCILIATION = "20261105150000"
 V_PERSONAL_WORKSPACE_DELETION = "20261108120000"
 V_ACCOUNT_TYPE = "20261109120000"
+V_ORGANIZATIONS = "20261109130000"
 V_INDIVIDUAL_ACCOUNT_TERMINAL = "20261108130000"
 V_AUDIT_FK_DROP = "20261108140000"
 V_ACCEPT_V2 = "20261108150000"
@@ -516,6 +517,8 @@ def expected_policy_identity(policy: str) -> str:
         ("source_grants_", "public", "source_grants"),
         ("account_lifecycle_", "public", "account_lifecycle"),
         ("accounts_", "public", "accounts"),
+        ("organizations_", "public", "organizations"),
+        ("organization_memberships_", "public", "organization_memberships"),
         ("evidence_deletion_audit_", "public", "evidence_deletion_audit"),
         ("data_deletion_requests_", "public", "data_deletion_requests"),
         ("data_deletion_manifest_", "public", "data_deletion_manifest"),
@@ -548,6 +551,7 @@ def expected_catalog(versions: list[str]) -> dict:
     restore_reconciliation = V_DELETION_RESTORE_RECONCILIATION in present
     personal_deletion = V_PERSONAL_WORKSPACE_DELETION in present
     account_type = V_ACCOUNT_TYPE in present
+    organizations = V_ORGANIZATIONS in present
     individual_terminal = V_INDIVIDUAL_ACCOUNT_TERMINAL in present
     audit_fk_drop = V_AUDIT_FK_DROP in present
     accept_v2 = V_ACCEPT_V2 in present
@@ -592,6 +596,9 @@ def expected_catalog(versions: list[str]) -> dict:
         tables["public.data_deletion_storage_queue"] = (True, True)
     if account_type:
         tables["public.accounts"] = (True, True)
+    if organizations:
+        tables["public.organizations"] = (True, True)
+        tables["public.organization_memberships"] = (True, True)
 
     indexes: set[str] = set()
     if identity:
@@ -620,6 +627,13 @@ def expected_catalog(versions: list[str]) -> dict:
         })
     if account_type:
         indexes.add("public.accounts_pkey")
+    if organizations:
+        indexes.update({
+            "public.organizations_pkey",
+            "public.organizations_owner_user_unique",
+            "public.organization_memberships_pkey",
+            "public.organization_memberships_user_active_idx",
+        })
     if source:
         indexes.update({
             "public.source_snapshots_pkey",
@@ -793,6 +807,11 @@ def expected_catalog(versions: list[str]) -> dict:
         })
     if account_type:
         policies.add("public.accounts_select_self")
+    if organizations:
+        policies.update({
+            "public.organizations_select_member",
+            "public.organization_memberships_select_self",
+        })
 
     triggers: set[str] = set()
     if evidence:
@@ -934,6 +953,14 @@ def expected_catalog(versions: list[str]) -> dict:
             "private.provision_account_type_for_auth_user",
             "public.create_organization_account",
         })
+    if organizations:
+        functions.update({
+            "public.organization_overview",
+            "public.create_group_workspace",
+            "public.add_organization_member",
+            "public.update_organization_member_role",
+            "public.remove_organization_member",
+        })
 
     foreign_keys: set[tuple[str, str, str, str]] = set()
     if identity:
@@ -976,6 +1003,14 @@ def expected_catalog(versions: list[str]) -> dict:
             "auth.users",
             "c",
         ))
+    if organizations:
+        foreign_keys.update({
+            ("organizations_owner_user_id_fkey", "public.organizations", "auth.users", "c"),
+            ("organization_memberships_organization_id_fkey", "public.organization_memberships", "public.organizations", "c"),
+            ("organization_memberships_user_id_fkey", "public.organization_memberships", "auth.users", "c"),
+            ("accounts_organization_id_fkey", "public.accounts", "public.organizations", "c"),
+            ("workspaces_organization_id_fkey", "public.workspaces", "public.organizations", "c"),
+        })
     if deletion_audit and not audit_fk_drop:
         audit_fk_action = "n" if personal_deletion else "r"
         foreign_keys.update({

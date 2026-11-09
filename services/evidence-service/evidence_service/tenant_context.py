@@ -8,7 +8,7 @@ from uuid import UUID
 
 from evidence_service.auth import Principal
 
-WorkspaceRole = Literal["owner", "member"]
+WorkspaceRole = Literal["owner", "admin", "member"]
 AccountType = Literal["individual", "organization"]
 
 
@@ -71,7 +71,7 @@ async def resolve_workspace_context(
     if (
         type(membership) is not WorkspaceMembership
         or membership.workspace_id != workspace_id
-        or membership.role not in {"owner", "member"}
+        or membership.role not in {"owner", "admin", "member"}
         or not isinstance(membership.workspace_name, str)
         or not membership.workspace_name.strip()
     ):

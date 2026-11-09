@@ -267,7 +267,7 @@ class SupabaseWorkspaceRepository(WorkspaceDirectory):
             workspace_id = UUID(str(row["workspace_id"]))
             role = row["role"]
             workspace = row["workspace"]
-            if user_id != principal.subject or role not in {"owner", "member"}:
+            if user_id != principal.subject or role not in {"owner", "admin", "member"}:
                 raise ValueError
             if not isinstance(workspace, dict):
                 raise ValueError

@@ -50,6 +50,13 @@ from evidence_service.recovery_fence import (
     RecoveryFenceConfigurationError,
     RecoveryFenceReader,
 )
+from evidence_service.organization_repository import (
+    OrganizationAccessDenied,
+    OrganizationDataUnavailable,
+    OrganizationMemberNotFound,
+    OrganizationValidationError,
+    SupabaseOrganizationRepository,
+)
 from evidence_service.supabase_repository import (
     SupabaseWorkspaceRepository,
     WorkspaceDataUnavailable,
@@ -66,7 +73,7 @@ from evidence_service.tenant_context import (
 class WorkspaceSummary(BaseModel):
     id: UUID
     name: str
-    role: Literal["owner", "member"]
+    role: Literal["owner", "admin", "member"]
 
 
 class MeResponse(BaseModel):
@@ -82,10 +89,57 @@ class OrganizationCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=120)
 
 
+class OrganizationMemberSummary(BaseModel):
+    user_id: UUID
+    email: str
+    role: Literal["admin", "member"]
+
+
+class OrganizationWorkspaceSummary(BaseModel):
+    id: UUID
+    name: str
+
+
+class OrganizationOverviewResponse(BaseModel):
+    id: UUID
+    name: str
+    owner_user_id: UUID
+    members: list[OrganizationMemberSummary]
+    workspaces: list[OrganizationWorkspaceSummary]
+
+
+class GroupWorkspaceCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+
+
+class GroupWorkspaceResponse(BaseModel):
+    workspace_id: UUID
+    name: str
+
+
+class OrganizationMemberCreateRequest(BaseModel):
+    email: str = Field(min_length=3, max_length=320)
+    role: Literal["admin", "member"]
+
+
+class OrganizationMemberRoleRequest(BaseModel):
+    role: Literal["admin", "member"]
+
+
+class OrganizationMemberRoleResponse(BaseModel):
+    user_id: UUID
+    role: Literal["admin", "member"]
+
+
+class OrganizationMemberRemovalResponse(BaseModel):
+    user_id: UUID
+    removed: bool
+
+
 class WorkspaceResponse(BaseModel):
     id: UUID
     name: str
-    role: Literal["owner", "member"]
+    role: Literal["owner", "admin", "member"]
 
 
 class SourceVersionSummary(BaseModel):
@@ -560,6 +614,24 @@ def _workspace_directory(request: Request) -> WorkspaceDirectory:
     return directory
 
 
+def _organization_repository(request: Request) -> SupabaseOrganizationRepository:
+    repository = request.app.state.organization_repository
+    if repository is None:
+        repository = SupabaseOrganizationRepository(_settings_for(request))
+        request.app.state.organization_repository = repository
+    return repository
+
+
+def _raise_organization_error(exc: Exception) -> None:
+    if isinstance(exc, OrganizationAccessDenied):
+        raise HTTPException(status_code=403, detail="Organization admin required")
+    if isinstance(exc, OrganizationMemberNotFound):
+        raise HTTPException(status_code=404, detail="Organization member not found")
+    if isinstance(exc, OrganizationValidationError):
+        raise HTTPException(status_code=422, detail="Invalid organization value")
+    raise HTTPException(status_code=503, detail="Organization service is unavailable")
+
+
 def _evidence_repository(request: Request) -> EvidenceRepository:
     repository = request.app.state.evidence_repository
     if repository is None:
@@ -664,6 +736,7 @@ def create_app(
     evidence_repository: EvidenceRepository | None = None,
     relationship_repository: RelationshipRepository | None = None,
     deletion_repository: DeletionRepository | None = None,
+    organization_repository=None,
     source_read_path=None,
     source_catalog_factory=None,
 ) -> FastAPI:
@@ -682,6 +755,7 @@ def create_app(
     application.state.evidence_repository = evidence_repository
     application.state.relationship_repository = relationship_repository
     application.state.deletion_repository = deletion_repository
+    application.state.organization_repository = organization_repository
     application.state.trusted_source_context_issuer = None
     application.state.source_read_path = source_read_path
     application.state.source_catalog_factory = source_catalog_factory
@@ -919,6 +993,136 @@ def create_app(
             ],
         )
 
+    @application.get(
+        "/v1/organization",
+        response_model=OrganizationOverviewResponse,
+    )
+    async def get_organization(
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> OrganizationOverviewResponse:
+        try:
+            data = await _with_account_gate(
+                request,
+                auth,
+                lambda: _organization_repository(request).overview(auth.access_token),
+            )
+        except (
+            OrganizationDataUnavailable,
+            OrganizationAccessDenied,
+            OrganizationMemberNotFound,
+            OrganizationValidationError,
+        ) as exc:
+            _raise_organization_error(exc)
+        return OrganizationOverviewResponse(**data)
+
+    @application.post(
+        "/v1/organization/workspaces",
+        response_model=GroupWorkspaceResponse,
+        status_code=201,
+    )
+    async def create_group_workspace_route(
+        payload: GroupWorkspaceCreateRequest,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> GroupWorkspaceResponse:
+        try:
+            data = await _with_account_gate(
+                request,
+                auth,
+                lambda: _organization_repository(request).create_group_workspace(
+                    auth.access_token, payload.name
+                ),
+            )
+        except (
+            OrganizationDataUnavailable,
+            OrganizationAccessDenied,
+            OrganizationMemberNotFound,
+            OrganizationValidationError,
+        ) as exc:
+            _raise_organization_error(exc)
+        return GroupWorkspaceResponse(**data)
+
+    @application.post(
+        "/v1/organization/members",
+        response_model=OrganizationMemberSummary,
+        status_code=201,
+    )
+    async def add_organization_member_route(
+        payload: OrganizationMemberCreateRequest,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> OrganizationMemberSummary:
+        try:
+            data = await _with_account_gate(
+                request,
+                auth,
+                lambda: _organization_repository(request).add_member(
+                    auth.access_token, payload.email, payload.role
+                ),
+            )
+        except (
+            OrganizationDataUnavailable,
+            OrganizationAccessDenied,
+            OrganizationMemberNotFound,
+            OrganizationValidationError,
+        ) as exc:
+            _raise_organization_error(exc)
+        return OrganizationMemberSummary(**data)
+
+    @application.patch(
+        "/v1/organization/members/{user_id}",
+        response_model=OrganizationMemberRoleResponse,
+    )
+    async def update_organization_member_role_route(
+        user_id: UUID,
+        payload: OrganizationMemberRoleRequest,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> OrganizationMemberRoleResponse:
+        try:
+            data = await _with_account_gate(
+                request,
+                auth,
+                lambda: _organization_repository(request).update_member_role(
+                    auth.access_token, str(user_id), payload.role
+                ),
+            )
+        except (
+            OrganizationDataUnavailable,
+            OrganizationAccessDenied,
+            OrganizationMemberNotFound,
+            OrganizationValidationError,
+        ) as exc:
+            _raise_organization_error(exc)
+        return OrganizationMemberRoleResponse(**data)
+
+    @application.delete(
+        "/v1/organization/members/{user_id}",
+        response_model=OrganizationMemberRemovalResponse,
+    )
+    async def remove_organization_member_route(
+        user_id: UUID,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> OrganizationMemberRemovalResponse:
+        try:
+            data = await _with_account_gate(
+                request,
+                auth,
+                lambda: _organization_repository(request).remove_member(
+                    auth.access_token, str(user_id)
+                ),
+            )
+        except (
+            OrganizationDataUnavailable,
+            OrganizationAccessDenied,
+            OrganizationMemberNotFound,
+            OrganizationValidationError,
+        ) as exc:
+            _raise_organization_error(exc)
+        return OrganizationMemberRemovalResponse(**data)
+
     @application.put(
         "/v1/me/personal-workspace", response_model=WorkspaceResponse
     )
@@ -1061,7 +1265,7 @@ def create_app(
         auth: AuthenticatedRequest = Depends(require_authenticated_request),
     ) -> EvidenceRecord:
         context = await _resolve_workspace_or_404(request, auth, workspace_id)
-        if context.role != "owner":
+        if context.role not in {"owner", "admin"}:
             raise HTTPException(status_code=403, detail="Workspace owner access is required")
         await _require_visible_source_link(
             request, auth, context.workspace_id, body.linked_pair()
@@ -1123,7 +1327,7 @@ def create_app(
         auth: AuthenticatedRequest = Depends(require_authenticated_request),
     ) -> EvidenceRecord:
         context = await _resolve_workspace_or_404(request, auth, workspace_id)
-        if context.role != "owner":
+        if context.role not in {"owner", "admin"}:
             raise HTTPException(status_code=403, detail="Workspace owner access is required")
         if body.model_fields_set & {"source_id", "source_version_id"}:
             await _require_visible_source_link(
@@ -1159,7 +1363,7 @@ def create_app(
         auth: AuthenticatedRequest = Depends(require_authenticated_request),
     ) -> Response:
         context = await _resolve_workspace_or_404(request, auth, workspace_id)
-        if context.role != "owner":
+        if context.role not in {"owner", "admin"}:
             raise HTTPException(status_code=403, detail="Workspace owner access is required")
         try:
             deleted = await _with_account_gate(
@@ -1212,7 +1416,7 @@ def create_app(
         auth: AuthenticatedRequest = Depends(require_authenticated_request),
     ) -> EvidenceRelationship:
         context = await _resolve_workspace_or_404(request, auth, workspace_id)
-        if context.role != "owner":
+        if context.role not in {"owner", "admin"}:
             raise HTTPException(status_code=403, detail="Workspace owner access is required")
         try:
             return await _with_account_gate(
@@ -1247,7 +1451,7 @@ def create_app(
         auth: AuthenticatedRequest = Depends(require_authenticated_request),
     ) -> EvidenceRelationship:
         context = await _resolve_workspace_or_404(request, auth, workspace_id)
-        if context.role != "owner":
+        if context.role not in {"owner", "admin"}:
             raise HTTPException(status_code=403, detail="Workspace owner access is required")
         try:
             relationship = await _with_account_gate(
@@ -1281,7 +1485,7 @@ def create_app(
         auth: AuthenticatedRequest = Depends(require_authenticated_request),
     ) -> Response:
         context = await _resolve_workspace_or_404(request, auth, workspace_id)
-        if context.role != "owner":
+        if context.role not in {"owner", "admin"}:
             raise HTTPException(status_code=403, detail="Workspace owner access is required")
         try:
             deleted = await _with_account_gate(

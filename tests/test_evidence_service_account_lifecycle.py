@@ -652,9 +652,10 @@ def test_new_v1_routes_must_bind_the_lifecycle_dependency_and_healthz_is_public(
         )
 
     # 14 data routes, 4 deletion control routes (create/accept/status/current),
-    # 2 personal deletion routes, and the organization account route. All
-    # require authentication; only data routes use the lifecycle data gate.
-    assert len(protected) == 21
+    # 2 personal deletion routes, the organization account route, and 5
+    # organization management routes. All require authentication; only data
+    # routes use the lifecycle data gate.
+    assert len(protected) == 26
     assert all(has_auth_dependency(route.dependant) for route in protected)
     assert [(route.path, route.methods) for route in public] == [
         ("/healthz", {"GET"})
