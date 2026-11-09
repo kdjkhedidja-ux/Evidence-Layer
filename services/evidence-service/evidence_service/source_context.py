@@ -129,7 +129,7 @@ class TrustedSourceContextIssuer:
         if (
             type(context) is not WorkspaceContext
             or context.workspace_id != workspace_id
-            or context.role not in {"owner", "member"}
+            or context.role not in {"owner", "admin", "member"}
         ):
             raise SourceContextDenied("Workspace membership is malformed")
 

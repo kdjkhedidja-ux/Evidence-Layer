@@ -173,6 +173,16 @@ def test_issuer_derives_identity_from_verified_token_and_active_membership():
     assert membership_request.headers["apikey"] == settings().publishable_key
 
 
+def test_group_workspace_admin_membership_can_issue_source_context():
+    key = signing_key()
+    token = signed_token(key)
+    issuer, _ = issuer_for(key, membership_payload=[membership_row(role="admin")])
+
+    context = asyncio.run(issuer.issue(token, WORKSPACE_A))
+
+    assert context.tenant_id == str(WORKSPACE_A)
+
+
 def test_app_composes_source_issuer_from_its_server_owned_verifier_and_directory():
     key = signing_key()
     token = signed_token(key)

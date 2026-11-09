@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 import AuthAccount from "../components/auth-account";
 import ThemeToggle from "./theme-toggle";
 
-type Workspace = { id: string; name: string; role: "owner" | "member" };
+type Workspace = { id: string; name: string; role: "owner" | "admin" | "member" };
 type Evidence = {
   id: string;
   workspace_id: string;
@@ -253,7 +253,7 @@ export default function LiveEvidenceExplorer({
         }
         const memberships = payload.workspaces.filter((item): item is Workspace =>
           isRecord(item) && typeof item.id === "string" && typeof item.name === "string" &&
-          (item.role === "owner" || item.role === "member"),
+          (item.role === "owner" || item.role === "admin" || item.role === "member"),
         );
         setWorkspaces(memberships);
         setWorkspaceId((current) => memberships.some((item) => item.id === current) ? current : memberships[0]?.id ?? "");
@@ -537,7 +537,7 @@ export default function LiveEvidenceExplorer({
                       </div>
                       <p>{relationship.rationale}</p>
                       <small>Basis: {relationship.provenance_note} · recorded by {relationship.created_by} · updated {new Date(relationship.updated_at).toLocaleString()}</small>
-                      {selectedWorkspace.role === "owner" && editingRelationship === relationship.id ? (
+                      {selectedWorkspace.role !== "member" && editingRelationship === relationship.id ? (
                         <div className="live-edit-form">
                           <select aria-label="Relationship type" value={editDraft.relation_type} onChange={(event) => setEditDraft({ ...editDraft, relation_type: event.target.value as Relationship["relation_type"] })}>
                             {Object.entries(RELATION_LABELS).map(([value, label]) => <option value={value} key={value}>{label}</option>)}
@@ -547,7 +547,7 @@ export default function LiveEvidenceExplorer({
                           <button type="button" onClick={() => void updateRelationship(relationship.id)}>Save</button>
                           <button type="button" onClick={() => setEditingRelationship("")}>Cancel</button>
                         </div>
-                      ) : selectedWorkspace.role === "owner" ? (
+                      ) : selectedWorkspace.role !== "member" ? (
                         <div className="live-row-actions">
                           <button type="button" onClick={() => {
                             setEditingRelationship(relationship.id);
@@ -559,7 +559,7 @@ export default function LiveEvidenceExplorer({
                     </article>
                   );
                 })}
-                {relationshipsState === "ready" && selectedWorkspace.role === "owner" && records.length > 1 && (
+                {relationshipsState === "ready" && selectedWorkspace.role !== "member" && records.length > 1 && (
                   <form className="live-relationship-form" onSubmit={(event) => void createRelationship(event)}>
                     <h3>Document a relationship</h3>
                     <p>Record an explicit, reviewable link. This does not claim causation or infer a relationship from text.</p>
@@ -613,7 +613,7 @@ export default function LiveEvidenceExplorer({
               </section>
               <section id="settings-access" className="live-section live-capability">
                 <p className="live-eyebrow">Settings &amp; access</p><h2>{selectedWorkspace.name}</h2>
-                <p>Your verified role is <strong>{selectedWorkspace.role}</strong>. Members may inspect active workspace data; only owners can create, edit, or delete documented relationships.</p>
+                <p>Your verified role is <strong>{selectedWorkspace.role}</strong>. Members may inspect active workspace data; only owners and admins can create, edit, or delete documented relationships.</p>
                 <p>Invitations, role changes, and workspace settings are unavailable because the current service has no invitation or access-administration API. Use Workspace for current evidence and source access.</p>
                 <p>Personal API Keys are planned as separate credentials. They are not session JWTs, and this application has no key issuance or revocation endpoint.</p>
                 <Link href="/workspace">Open Workspace</Link>

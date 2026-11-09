@@ -6,7 +6,7 @@ import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react
 import { createSupabaseBrowserClient } from "../../lib/supabase/client";
 import { CAPABILITY_GROUPS } from "./capability-catalog";
 
-type Workspace = { id: string; name: string; role: "owner" | "member" };
+type Workspace = { id: string; name: string; role: "owner" | "admin" | "member" };
 type EvidenceRecord = {
   id: string;
   workspace_id: string;
@@ -140,7 +140,7 @@ export default function WorkspaceConsole({
           typeof candidate.id === "string" &&
           UUID.test(candidate.id) &&
           typeof candidate.name === "string" &&
-          (candidate.role === "owner" || candidate.role === "member")
+          (candidate.role === "owner" || candidate.role === "admin" || candidate.role === "member")
         );
       });
       setWorkspaces(memberships);
@@ -510,7 +510,11 @@ export default function WorkspaceConsole({
                   <p><strong>Type:</strong> Not recorded in the current schema</p>
                   <p>
                     <strong>Role:</strong>{" "}
-                    {selectedWorkspace.role === "owner" ? "Owner" : "Member"}
+                    {selectedWorkspace.role === "owner"
+                      ? "Owner"
+                      : selectedWorkspace.role === "admin"
+                        ? "Admin"
+                        : "Member"}
                   </p>
                 </>
               )}
@@ -586,7 +590,7 @@ export default function WorkspaceConsole({
                           )}
                         </p>
                       )}
-                      {selectedWorkspace.role === "owner" ? (
+                      {selectedWorkspace.role !== "member" ? (
                         <div className="workspace-record-actions">
                           <button type="button" onClick={() => editRecord(record)} disabled={pending}>
                             Edit
@@ -623,14 +627,14 @@ export default function WorkspaceConsole({
                     </article>
                   ))}
                 </section>
-                {selectedWorkspace.role === "owner" && <form id="evidence-editor" className="workspace-form" onSubmit={saveEvidence}>
+                {selectedWorkspace.role !== "member" && <form id="evidence-editor" className="workspace-form" onSubmit={saveEvidence}>
                   <h3 id="evidence-editor-title" tabIndex={-1}>
                     {editingId ? "Edit evidence record" : "Add evidence record"}
                   </h3>
                   <p className="workspace-note">
-                    Records belong to the selected workspace. Owners can add or edit them; members
-                    keep read-only access. Source links are optional and only published versions can
-                    be attached.
+                    Records belong to the selected workspace. Owners and admins can add or edit them;
+                    members keep read-only access. Source links are optional and only published
+                    versions can be attached.
                   </p>
                   <label htmlFor="evidence-source-label">Source label (optional)</label>
                   <input

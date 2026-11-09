@@ -204,6 +204,27 @@ describe("live Evidence Explorer", () => {
     });
   });
 
+  it("keeps an organization admin group workspace and its write controls", async () => {
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/api/evidence/me") {
+        return Response.json({
+          user_id: USER_ID,
+          workspaces: [{ ...WORKSPACE, name: "Group workspace", role: "admin" }],
+        });
+      }
+      if (url.endsWith("/evidence")) return Response.json([RECORD_A, RECORD_B]);
+      if (url.endsWith("/sources")) return Response.json([]);
+      if (url.endsWith("/relationships")) return Response.json([]);
+      return Response.json({}, { status: 404 });
+    });
+    render(<LiveEvidenceExplorer account={{ id: USER_ID, email: "reader@example.test" }} />);
+    await screen.findAllByText("Stored source claim alpha.");
+    expect(screen.getByRole("combobox", { name: "Workspace" })).toHaveValue(WORKSPACE_ID);
+    expect(screen.getByRole("option", { name: "Group workspace · admin" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Document a relationship" })).toBeInTheDocument();
+  });
+
   it("requires authentication before displaying any workspace data", async () => {
     render(<LiveEvidenceExplorer account={null} />);
     expect(await screen.findByRole("heading", { name: "Sign in to inspect evidence" })).toBeInTheDocument();

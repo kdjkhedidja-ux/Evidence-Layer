@@ -111,7 +111,9 @@ async function readIdentity(page: Page): Promise<IdentityResult> {
       (workspace) => {
         if (!workspace || typeof workspace !== "object") return false;
         const candidateWorkspace = workspace as { role?: unknown };
-        return candidateWorkspace.role === "owner" || candidateWorkspace.role === "member";
+        return candidateWorkspace.role === "owner" ||
+          candidateWorkspace.role === "admin" ||
+          candidateWorkspace.role === "member";
       },
     );
     return {
