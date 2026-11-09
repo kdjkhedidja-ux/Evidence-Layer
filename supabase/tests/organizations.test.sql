@@ -33,12 +33,20 @@ select is((select role from public.workspace_memberships
     'admin', 'the admin has an admin workspace membership');
 select is((public.add_organization_member('org-member@example.test', 'member') ->> 'role'),
     'member', 'the admin adds a member');
+
+select set_config('request.jwt.claim.sub', 'e1000000-0000-4000-8000-000000000002', true);
+select set_config('request.jwt.claims',
+    json_build_object('sub', 'e1000000-0000-4000-8000-000000000002')::text, true);
 select is((select role from public.organization_memberships
     where user_id = 'e1000000-0000-4000-8000-000000000002'),
     'member', 'the member is in the organization');
 select is((select role from public.workspace_memberships
     where user_id = 'e1000000-0000-4000-8000-000000000002'),
     'member', 'the member has a workspace membership');
+
+select set_config('request.jwt.claim.sub', 'e1000000-0000-4000-8000-000000000001', true);
+select set_config('request.jwt.claims',
+    json_build_object('sub', 'e1000000-0000-4000-8000-000000000001')::text, true);
 select is(jsonb_array_length(public.organization_overview() -> 'members'), 2,
     'the overview lists the admin and the member');
 
@@ -48,6 +56,10 @@ select throws_ok(
 select is((public.update_organization_member_role(
     'e1000000-0000-4000-8000-000000000002'::uuid, 'admin') ->> 'role'),
     'admin', 'the admin promotes the member');
+
+select set_config('request.jwt.claim.sub', 'e1000000-0000-4000-8000-000000000002', true);
+select set_config('request.jwt.claims',
+    json_build_object('sub', 'e1000000-0000-4000-8000-000000000002')::text, true);
 select is((select role from public.workspace_memberships
     where user_id = 'e1000000-0000-4000-8000-000000000002'),
     'admin', 'the promoted member gets the admin workspace role');
