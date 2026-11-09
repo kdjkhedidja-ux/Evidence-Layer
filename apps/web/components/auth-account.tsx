@@ -7,6 +7,15 @@ import { deletionRequestsEnabled as resolveDeletionRequestsEnabled } from "../li
 import type { DeletionRequestView } from "../lib/deletion-api";
 
 type Workspace = { id: string; name: string; role: "owner" | "admin" | "member" };
+type OrganizationMember = { user_id: string; email: string; role: "admin" | "member" };
+type OrganizationWorkspace = { id: string; name: string };
+type OrganizationOverview = {
+  id: string;
+  name: string;
+  owner_user_id: string;
+  members: OrganizationMember[];
+  workspaces: OrganizationWorkspace[];
+};
 type PanelState = "loading" | "ready" | "expired" | "unavailable";
 
 const DELETION_STATUS_LABELS: Record<DeletionRequestView["status"], string> = {
@@ -36,6 +45,15 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
   const [organizationInput, setOrganizationInput] = useState("");
   const [organizationPending, setOrganizationPending] = useState(false);
   const [organizationMessage, setOrganizationMessage] = useState("");
+  const [organization, setOrganization] = useState<OrganizationOverview | null>(null);
+  const [organizationLoading, setOrganizationLoading] = useState(false);
+  const [organizationError, setOrganizationError] = useState("");
+  const [memberEmail, setMemberEmail] = useState("");
+  const [memberRole, setMemberRole] = useState<"admin" | "member">("member");
+  const [memberPending, setMemberPending] = useState(false);
+  const [memberActionPending, setMemberActionPending] = useState<string | null>(null);
+  const [workspaceName, setWorkspaceName] = useState("");
+  const [workspacePending, setWorkspacePending] = useState(false);
   const deletionRequestsEnabled = resolveDeletionRequestsEnabled({
     flag: process.env.NEXT_PUBLIC_DELETION_REQUESTS_ENABLED,
   });
@@ -121,6 +139,124 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
       setOrganizationPending(false);
     }
   }, [loadWorkspaces, organizationInput]);
+
+  const loadOrganization = useCallback(async () => {
+    setOrganizationLoading(true);
+    setOrganizationError("");
+    try {
+      const response = await fetch("/api/evidence/organization", { cache: "no-store" });
+      if (response.status === 401) { setState("expired"); return; }
+      if (response.status === 403) {
+        setOrganization(null);
+        setOrganizationError("Organization admin access is required.");
+        return;
+      }
+      if (!response.ok) {
+        setOrganizationError("Organization service is unavailable.");
+        return;
+      }
+      setOrganization((await response.json()) as OrganizationOverview);
+    } catch {
+      setOrganizationError("Organization service is unavailable.");
+    } finally {
+      setOrganizationLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (accountType === "organization") {
+      void loadOrganization();
+    } else {
+      setOrganization(null);
+    }
+  }, [accountType, loadOrganization]);
+
+  const addOrganizationMember = useCallback(async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const email = memberEmail.trim();
+    if (!email) return;
+    setMemberPending(true);
+    setOrganizationError("");
+    try {
+      const response = await fetch("/api/evidence/organization/members", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({ email, role: memberRole }),
+      });
+      if (response.status === 401) { setState("expired"); return; }
+      if (!response.ok) { setOrganizationError("Member could not be added."); return; }
+      setMemberEmail("");
+      await loadOrganization();
+    } catch {
+      setOrganizationError("Member could not be added.");
+    } finally {
+      setMemberPending(false);
+    }
+  }, [loadOrganization, memberEmail, memberRole]);
+
+  const updateOrganizationMemberRole = useCallback(async (userId: string, role: "admin" | "member") => {
+    setMemberActionPending(userId);
+    setOrganizationError("");
+    try {
+      const response = await fetch(`/api/evidence/organization/members/${encodeURIComponent(userId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({ role }),
+      });
+      if (response.status === 401) { setState("expired"); return; }
+      if (!response.ok) { setOrganizationError("Member role could not be updated."); return; }
+      await loadOrganization();
+    } catch {
+      setOrganizationError("Member role could not be updated.");
+    } finally {
+      setMemberActionPending(null);
+    }
+  }, [loadOrganization]);
+
+  const removeOrganizationMember = useCallback(async (userId: string) => {
+    if (!window.confirm("Remove this member from the organization?")) return;
+    setMemberActionPending(userId);
+    setOrganizationError("");
+    try {
+      const response = await fetch(`/api/evidence/organization/members/${encodeURIComponent(userId)}`, {
+        method: "DELETE",
+        cache: "no-store",
+      });
+      if (response.status === 401) { setState("expired"); return; }
+      if (!response.ok) { setOrganizationError("Member could not be removed."); return; }
+      await loadOrganization();
+    } catch {
+      setOrganizationError("Member could not be removed.");
+    } finally {
+      setMemberActionPending(null);
+    }
+  }, [loadOrganization]);
+
+  const createGroupWorkspace = useCallback(async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const name = workspaceName.trim();
+    if (!name) return;
+    setWorkspacePending(true);
+    setOrganizationError("");
+    try {
+      const response = await fetch("/api/evidence/organization/workspaces", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({ name }),
+      });
+      if (response.status === 401) { setState("expired"); return; }
+      if (!response.ok) { setOrganizationError("Group workspace could not be created."); return; }
+      setWorkspaceName("");
+      await loadOrganization();
+    } catch {
+      setOrganizationError("Group workspace could not be created.");
+    } finally {
+      setWorkspacePending(false);
+    }
+  }, [loadOrganization, workspaceName]);
 
   const createPersonalWorkspace = useCallback(async () => {
     setPending(true);
@@ -438,13 +574,97 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
           <h3 id="account-organization-title">Organization</h3>
           {accountType === "organization" ? (
             <>
-              <p>Organization: <strong>{organizationName}</strong></p>
+              <p>Organization: <strong>{organization?.name ?? organizationName}</strong></p>
               <section className="account-access" aria-labelledby="account-access-title">
                 <h3 id="account-access-title">Workspace & Access</h3>
-                <p>
-                  Manage members, roles, and group workspaces for this organization. Member
-                  controls are enabled in the next stage.
-                </p>
+                {organizationLoading && <p role="status">Loading organization…</p>}
+                {organizationError && <p className="account-message" role="alert">{organizationError}</p>}
+                {organization && (
+                  <>
+                    <h4>Members</h4>
+                    <ul className="organization-members">
+                      {organization.members.map((member) => (
+                        <li key={member.user_id}>
+                          <span>{member.email}</span>
+                          {member.user_id === organization.owner_user_id ? (
+                            <strong>Owner</strong>
+                          ) : (
+                            <>
+                              <select
+                                aria-label={`Role for ${member.email}`}
+                                value={member.role}
+                                disabled={memberActionPending === member.user_id}
+                                onChange={(event) => void updateOrganizationMemberRole(
+                                  member.user_id,
+                                  event.target.value as "admin" | "member",
+                                )}
+                              >
+                                <option value="admin">admin</option>
+                                <option value="member">member</option>
+                              </select>
+                              <button
+                                type="button"
+                                disabled={memberActionPending === member.user_id}
+                                onClick={() => void removeOrganizationMember(member.user_id)}
+                              >
+                                Remove
+                              </button>
+                            </>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                    <form className="account-organization-form" onSubmit={(event) => void addOrganizationMember(event)}>
+                      <label htmlFor="organization-member-email">Member email</label>
+                      <input
+                        id="organization-member-email"
+                        type="email"
+                        value={memberEmail}
+                        onChange={(event) => setMemberEmail(event.target.value)}
+                        disabled={memberPending}
+                      />
+                      <select
+                        aria-label="New member role"
+                        value={memberRole}
+                        onChange={(event) => setMemberRole(event.target.value as "admin" | "member")}
+                        disabled={memberPending}
+                      >
+                        <option value="member">member</option>
+                        <option value="admin">admin</option>
+                      </select>
+                      <button type="submit" disabled={memberPending || !memberEmail.trim()}>
+                        {memberPending ? "Adding…" : "Add member"}
+                      </button>
+                    </form>
+                    <h4>Group workspaces</h4>
+                    <ul className="organization-workspaces">
+                      {organization.workspaces.map((workspace) => (
+                        <li key={workspace.id}>{workspace.name}</li>
+                      ))}
+                    </ul>
+                    <form className="account-organization-form" onSubmit={(event) => void createGroupWorkspace(event)}>
+                      <label htmlFor="organization-workspace-name">Group workspace name</label>
+                      <input
+                        id="organization-workspace-name"
+                        value={workspaceName}
+                        onChange={(event) => setWorkspaceName(event.target.value)}
+                        maxLength={120}
+                        disabled={workspacePending}
+                      />
+                      <button type="submit" disabled={workspacePending || !workspaceName.trim()}>
+                        {workspacePending ? "Creating…" : "Create group workspace"}
+                      </button>
+                    </form>
+                    <button type="button" className="account-action" onClick={() => void loadOrganization()} disabled={organizationLoading}>
+                      Refresh organization
+                    </button>
+                  </>
+                )}
+                {!organizationLoading && !organization && !organizationError && (
+                  <button type="button" className="account-action" onClick={() => void loadOrganization()}>
+                    Load organization
+                  </button>
+                )}
               </section>
             </>
           ) : (
