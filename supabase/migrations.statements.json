@@ -3241,6 +3241,34 @@
       "line": 11,
       "verb": "alter table",
       "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "949ca34360079c28",
+      "file": "20261108220000_mark_purged_v3.sql",
+      "line": 5,
+      "verb": "create function",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "8d3403549eb92f31",
+      "file": "20261108220000_mark_purged_v3.sql",
+      "line": 46,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "f146362a7085d6ad",
+      "file": "20261108220000_mark_purged_v3.sql",
+      "line": 48,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "8d03555ba4c78da1",
+      "file": "20261108220000_mark_purged_v3.sql",
+      "line": 49,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
     }
   ]
 }

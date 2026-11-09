@@ -173,10 +173,9 @@ def run_account_deletion(
             }
 
         with connection.cursor() as cursor:
-            cursor.execute("set local role account_deletion_worker")
             marked = _call_json(
                 cursor,
-                "select private.mark_account_purged_v2(%s)",
+                "select private.mark_account_purged_v3(%s)",
                 (str(request_id),),
             )
             connection.commit()
