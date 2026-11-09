@@ -30,7 +30,6 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
   const [lookupId, setLookupId] = useState("");
   const deletionRequestsEnabled = resolveDeletionRequestsEnabled({
     flag: process.env.NEXT_PUBLIC_DELETION_REQUESTS_ENABLED,
-    vercelEnv: process.env.NEXT_PUBLIC_VERCEL_ENV,
   });
 
   const loadWorkspaces = useCallback(async (): Promise<Workspace[] | null> => {
