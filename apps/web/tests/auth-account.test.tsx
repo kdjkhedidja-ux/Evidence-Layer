@@ -188,8 +188,8 @@ describe("account deletion request", () => {
     mockDeletionFlow();
     render(<AuthAccount userId="user-a" email="a@example.test" />);
     expect(await screen.findByRole("heading", { name: "Delete account" })).toBeInTheDocument();
-    expect(screen.getByText(/Evidence and relationships in shared workspaces/i)).toBeInTheDocument();
-    expect(screen.getByText(/snapshots, and stored files are retained/i)).toBeInTheDocument();
+    expect(screen.getByText(/personal workspace and its data, snapshots, stored files/i)).toBeInTheDocument();
+    expect(screen.getByText(/Shared workspace content owned by other members is not deleted/i)).toBeInTheDocument();
     expect(screen.getByText(/cannot be cancelled/i)).toBeInTheDocument();
   });
 
