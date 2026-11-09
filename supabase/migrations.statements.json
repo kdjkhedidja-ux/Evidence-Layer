@@ -3269,6 +3269,27 @@
       "line": 49,
       "verb": "grant execute",
       "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "32f5500790f85e6d",
+      "file": "20261108230000_mark_v3_no_on_conflict.sql",
+      "line": 4,
+      "verb": "create or",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "ee04476201838b6e",
+      "file": "20261108230000_mark_v3_no_on_conflict.sql",
+      "line": 45,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "f08adb37de44935b",
+      "file": "20261108230000_mark_v3_no_on_conflict.sql",
+      "line": 46,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
     }
   ]
 }
