@@ -66,6 +66,7 @@ V_DELETION_RESTORE_RECONCILIATION = "20261105150000"
 V_PERSONAL_WORKSPACE_DELETION = "20261108120000"
 V_ACCOUNT_TYPE = "20261109120000"
 V_ORGANIZATIONS = "20261109130000"
+V_GROUP_DELETION = "20261109140000"
 V_INDIVIDUAL_ACCOUNT_TERMINAL = "20261108130000"
 V_AUDIT_FK_DROP = "20261108140000"
 V_ACCEPT_V2 = "20261108150000"
@@ -552,6 +553,7 @@ def expected_catalog(versions: list[str]) -> dict:
     personal_deletion = V_PERSONAL_WORKSPACE_DELETION in present
     account_type = V_ACCOUNT_TYPE in present
     organizations = V_ORGANIZATIONS in present
+    group_deletion = V_GROUP_DELETION in present
     individual_terminal = V_INDIVIDUAL_ACCOUNT_TERMINAL in present
     audit_fk_drop = V_AUDIT_FK_DROP in present
     accept_v2 = V_ACCEPT_V2 in present
@@ -948,6 +950,8 @@ def expected_catalog(versions: list[str]) -> dict:
         })
     if mark_purged_v3:
         functions.add("private.mark_account_purged_v3")
+    if group_deletion:
+        functions.add("public.delete_group_workspace")
     if account_type:
         functions.update({
             "private.provision_account_type_for_auth_user",

@@ -45,6 +45,7 @@ def test_service_routes_are_limited_and_docs_are_disabled() -> None:
         ("POST", "/v1/me/organization"),
         ("GET", "/v1/organization"),
         ("POST", "/v1/organization/workspaces"),
+        ("DELETE", "/v1/organization/workspaces/{workspace_id}"),
         ("POST", "/v1/organization/members"),
         ("PATCH", "/v1/organization/members/{user_id}"),
         ("DELETE", "/v1/organization/members/{user_id}"),

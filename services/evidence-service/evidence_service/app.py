@@ -117,6 +117,13 @@ class GroupWorkspaceResponse(BaseModel):
     name: str
 
 
+class GroupWorkspaceDeleteResponse(BaseModel):
+    workspace_id: UUID
+    workspace_deleted: bool
+    snapshots_deleted: int
+    storage_cleanup_queued: int
+
+
 class OrganizationMemberCreateRequest(BaseModel):
     email: str = Field(min_length=3, max_length=320)
     role: Literal["admin", "member"]
@@ -1042,6 +1049,32 @@ def create_app(
         ) as exc:
             _raise_organization_error(exc)
         return GroupWorkspaceResponse(**data)
+
+    @application.delete(
+        "/v1/organization/workspaces/{workspace_id}",
+        response_model=GroupWorkspaceDeleteResponse,
+    )
+    async def delete_group_workspace_route(
+        workspace_id: UUID,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> GroupWorkspaceDeleteResponse:
+        try:
+            data = await _with_account_gate(
+                request,
+                auth,
+                lambda: _organization_repository(request).delete_group_workspace(
+                    auth.access_token, str(workspace_id)
+                ),
+            )
+        except (
+            OrganizationDataUnavailable,
+            OrganizationAccessDenied,
+            OrganizationMemberNotFound,
+            OrganizationValidationError,
+        ) as exc:
+            _raise_organization_error(exc)
+        return GroupWorkspaceDeleteResponse(**data)
 
     @application.post(
         "/v1/organization/members",

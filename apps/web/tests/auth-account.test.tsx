@@ -352,6 +352,14 @@ describe("organization account gating", () => {
       if (url === "/api/evidence/organization/workspaces" && init?.method === "POST") {
         return Response.json({ workspace_id: newGroupId, name: "Group B" });
       }
+      if (url === `/api/evidence/organization/workspaces/${groupId}` && init?.method === "DELETE") {
+        return Response.json({
+          workspace_id: groupId,
+          workspace_deleted: true,
+          snapshots_deleted: 0,
+          storage_cleanup_queued: 0,
+        });
+      }
       return new Response(null, { status: 404 });
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -376,4 +384,12 @@ describe("organization account gating", () => {
       "/api/evidence/organization/workspaces",
       expect.objectContaining({ method: "POST" }),
     ));
+
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      `/api/evidence/organization/workspaces/${groupId}`,
+      expect.objectContaining({ method: "DELETE" }),
+    ));
+    confirmSpy.mockRestore();
   });

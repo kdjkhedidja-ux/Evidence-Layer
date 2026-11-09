@@ -63,6 +63,15 @@ class SupabaseOrganizationRepository:
             {"p_user_id": user_id, "p_role": role},
         )
 
+    async def delete_group_workspace(
+        self, access_token: str, workspace_id: str
+    ) -> dict[str, Any]:
+        return await self._rpc(
+            access_token,
+            "delete_group_workspace",
+            {"p_workspace_id": workspace_id},
+        )
+
     async def remove_member(
         self, access_token: str, user_id: str
     ) -> dict[str, Any]:

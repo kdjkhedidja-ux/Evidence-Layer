@@ -341,7 +341,7 @@ function safeOrganization(value: unknown): OrganizationOverview | null {
   };
 }
 
-type OrganizationResponseKind = "overview" | "workspace" | "member" | "memberRole" | "memberRemoval";
+type OrganizationResponseKind = "overview" | "workspace" | "workspaceDelete" | "member" | "memberRole" | "memberRemoval";
 
 type OrganizationProxyOptions = {
   endpoint: string;
@@ -416,6 +416,23 @@ export async function proxyOrganizationRequest({
       UUID_PATTERN.test(candidate.workspace_id) &&
       typeof candidate.name === "string"
     ) parsed = { workspace_id: candidate.workspace_id, name: candidate.name };
+  } else if (responseKind === "workspaceDelete") {
+    const candidate = payload as Record<string, unknown>;
+    if (
+      candidate &&
+      typeof candidate.workspace_id === "string" &&
+      UUID_PATTERN.test(candidate.workspace_id) &&
+      candidate.workspace_deleted === true &&
+      typeof candidate.snapshots_deleted === "number" &&
+      typeof candidate.storage_cleanup_queued === "number"
+    ) {
+      parsed = {
+        workspace_id: candidate.workspace_id,
+        workspace_deleted: true,
+        snapshots_deleted: candidate.snapshots_deleted,
+        storage_cleanup_queued: candidate.storage_cleanup_queued,
+      };
+    }
   } else if (responseKind === "member") {
     parsed = safeOrganizationMember(payload);
   } else if (responseKind === "memberRole") {

@@ -78,3 +78,27 @@ def test_rpc_errors_map_to_typed_failures(status, code, error) -> None:
     )
     with pytest.raises(error):
         asyncio.run(repository.overview("synthetic-token"))
+
+
+def test_delete_group_workspace_posts_the_workspace_id() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/rest/v1/rpc/delete_group_workspace"
+        assert json.loads(request.content) == {
+            "p_workspace_id": "30000000-0000-4000-8000-000000000001"
+        }
+        return httpx.Response(200, json={
+            "workspace_id": "30000000-0000-4000-8000-000000000001",
+            "workspace_deleted": True,
+            "snapshots_deleted": 0,
+            "storage_cleanup_queued": 0,
+        })
+
+    repository = SupabaseOrganizationRepository(
+        settings(), transport=httpx.MockTransport(handler)
+    )
+    result = asyncio.run(
+        repository.delete_group_workspace(
+            "synthetic-token", "30000000-0000-4000-8000-000000000001"
+        )
+    )
+    assert result["workspace_deleted"] is True

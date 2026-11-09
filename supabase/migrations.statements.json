@@ -3612,6 +3612,27 @@
       "line": 452,
       "verb": "grant execute",
       "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "1d2193cac3e135ba",
+      "file": "20261109140000_group_workspace_deletion.sql",
+      "line": 3,
+      "verb": "create function",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "0ea2eb564ec4ff41",
+      "file": "20261109140000_group_workspace_deletion.sql",
+      "line": 81,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "b5a96b32bf149491",
+      "file": "20261109140000_group_workspace_deletion.sql",
+      "line": 83,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
     }
   ]
 }
