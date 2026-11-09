@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { createSupabaseBrowserClient } from "../lib/supabase/client";
+import { deletionRequestsEnabled as resolveDeletionRequestsEnabled } from "../lib/deletion-flag";
 import type { DeletionRequestView } from "../lib/deletion-api";
 
 type Workspace = { id: string; name: string; role: "owner" | "member" };
@@ -27,7 +28,10 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
   const [personalDeletionPending, setPersonalDeletionPending] = useState(false);
   const [personalDeletionMessage, setPersonalDeletionMessage] = useState("");
   const [lookupId, setLookupId] = useState("");
-  const deletionRequestsEnabled = process.env.NEXT_PUBLIC_DELETION_REQUESTS_ENABLED === "true";
+  const deletionRequestsEnabled = resolveDeletionRequestsEnabled({
+    flag: process.env.NEXT_PUBLIC_DELETION_REQUESTS_ENABLED,
+    vercelEnv: process.env.NEXT_PUBLIC_VERCEL_ENV,
+  });
 
   const loadWorkspaces = useCallback(async (): Promise<Workspace[] | null> => {
     setState("loading");
