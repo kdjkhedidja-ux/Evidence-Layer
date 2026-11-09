@@ -63,7 +63,10 @@ class MigrationGuardTests(unittest.TestCase):
         with patch.dict(os.environ, {"GITHUB_SHA": self.sha}):
             plan = guard.build_plan(FakeProject(), self.inventory, require_recovery=True)
         self.assertIsNotNone(plan["external_recovery"])
-        self.assertEqual(plan["external_recovery"]["object_key"], "dumps/2026-11-07/evidence-layer.dump")
+        attestation = json.loads(
+            (guard.ROOT / "supabase" / "recovery-attestation.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(plan["external_recovery"]["object_key"], attestation["object_key"])
 
     def test_stale_or_invalid_external_attestation_is_rejected(self):
         import json
