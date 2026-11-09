@@ -3484,6 +3484,135 @@ select:focus-visible,
   font-size: 9px;
 }
 
+.account-organization {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--sidebar-line);
+}
+
+.account-organization h3,
+.account-access h3 {
+  margin: 0 0 6px;
+  color: var(--sidebar-ink);
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.account-access {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--sidebar-line);
+}
+
+.account-organization h4 {
+  margin: 12px 0 6px;
+  color: var(--sidebar-muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.organization-members,
+.organization-workspaces {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.organization-members li,
+.organization-workspaces li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  min-width: 0;
+  padding: 7px;
+  border: 1px solid var(--sidebar-line);
+  border-radius: 6px;
+}
+
+.organization-members li > span,
+.organization-workspaces li > span {
+  grid-column: 1 / -1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--sidebar-ink);
+  font-size: 10px;
+}
+
+.organization-members li > strong {
+  grid-column: 1 / -1;
+  color: var(--sidebar-muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.organization-members li select,
+.organization-members li button,
+.organization-workspaces li button {
+  width: 100%;
+  min-width: 0;
+  min-height: 30px;
+  font-size: 10px;
+}
+
+.organization-workspaces li {
+  align-items: center;
+}
+
+.organization-workspaces li > span {
+  grid-column: auto;
+}
+
+.organization-workspaces li button {
+  width: auto;
+  padding-inline: 10px;
+}
+
+.account-organization-form {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0;
+}
+
+.account-organization-form p {
+  margin: 0;
+}
+
+.account-organization-form label {
+  color: var(--sidebar-muted);
+  font-size: 10px;
+}
+
+.account-organization-form input,
+.account-organization-form select,
+.account-organization-form button {
+  width: 100%;
+  min-width: 0;
+  min-height: 34px;
+  font-size: 10px;
+}
+
+.account-organization button:not(.account-action):not(.account-signout) {
+  border: 1px solid var(--sidebar-control-line);
+  border-radius: 6px;
+  background: var(--sidebar-bg);
+  color: var(--sidebar-ink);
+  padding: 6px 9px;
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.account-organization button:not(.account-action):not(.account-signout):hover:not(:disabled) {
+  border-color: var(--sidebar-focus);
+  background: var(--sidebar-hover);
+}
+
 @media (max-width: 640px) {
   .auth-page {
     align-items: start;
@@ -4024,6 +4153,183 @@ select:focus-visible,
   color: var(--text-main);
   font: inherit;
   font-size: 0.84rem;
+}
+
+.account-deletion h3 {
+  color: var(--sidebar-ink);
+}
+
+.account-deletion h3:nth-of-type(2) {
+  margin-top: 1.1rem;
+  padding-top: 1rem;
+  border-top: 1px dashed var(--sidebar-line);
+}
+
+.account-deletion-scope {
+  margin: 0.35rem 0 0.6rem;
+  color: var(--sidebar-muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.account-deletion-state p {
+  color: var(--sidebar-ink);
+  font-size: 10px;
+}
+
+.account-deletion-state p code {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.account-deletion-confirm {
+  color: var(--sidebar-ink);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.account-deletion-confirm input {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.account-deletion button {
+  min-height: 34px;
+  border: 1px solid var(--sidebar-control-line);
+  border-radius: 6px;
+  background: var(--sidebar-bg);
+  color: var(--sidebar-ink);
+  padding: 6px 9px;
+  font: inherit;
+  font-size: 10px;
+  line-height: 1.35;
+  cursor: pointer;
+}
+
+.account-deletion button:hover:not(:disabled) {
+  border-color: var(--sidebar-focus);
+  background: var(--sidebar-hover);
+}
+
+.account-deletion-actions button {
+  flex: 1 1 100%;
+}
+
+.account-deletion-lookup {
+  align-items: stretch;
+}
+
+.account-deletion-lookup label {
+  flex: 1 1 100%;
+  font-size: 10px;
+}
+
+.account-deletion-lookup input {
+  flex: 1 1 100%;
+  width: 100%;
+  min-width: 0;
+  min-height: 34px;
+  font-size: 10px;
+}
+
+.account-deletion-lookup button {
+  flex: 1 1 100%;
+}
+
+@media (max-width: 640px) {
+  .live-sidebar {
+    padding: 1rem 1rem 2rem;
+  }
+
+  .live-nav {
+    overflow-y: visible;
+  }
+
+  .live-sidebar-footer {
+    margin-top: 1.25rem;
+    padding-top: 0;
+  }
+
+  .live-sidebar-footer #account-panel {
+    max-height: none;
+    overflow: visible;
+    padding: 14px 2px 2rem;
+    margin-top: 0.9rem;
+  }
+
+  .account-panel-heading {
+    align-items: center;
+  }
+
+  .account-signout {
+    min-height: 32px;
+    padding: 0 0.25rem;
+  }
+
+  .account-workspaces {
+    gap: 0.6rem;
+  }
+
+  .account-organization h3,
+  .account-access h3 {
+    font-size: 14px;
+  }
+
+  .account-organization h4 {
+    font-size: 10px;
+  }
+
+  .organization-members li,
+  .organization-workspaces li {
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .organization-members li > span,
+  .organization-workspaces li > span {
+    font-size: 12px;
+  }
+
+  .organization-members li select,
+  .organization-members li button,
+  .organization-workspaces li button,
+  .account-organization button:not(.account-action):not(.account-signout) {
+    min-height: 40px;
+    font-size: 12px;
+  }
+
+  .account-organization-form {
+    gap: 8px;
+  }
+
+  .account-organization-form label,
+  .account-organization-form input,
+  .account-organization-form select,
+  .account-organization-form button {
+    font-size: 12px;
+  }
+
+  .account-organization-form input,
+  .account-organization-form select {
+    min-height: 42px;
+  }
+
+  .account-deletion-scope,
+  .account-deletion-state p,
+  .account-deletion-confirm,
+  .account-deletion-lookup label {
+    font-size: 12px;
+  }
+
+  .account-deletion button {
+    min-height: 40px;
+    font-size: 12px;
+  }
+
+  .account-deletion-lookup input {
+    min-height: 42px;
+    font-size: 12px;
+  }
 }
 
 /* ---------------------------------------------------------------------------
