@@ -155,6 +155,12 @@ class DeletionRepositorySpy:
             return None
         return self.request
 
+    async def get_current_request(self, access_token, *, principal_id):
+        self.calls.append(("current", self.request.request_id))
+        if principal_id != self.request.requester_user_id:
+            return None
+        return self.request
+
     async def delete_personal_workspace_data(self, access_token):
         self.calls.append(("delete_data", self.request.request_id))
         return {
@@ -641,10 +647,10 @@ def test_new_v1_routes_must_bind_the_lifecycle_dependency_and_healthz_is_public(
             for dependency in dependant.dependencies
         )
 
-    # 14 data routes, 3 deletion control routes (create/accept/status), and
-    # 2 personal deletion routes. All require authentication; only data routes
-    # use the lifecycle data gate.
-    assert len(protected) == 19
+    # 14 data routes, 4 deletion control routes (create/accept/status/current),
+    # and 2 personal deletion routes. All require authentication; only data
+    # routes use the lifecycle data gate.
+    assert len(protected) == 20
     assert all(has_auth_dependency(route.dependant) for route in protected)
     assert [(route.path, route.methods) for route in public] == [
         ("/healthz", {"GET"})
@@ -856,3 +862,17 @@ def test_personal_deletion_is_denied_before_repository_when_account_blocked() ->
     assert data.status_code == 403
     assert workspace.status_code == 403
     assert repository.calls == []
+
+
+def test_current_deletion_request_returns_the_requester_request() -> None:
+    repository = DeletionRepositorySpy(deletion_request())
+    app, _, _, _, _ = make_app(
+        ScriptedLifecycleReader(), deletion_repository=repository
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/v1/me/deletion-request", headers=auth_headers())
+
+    assert response.status_code == 200
+    assert response.json()["request_id"] == str(repository.request.request_id)
+    assert ("current", repository.request.request_id) in repository.calls

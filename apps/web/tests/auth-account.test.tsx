@@ -27,6 +27,7 @@ vi.mock("../lib/supabase/client", () => ({
 
 describe("authenticated workspace controls", () => {
   beforeEach(() => {
+    window.localStorage.clear();
     mocks.signOut.mockResolvedValue({ error: null });
     mocks.onAuthStateChange.mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } });
   });

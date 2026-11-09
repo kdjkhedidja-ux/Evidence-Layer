@@ -210,7 +210,7 @@ class DeletionRequestResponse(BaseModel):
     request_id: UUID
     requester_user_id: UUID
     scope_type: Literal["account"]
-    status: Literal["approval_pending", "journal_ack_pending", "accepted"]
+    status: Literal["approval_pending", "journal_ack_pending", "accepted", "purge_pending", "purge_failed", "purged"]
     created_at: datetime
     accepted_at: datetime | None
 
@@ -747,6 +747,27 @@ def create_app(
                 auth.access_token,
                 principal_id=auth.principal.subject,
                 request_id=request_id,
+            )
+        except DeletionRequestUnavailable as exc:
+            raise HTTPException(
+                status_code=503, detail="Deletion request service is unavailable"
+            ) from exc
+        if request_row is None:
+            raise HTTPException(status_code=404, detail="Deletion request not found")
+        return _deletion_response(request_row)
+
+    @application.get(
+        "/v1/me/deletion-request",
+        response_model=DeletionRequestResponse,
+    )
+    async def get_current_deletion_request(
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_control_request),
+    ) -> DeletionRequestResponse:
+        try:
+            request_row = await _deletion_repository(request).get_current_request(
+                auth.access_token,
+                principal_id=auth.principal.subject,
             )
         except DeletionRequestUnavailable as exc:
             raise HTTPException(

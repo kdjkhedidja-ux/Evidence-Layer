@@ -12,7 +12,10 @@ type PanelState = "loading" | "ready" | "expired" | "unavailable";
 const DELETION_STATUS_LABELS: Record<DeletionRequestView["status"], string> = {
   approval_pending: "Approval pending",
   journal_ack_pending: "Accepted locally; purge pending",
-  accepted: "Accepted",
+  accepted: "Accepted; purge queued",
+  purge_pending: "Purge in progress",
+  purge_failed: "Purge needs attention",
+  purged: "Purged",
 };
 
 export default function AuthAccount({ userId, email }: { userId: string; email: string }) {
@@ -183,6 +186,37 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
     }
   }, [readDeletionResponse]);
 
+  const deletionStorageKey = `evidence-layer:deletion-request:${userId}`;
+
+  useEffect(() => {
+    const saved = globalThis.localStorage?.getItem(deletionStorageKey);
+    if (saved) void loadDeletion(saved);
+  }, [deletionStorageKey, loadDeletion]);
+
+  const loadCurrentDeletion = useCallback(async () => {
+    setDeletionPending(true);
+    setDeletionMessage("");
+    try {
+      const response = await fetch("/api/evidence/me/deletion-request", {
+        cache: "no-store",
+      });
+      if (response.status === 401) { setState("expired"); return; }
+      if (response.status === 404) {
+        setDeletionMessage("No deletion request was found for this account.");
+        return;
+      }
+      const view = await readDeletionResponse(response);
+      if (view) {
+        setDeletion(view);
+        globalThis.localStorage?.setItem(deletionStorageKey, view.request_id);
+      }
+    } catch {
+      setDeletionMessage("Deletion request is unavailable.");
+    } finally {
+      setDeletionPending(false);
+    }
+  }, [deletionStorageKey, readDeletionResponse]);
+
   const requestDeletion = useCallback(async () => {
     setDeletionPending(true);
     setDeletionMessage("");
@@ -196,13 +230,17 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
       });
       if (response.status === 401) { setState("expired"); return; }
       const view = await readDeletionResponse(response);
-      if (view) { setDeletion(view); setDeletionConfirmed(false); }
+      if (view) {
+        setDeletion(view);
+        setDeletionConfirmed(false);
+        globalThis.localStorage?.setItem(deletionStorageKey, view.request_id);
+      }
     } catch {
       setDeletionMessage("Deletion request is unavailable.");
     } finally {
       setDeletionPending(false);
     }
-  }, [readDeletionResponse]);
+  }, [deletionStorageKey, readDeletionResponse]);
 
   const acceptDeletion = useCallback(async () => {
     if (!deletion) return;
@@ -219,13 +257,14 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
         setDeletion(view);
         setDeletionConfirmed(false);
         setMessage("Deletion accepted. Data access for this account is now blocked.");
+        globalThis.localStorage?.setItem(deletionStorageKey, view.request_id);
       }
     } catch {
       setDeletionMessage("Deletion request is unavailable.");
     } finally {
       setDeletionPending(false);
     }
-  }, [deletion, readDeletionResponse]);
+  }, [deletion, deletionStorageKey, readDeletionResponse]);
 
   const deletePersonalData = useCallback(async () => {
     if (!window.confirm("Delete all data in your personal workspace? Your account and workspace remain.")) {
@@ -370,7 +409,15 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
         </p>
         {deletion ? (
           <div className="account-deletion-state">
-            <p>Request <code>{deletion.request_id}</code></p>
+            <p>
+              Request ID: <code>{deletion.request_id}</code>{" "}
+              <button
+                type="button"
+                onClick={() => void globalThis.navigator?.clipboard?.writeText(deletion.request_id)}
+              >
+                Copy request ID
+              </button>
+            </p>
             <p>
               Status: <strong>{DELETION_STATUS_LABELS[deletion.status]}</strong>
             </p>
@@ -426,6 +473,13 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
             onClick={() => void loadDeletion(lookupId.trim())}
           >
             Load status
+          </button>
+          <button
+            type="button"
+            disabled={deletionPending}
+            onClick={() => void loadCurrentDeletion()}
+          >
+            Load my current request
           </button>
         </div>
         {deletionMessage ? <p className="account-message" role="alert">{deletionMessage}</p> : null}

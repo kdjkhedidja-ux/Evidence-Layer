@@ -39,6 +39,10 @@ class DeletionRepository(Protocol):
         self, access_token: str, *, principal_id: UUID, request_id: UUID
     ) -> DeletionRequest | None: ...
 
+    async def get_current_request(
+        self, access_token: str, *, principal_id: UUID
+    ) -> DeletionRequest | None: ...
+
     async def delete_personal_workspace_data(
         self, access_token: str
     ) -> dict[str, object]: ...
@@ -136,6 +140,34 @@ class SupabaseDeletionRepository:
                 return None
             if len(rows) != 1:
                 raise DeletionRequestUnavailable
+            return self._parse_row(rows[0])
+        except DeletionRequestUnavailable:
+            raise
+        except (httpx.HTTPError, ValueError, TypeError, KeyError) as exc:
+            raise DeletionRequestUnavailable from exc
+
+    async def get_current_request(
+        self, access_token: str, *, principal_id: UUID
+    ) -> DeletionRequest | None:
+        try:
+            async with self._client() as client:
+                response = await client.get(
+                    f"{self._base_url}/rest/v1/data_deletion_requests",
+                    headers=self._headers(access_token),
+                    params={
+                        "select": "request_id,requester_user_id,scope_type,status,created_at,accepted_at",
+                        "requester_user_id": f"eq.{principal_id}",
+                        "order": "created_at.desc",
+                        "limit": "1",
+                    },
+                )
+            if response.status_code != 200:
+                raise DeletionRequestUnavailable
+            rows = response.json()
+            if not isinstance(rows, list):
+                raise DeletionRequestUnavailable
+            if not rows:
+                return None
             return self._parse_row(rows[0])
         except DeletionRequestUnavailable:
             raise
