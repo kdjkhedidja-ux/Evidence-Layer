@@ -2,7 +2,14 @@ import { getEvidenceServiceBaseUrl } from "./supabase/config";
 import { getVerifiedAuthContext } from "./supabase/server";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const STATUSES = ["approval_pending", "journal_ack_pending", "accepted"] as const;
+const STATUSES = [
+  "approval_pending",
+  "journal_ack_pending",
+  "accepted",
+  "purge_pending",
+  "purge_failed",
+  "purged",
+] as const;
 
 export type DeletionStatus = (typeof STATUSES)[number];
 
