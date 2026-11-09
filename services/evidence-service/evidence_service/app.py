@@ -55,6 +55,7 @@ from evidence_service.supabase_repository import (
     WorkspaceDataUnavailable,
 )
 from evidence_service.tenant_context import (
+    AccountProfile,
     WorkspaceAccessDenied,
     WorkspaceContext,
     WorkspaceDirectory,
@@ -71,7 +72,14 @@ class WorkspaceSummary(BaseModel):
 class MeResponse(BaseModel):
     user_id: UUID
     issuer: str
+    account_type: Literal["individual", "organization"] = "individual"
+    organization_name: str | None = None
+    can_manage_workspace: bool = False
     workspaces: list[WorkspaceSummary]
+
+
+class OrganizationCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
 
 
 class WorkspaceResponse(BaseModel):
@@ -828,14 +836,21 @@ def create_app(
         request: Request,
         auth: AuthenticatedRequest = Depends(require_authenticated_request),
     ) -> MeResponse:
-        try:
-            memberships = await _with_account_gate(
-                request,
-                auth,
-                lambda: _workspace_directory(request).list_memberships(
-                    auth.principal, auth.access_token
-                ),
+        async def load_me():
+            directory = _workspace_directory(request)
+            memberships = await directory.list_memberships(
+                auth.principal, auth.access_token
             )
+            account_getter = getattr(directory, "get_account", None)
+            account = (
+                await account_getter(auth.principal, auth.access_token)
+                if account_getter is not None
+                else AccountProfile(account_type="individual", organization_name=None)
+            )
+            return memberships, account
+
+        try:
+            memberships, account = await _with_account_gate(request, auth, load_me)
         except WorkspaceDataUnavailable as exc:
             raise HTTPException(
                 status_code=503, detail="Workspace directory is unavailable"
@@ -844,6 +859,56 @@ def create_app(
         return MeResponse(
             user_id=auth.principal.subject,
             issuer=auth.principal.issuer,
+            account_type=account.account_type,
+            organization_name=account.organization_name,
+            can_manage_workspace=account.account_type == "organization",
+            workspaces=[
+                WorkspaceSummary(
+                    id=membership.workspace_id,
+                    name=membership.workspace_name,
+                    role=membership.role,
+                )
+                for membership in memberships
+            ],
+        )
+
+    @application.post(
+        "/v1/me/organization",
+        response_model=MeResponse,
+    )
+    async def create_organization_account_route(
+        payload: OrganizationCreateRequest,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> MeResponse:
+        async def load_account():
+            directory = _workspace_directory(request)
+            creator = getattr(directory, "create_organization_account", None)
+            if creator is None:
+                raise WorkspaceDataUnavailable
+            account = await creator(
+                auth.principal, auth.access_token, payload.name
+            )
+            memberships = await directory.list_memberships(
+                auth.principal, auth.access_token
+            )
+            return memberships, account
+
+        try:
+            memberships, account = await _with_account_gate(
+                request, auth, load_account
+            )
+        except WorkspaceDataUnavailable as exc:
+            raise HTTPException(
+                status_code=503, detail="Organization account service is unavailable"
+            ) from exc
+
+        return MeResponse(
+            user_id=auth.principal.subject,
+            issuer=auth.principal.issuer,
+            account_type=account.account_type,
+            organization_name=account.organization_name,
+            can_manage_workspace=account.account_type == "organization",
             workspaces=[
                 WorkspaceSummary(
                     id=membership.workspace_id,

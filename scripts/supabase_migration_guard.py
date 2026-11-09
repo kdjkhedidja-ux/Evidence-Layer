@@ -64,6 +64,7 @@ V_ACCOUNT_APPLICATION_PURGE = "20261105130000"
 V_ACCOUNT_EVIDENCE_OWNERSHIP = "20261105140000"
 V_DELETION_RESTORE_RECONCILIATION = "20261105150000"
 V_PERSONAL_WORKSPACE_DELETION = "20261108120000"
+V_ACCOUNT_TYPE = "20261109120000"
 V_INDIVIDUAL_ACCOUNT_TERMINAL = "20261108130000"
 V_AUDIT_FK_DROP = "20261108140000"
 V_ACCEPT_V2 = "20261108150000"
@@ -514,6 +515,7 @@ def expected_policy_identity(policy: str) -> str:
         ("source_snapshots_", "public", "source_snapshots"),
         ("source_grants_", "public", "source_grants"),
         ("account_lifecycle_", "public", "account_lifecycle"),
+        ("accounts_", "public", "accounts"),
         ("evidence_deletion_audit_", "public", "evidence_deletion_audit"),
         ("data_deletion_requests_", "public", "data_deletion_requests"),
         ("data_deletion_manifest_", "public", "data_deletion_manifest"),
@@ -545,6 +547,7 @@ def expected_catalog(versions: list[str]) -> dict:
     evidence_ownership = V_ACCOUNT_EVIDENCE_OWNERSHIP in present
     restore_reconciliation = V_DELETION_RESTORE_RECONCILIATION in present
     personal_deletion = V_PERSONAL_WORKSPACE_DELETION in present
+    account_type = V_ACCOUNT_TYPE in present
     individual_terminal = V_INDIVIDUAL_ACCOUNT_TERMINAL in present
     audit_fk_drop = V_AUDIT_FK_DROP in present
     accept_v2 = V_ACCEPT_V2 in present
@@ -587,6 +590,8 @@ def expected_catalog(versions: list[str]) -> dict:
         tables["public.data_deletion_work_set"] = (True, True)
     if personal_deletion:
         tables["public.data_deletion_storage_queue"] = (True, True)
+    if account_type:
+        tables["public.accounts"] = (True, True)
 
     indexes: set[str] = set()
     if identity:
@@ -613,6 +618,8 @@ def expected_catalog(versions: list[str]) -> dict:
             "public.data_deletion_storage_queue_pkey",
             "public.data_deletion_storage_queue_workspace_object_key",
         })
+    if account_type:
+        indexes.add("public.accounts_pkey")
     if source:
         indexes.update({
             "public.source_snapshots_pkey",
@@ -784,6 +791,8 @@ def expected_catalog(versions: list[str]) -> dict:
             "public.workspaces_worker_delete_owned",
             "public.workspace_memberships_worker_delete_subject",
         })
+    if account_type:
+        policies.add("public.accounts_select_self")
 
     triggers: set[str] = set()
     if evidence:
@@ -807,6 +816,8 @@ def expected_catalog(versions: list[str]) -> dict:
             "public.account_lifecycle_version_transition",
             "auth.account_lifecycle_after_auth_insert",
         })
+    if account_type:
+        triggers.add("auth.accounts_after_auth_insert")
     if deletion_audit:
         triggers.update({
             "public.evidence_records_audit_delete",
@@ -918,6 +929,11 @@ def expected_catalog(versions: list[str]) -> dict:
         })
     if mark_purged_v3:
         functions.add("private.mark_account_purged_v3")
+    if account_type:
+        functions.update({
+            "private.provision_account_type_for_auth_user",
+            "public.create_organization_account",
+        })
 
     foreign_keys: set[tuple[str, str, str, str]] = set()
     if identity:
@@ -952,6 +968,13 @@ def expected_catalog(versions: list[str]) -> dict:
             "public.account_lifecycle",
             "auth.users",
             "r",
+        ))
+    if account_type:
+        foreign_keys.add((
+            "accounts_user_id_fkey",
+            "public.accounts",
+            "auth.users",
+            "c",
         ))
     if deletion_audit and not audit_fk_drop:
         audit_fk_action = "n" if personal_deletion else "r"

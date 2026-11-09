@@ -194,6 +194,12 @@
       "version": "20261108230000",
       "sha256": "da4ba53816a413ef8ddcccae12ce53ad354245b6c7fffef9f040d353aa423e24",
       "provenance": "Remove unsupported ON CONFLICT from the terminal mark."
+    },
+    {
+      "file": "20261109120000_account_type_and_organization.sql",
+      "version": "20261109120000",
+      "sha256": "bc75b5538353f944d62328b26921aa9fab80384aa9c9d41083042a31216597c2",
+      "provenance": "Stage A account type and organization provisioning."
     }
   ]
 }

@@ -190,3 +190,48 @@ def test_membership_repository_rejects_rows_for_a_different_subject() -> None:
                 Principal(settings().jwt_issuer, SUBJECT), TOKEN
             )
         )
+
+
+def test_get_account_defaults_to_individual_and_uses_user_token() -> None:
+    observed: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        observed.append(request)
+        assert request.url.path == "/rest/v1/accounts"
+        assert request.url.params["user_id"] == f"eq.{SUBJECT}"
+        assert request.headers["authorization"] == f"Bearer {TOKEN}"
+        assert request.headers["apikey"] == settings().publishable_key
+        return httpx.Response(200, json=[])
+
+    repository = SupabaseWorkspaceRepository(
+        settings(), transport=httpx.MockTransport(handler)
+    )
+    principal = Principal(settings().jwt_issuer, SUBJECT)
+    profile = asyncio.run(repository.get_account(principal, TOKEN))
+    assert profile.account_type == "individual"
+    assert profile.organization_name is None
+    assert len(observed) == 1
+
+
+def test_create_organization_account_posts_rpc_and_parses_profile() -> None:
+    observed: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        observed.append(request)
+        assert request.url.path == "/rest/v1/rpc/create_organization_account"
+        assert json.loads(request.content) == {"p_name": "Acme Evidence"}
+        return httpx.Response(
+            200,
+            json={"account_type": "organization", "organization_name": "Acme Evidence"},
+        )
+
+    repository = SupabaseWorkspaceRepository(
+        settings(), transport=httpx.MockTransport(handler)
+    )
+    principal = Principal(settings().jwt_issuer, SUBJECT)
+    profile = asyncio.run(
+        repository.create_organization_account(principal, TOKEN, "Acme Evidence")
+    )
+    assert profile.account_type == "organization"
+    assert profile.organization_name == "Acme Evidence"
+    assert len(observed) == 1

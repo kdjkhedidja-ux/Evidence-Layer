@@ -29,7 +29,7 @@ from evidence_service.recovery_fence import (
     CloudflareRecoveryFenceReader,
     RecoveryFenceSettings,
 )
-from evidence_service.tenant_context import WorkspaceMembership
+from evidence_service.tenant_context import AccountProfile, WorkspaceMembership
 from account_lifecycle_test_support import OpenRecoveryFenceReader
 
 ISSUER = "https://project-ref.supabase.co/auth/v1"
@@ -95,6 +95,10 @@ class DirectorySpy:
         if workspace_id != WORKSPACE:
             return None
         return WorkspaceMembership(WORKSPACE, "Test workspace", "owner")
+
+    async def create_organization_account(self, principal, access_token, name):
+        self.calls.append("create_organization_account")
+        return AccountProfile(account_type="organization", organization_name=name)
 
 
 class OperationSpy:
@@ -648,9 +652,9 @@ def test_new_v1_routes_must_bind_the_lifecycle_dependency_and_healthz_is_public(
         )
 
     # 14 data routes, 4 deletion control routes (create/accept/status/current),
-    # and 2 personal deletion routes. All require authentication; only data
-    # routes use the lifecycle data gate.
-    assert len(protected) == 20
+    # 2 personal deletion routes, and the organization account route. All
+    # require authentication; only data routes use the lifecycle data gate.
+    assert len(protected) == 21
     assert all(has_auth_dependency(route.dependant) for route in protected)
     assert [(route.path, route.methods) for route in public] == [
         ("/healthz", {"GET"})
@@ -876,3 +880,21 @@ def test_current_deletion_request_returns_the_requester_request() -> None:
     assert response.status_code == 200
     assert response.json()["request_id"] == str(repository.request.request_id)
     assert ("current", repository.request.request_id) in repository.calls
+
+
+def test_create_organization_account_upgrades_the_authenticated_account() -> None:
+    app, directory, _, _, _ = make_app(ScriptedLifecycleReader())
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1/me/organization",
+            json={"name": "Acme Evidence"},
+            headers=auth_headers(),
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["account_type"] == "organization"
+    assert payload["organization_name"] == "Acme Evidence"
+    assert payload["can_manage_workspace"] is True
+    assert "create_organization_account" in directory.calls
