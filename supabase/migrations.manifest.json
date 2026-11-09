@@ -188,6 +188,12 @@
       "version": "20261108220000",
       "sha256": "a32308d1b48014d384634e67f293e989e13b85f66add037bb0312b150f4253d5",
       "provenance": "Owner-level terminal mark bypasses request RLS while recording the audit."
+    },
+    {
+      "file": "20261108230000_mark_v3_no_on_conflict.sql",
+      "version": "20261108230000",
+      "sha256": "da4ba53816a413ef8ddcccae12ce53ad354245b6c7fffef9f040d353aa423e24",
+      "provenance": "Remove unsupported ON CONFLICT from the terminal mark."
     }
   ]
 }
