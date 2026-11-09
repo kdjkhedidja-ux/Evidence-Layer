@@ -182,6 +182,12 @@
       "version": "20261108210000",
       "sha256": "3d3ab5a11f1579727f879d8532dffd8b9fa8e41244fc3ff24cda9f0d47c1412d",
       "provenance": "Drop live Auth FKs from retained deletion proof records so Auth deletion succeeds."
+    },
+    {
+      "file": "20261108220000_mark_purged_v3.sql",
+      "version": "20261108220000",
+      "sha256": "a32308d1b48014d384634e67f293e989e13b85f66add037bb0312b150f4253d5",
+      "provenance": "Owner-level terminal mark bypasses request RLS while recording the audit."
     }
   ]
 }
