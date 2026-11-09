@@ -312,3 +312,68 @@ describe("organization account gating", () => {
     expect(calls).toContain("/api/evidence/me/organization");
   });
 });
+
+  it("manages organization members and group workspaces", async () => {
+    const workspace = {
+      id: "10000000-0000-4000-8000-000000000012",
+      name: "Personal workspace",
+      role: "owner" as const,
+    };
+    const memberId = "20000000-0000-4000-8000-000000000001";
+    const newMemberId = "20000000-0000-4000-8000-000000000002";
+    const groupId = "30000000-0000-4000-8000-000000000001";
+    const newGroupId = "30000000-0000-4000-8000-000000000002";
+    const overview = {
+      id: "40000000-0000-4000-8000-000000000001",
+      name: "Acme Evidence",
+      owner_user_id: "user-a",
+      members: [
+        { user_id: "user-a", email: "a@example.test", role: "admin" },
+        { user_id: memberId, email: "member@example.test", role: "member" },
+      ],
+      workspaces: [{ id: groupId, name: "Group A" }],
+    };
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/api/evidence/personal-workspace") return Response.json(workspace);
+      if (url === "/api/evidence/me") {
+        return Response.json({
+          user_id: "user-a",
+          account_type: "organization",
+          organization_name: "Acme Evidence",
+          can_manage_workspace: true,
+          workspaces: [workspace],
+        });
+      }
+      if (url === "/api/evidence/organization") return Response.json(overview);
+      if (url === "/api/evidence/organization/members" && init?.method === "POST") {
+        return Response.json({ user_id: newMemberId, email: "new@example.test", role: "member" });
+      }
+      if (url === "/api/evidence/organization/workspaces" && init?.method === "POST") {
+        return Response.json({ workspace_id: newGroupId, name: "Group B" });
+      }
+      return new Response(null, { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<AuthAccount userId="user-a" email="a@example.test" />);
+
+    expect(await screen.findByText("Workspace & Access")).toBeInTheDocument();
+    expect(await screen.findByText("member@example.test")).toBeInTheDocument();
+    expect(screen.getByText("Owner")).toBeInTheDocument();
+    expect(screen.getByText("Group A")).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("Member email"), "new@example.test");
+    await user.click(screen.getByRole("button", { name: "Add member" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      "/api/evidence/organization/members",
+      expect.objectContaining({ method: "POST" }),
+    ));
+
+    await user.type(screen.getByLabelText("Group workspace name"), "Group B");
+    await user.click(screen.getByRole("button", { name: "Create group workspace" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      "/api/evidence/organization/workspaces",
+      expect.objectContaining({ method: "POST" }),
+    ));
+  });

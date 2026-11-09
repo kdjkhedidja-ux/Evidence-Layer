@@ -267,6 +267,179 @@ export async function proxyCreateOrganization(request: Request): Promise<Respons
     : json(502, { error: "Evidence service returned an invalid response." });
 }
 
+export type OrganizationMember = {
+  user_id: string;
+  email: string;
+  role: "admin" | "member";
+};
+export type OrganizationWorkspace = { id: string; name: string };
+export type OrganizationOverview = {
+  id: string;
+  name: string;
+  owner_user_id: string;
+  members: OrganizationMember[];
+  workspaces: OrganizationWorkspace[];
+};
+export type GroupWorkspaceCreated = { workspace_id: string; name: string };
+export type OrganizationMemberRole = { user_id: string; role: "admin" | "member" };
+export type OrganizationMemberRemoval = { user_id: string; removed: boolean };
+
+function safeOrganizationMember(value: unknown): OrganizationMember | null {
+  if (!value || typeof value !== "object") return null;
+  const candidate = value as Record<string, unknown>;
+  if (
+    typeof candidate.user_id !== "string" ||
+    !UUID_PATTERN.test(candidate.user_id) ||
+    typeof candidate.email !== "string" ||
+    !candidate.email.includes("@") ||
+    (candidate.role !== "admin" && candidate.role !== "member")
+  ) return null;
+  return {
+    user_id: candidate.user_id,
+    email: candidate.email,
+    role: candidate.role,
+  };
+}
+
+function safeOrganizationWorkspace(value: unknown): OrganizationWorkspace | null {
+  if (!value || typeof value !== "object") return null;
+  const candidate = value as Record<string, unknown>;
+  if (
+    typeof candidate.id !== "string" ||
+    !UUID_PATTERN.test(candidate.id) ||
+    typeof candidate.name !== "string" ||
+    candidate.name.length < 1 ||
+    candidate.name.length > 120
+  ) return null;
+  return { id: candidate.id, name: candidate.name };
+}
+
+function safeOrganization(value: unknown): OrganizationOverview | null {
+  if (!value || typeof value !== "object") return null;
+  const candidate = value as Record<string, unknown>;
+  if (
+    typeof candidate.id !== "string" ||
+    !UUID_PATTERN.test(candidate.id) ||
+    typeof candidate.name !== "string" ||
+    candidate.name.length < 1 ||
+    typeof candidate.owner_user_id !== "string" ||
+    !UUID_PATTERN.test(candidate.owner_user_id) ||
+    !Array.isArray(candidate.members) ||
+    !Array.isArray(candidate.workspaces)
+  ) return null;
+  const members = candidate.members.map(safeOrganizationMember);
+  const workspaces = candidate.workspaces.map(safeOrganizationWorkspace);
+  if (members.some((member) => member === null) || workspaces.some((workspace) => workspace === null)) {
+    return null;
+  }
+  return {
+    id: candidate.id,
+    name: candidate.name,
+    owner_user_id: candidate.owner_user_id,
+    members: members as OrganizationMember[],
+    workspaces: workspaces as OrganizationWorkspace[],
+  };
+}
+
+type OrganizationResponseKind = "overview" | "workspace" | "member" | "memberRole" | "memberRemoval";
+
+type OrganizationProxyOptions = {
+  endpoint: string;
+  method: "GET" | "POST" | "PATCH" | "DELETE";
+  request: Request;
+  body?: unknown;
+  responseKind: OrganizationResponseKind;
+};
+
+export async function proxyOrganizationRequest({
+  endpoint,
+  method,
+  request,
+  body,
+  responseKind,
+}: OrganizationProxyOptions): Promise<Response> {
+  if (method !== "GET" && !sameOrigin(request)) {
+    return json(403, { error: "Request origin was not accepted." });
+  }
+  const auth = await getVerifiedAuthContext();
+  if (auth.kind === "unauthenticated") {
+    return json(401, { error: "Authentication is required." });
+  }
+  if (auth.kind === "unavailable") {
+    return json(503, { error: "Identity verification is unavailable." });
+  }
+  const serviceUrl = getEvidenceServiceBaseUrl();
+  if (!serviceUrl) return json(503, { error: "Evidence service is unavailable." });
+
+  let upstream: Response;
+  try {
+    upstream = await fetch(`${serviceUrl}${endpoint}`, {
+      method,
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${auth.accessToken}`,
+        ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      cache: "no-store",
+      redirect: "manual",
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch {
+    return json(503, { error: "Evidence service is unavailable." });
+  }
+  if (upstream.status === 401) return json(401, { error: "Your session is no longer valid." });
+  if (upstream.status === 403) return json(403, { error: "Organization admin access is required." });
+  if (upstream.status === 404) return json(404, { error: "Organization member not found." });
+  if (upstream.status === 409) return json(409, { error: "The organization change conflicts with current state." });
+  if (upstream.status === 400 || upstream.status === 422) {
+    return json(422, { error: "The organization change was not accepted." });
+  }
+  if (upstream.status !== 200 && upstream.status !== 201) {
+    return json(503, { error: "Organization service is unavailable." });
+  }
+  let payload: unknown;
+  try {
+    payload = await upstream.json();
+  } catch {
+    return json(502, { error: "Evidence service returned an invalid response." });
+  }
+
+  let parsed: unknown = null;
+  if (responseKind === "overview") {
+    parsed = safeOrganization(payload);
+  } else if (responseKind === "workspace") {
+    const candidate = payload as Record<string, unknown>;
+    if (
+      candidate &&
+      typeof candidate.workspace_id === "string" &&
+      UUID_PATTERN.test(candidate.workspace_id) &&
+      typeof candidate.name === "string"
+    ) parsed = { workspace_id: candidate.workspace_id, name: candidate.name };
+  } else if (responseKind === "member") {
+    parsed = safeOrganizationMember(payload);
+  } else if (responseKind === "memberRole") {
+    const candidate = payload as Record<string, unknown>;
+    if (
+      candidate &&
+      typeof candidate.user_id === "string" &&
+      UUID_PATTERN.test(candidate.user_id) &&
+      (candidate.role === "admin" || candidate.role === "member")
+    ) parsed = { user_id: candidate.user_id, role: candidate.role };
+  } else if (responseKind === "memberRemoval") {
+    const candidate = payload as Record<string, unknown>;
+    if (
+      candidate &&
+      typeof candidate.user_id === "string" &&
+      UUID_PATTERN.test(candidate.user_id) &&
+      candidate.removed === true
+    ) parsed = { user_id: candidate.user_id, removed: true };
+  }
+  return parsed
+    ? json(upstream.status, parsed)
+    : json(502, { error: "Evidence service returned an invalid response." });
+}
+
 export function isUuid(value: string): boolean {
   return UUID_PATTERN.test(value);
 }
