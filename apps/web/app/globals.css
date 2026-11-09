@@ -3568,7 +3568,12 @@ select:focus-visible,
   .live-sidebar-footer > a { margin-right: 0.8rem; color: var(--text-muted); font-size: 0.72rem; }
   .live-controls { display: flex; align-items: center; gap: 0.6rem; padding-top: 1rem; }
   .live-account-button { border: 1px solid var(--border-color); border-radius: 0.3rem; background: transparent; color: var(--text-main); padding: 0.35rem 0.55rem; font-size: 0.75rem; text-decoration: none; }
-  .live-sidebar-footer #account-panel { margin-top: 0.7rem; }
+  .live-sidebar-footer #account-panel {
+    margin-top: 0.7rem;
+    max-height: calc(100vh - 14rem);
+    overflow-y: auto;
+    padding-right: 0.35rem;
+  }
 
   .live-main { min-height: 100vh; margin-left: 264px; }
   .live-topbar {
