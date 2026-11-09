@@ -3516,7 +3516,7 @@
       "rationale_ref": "function-definition"
     },
     {
-      "id": "6714dae57b2fa7a0",
+      "id": "1e6a60df6c2b6861",
       "file": "20261109130000_organizations_and_group_workspaces.sql",
       "line": 222,
       "verb": "create function",

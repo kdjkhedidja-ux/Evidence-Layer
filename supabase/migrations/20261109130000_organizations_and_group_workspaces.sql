@@ -230,7 +230,7 @@ declare
     actor uuid := auth.uid();
     org_id uuid;
     clean_name text := pg_catalog.btrim(p_name);
-    workspace_id uuid;
+    created_workspace_id uuid;
 begin
     if actor is null then
         raise exception 'Authentication required' using errcode = '42501';
@@ -253,12 +253,12 @@ begin
 
     insert into public.workspaces (name, organization_id)
     values (clean_name, org_id)
-    returning id into workspace_id;
+    returning id into created_workspace_id;
 
     insert into public.workspace_memberships (
         workspace_id, user_id, role, status
     )
-    select workspace_id, membership.user_id,
+    select created_workspace_id, membership.user_id,
            case when membership.role = 'admin' then 'admin' else 'member' end,
            'active'
       from public.organization_memberships as membership
@@ -268,7 +268,7 @@ begin
         set role = excluded.role, status = 'active';
 
     return pg_catalog.jsonb_build_object(
-        'workspace_id', workspace_id, 'name', clean_name
+        'workspace_id', created_workspace_id, 'name', clean_name
     );
 end;
 $function$;
