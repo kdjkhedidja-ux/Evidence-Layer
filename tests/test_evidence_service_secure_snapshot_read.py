@@ -656,7 +656,7 @@ def test_read_path_independently_rejects_a_resolved_context_for_another_workspac
     "membership",
     [
         WorkspaceMembership(WORKSPACE_A, "   ", "owner"),
-        WorkspaceMembership(WORKSPACE_A, "Local workspace", "admin"),  # type: ignore[arg-type]
+        WorkspaceMembership(WORKSPACE_A, "Local workspace", "superuser"),  # type: ignore[arg-type]
     ],
 )
 def test_malformed_membership_is_rejected_before_object_access(membership):

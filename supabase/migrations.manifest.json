@@ -204,7 +204,7 @@
     {
       "file": "20261109130000_organizations_and_group_workspaces.sql",
       "version": "20261109130000",
-      "sha256": "894cee945ad2b8ea887bc1cceb88b4877a455cc1a28c678427d61d80119ac644",
+      "sha256": "51dce1aa95fcc7c726ef6ede318c72aa3b2461d8a4fde34d0876b187404c25b8",
       "provenance": "Stage B organizations, memberships, group workspaces, and admin APIs."
     }
   ]

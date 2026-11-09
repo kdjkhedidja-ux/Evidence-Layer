@@ -95,8 +95,7 @@ alter table public.workspaces
     add column organization_id uuid references public.organizations (id) on delete cascade;
 alter table public.workspaces
     add constraint workspaces_organization_shape_check check (
-        (personal_owner_id is not null and organization_id is null)
-        or (personal_owner_id is null and organization_id is not null)
+        personal_owner_id is null or organization_id is null
     );
 
 alter table public.workspace_memberships

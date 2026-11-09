@@ -273,7 +273,7 @@ def test_missing_or_revoked_active_membership_is_denied():
 def test_invalid_membership_role_is_rejected():
     key = signing_key()
     token = signed_token(key)
-    issuer, _ = issuer_for(key, membership_payload=[membership_row(role="admin")])
+    issuer, _ = issuer_for(key, membership_payload=[membership_row(role="superuser")])
 
     with pytest.raises(SourceContextUnavailable):
         asyncio.run(issuer.issue(token, WORKSPACE_A))

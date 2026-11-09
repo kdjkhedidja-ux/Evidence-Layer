@@ -3481,7 +3481,7 @@
       "rationale_ref": "relation-alter"
     },
     {
-      "id": "6fe8391233709685",
+      "id": "272183d3f1c919bf",
       "file": "20261109130000_organizations_and_group_workspaces.sql",
       "line": 96,
       "verb": "alter table",
@@ -3490,126 +3490,126 @@
     {
       "id": "3b9e34bd46f85d2a",
       "file": "20261109130000_organizations_and_group_workspaces.sql",
-      "line": 102,
+      "line": 101,
       "verb": "alter table",
       "rationale_ref": "relation-alter"
     },
     {
       "id": "3f7fc4fff35903e8",
       "file": "20261109130000_organizations_and_group_workspaces.sql",
-      "line": 104,
+      "line": 103,
       "verb": "alter table",
       "rationale_ref": "relation-alter"
     },
     {
       "id": "df49b2b8b4841f2e",
       "file": "20261109130000_organizations_and_group_workspaces.sql",
-      "line": 109,
+      "line": 108,
       "verb": "create or",
       "rationale_ref": "function-definition"
     },
     {
       "id": "31385dbc0f98d60a",
       "file": "20261109130000_organizations_and_group_workspaces.sql",
-      "line": 171,
+      "line": 170,
       "verb": "create function",
       "rationale_ref": "function-definition"
     },
     {
       "id": "6714dae57b2fa7a0",
       "file": "20261109130000_organizations_and_group_workspaces.sql",
-      "line": 223,
+      "line": 222,
       "verb": "create function",
       "rationale_ref": "function-definition"
     },
     {
       "id": "bdfb62ff6ed31ef3",
       "file": "20261109130000_organizations_and_group_workspaces.sql",
-      "line": 277,
+      "line": 276,
       "verb": "create function",
       "rationale_ref": "function-definition"
     },
     {
       "id": "cb81e3f6d42f701d",
       "file": "20261109130000_organizations_and_group_workspaces.sql",
-      "line": 347,
+      "line": 346,
       "verb": "create function",
       "rationale_ref": "function-definition"
     },
     {
       "id": "85793a163163e8da",
       "file": "20261109130000_organizations_and_group_workspaces.sql",
-      "line": 401,
+      "line": 400,
       "verb": "create function",
       "rationale_ref": "function-definition"
     },
     {
       "id": "62231300d8d398c8",
       "file": "20261109130000_organizations_and_group_workspaces.sql",
-      "line": 443,
+      "line": 442,
       "verb": "revoke all",
       "rationale_ref": "privilege-revoke"
     },
     {
       "id": "c592139c89b932fe",
       "file": "20261109130000_organizations_and_group_workspaces.sql",
-      "line": 444,
+      "line": 443,
       "verb": "revoke all",
       "rationale_ref": "privilege-revoke"
     },
     {
       "id": "1ed522f795ecb0cb",
       "file": "20261109130000_organizations_and_group_workspaces.sql",
-      "line": 445,
+      "line": 444,
       "verb": "revoke all",
       "rationale_ref": "privilege-revoke"
     },
     {
       "id": "f1e78e5d346d1e68",
       "file": "20261109130000_organizations_and_group_workspaces.sql",
-      "line": 446,
+      "line": 445,
       "verb": "revoke all",
       "rationale_ref": "privilege-revoke"
     },
     {
       "id": "13e62635b266e45a",
       "file": "20261109130000_organizations_and_group_workspaces.sql",
-      "line": 447,
+      "line": 446,
       "verb": "revoke all",
       "rationale_ref": "privilege-revoke"
     },
     {
       "id": "b8825bc8da08489a",
       "file": "20261109130000_organizations_and_group_workspaces.sql",
-      "line": 449,
+      "line": 448,
       "verb": "grant execute",
       "rationale_ref": "privilege-grant"
     },
     {
       "id": "f740fe57805f74df",
       "file": "20261109130000_organizations_and_group_workspaces.sql",
-      "line": 450,
+      "line": 449,
       "verb": "grant execute",
       "rationale_ref": "privilege-grant"
     },
     {
       "id": "8832fb8a1613184f",
       "file": "20261109130000_organizations_and_group_workspaces.sql",
-      "line": 451,
+      "line": 450,
       "verb": "grant execute",
       "rationale_ref": "privilege-grant"
     },
     {
       "id": "31a426c17bc1e403",
       "file": "20261109130000_organizations_and_group_workspaces.sql",
-      "line": 452,
+      "line": 451,
       "verb": "grant execute",
       "rationale_ref": "privilege-grant"
     },
     {
       "id": "e223bc0a2366a5bb",
       "file": "20261109130000_organizations_and_group_workspaces.sql",
-      "line": 453,
+      "line": 452,
       "verb": "grant execute",
       "rationale_ref": "privilege-grant"
     }

@@ -17,7 +17,7 @@ select set_config('request.jwt.claim.sub', 'e1000000-0000-4000-8000-000000000001
 select set_config('request.jwt.claims',
     json_build_object('sub', 'e1000000-0000-4000-8000-000000000001')::text, true);
 
-select is((select name from public.create_organization_account('Acme')),
+select is((select organization_name from public.create_organization_account('Acme')),
     'Acme', 'the admin creates an organization');
 select is((select role from public.organization_memberships
     where user_id = 'e1000000-0000-4000-8000-000000000001'),
