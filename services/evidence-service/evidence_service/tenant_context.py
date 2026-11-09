@@ -9,6 +9,13 @@ from uuid import UUID
 from evidence_service.auth import Principal
 
 WorkspaceRole = Literal["owner", "member"]
+AccountType = Literal["individual", "organization"]
+
+
+@dataclass(frozen=True)
+class AccountProfile:
+    account_type: AccountType
+    organization_name: str | None
 
 
 @dataclass(frozen=True)
@@ -41,6 +48,14 @@ class WorkspaceDirectory(Protocol):
     async def get_membership(
         self, principal: Principal, access_token: str, workspace_id: UUID
     ) -> WorkspaceMembership | None: ...
+
+    async def get_account(
+        self, principal: Principal, access_token: str
+    ) -> AccountProfile: ...
+
+    async def create_organization_account(
+        self, principal: Principal, access_token: str, name: str
+    ) -> AccountProfile: ...
 
 
 async def resolve_workspace_context(

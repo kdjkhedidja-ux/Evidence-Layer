@@ -221,3 +221,94 @@ describe("account deletion request", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(/already open/i);
   });
 });
+
+describe("organization account gating", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    vi.clearAllMocks();
+  });
+
+  const workspace = {
+    id: "10000000-0000-4000-8000-000000000011",
+    name: "Personal workspace",
+    role: "owner" as const,
+  };
+
+  it("shows Workspace & Access only for organization accounts", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/api/evidence/personal-workspace") return Response.json(workspace);
+      if (url === "/api/evidence/me") {
+        return Response.json({
+          user_id: "user-a",
+          account_type: "organization",
+          organization_name: "Acme Evidence",
+          can_manage_workspace: true,
+          workspaces: [workspace],
+        });
+      }
+      return new Response(null, { status: 404 });
+    }));
+    render(<AuthAccount userId="user-a" email="a@example.test" />);
+    expect(await screen.findByText("Workspace & Access")).toBeInTheDocument();
+    expect(screen.getByText("Acme Evidence")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Create organization account" })).not.toBeInTheDocument();
+  });
+
+  it("offers organization creation to individual accounts", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/api/evidence/personal-workspace") return Response.json(workspace);
+      if (url === "/api/evidence/me") {
+        return Response.json({
+          user_id: "user-a",
+          account_type: "individual",
+          organization_name: null,
+          can_manage_workspace: false,
+          workspaces: [workspace],
+        });
+      }
+      return new Response(null, { status: 404 });
+    }));
+    render(<AuthAccount userId="user-a" email="a@example.test" />);
+    expect(await screen.findByRole("button", { name: "Create organization account" })).toBeInTheDocument();
+    expect(screen.queryByText("Workspace & Access")).not.toBeInTheDocument();
+  });
+
+  it("upgrades an individual account and enables Workspace & Access", async () => {
+    let upgraded = false;
+    const calls: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      calls.push(url);
+      if (url === "/api/evidence/personal-workspace") return Response.json(workspace);
+      if (url === "/api/evidence/me") {
+        return Response.json({
+          user_id: "user-a",
+          account_type: upgraded ? "organization" : "individual",
+          organization_name: upgraded ? "Acme Evidence" : null,
+          can_manage_workspace: upgraded,
+          workspaces: [workspace],
+        });
+      }
+      if (url === "/api/evidence/me/organization") {
+        upgraded = true;
+        return Response.json({
+          user_id: "user-a",
+          account_type: "organization",
+          organization_name: "Acme Evidence",
+          can_manage_workspace: true,
+          workspaces: [workspace],
+        });
+      }
+      return new Response(null, { status: 404 });
+    }));
+    const user = userEvent.setup();
+    render(<AuthAccount userId="user-a" email="a@example.test" />);
+    await user.type(await screen.findByLabelText("Organization name"), "Acme Evidence");
+    await user.click(screen.getByRole("button", { name: "Create organization account" }));
+    expect(await screen.findByText("Workspace & Access")).toBeInTheDocument();
+    expect(screen.getByText("Acme Evidence")).toBeInTheDocument();
+    expect(calls).toContain("/api/evidence/me/organization");
+  });
+});

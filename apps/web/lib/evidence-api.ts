@@ -4,6 +4,14 @@ import { getVerifiedAuthContext } from "./supabase/server";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type WorkspaceSummary = { id: string; name: string; role: "owner" | "member" };
+export type AccountType = "individual" | "organization";
+export type AccountSummary = {
+  user_id: string;
+  account_type: AccountType;
+  organization_name: string | null;
+  can_manage_workspace: boolean;
+  workspaces: WorkspaceSummary[];
+};
 
 export type WorkspaceEvidenceRecord = {
   id: string;
@@ -169,21 +177,94 @@ export async function proxyEvidenceRequest({
       : json(502, { error: "Evidence service returned an invalid response." });
   }
 
-  if (!payload || typeof payload !== "object") {
-    return json(502, { error: "Evidence service returned an invalid response." });
-  }
-  const candidate = payload as Record<string, unknown>;
-  if (
-    candidate.user_id !== auth.user.id ||
-    !Array.isArray(candidate.workspaces)
-  ) {
-    return json(502, { error: "Evidence service returned an invalid response." });
+  const account = safeMe(payload, auth.user.id);
+  return account
+    ? json(200, account)
+    : json(502, { error: "Evidence service returned an invalid response." });
+}
+
+function safeMe(value: unknown, userId: string): AccountSummary | null {
+  if (!value || typeof value !== "object") return null;
+  const candidate = value as Record<string, unknown>;
+  if (candidate.user_id !== userId || !Array.isArray(candidate.workspaces)) {
+    return null;
   }
   const workspaces = candidate.workspaces.map(safeWorkspace);
-  if (workspaces.some((workspace) => workspace === null)) {
+  if (workspaces.some((workspace) => workspace === null)) return null;
+  const accountType: AccountType =
+    candidate.account_type === "organization" ? "organization" : "individual";
+  const organizationName =
+    typeof candidate.organization_name === "string" && candidate.organization_name.trim()
+      ? candidate.organization_name.trim()
+      : null;
+  if (accountType === "organization" && !organizationName) return null;
+  return {
+    user_id: userId,
+    account_type: accountType,
+    organization_name: organizationName,
+    can_manage_workspace: accountType === "organization",
+    workspaces: workspaces as WorkspaceSummary[],
+  };
+}
+
+export async function proxyCreateOrganization(request: Request): Promise<Response> {
+  if (!sameOrigin(request)) {
+    return json(403, { error: "Request origin was not accepted." });
+  }
+  const auth = await getVerifiedAuthContext();
+  if (auth.kind === "unauthenticated") {
+    return json(401, { error: "Authentication is required." });
+  }
+  if (auth.kind === "unavailable") {
+    return json(503, { error: "Identity verification is unavailable." });
+  }
+  let payload: unknown;
+  try {
+    payload = await request.json();
+  } catch {
+    return json(400, { error: "An organization name is required." });
+  }
+  if (!payload || typeof payload !== "object") {
+    return json(400, { error: "An organization name is required." });
+  }
+  const name = (payload as Record<string, unknown>).name;
+  if (typeof name !== "string" || name.trim().length < 1 || name.trim().length > 120) {
+    return json(400, { error: "Organization name must be 1-120 characters." });
+  }
+  const serviceUrl = getEvidenceServiceBaseUrl();
+  if (!serviceUrl) return json(503, { error: "Evidence service is unavailable." });
+  let upstream: Response;
+  try {
+    upstream = await fetch(`${serviceUrl}/v1/me/organization`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${auth.accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name: name.trim() }),
+      cache: "no-store",
+      redirect: "manual",
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch {
+    return json(503, { error: "Evidence service is unavailable." });
+  }
+  if (upstream.status === 401) return json(401, { error: "Your session is no longer valid." });
+  if (upstream.status === 403) return json(403, { error: "This action is not available for this account." });
+  if (upstream.status !== 200 && upstream.status !== 201) {
+    return json(503, { error: "Organization account service is unavailable." });
+  }
+  let responsePayload: unknown;
+  try {
+    responsePayload = await upstream.json();
+  } catch {
     return json(502, { error: "Evidence service returned an invalid response." });
   }
-  return json(200, { user_id: auth.user.id, workspaces });
+  const account = safeMe(responsePayload, auth.user.id);
+  return account
+    ? json(200, account)
+    : json(502, { error: "Evidence service returned an invalid response." });
 }
 
 export function isUuid(value: string): boolean {

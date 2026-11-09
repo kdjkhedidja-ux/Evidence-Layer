@@ -55,6 +55,9 @@ describe("same-origin Evidence Service proxy", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       user_id: USER_ID,
+      account_type: "individual",
+      organization_name: null,
+      can_manage_workspace: false,
       workspaces: [{ id: WORKSPACE_ID, name: "Personal", role: "owner" }],
     });
     const [, init] = fetchMock.mock.calls[0];

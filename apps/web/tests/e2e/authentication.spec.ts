@@ -36,6 +36,9 @@ test("browser session cookies reach the verified server-side workspace API", asy
     status: 200,
     body: {
       user_id: "synthetic-ui-user",
+      account_type: "individual",
+      organization_name: null,
+      can_manage_workspace: false,
       workspaces: [{
         id: productWorkspaceId,
         name: "First synthetic workspace",

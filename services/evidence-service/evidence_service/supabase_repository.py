@@ -9,6 +9,7 @@ import httpx
 from evidence_service.auth import AuthenticationRejected, Principal
 from evidence_service.config import SupabaseSettings
 from evidence_service.tenant_context import (
+    AccountProfile,
     WorkspaceAccessDenied,
     WorkspaceDirectory,
     WorkspaceMembership,
@@ -88,6 +89,90 @@ class SupabaseWorkspaceRepository(WorkspaceDirectory):
         if not rows:
             return None
         return self._parse_row(rows[0], principal)
+
+    async def get_account(
+        self, principal: Principal, access_token: str
+    ) -> AccountProfile:
+        headers = self._headers(access_token)
+        try:
+            async with httpx.AsyncClient(
+                timeout=self._settings.timeout_seconds,
+                transport=self._transport,
+            ) as client:
+                response = await client.get(
+                    f"{self._settings.supabase_url.rstrip('/')}/rest/v1/accounts",
+                    params={
+                        "select": "account_type,organization_name",
+                        "user_id": f"eq.{principal.subject}",
+                        "limit": "1",
+                    },
+                    headers=headers,
+                )
+            if response.status_code != 200:
+                raise WorkspaceDataUnavailable
+            rows = response.json()
+            if not isinstance(rows, list) or len(rows) > 1:
+                raise WorkspaceDataUnavailable
+            if not rows:
+                return AccountProfile(account_type="individual", organization_name=None)
+            return self._parse_account(rows[0])
+        except WorkspaceDataUnavailable:
+            raise
+        except (httpx.HTTPError, ValueError, TypeError, KeyError) as exc:
+            raise WorkspaceDataUnavailable from exc
+
+    async def create_organization_account(
+        self, principal: Principal, access_token: str, name: str
+    ) -> AccountProfile:
+        headers = self._headers(access_token)
+        try:
+            async with httpx.AsyncClient(
+                timeout=self._settings.timeout_seconds,
+                transport=self._transport,
+            ) as client:
+                response = await client.post(
+                    f"{self._settings.supabase_url.rstrip('/')}/rest/v1/rpc/create_organization_account",
+                    json={"p_name": name},
+                    headers=headers,
+                )
+            if response.status_code not in {200, 201}:
+                raise WorkspaceDataUnavailable
+            payload = response.json()
+            if isinstance(payload, list):
+                if not payload:
+                    raise WorkspaceDataUnavailable
+                payload = payload[0]
+            if not isinstance(payload, dict):
+                raise WorkspaceDataUnavailable
+            return self._parse_account(payload)
+        except WorkspaceDataUnavailable:
+            raise
+        except (httpx.HTTPError, ValueError, TypeError, KeyError) as exc:
+            raise WorkspaceDataUnavailable from exc
+
+    def _headers(self, access_token: str) -> dict[str, str]:
+        return {
+            "apikey": self._settings.publishable_key,
+            "Authorization": f"Bearer {access_token}",
+            "Accept": "application/json",
+        }
+
+    def _parse_account(self, row: dict[str, object]) -> AccountProfile:
+        account_type = row.get("account_type")
+        organization_name = row.get("organization_name")
+        if account_type not in {"individual", "organization"}:
+            raise WorkspaceDataUnavailable
+        if account_type == "individual":
+            return AccountProfile(account_type="individual", organization_name=None)
+        if (
+            not isinstance(organization_name, str)
+            or not organization_name.strip()
+            or len(organization_name.strip()) > 120
+        ):
+            raise WorkspaceDataUnavailable
+        return AccountProfile(
+            account_type="organization", organization_name=organization_name.strip()
+        )
 
     async def _request(
         self,

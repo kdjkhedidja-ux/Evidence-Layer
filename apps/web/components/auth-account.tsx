@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { createSupabaseBrowserClient } from "../lib/supabase/client";
 import { deletionRequestsEnabled as resolveDeletionRequestsEnabled } from "../lib/deletion-flag";
 import type { DeletionRequestView } from "../lib/deletion-api";
@@ -31,6 +31,11 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
   const [personalDeletionPending, setPersonalDeletionPending] = useState(false);
   const [personalDeletionMessage, setPersonalDeletionMessage] = useState("");
   const [lookupId, setLookupId] = useState("");
+  const [accountType, setAccountType] = useState<"individual" | "organization">("individual");
+  const [organizationName, setOrganizationName] = useState<string | null>(null);
+  const [organizationInput, setOrganizationInput] = useState("");
+  const [organizationPending, setOrganizationPending] = useState(false);
+  const [organizationMessage, setOrganizationMessage] = useState("");
   const deletionRequestsEnabled = resolveDeletionRequestsEnabled({
     flag: process.env.NEXT_PUBLIC_DELETION_REQUESTS_ENABLED,
   });
@@ -47,7 +52,12 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
         setState("unavailable");
         return null;
       }
-      const payload = (await response.json()) as { user_id?: string; workspaces?: Workspace[] };
+      const payload = (await response.json()) as {
+        user_id?: string;
+        workspaces?: Workspace[];
+        account_type?: string;
+        organization_name?: string | null;
+      };
       if (payload.user_id !== userId) {
         setWorkspaces([]);
         setState("expired");
@@ -56,6 +66,12 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
       }
       const authorizedWorkspaces = Array.isArray(payload.workspaces) ? payload.workspaces : [];
       setWorkspaces(authorizedWorkspaces);
+      setAccountType(payload.account_type === "organization" ? "organization" : "individual");
+      setOrganizationName(
+        payload.account_type === "organization" && typeof payload.organization_name === "string"
+          ? payload.organization_name
+          : null,
+      );
       setState("ready");
       return authorizedWorkspaces;
     } catch {
@@ -63,6 +79,48 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
       return null;
     }
   }, [router, userId]);
+
+  const createOrganization = useCallback(async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const name = organizationInput.trim();
+    if (!name) {
+      setOrganizationMessage("Enter an organization name.");
+      return;
+    }
+    setOrganizationPending(true);
+    setOrganizationMessage("");
+    try {
+      const response = await fetch("/api/evidence/me/organization", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({ name }),
+      });
+      if (response.status === 401) {
+        setState("expired");
+        return;
+      }
+      if (!response.ok) {
+        setOrganizationMessage("Organization account could not be created.");
+        return;
+      }
+      const payload = (await response.json()) as {
+        account_type?: string;
+        organization_name?: string | null;
+      };
+      setAccountType(payload.account_type === "organization" ? "organization" : "individual");
+      setOrganizationName(
+        typeof payload.organization_name === "string" ? payload.organization_name : null,
+      );
+      setOrganizationInput("");
+      setOrganizationMessage("Organization account is ready. Workspace & Access is enabled.");
+      await loadWorkspaces();
+    } catch {
+      setOrganizationMessage("Organization account could not be created.");
+    } finally {
+      setOrganizationPending(false);
+    }
+  }, [loadWorkspaces, organizationInput]);
 
   const createPersonalWorkspace = useCallback(async () => {
     setPending(true);
@@ -375,6 +433,41 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
       )}
       {message && <p className="account-message" role="status">{message}</p>}
       <p className="account-sample-note">The Explorer shows only records your verified account is authorized to read; no sample records are substituted.</p>
+      {state === "ready" && (
+        <section className="account-organization" aria-labelledby="account-organization-title">
+          <h3 id="account-organization-title">Organization</h3>
+          {accountType === "organization" ? (
+            <>
+              <p>Organization: <strong>{organizationName}</strong></p>
+              <section className="account-access" aria-labelledby="account-access-title">
+                <h3 id="account-access-title">Workspace & Access</h3>
+                <p>
+                  Manage members, roles, and group workspaces for this organization. Member
+                  controls are enabled in the next stage.
+                </p>
+              </section>
+            </>
+          ) : (
+            <form className="account-organization-form" onSubmit={(event) => void createOrganization(event)}>
+              <p>Create an organization account to enable group workspaces and Workspace & Access.</p>
+              <label htmlFor="organization-name">Organization name</label>
+              <input
+                id="organization-name"
+                value={organizationInput}
+                onChange={(event) => setOrganizationInput(event.target.value)}
+                maxLength={120}
+                disabled={organizationPending}
+              />
+              <button type="submit" disabled={organizationPending || !organizationInput.trim()}>
+                {organizationPending ? "Creating…" : "Create organization account"}
+              </button>
+            </form>
+          )}
+          {organizationMessage && (
+            <p className="account-message" role="status">{organizationMessage}</p>
+          )}
+        </section>
+      )}
       {deletionRequestsEnabled ? (
       <section className="account-deletion" aria-labelledby="account-deletion-title">
         <h3>Personal workspace deletion</h3>
