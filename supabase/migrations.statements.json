@@ -3374,6 +3374,244 @@
       "line": 116,
       "verb": "grant execute",
       "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "c30c7541109f5a60",
+      "file": "20261109130000_organizations_and_group_workspaces.sql",
+      "line": 29,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "a02b6b93d8c6f835",
+      "file": "20261109130000_organizations_and_group_workspaces.sql",
+      "line": 30,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "ae6f37a9cc48cb55",
+      "file": "20261109130000_organizations_and_group_workspaces.sql",
+      "line": 31,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "65e46639ebd17ea9",
+      "file": "20261109130000_organizations_and_group_workspaces.sql",
+      "line": 32,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "283e5d1bc5f6c13e",
+      "file": "20261109130000_organizations_and_group_workspaces.sql",
+      "line": 33,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "7be42137b30dc482",
+      "file": "20261109130000_organizations_and_group_workspaces.sql",
+      "line": 35,
+      "verb": "grant select",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "5fd0795431308add",
+      "file": "20261109130000_organizations_and_group_workspaces.sql",
+      "line": 38,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "758987f21c2ae608",
+      "file": "20261109130000_organizations_and_group_workspaces.sql",
+      "line": 52,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "3c0ef6c105c5f6e9",
+      "file": "20261109130000_organizations_and_group_workspaces.sql",
+      "line": 59,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "91a3ab83550ca2fe",
+      "file": "20261109130000_organizations_and_group_workspaces.sql",
+      "line": 62,
+      "verb": "insert into",
+      "rationale_ref": "catalog-seed-write"
+    },
+    {
+      "id": "b562e96d4ff04ba9",
+      "file": "20261109130000_organizations_and_group_workspaces.sql",
+      "line": 69,
+      "verb": "update public",
+      "rationale_ref": "catalog-seed-write"
+    },
+    {
+      "id": "c2b63b08c960b04c",
+      "file": "20261109130000_organizations_and_group_workspaces.sql",
+      "line": 76,
+      "verb": "insert into",
+      "rationale_ref": "catalog-seed-write"
+    },
+    {
+      "id": "8590ed2f0ba72b72",
+      "file": "20261109130000_organizations_and_group_workspaces.sql",
+      "line": 81,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "fc657bb69c1f49e4",
+      "file": "20261109130000_organizations_and_group_workspaces.sql",
+      "line": 83,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "97a05c12d85334b9",
+      "file": "20261109130000_organizations_and_group_workspaces.sql",
+      "line": 94,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "6fe8391233709685",
+      "file": "20261109130000_organizations_and_group_workspaces.sql",
+      "line": 96,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "3b9e34bd46f85d2a",
+      "file": "20261109130000_organizations_and_group_workspaces.sql",
+      "line": 102,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "3f7fc4fff35903e8",
+      "file": "20261109130000_organizations_and_group_workspaces.sql",
+      "line": 104,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "df49b2b8b4841f2e",
+      "file": "20261109130000_organizations_and_group_workspaces.sql",
+      "line": 109,
+      "verb": "create or",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "31385dbc0f98d60a",
+      "file": "20261109130000_organizations_and_group_workspaces.sql",
+      "line": 171,
+      "verb": "create function",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "6714dae57b2fa7a0",
+      "file": "20261109130000_organizations_and_group_workspaces.sql",
+      "line": 223,
+      "verb": "create function",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "bdfb62ff6ed31ef3",
+      "file": "20261109130000_organizations_and_group_workspaces.sql",
+      "line": 277,
+      "verb": "create function",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "cb81e3f6d42f701d",
+      "file": "20261109130000_organizations_and_group_workspaces.sql",
+      "line": 347,
+      "verb": "create function",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "85793a163163e8da",
+      "file": "20261109130000_organizations_and_group_workspaces.sql",
+      "line": 401,
+      "verb": "create function",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "62231300d8d398c8",
+      "file": "20261109130000_organizations_and_group_workspaces.sql",
+      "line": 443,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "c592139c89b932fe",
+      "file": "20261109130000_organizations_and_group_workspaces.sql",
+      "line": 444,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "1ed522f795ecb0cb",
+      "file": "20261109130000_organizations_and_group_workspaces.sql",
+      "line": 445,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "f1e78e5d346d1e68",
+      "file": "20261109130000_organizations_and_group_workspaces.sql",
+      "line": 446,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "13e62635b266e45a",
+      "file": "20261109130000_organizations_and_group_workspaces.sql",
+      "line": 447,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "b8825bc8da08489a",
+      "file": "20261109130000_organizations_and_group_workspaces.sql",
+      "line": 449,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "f740fe57805f74df",
+      "file": "20261109130000_organizations_and_group_workspaces.sql",
+      "line": 450,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "8832fb8a1613184f",
+      "file": "20261109130000_organizations_and_group_workspaces.sql",
+      "line": 451,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "31a426c17bc1e403",
+      "file": "20261109130000_organizations_and_group_workspaces.sql",
+      "line": 452,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "e223bc0a2366a5bb",
+      "file": "20261109130000_organizations_and_group_workspaces.sql",
+      "line": 453,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
     }
   ]
 }

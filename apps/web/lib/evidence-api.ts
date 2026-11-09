@@ -3,7 +3,7 @@ import { getVerifiedAuthContext } from "./supabase/server";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-type WorkspaceSummary = { id: string; name: string; role: "owner" | "member" };
+type WorkspaceSummary = { id: string; name: string; role: "owner" | "admin" | "member" };
 export type AccountType = "individual" | "organization";
 export type AccountSummary = {
   user_id: string;
@@ -62,7 +62,7 @@ function safeWorkspace(value: unknown): WorkspaceSummary | null {
     !UUID_PATTERN.test(candidate.id) ||
     typeof candidate.name !== "string" ||
     candidate.name.length > 160 ||
-    (candidate.role !== "owner" && candidate.role !== "member")
+    (candidate.role !== "owner" && candidate.role !== "admin" && candidate.role !== "member")
   ) {
     return null;
   }

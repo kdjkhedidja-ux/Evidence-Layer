@@ -6,7 +6,7 @@ import { createSupabaseBrowserClient } from "../lib/supabase/client";
 import { deletionRequestsEnabled as resolveDeletionRequestsEnabled } from "../lib/deletion-flag";
 import type { DeletionRequestView } from "../lib/deletion-api";
 
-type Workspace = { id: string; name: string; role: "owner" | "member" };
+type Workspace = { id: string; name: string; role: "owner" | "admin" | "member" };
 type PanelState = "loading" | "ready" | "expired" | "unavailable";
 
 const DELETION_STATUS_LABELS: Record<DeletionRequestView["status"], string> = {
