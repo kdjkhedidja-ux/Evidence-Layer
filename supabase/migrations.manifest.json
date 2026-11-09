@@ -206,6 +206,12 @@
       "version": "20261109130000",
       "sha256": "1aa18a26e9a7617de1c19c57fa1a5c87dd5777a0f73fd99e71e5a1cd64c1bfcb",
       "provenance": "Stage B organizations, memberships, group workspaces, and admin APIs."
+    },
+    {
+      "file": "20261109140000_group_workspace_deletion.sql",
+      "version": "20261109140000",
+      "sha256": "b5619867fa0b001e49a25a528589e6dce3b42a64f95f85fddd0d02ff27669580",
+      "provenance": "Stage D group workspace deletion with Storage queue and audit."
     }
   ]
 }

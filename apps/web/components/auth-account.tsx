@@ -54,6 +54,7 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
   const [memberActionPending, setMemberActionPending] = useState<string | null>(null);
   const [workspaceName, setWorkspaceName] = useState("");
   const [workspacePending, setWorkspacePending] = useState(false);
+  const [workspaceActionPending, setWorkspaceActionPending] = useState<string | null>(null);
   const deletionRequestsEnabled = resolveDeletionRequestsEnabled({
     flag: process.env.NEXT_PUBLIC_DELETION_REQUESTS_ENABLED,
   });
@@ -231,6 +232,25 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
       setOrganizationError("Member could not be removed.");
     } finally {
       setMemberActionPending(null);
+    }
+  }, [loadOrganization]);
+
+  const deleteGroupWorkspace = useCallback(async (workspaceId: string, name: string) => {
+    if (!window.confirm(`Delete the group workspace "${name}" and all of its data?`)) return;
+    setWorkspaceActionPending(workspaceId);
+    setOrganizationError("");
+    try {
+      const response = await fetch(`/api/evidence/organization/workspaces/${encodeURIComponent(workspaceId)}`, {
+        method: "DELETE",
+        cache: "no-store",
+      });
+      if (response.status === 401) { setState("expired"); return; }
+      if (!response.ok) { setOrganizationError("Group workspace could not be deleted."); return; }
+      await loadOrganization();
+    } catch {
+      setOrganizationError("Group workspace could not be deleted.");
+    } finally {
+      setWorkspaceActionPending(null);
     }
   }, [loadOrganization]);
 
@@ -639,7 +659,16 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
                     <h4>Group workspaces</h4>
                     <ul className="organization-workspaces">
                       {organization.workspaces.map((workspace) => (
-                        <li key={workspace.id}>{workspace.name}</li>
+                        <li key={workspace.id}>
+                          <span>{workspace.name}</span>
+                          <button
+                            type="button"
+                            disabled={workspaceActionPending === workspace.id}
+                            onClick={() => void deleteGroupWorkspace(workspace.id, workspace.name)}
+                          >
+                            Delete
+                          </button>
+                        </li>
                       ))}
                     </ul>
                     <form className="account-organization-form" onSubmit={(event) => void createGroupWorkspace(event)}>

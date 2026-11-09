@@ -5,7 +5,7 @@ set local search_path = public, extensions;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(15);
+select plan(19);
 
 insert into auth.users (id, aud, role, email) values
     ('e1000000-0000-4000-8000-000000000001', 'authenticated', 'authenticated', 'org-admin@example.test'),
@@ -24,7 +24,10 @@ select is((select role from public.organization_memberships
     'admin', 'the organization owner is an admin member');
 select is((select count(*)::integer from public.organizations), 1,
     'the organization account owns one organization');
-select is((public.create_group_workspace('Group workspace') ->> 'name'),
+select (public.create_group_workspace('Group workspace') ->> 'workspace_id')::uuid
+    as group_workspace_id \gset
+select is((select name from public.workspaces
+    where id = :'group_workspace_id'::uuid),
     'Group workspace', 'the admin creates a group workspace');
 select is(jsonb_array_length(public.organization_overview() -> 'workspaces'), 1,
     'the group workspace belongs to the organization');
@@ -63,6 +66,20 @@ select set_config('request.jwt.claims',
 select is((select role from public.workspace_memberships
     where user_id = 'e1000000-0000-4000-8000-000000000002'),
     'admin', 'the promoted member gets the admin workspace role');
+
+select set_config('request.jwt.claim.sub', 'e1000000-0000-4000-8000-000000000001', true);
+select set_config('request.jwt.claims',
+    json_build_object('sub', 'e1000000-0000-4000-8000-000000000001')::text, true);
+select is((public.delete_group_workspace(:'group_workspace_id'::uuid) ->> 'workspace_deleted')::boolean,
+    true, 'the admin deletes the group workspace');
+select is((select count(*)::integer from public.workspaces
+    where id = :'group_workspace_id'::uuid), 0,
+    'the group workspace is removed');
+select is((select count(*)::integer from public.workspace_memberships
+    where workspace_id = :'group_workspace_id'::uuid), 0,
+    'the group workspace memberships are removed');
+select is(jsonb_array_length(public.organization_overview() -> 'workspaces'), 0,
+    'the overview no longer lists the group workspace');
 
 select set_config('request.jwt.claim.sub', 'e1000000-0000-4000-8000-000000000003', true);
 select set_config('request.jwt.claims',
