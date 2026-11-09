@@ -26,8 +26,7 @@ select is((select count(*)::integer from public.organizations), 1,
     'the organization account owns one organization');
 select is((public.create_group_workspace('Group workspace') ->> 'name'),
     'Group workspace', 'the admin creates a group workspace');
-select is((select count(*)::integer from public.workspaces
-    where organization_id is not null), 1,
+select is(jsonb_array_length(public.organization_overview() -> 'workspaces'), 1,
     'the group workspace belongs to the organization');
 select is((select role from public.workspace_memberships
     where user_id = 'e1000000-0000-4000-8000-000000000001'),
