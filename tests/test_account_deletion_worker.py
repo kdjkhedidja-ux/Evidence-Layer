@@ -30,6 +30,8 @@ class FakeCursor:
             self.current = (self.status, self.subject_id)
         elif "run_account_deletion_slice" in sql:
             self.current = (self.slice_result,)
+        elif "action = 'account_prepared'" in sql:
+            self.current = (False,)
         elif "prepare_individual_account_purge" in sql:
             self.current = (self.prepared,)
         elif "delete_account_lifecycle_for_purge" in sql:

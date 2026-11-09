@@ -106,13 +106,23 @@ def run_account_deletion(
                         "stage": "scoped_slice",
                     }
 
-            cursor.execute("set local role account_deletion_worker")
-            prepared = _call_json(
-                cursor,
-                "select private.prepare_individual_account_purge_v2(%s)",
+            cursor.execute(
+                "select exists(select 1 from public.evidence_deletion_audit "
+                "where request_id = %s and action = 'account_prepared')",
                 (str(request_id),),
             )
-            connection.commit()
+            marker_row = cursor.fetchone()
+            already_prepared = bool(marker_row and marker_row[0])
+            if already_prepared:
+                prepared = {"status": "prepared"}
+            else:
+                cursor.execute("set local role account_deletion_worker")
+                prepared = _call_json(
+                    cursor,
+                    "select private.prepare_individual_account_purge_v2(%s)",
+                    (str(request_id),),
+                )
+                connection.commit()
             if not isinstance(prepared, dict) or prepared.get("status") != "prepared":
                 return {
                     "status": "purge_pending",
