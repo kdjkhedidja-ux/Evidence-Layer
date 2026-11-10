@@ -1,4 +1,5 @@
 import { getEvidenceServiceBaseUrl } from "./supabase/config";
+import { mfaChallengeRequired } from "./supabase/mfa";
 import { getVerifiedAuthContext } from "./supabase/server";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -103,6 +104,16 @@ function sameOrigin(request: Request): boolean {
   }
 }
 
+async function mfaBlocked(
+  auth: Awaited<ReturnType<typeof getVerifiedAuthContext>>,
+): Promise<Response | null> {
+  if (auth.kind !== "authenticated") return null;
+  if (await mfaChallengeRequired(auth.client)) {
+    return json(403, { error: "Complete two-factor authentication to continue." });
+  }
+  return null;
+}
+
 type ProxyOptions = {
   endpoint: string;
   method: "GET" | "PUT";
@@ -129,6 +140,8 @@ export async function proxyEvidenceRequest({
   if (auth.kind === "unavailable") {
     return json(503, { error: "Identity verification is unavailable." });
   }
+  const blocked = await mfaBlocked(auth);
+  if (blocked) return blocked;
 
   const serviceUrl = getEvidenceServiceBaseUrl();
   if (!serviceUrl) return json(503, { error: "Evidence service is unavailable." });
@@ -218,6 +231,8 @@ export async function proxyCreateOrganization(request: Request): Promise<Respons
   if (auth.kind === "unavailable") {
     return json(503, { error: "Identity verification is unavailable." });
   }
+  const blocked = await mfaBlocked(auth);
+  if (blocked) return blocked;
   let payload: unknown;
   try {
     payload = await request.json();
@@ -368,6 +383,8 @@ export async function proxyOrganizationRequest({
   if (auth.kind === "unavailable") {
     return json(503, { error: "Identity verification is unavailable." });
   }
+  const blocked = await mfaBlocked(auth);
+  if (blocked) return blocked;
   const serviceUrl = getEvidenceServiceBaseUrl();
   if (!serviceUrl) return json(503, { error: "Evidence service is unavailable." });
 
@@ -631,6 +648,8 @@ export async function proxyWorkspaceEvidenceRequest({
   const auth = await getVerifiedAuthContext();
   if (auth.kind === "unauthenticated") return json(401, { error: "Authentication is required." });
   if (auth.kind === "unavailable") return json(503, { error: "Identity verification is unavailable." });
+  const blocked = await mfaBlocked(auth);
+  if (blocked) return blocked;
 
   const serviceUrl = getEvidenceServiceBaseUrl();
   if (!serviceUrl) return json(503, { error: "Evidence service is unavailable." });
@@ -847,6 +866,8 @@ export async function proxyWorkspaceRelationshipsRequest({
   const auth = await getVerifiedAuthContext();
   if (auth.kind === "unauthenticated") return json(401, { error: "Authentication is required." });
   if (auth.kind === "unavailable") return json(503, { error: "Identity verification is unavailable." });
+  const blocked = await mfaBlocked(auth);
+  if (blocked) return blocked;
   const serviceUrl = getEvidenceServiceBaseUrl();
   if (!serviceUrl) return json(503, { error: "Evidence service is unavailable." });
 
@@ -910,6 +931,8 @@ export async function proxyWorkspaceSourcesRequest({
   const auth = await getVerifiedAuthContext();
   if (auth.kind === "unauthenticated") return json(401, { error: "Authentication is required." });
   if (auth.kind === "unavailable") return json(503, { error: "Identity verification is unavailable." });
+  const blocked = await mfaBlocked(auth);
+  if (blocked) return blocked;
 
   const serviceUrl = getEvidenceServiceBaseUrl();
   if (!serviceUrl) return json(503, { error: "Evidence service is unavailable." });
@@ -967,6 +990,8 @@ export async function proxyVerifiedSourceContent({
   const auth = await getVerifiedAuthContext();
   if (auth.kind === "unauthenticated") return json(401, { error: "Authentication is required." });
   if (auth.kind === "unavailable") return json(503, { error: "Identity verification is unavailable." });
+  const blocked = await mfaBlocked(auth);
+  if (blocked) return blocked;
 
   const serviceUrl = getEvidenceServiceBaseUrl();
   if (!serviceUrl) return json(503, { error: "Evidence service is unavailable." });

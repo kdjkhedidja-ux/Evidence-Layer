@@ -58,9 +58,11 @@ function formatBytes(value: number): string {
 export default function WorkspaceConsole({
   userId,
   email,
+  sessionExpiresAt = null,
 }: {
   userId: string;
   email: string;
+  sessionExpiresAt?: number | null;
 }) {
   const router = useRouter();
   const [loadState, setLoadState] = useState<LoadState>("loading");
@@ -69,6 +71,7 @@ export default function WorkspaceConsole({
   const [records, setRecords] = useState<EvidenceRecord[]>([]);
   const [recordsState, setRecordsState] = useState<LoadState>("ready");
   const [message, setMessage] = useState("");
+  const [sessionMessage, setSessionMessage] = useState("");
   const [pending, setPending] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteConfirmationId, setDeleteConfirmationId] = useState<string | null>(null);
@@ -447,6 +450,29 @@ export default function WorkspaceConsole({
     }
   }
 
+  async function signOutEverywhere() {
+    setPending(true);
+    setSessionMessage("");
+    try {
+      const { error } = await createSupabaseBrowserClient().auth.signOut({ scope: "global" });
+      if (error) {
+        setSessionMessage("Signing out all sessions could not be confirmed. Try again.");
+        return;
+      }
+      router.replace("/login?reason=signed-out");
+      router.refresh();
+    } catch {
+      setSessionMessage("Signing out all sessions could not be confirmed. Try again.");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  const sessionExpiryIso = sessionExpiresAt
+    ? new Date(sessionExpiresAt * 1000).toISOString()
+    : null;
+  const sessionExpiry = sessionExpiryIso ? dateLabel(sessionExpiryIso) : null;
+
   return (
     <main className="workspace-page">
       <header className="workspace-header">
@@ -531,6 +557,36 @@ export default function WorkspaceConsole({
               </button>
             </div>
           )}
+        </section>
+
+        <section id="session-management" className="workspace-panel" aria-labelledby="session-heading">
+          <div className="workspace-section-heading">
+            <div>
+              <p className="eyebrow">Verified browser session</p>
+              <h2 id="session-heading">Session</h2>
+            </div>
+            <span className="workspace-role">Server verified</span>
+          </div>
+          <p className="workspace-note">
+            Supabase Auth verified this session server-side before workspace data was returned.
+            Session inventory and per-device management are not available in the current service
+            contract. Signing out everywhere ends every session for this account.
+          </p>
+          {sessionExpiry && sessionExpiryIso && (
+            <p>
+              <strong>Session expires:</strong>{" "}
+              <time dateTime={sessionExpiryIso}>{sessionExpiry}</time>
+            </p>
+          )}
+          <div className="workspace-form-actions">
+            <button type="button" onClick={signOutEverywhere} disabled={pending}>
+              {pending ? "Signing out…" : "Sign out everywhere"}
+            </button>
+          </div>
+          <p>
+            <Link href="/mfa?next=%2Fworkspace">Manage two-factor authentication</Link>
+          </p>
+          {sessionMessage && <p className="workspace-message" role="alert">{sessionMessage}</p>}
         </section>
 
         {selectedWorkspace && (

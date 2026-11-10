@@ -46,6 +46,8 @@ describe("workspace capability catalog contract", () => {
     const existingDestinations = new Set([
       "/workspace#workspace-session",
       "/workspace#membership-heading",
+      "/workspace#session-management",
+      "/mfa",
       "/#explorer",
       "/workspace#records-heading",
       "/#reading-guide",

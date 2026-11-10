@@ -31,9 +31,9 @@ export const CAPABILITY_GROUPS: readonly CapabilityGroup[] = [
       },
       {
         name: "Sessions",
-        status: "Limited / Read only",
-        detail: "The current browser session is verified. There is no session inventory or device-management endpoint.",
-        href: "/workspace#workspace-session",
+        status: "Partially available",
+        detail: "The current browser session is verified and can be ended for every device. There is no session inventory or per-device management.",
+        href: "/workspace#session-management",
       },
       {
         name: "Sign out",
@@ -239,15 +239,15 @@ export const CAPABILITY_GROUPS: readonly CapabilityGroup[] = [
       },
       {
         name: "Security",
-        status: "Limited / Read only",
-        detail: "Sign-in and recovery flows exist, but there is no account security settings page.",
-        href: "/workspace#workspace-session",
+        status: "Partially available",
+        detail: "Passwords require at least 12 characters, and password changes require the current password plus a recent sign-in. TOTP authenticators can be enrolled and are challenged before app access.",
+        href: "/mfa",
       },
       {
         name: "Authentication sessions",
-        status: "Limited / Read only",
-        detail: "The current session can be signed out; there is no session list or remote-session control.",
-        href: "/workspace#workspace-session",
+        status: "Partially available",
+        detail: "The current session can be signed out, and global sign-out revokes every session. Session inventory and per-device control are unavailable.",
+        href: "/workspace#session-management",
       },
       {
         name: "Personal API Keys",

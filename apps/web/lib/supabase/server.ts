@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { getSupabasePublicConfig, SupabaseConfigurationError } from "./config";
 
 export type VerifiedAuthContext =
-  | { kind: "authenticated"; client: SupabaseClient; user: User; accessToken: string }
+  | { kind: "authenticated"; client: SupabaseClient; user: User; accessToken: string; expiresAt: number | null }
   | { kind: "unauthenticated" }
   | { kind: "unavailable" };
 
@@ -65,6 +65,7 @@ export async function getVerifiedAuthContext(): Promise<VerifiedAuthContext> {
       client,
       user: userData.user,
       accessToken: session.access_token,
+      expiresAt: session.expires_at ?? null,
     };
   } catch {
     return { kind: "unavailable" };
