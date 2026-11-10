@@ -4090,6 +4090,13 @@
       "line": 661,
       "verb": "revoke create",
       "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "cea0c0b6efc061c1",
+      "file": "20261110233000_grant_personal_api_key_subject.sql",
+      "line": 4,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
     }
   ]
 }
