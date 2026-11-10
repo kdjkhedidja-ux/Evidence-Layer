@@ -21,6 +21,7 @@ from evidence_service.app import (
     create_app,
     require_authenticated_request,
     require_control_request,
+    require_personal_api_key,
 )
 from evidence_service.auth import AuthenticationRejected, Principal
 from evidence_service.config import SupabaseSettings
@@ -646,16 +647,17 @@ def test_new_v1_routes_must_bind_the_lifecycle_dependency_and_healthz_is_public(
 
     def has_auth_dependency(dependant) -> bool:
         return any(
-            dependency.call in {require_authenticated_request, require_control_request}
+            dependency.call in {require_authenticated_request, require_control_request, require_personal_api_key}
             or has_auth_dependency(dependency)
             for dependency in dependant.dependencies
         )
 
     # 14 data routes, 4 deletion control routes (create/accept/status/current),
-    # 2 personal deletion routes, the organization account route, and 6
-    # organization management routes. All require authentication; only data
-    # routes use the lifecycle data gate.
-    assert len(protected) == 27
+    # 2 personal deletion routes, the organization account route, 6
+    # organization management routes, 3 personal API key management routes, and
+    # 2 personal API key read routes. All require a verified credential; the
+    # read routes use the dedicated personal-key dependency plus the DB gate.
+    assert len(protected) == 32
     assert all(has_auth_dependency(route.dependant) for route in protected)
     assert [(route.path, route.methods) for route in public] == [
         ("/healthz", {"GET"})

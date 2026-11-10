@@ -159,8 +159,8 @@ describe("workspace product console", () => {
     const keysFeature = screen.getByRole("heading", { name: "Personal API Keys" }).closest("li");
     expect(keysFeature).not.toBeNull();
     if (!keysFeature) throw new Error("Personal API Keys capability is missing its list item");
-    expect(within(keysFeature).getByText("Pending")).toBeInTheDocument();
-    expect(keysFeature).toHaveTextContent(/separate from session JWTs/i);
+    expect(within(keysFeature).getByText("Partially available")).toBeInTheDocument();
+    expect(keysFeature).toHaveTextContent(/read-only keys/i);
   });
 
   it("keeps evidence mutations unavailable in the member UI", async () => {
@@ -178,7 +178,12 @@ describe("workspace product console", () => {
     render(<WorkspaceConsole userId={USER_ID} email="reader@example.test" />);
     await screen.findByText("Current workspace evidence");
     expect(screen.getByRole("combobox", { name: "Authorized workspace" })).toHaveValue(WORKSPACE_ID);
-    expect(screen.getByRole("option", { name: "Group workspace · admin" })).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("combobox", { name: "Authorized workspace" })).getByRole(
+        "option",
+        { name: "Group workspace · admin" },
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText("Admin", { exact: true })).toBeInTheDocument();
     expect(screen.getByText("Type:").closest("p")).toHaveTextContent("Group workspace");
     expect(screen.getByLabelText("Evidence content")).toBeInTheDocument();
@@ -278,7 +283,11 @@ describe("workspace product console", () => {
     await waitFor(() => {
       expect(screen.getAllByRole("alert").length).toBeGreaterThanOrEqual(2);
     });
-    expect(screen.getAllByRole("alert")[0]).toHaveTextContent("Evidence service is unavailable.");
+    expect(
+      screen.getAllByRole("alert").some((alert) =>
+        alert.textContent?.includes("Evidence service is unavailable."),
+      ),
+    ).toBe(true);
     expect(screen.queryByText("Cedar pilot go-live")).not.toBeInTheDocument();
     expect(screen.queryByText("source fixture")).not.toBeInTheDocument();
   });
@@ -296,8 +305,9 @@ describe("workspace product console", () => {
       return Response.json({ error: "missing test response" }, { status: 404 });
     });
     render(<WorkspaceConsole userId={USER_ID} email="reader@example.test" />);
-
-    expect(await screen.findByRole("alert")).toHaveTextContent("Evidence service is unavailable.");
+    await waitFor(() => {
+      expect(screen.getAllByText("Evidence service is unavailable.").length).toBeGreaterThan(0);
+    });
     expect(screen.getByText("Unavailable", { selector: ".workspace-count" })).toBeInTheDocument();
     expect(screen.queryByText("0 records")).not.toBeInTheDocument();
     expect(

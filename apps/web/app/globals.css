@@ -2781,6 +2781,72 @@ select:focus-visible,
   font-size: 0.9rem;
 }
 
+.api-key-token {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--accent-color);
+  border-radius: 8px;
+  background: var(--bg-primary);
+}
+
+.api-key-token code {
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+}
+
+.api-key-token button {
+  justify-self: start;
+}
+
+.api-key-list {
+  display: grid;
+  gap: 0.6rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.api-key-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-primary);
+}
+
+.api-key-list li > div {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.api-key-list span,
+.api-key-list small {
+  overflow-wrap: anywhere;
+  color: var(--text-muted);
+}
+
+.api-key-list button {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 640px) {
+  .api-key-list li {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .api-key-list button {
+    width: 100%;
+  }
+}
+
 .workspace-source-form {
   display: grid;
   grid-template-columns: max-content minmax(12rem, 1fr) max-content minmax(12rem, 1fr) auto;

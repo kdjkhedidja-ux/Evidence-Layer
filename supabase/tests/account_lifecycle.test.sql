@@ -45,7 +45,7 @@ select ok((select reloptions @> array['security_invoker=true']
 select is((select count(*)::integer
     from pg_catalog.pg_policies
     where schemaname = 'public' and tablename = 'account_lifecycle'),
-    6, 'the table has the self-read, trusted-role and worker policies');
+    8, 'the table has the self-read, trusted-role, worker, and personal API key policies');
 select ok((select position('account_lifecycle' in coalesce(qual, '')) = 0
     from pg_catalog.pg_policies
     where schemaname = 'public' and tablename = 'account_lifecycle'

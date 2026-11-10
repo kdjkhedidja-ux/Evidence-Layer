@@ -46,6 +46,7 @@ describe("workspace capability catalog contract", () => {
     const existingDestinations = new Set([
       "/workspace#workspace-session",
       "/workspace#account-profile",
+      "/workspace#personal-api-keys",
       "/workspace#membership-heading",
       "/workspace#session-management",
       "/mfa",
@@ -72,7 +73,7 @@ describe("workspace capability catalog contract", () => {
     );
     expect(features.get("Historical reports")?.status).toBe("Historical");
     expect(features.get("Token usage")?.detail).toMatch(/not per-workspace/i);
-    expect(features.get("Personal API Keys")?.status).toBe("Pending");
-    expect(features.get("Personal API Keys")?.detail).toMatch(/separate from session JWTs/i);
+    expect(features.get("Personal API Keys")?.status).toBe("Partially available");
+    expect(features.get("Personal API Keys")?.detail).toMatch(/read-only keys/i);
   });
 });

@@ -212,6 +212,12 @@
       "version": "20261109140000",
       "sha256": "b5619867fa0b001e49a25a528589e6dce3b42a64f95f85fddd0d02ff27669580",
       "provenance": "Stage D group workspace deletion with Storage queue and audit."
+    },
+    {
+      "file": "20261110230000_personal_api_keys.sql",
+      "version": "20261110230000",
+      "sha256": "1d5d54dcb3436ee0dfa86a8362fe780cb036e7c02996f42c98c0d7a93a659047",
+      "provenance": "Personal API keys: workspace-scoped read-only keys, HMAC gateway proof, dedicated NOLOGIN reader/manager roles, and RLS-bound read RPCs."
     }
   ]
 }

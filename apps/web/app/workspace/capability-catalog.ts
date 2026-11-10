@@ -251,9 +251,9 @@ export const CAPABILITY_GROUPS: readonly CapabilityGroup[] = [
       },
       {
         name: "Personal API Keys",
-        status: "Pending",
-        detail: "Planned as separate personal credentials. No key issuance or revocation exists; API keys must remain separate from session JWTs.",
-        href: "/#settings-access",
+        status: "Partially available",
+        detail: "Workspace-scoped read-only keys for evidence and relationships, with one-time display, 90-day maximum expiry, revocation, and 60 reads per minute. Source bytes and writes require a user session.",
+        href: "/workspace#personal-api-keys",
       },
     ],
   },
