@@ -63,6 +63,35 @@ def test_membership_query_uses_verified_user_token_and_no_admin_key() -> None:
     assert request.headers["apikey"] == settings().publishable_key
     assert "service_role" not in request.headers["apikey"]
     assert [(item.workspace_id, item.role) for item in result] == [(WORKSPACE, "owner")]
+    assert result[0].workspace_type == "personal"
+    assert "organization_id" not in request.url.params["select"]
+
+
+@pytest.mark.parametrize("role", ["admin", "member"])
+def test_organization_membership_reports_group_type_without_reading_org_id(role: str) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert "organization_id" not in request.url.params["select"]
+        return httpx.Response(
+            200,
+            json=[
+                {
+                    "user_id": str(SUBJECT),
+                    "workspace_id": str(WORKSPACE),
+                    "role": role,
+                    "workspace": {"id": str(WORKSPACE), "name": "Group workspace"},
+                }
+            ],
+        )
+
+    repository = SupabaseWorkspaceRepository(
+        settings(), transport=httpx.MockTransport(handler)
+    )
+    result = asyncio.run(
+        repository.list_memberships(Principal(settings().jwt_issuer, SUBJECT), TOKEN)
+    )
+
+    assert len(result) == 1
+    assert result[0].workspace_type == "group"
 
 
 def test_personal_workspace_rpc_uses_user_token_without_identity_input() -> None:

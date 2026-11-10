@@ -55,7 +55,12 @@ const VERSION_SUMMARY = {
 };
 
 function mockProductFetch(
-  workspace: { id: string; name: string; role: "owner" | "admin" | "member" } = WORKSPACE,
+  workspace: {
+    id: string;
+    name: string;
+    role: "owner" | "admin" | "member";
+    workspace_type?: "personal" | "group";
+  } = WORKSPACE,
 ) {
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
@@ -99,7 +104,7 @@ describe("workspace product console", () => {
     expect(await screen.findByRole("heading", { name: "Evidence workspace" })).toBeInTheDocument();
     expect(await screen.findByText("Current workspace evidence")).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Authorized workspace" })).toHaveValue(WORKSPACE_ID);
-    expect(screen.getByText("Not recorded in the current schema")).toBeInTheDocument();
+    expect(screen.getByText("Not exposed by the membership API")).toBeInTheDocument();
     expect(screen.getByText("Owner", { exact: true })).toBeInTheDocument();
     expect(screen.getByText(/These are stored workspace evidence records/)).toBeInTheDocument();
     expect(screen.getByText("1 record")).toBeInTheDocument();
@@ -168,12 +173,13 @@ describe("workspace product console", () => {
   });
 
   it("lists an organization admin group workspace with edit access", async () => {
-    mockProductFetch({ ...WORKSPACE, name: "Group workspace", role: "admin" });
+    mockProductFetch({ ...WORKSPACE, name: "Group workspace", role: "admin", workspace_type: "group" });
     render(<WorkspaceConsole userId={USER_ID} email="reader@example.test" />);
     await screen.findByText("Current workspace evidence");
     expect(screen.getByRole("combobox", { name: "Authorized workspace" })).toHaveValue(WORKSPACE_ID);
     expect(screen.getByRole("option", { name: "Group workspace · admin" })).toBeInTheDocument();
     expect(screen.getByText("Admin", { exact: true })).toBeInTheDocument();
+    expect(screen.getByText("Type:").closest("p")).toHaveTextContent("Group workspace");
     expect(screen.getByLabelText("Evidence content")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
   });

@@ -4,7 +4,7 @@ import { getVerifiedAuthContext } from "./supabase/server";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-type WorkspaceSummary = { id: string; name: string; role: "owner" | "admin" | "member" };
+type WorkspaceSummary = { id: string; name: string; role: "owner" | "admin" | "member"; workspace_type?: "personal" | "group" };
 export type AccountType = "individual" | "organization";
 export type AccountSummary = {
   user_id: string;
@@ -67,7 +67,18 @@ function safeWorkspace(value: unknown): WorkspaceSummary | null {
   ) {
     return null;
   }
-  return { id: candidate.id, name: candidate.name, role: candidate.role };
+  const workspaceType =
+    candidate.workspace_type === "group"
+      ? "group"
+      : candidate.workspace_type === "personal"
+        ? "personal"
+        : undefined;
+  return {
+    id: candidate.id,
+    name: candidate.name,
+    role: candidate.role,
+    ...(workspaceType ? { workspace_type: workspaceType } : {}),
+  };
 }
 
 export async function provisionPersonalWorkspaceForSession(accessToken: string): Promise<boolean> {

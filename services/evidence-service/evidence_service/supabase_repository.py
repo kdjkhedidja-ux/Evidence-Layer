@@ -281,4 +281,6 @@ class SupabaseWorkspaceRepository(WorkspaceDirectory):
             workspace_id=workspace_id,
             workspace_name=name,
             role=role,
+            # Personal workspaces use owner; organization workspaces use admin/member.
+            workspace_type="personal" if role == "owner" else "group",
         )

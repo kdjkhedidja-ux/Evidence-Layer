@@ -389,10 +389,10 @@ export default function LiveEvidenceExplorer({
     { href: relationshipsOnly ? "/" : "#explorer", label: "Evidence Explorer", status: recordsState === "ready" ? "Connected" : recordsState === "loading" ? "Pending" : "Unavailable" },
     { href: relationshipsOnly ? "#relationships" : "/relationships", label: "Relationships", status: relationshipsState === "ready" ? "Connected" : relationshipsState === "loading" ? "Pending" : "Unavailable" },
     { href: navTarget("reading-guide"), label: "Reading Guide", status: recordsState === "ready" ? "Evidence-grounded" : recordsState === "loading" ? "Pending" : "Unavailable" },
-    { href: navTarget("verification"), label: "Verification", status: sourcesState === "ready" ? "Limited / Read only" : sourcesState === "loading" ? "Pending" : "Unavailable" },
+    { href: navTarget("verification"), label: "Verification", status: sourcesState === "ready" ? "Connected" : sourcesState === "loading" ? "Pending" : "Unavailable" },
     { href: navTarget("evaluation"), label: "Evaluation", status: "Historical" },
     { href: "/cost-performance", label: "Cost & Performance", status: "Historical" },
-    { href: navTarget("settings-access"), label: "Settings & Access", status: selectedWorkspace ? "Limited / Read only" : isLoading ? "Pending" : "Unavailable" },
+    { href: navTarget("settings-access"), label: "Settings & Access", status: selectedWorkspace ? "Partially available" : isLoading ? "Pending" : "Unavailable" },
   ];
 
   return (
@@ -625,7 +625,7 @@ export default function LiveEvidenceExplorer({
               <section id="settings-access" className="live-section live-capability">
                 <p className="live-eyebrow">Settings &amp; access</p><h2>{selectedWorkspace.name}</h2>
                 <p>Your verified role is <strong>{selectedWorkspace.role}</strong>. Members may inspect active workspace data; only owners and admins can create, edit, or delete documented relationships.</p>
-                <p>Invitations, role changes, and workspace settings are unavailable because the current service has no invitation or access-administration API. Use Workspace for current evidence and source access.</p>
+                <p>Organization admins manage members and roles from Account → Workspace &amp; Access; group workspaces follow organization membership. There is no email invitation flow, per-workspace permissions editor, or workspace-settings endpoint.</p>
                 <p>Personal API Keys are planned as separate credentials. They are not session JWTs, and this application has no key issuance or revocation endpoint.</p>
                 <Link href="/workspace">Open Workspace</Link>
               </section>

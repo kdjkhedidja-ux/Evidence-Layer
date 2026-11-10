@@ -191,7 +191,7 @@ def test_valid_access_token_returns_verified_subject_and_memberships() -> None:
         "account_type": "individual",
         "organization_name": None,
         "can_manage_workspace": False,
-        "workspaces": [{"id": str(WORKSPACE_A), "name": "A primary", "role": "owner"}],
+        "workspaces": [{"id": str(WORKSPACE_A), "name": "A primary", "role": "owner", "workspace_type": "personal"}],
     }
     assert directory.calls == [("list", SUBJECT_A, token)]
     assert token not in repr(AuthenticatedRequest(Principal(ISSUER, SUBJECT_A), token))
