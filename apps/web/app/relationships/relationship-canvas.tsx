@@ -17,6 +17,7 @@ export type CanvasRelationship = {
   relation_type: "supports" | "contradicts" | "contextualizes" | "derived_from";
   rationale: string;
   provenance_note: string;
+  created_by?: string;
   updated_at: string;
 };
 
@@ -43,6 +44,23 @@ const CENTER = { x: 430, y: 290 };
 function shortLabel(record: CanvasRecord): string {
   const label = record.source_label?.trim() || `Evidence ${record.id.slice(0, 6)}`;
   return label.length > 24 ? `${label.slice(0, 23)}…` : label;
+}
+
+function boundaryPoint(
+  fromX: number,
+  fromY: number,
+  toX: number,
+  toY: number,
+  halfWidth: number,
+  halfHeight: number,
+) {
+  const dx = toX - fromX;
+  const dy = toY - fromY;
+  if (dx === 0 && dy === 0) return { x: fromX, y: fromY };
+  const scaleX = dx === 0 ? Number.POSITIVE_INFINITY : halfWidth / Math.abs(dx);
+  const scaleY = dy === 0 ? Number.POSITIVE_INFINITY : halfHeight / Math.abs(dy);
+  const scale = Math.min(scaleX, scaleY);
+  return { x: fromX + dx * scale, y: fromY + dy * scale };
 }
 
 function curvePath(ax: number, ay: number, bx: number, by: number, offset: number): string {
@@ -84,13 +102,15 @@ export default function RelationshipCanvas({ records, relationships, onOpenEvide
     }
     const visible = records.filter((record) => referenced.has(record.id));
     const count = visible.length;
-    const radius = count <= 1 ? 0 : Math.min(300, 110 + count * 18);
+    // Keep every card inside the 860x580 viewBox, including its half-height.
+    const radiusX = count <= 1 ? 0 : Math.min(326, 130 + count * 24);
+    const radiusY = count <= 1 ? 0 : Math.min(238, 100 + count * 18);
     return visible.map((record, index) => {
       const angle = (2 * Math.PI * index) / Math.max(count, 1) - Math.PI / 2;
       return {
         record,
-        x: CENTER.x + radius * Math.cos(angle),
-        y: CENTER.y + radius * Math.sin(angle),
+        x: CENTER.x + radiusX * Math.cos(angle),
+        y: CENTER.y + radiusY * Math.sin(angle),
       };
     });
   }, [records, relationships]);
@@ -101,9 +121,17 @@ export default function RelationshipCanvas({ records, relationships, onOpenEvide
     const a = nodeById.get(relationship.evidence_id_a);
     const b = nodeById.get(relationship.evidence_id_b);
     if (!a || !b) return [];
+    if (a.record.id === b.record.id) {
+      const top = a.y - CARD_H / 2;
+      return [{
+        relationship,
+        path: `M ${a.x - 28} ${top} C ${a.x - 86} ${top - 74}, ${a.x + 86} ${top - 74}, ${a.x + 28} ${top}`,
+        midpoint: { x: a.x, y: top - 48 },
+      }];
+    }
     const offset = (index % 2 === 0 ? 1 : -1) * (26 + (index % 3) * 10);
-    const start = { x: a.x, y: a.y };
-    const end = { x: b.x, y: b.y };
+    const start = boundaryPoint(a.x, a.y, b.x, b.y, CARD_W / 2 + 5, CARD_H / 2 + 5);
+    const end = boundaryPoint(b.x, b.y, a.x, a.y, CARD_W / 2 + 5, CARD_H / 2 + 5);
     return [{
       relationship,
       path: curvePath(start.x, start.y, end.x, end.y, offset),
@@ -136,6 +164,7 @@ export default function RelationshipCanvas({ records, relationships, onOpenEvide
             <span key={meta.label}><i style={{ background: meta.color }} />{meta.label}</span>
           ))}
         </div>
+        <span className="relationship-canvas-summary">{nodes.length} {nodes.length === 1 ? "record" : "records"} · {edges.length} {edges.length === 1 ? "link" : "links"}</span>
         <div className="relationship-canvas-controls">
           <button type="button" onClick={() => setZoom((value) => Math.min(1.8, Number((value + 0.15).toFixed(2))))} aria-label="Zoom in">+</button>
           <button type="button" onClick={() => setZoom((value) => Math.max(0.6, Number((value - 0.15).toFixed(2))))} aria-label="Zoom out">−</button>
@@ -143,6 +172,7 @@ export default function RelationshipCanvas({ records, relationships, onOpenEvide
         </div>
       </div>
 
+      <div className="relationship-canvas-viewport">
       <svg
         className="relationship-canvas-svg"
         viewBox="0 0 860 580"
@@ -193,6 +223,7 @@ export default function RelationshipCanvas({ records, relationships, onOpenEvide
                   }
                 }}
               >
+                <path d={path} fill="none" stroke="transparent" strokeWidth={16} pointerEvents="stroke" />
                 <path
                   d={path}
                   fill="none"
@@ -234,21 +265,26 @@ export default function RelationshipCanvas({ records, relationships, onOpenEvide
                   {shortLabel(record)}
                 </text>
                 <text x={x} y={y + 15} textAnchor="middle" className="relationship-canvas-node-meta">
-                  {relationshipCount(relationships, record.id)} links
+                  {relationshipCount(relationships, record.id)}{" "}
+                  {relationshipCount(relationships, record.id) === 1 ? "link" : "links"}
                 </text>
               </g>
             );
           })}
         </g>
       </svg>
+      </div>
 
       <div className="relationship-canvas-details" role="region" aria-label="Relationship details" aria-live="polite">
         {selectedEdge ? (
           <>
             <h3>{RELATION_META[selectedEdge.relationship.relation_type].label}</h3>
+            <p><strong>From:</strong> {shortLabel(nodeById.get(selectedEdge.relationship.evidence_id_a)?.record ?? { id: selectedEdge.relationship.evidence_id_a, source_label: null, content: "" })}</p>
+            <p><strong>To:</strong> {shortLabel(nodeById.get(selectedEdge.relationship.evidence_id_b)?.record ?? { id: selectedEdge.relationship.evidence_id_b, source_label: null, content: "" })}</p>
             <p><strong>Rationale:</strong> {selectedEdge.relationship.rationale}</p>
             <p><strong>Recorded basis:</strong> {selectedEdge.relationship.provenance_note}</p>
             <p className="relationship-canvas-meta">
+              {selectedEdge.relationship.created_by ? `Recorded by ${selectedEdge.relationship.created_by} · ` : ""}
               Updated {new Date(selectedEdge.relationship.updated_at).toLocaleString()}
             </p>
             <div className="relationship-canvas-actions">

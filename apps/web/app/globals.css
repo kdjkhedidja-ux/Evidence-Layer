@@ -4109,6 +4109,12 @@ select:focus-visible,
   gap: 0.35rem;
 }
 
+.relationship-canvas-summary {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
 .relationship-canvas-controls button {
   min-width: 34px;
   min-height: 30px;
@@ -4128,6 +4134,17 @@ select:focus-visible,
   cursor: grab;
   touch-action: none;
   user-select: none;
+}
+
+.relationship-canvas-viewport {
+  overflow-x: auto;
+}
+
+@media (max-width: 700px) {
+  .relationship-canvas-viewport .relationship-canvas-svg {
+    min-width: 680px;
+    touch-action: pan-x pan-y;
+  }
 }
 
 .relationship-canvas-svg:active { cursor: grabbing; }
@@ -4157,7 +4174,7 @@ select:focus-visible,
   font-size: 10px;
 }
 
-.relationship-canvas-edge-label { font-weight: 600; }
+.relationship-canvas-edge-label { font-weight: 600; paint-order: stroke; stroke: var(--bg-secondary); stroke-width: 4px; stroke-linejoin: round; }
 
 .relationship-canvas-edge:focus-visible path,
 .relationship-canvas-node:focus-visible rect {

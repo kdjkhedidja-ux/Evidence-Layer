@@ -16,6 +16,7 @@ const relationships = [
     relation_type: "supports" as const,
     rationale: "Policy A directly supports Policy B",
     provenance_note: "Reviewed against the 2026 filing",
+    created_by: "verifier@example.test",
     updated_at: "2026-11-01T10:00:00Z",
   },
 ];
@@ -32,8 +33,24 @@ describe("relationship canvas", () => {
   it("shows rationale and recorded basis when a link is selected", () => {
     render(<RelationshipCanvas records={records} relationships={relationships} />);
     fireEvent.click(screen.getByRole("button", { name: /Supports link: Policy A directly supports Policy B/i }));
-    expect(screen.getByText(/Policy A directly supports Policy B/)).toBeInTheDocument();
-    expect(screen.getByText(/Reviewed against the 2026 filing/)).toBeInTheDocument();
+    const details = screen.getByRole("region", { name: "Relationship details" });
+    expect(within(details).getByText(/Policy A directly supports Policy B/)).toBeInTheDocument();
+    expect(within(details).getByText(/Reviewed against the 2026 filing/)).toBeInTheDocument();
+    expect(within(details).getByText(/From:/)).toBeInTheDocument();
+    expect(within(details).getByText(/To:/)).toBeInTheDocument();
+    expect(within(details).getByText(/Recorded by verifier@example.test/)).toBeInTheDocument();
+  });
+
+  it("summarizes the visible graph and keeps self-links finite", () => {
+    const { container } = render(
+      <RelationshipCanvas
+        records={records}
+        relationships={[{ ...relationships[0], evidence_id_b: "e1" }]}
+      />,
+    );
+    expect(screen.getByRole("img", { name: /1 evidence records and 1 link/i })).toBeInTheDocument();
+    expect(screen.getByText("1 record · 1 link")).toBeInTheDocument();
+    expect(container.querySelector('path[d*="NaN"]')).toBeNull();
   });
 
   it("shows a node's links when a card is selected", () => {
