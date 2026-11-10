@@ -28,6 +28,7 @@ Password-reset recovery sessions are exempt from the current-password check in S
 - Evidence BFF routes return `403` with a two-factor message instead of forwarding an AAL1 token for an MFA-enrolled account.
 - `VerifiedAuthContext` now carries the session expiry so the Workspace panel can display it.
 - Workspace session panel adds **Sign out everywhere** (`signOut({ scope: "global" })`) and a link to `/mfa`.
+- Workspace Account Profile supports confirmed email changes and password changes with the current password; stale sessions request and accept Supabase's email reauthentication nonce.
 - Capability catalog marks Security and Authentication sessions as **Partially available**.
 
 ## Deliberate limits
