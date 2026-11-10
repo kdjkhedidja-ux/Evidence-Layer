@@ -218,6 +218,12 @@
       "version": "20261110230000",
       "sha256": "1d5d54dcb3436ee0dfa86a8362fe780cb036e7c02996f42c98c0d7a93a659047",
       "provenance": "Personal API keys: workspace-scoped read-only keys, HMAC gateway proof, dedicated NOLOGIN reader/manager roles, and RLS-bound read RPCs."
+    },
+    {
+      "file": "20261110233000_grant_personal_api_key_subject.sql",
+      "version": "20261110233000",
+      "sha256": "2ff25766b0c14963f57fce054c8d84f2e87f1fb61fb95e69e826b956d4d4598b",
+      "provenance": "Grant the authenticated role execute on the claim-only personal API key subject helper used by its self-read policy."
     }
   ]
 }
