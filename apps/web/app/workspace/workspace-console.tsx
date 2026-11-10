@@ -6,7 +6,7 @@ import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react
 import { createSupabaseBrowserClient } from "../../lib/supabase/client";
 import { CAPABILITY_GROUPS } from "./capability-catalog";
 
-type Workspace = { id: string; name: string; role: "owner" | "admin" | "member" };
+type Workspace = { id: string; name: string; role: "owner" | "admin" | "member"; workspace_type?: "personal" | "group" };
 type EvidenceRecord = {
   id: string;
   workspace_id: string;
@@ -533,7 +533,14 @@ export default function WorkspaceConsole({
               {selectedWorkspace && (
                 <>
                   <p><strong>Name:</strong> {selectedWorkspace.name}</p>
-                  <p><strong>Type:</strong> Not recorded in the current schema</p>
+                  <p>
+                    <strong>Type:</strong>{" "}
+                    {selectedWorkspace.workspace_type === "group"
+                      ? "Group workspace"
+                      : selectedWorkspace.workspace_type === "personal"
+                        ? "Personal workspace"
+                        : "Not exposed by the membership API"}
+                  </p>
                   <p>
                     <strong>Role:</strong>{" "}
                     {selectedWorkspace.role === "owner"
@@ -545,7 +552,10 @@ export default function WorkspaceConsole({
                 </>
               )}
               <p>
-                Memberships come from verified workspace access. Invitations, role changes, and membership administration are not available in the current service contract.
+                Memberships come from verified workspace access. Organization admins manage
+                members and roles from{" "}
+                <Link href="/?account=1#account-organization-title">Account → Workspace &amp; Access</Link>;
+                there is no per-workspace invitation flow or permissions editor.
               </p>
             </div>
           )}

@@ -83,19 +83,19 @@ export const CAPABILITY_GROUPS: readonly CapabilityGroup[] = [
       },
       {
         name: "Create",
-        status: "Partially available",
+        status: "Connected",
         detail: "Workspace owners and admins can create records; members have read-only access.",
         href: "/workspace#records-heading",
       },
       {
         name: "Edit",
-        status: "Partially available",
+        status: "Connected",
         detail: "Workspace owners and admins can edit records; members have read-only access.",
         href: "/workspace#records-heading",
       },
       {
         name: "Delete",
-        status: "Partially available",
+        status: "Connected",
         detail: "Workspace owners and admins can delete records; members have read-only access.",
         href: "/workspace#records-heading",
       },

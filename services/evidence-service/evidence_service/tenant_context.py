@@ -23,6 +23,7 @@ class WorkspaceMembership:
     workspace_id: UUID
     workspace_name: str
     role: WorkspaceRole
+    workspace_type: Literal["personal", "group"] = "personal"
 
 
 @dataclass(frozen=True)

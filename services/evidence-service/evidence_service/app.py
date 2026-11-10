@@ -74,6 +74,7 @@ class WorkspaceSummary(BaseModel):
     id: UUID
     name: str
     role: Literal["owner", "admin", "member"]
+    workspace_type: Literal["personal", "group"] = "personal"
 
 
 class MeResponse(BaseModel):
@@ -948,6 +949,7 @@ def create_app(
                     id=membership.workspace_id,
                     name=membership.workspace_name,
                     role=membership.role,
+                    workspace_type=membership.workspace_type,
                 )
                 for membership in memberships
             ],
@@ -995,6 +997,7 @@ def create_app(
                     id=membership.workspace_id,
                     name=membership.workspace_name,
                     role=membership.role,
+                    workspace_type=membership.workspace_type,
                 )
                 for membership in memberships
             ],

@@ -181,7 +181,7 @@ class SupabaseWorkspaceRepository(WorkspaceDirectory):
         filters: dict[str, str],
     ) -> list[dict[str, object]]:
         params = {
-            "select": "user_id,workspace_id,role,workspace:workspaces!inner(id,name)",
+            "select": "user_id,workspace_id,role,workspace:workspaces!inner(id,name,organization_id)",
             **filters,
         }
         headers = {
@@ -273,6 +273,7 @@ class SupabaseWorkspaceRepository(WorkspaceDirectory):
                 raise ValueError
             embedded_id = UUID(str(workspace["id"]))
             name = workspace["name"]
+            organization_id = workspace.get("organization_id")
             if embedded_id != workspace_id or not isinstance(name, str):
                 raise ValueError
         except (KeyError, TypeError, ValueError, AttributeError) as exc:
@@ -281,4 +282,5 @@ class SupabaseWorkspaceRepository(WorkspaceDirectory):
             workspace_id=workspace_id,
             workspace_name=name,
             role=role,
+            workspace_type="group" if organization_id is not None else "personal",
         )
