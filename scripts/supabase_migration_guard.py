@@ -399,7 +399,8 @@ class Supabase:
                 "rolsuper as super,rolbypassrls as bypassrls,rolcreaterole as createrole,"
                 "rolcreatedb as createdb,rolreplication as replication "
                 "from pg_catalog.pg_roles where rolname like 'snapshot\\_%' "
-                "or rolname like 'account\\_%' order by rolname",
+                "or rolname like 'account\\_%' "
+                "or rolname like 'personal\\_api\\_key\\_%' order by rolname",
                 {
                     "name": str,
                     "canlogin": bool,
@@ -432,6 +433,7 @@ class Supabase:
                 "left join pg_catalog.pg_auth_members as membership "
                 "on membership.roleid=role_row.oid or membership.member=role_row.oid "
                 "where role_row.rolname like 'snapshot\\_%' or role_row.rolname like 'account\\_%' "
+                "or role_row.rolname like 'personal\\_api\\_key\\_%' "
                 "group by role_row.oid,role_row.rolname order by role_row.rolname",
                 {
                     "name": str,
