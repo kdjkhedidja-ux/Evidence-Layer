@@ -59,6 +59,10 @@ export default function AuthForm({
   const content = CONTENT[mode];
   const hasConfiguration = Boolean(getSupabasePublicConfig());
 
+  function mfaTarget(): string {
+    return `/mfa?next=${encodeURIComponent(safeInternalPath(returnTo))}`;
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (submitting.current || completed) return;
@@ -101,6 +105,20 @@ export default function AuthForm({
           }
           setSessionEstablished(true);
         }
+        const mfa = supabase.auth.mfa;
+        if (mfa) {
+          try {
+            const { data: assurance } = await mfa.getAuthenticatorAssuranceLevel();
+            if (assurance?.nextLevel === "aal2" && assurance.currentLevel !== "aal2") {
+              setStatusMessage("Enter your authenticator code to continue.");
+              setCompleted(true);
+              router.replace(mfaTarget());
+              return;
+            }
+          } catch {
+            // Fall through: the workspace endpoint returns mfa_required if a challenge is needed.
+          }
+        }
         let workspaceResponse: Response;
         try {
           workspaceResponse = await fetch("/api/evidence/personal-workspace", {
@@ -110,6 +128,15 @@ export default function AuthForm({
         } catch {
           setErrorMessage("Your account is signed in, but the workspace service could not be reached. Try opening it again.");
           return;
+        }
+        if (workspaceResponse.status === 403) {
+          const payload = (await workspaceResponse.json().catch(() => null)) as { code?: unknown } | null;
+          if (payload?.code === "mfa_required") {
+            setStatusMessage("Enter your authenticator code to continue.");
+            setCompleted(true);
+            router.replace(mfaTarget());
+            return;
+          }
         }
         if (!workspaceResponse.ok) {
           setErrorMessage(workspaceResponse.status === 401

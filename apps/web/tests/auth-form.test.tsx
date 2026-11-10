@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
     resetPasswordForEmail: vi.fn(),
     updateUser: vi.fn(),
     signOut: vi.fn(),
+    mfa: { getAuthenticatorAssuranceLevel: vi.fn() },
   },
 }));
 
@@ -44,6 +45,10 @@ describe("Supabase Auth forms", () => {
     mocks.auth.resetPasswordForEmail.mockResolvedValue({ error: null });
     mocks.auth.updateUser.mockResolvedValue({ error: null });
     mocks.auth.signOut.mockResolvedValue({ error: null });
+    mocks.auth.mfa.getAuthenticatorAssuranceLevel.mockResolvedValue({
+      data: { currentLevel: "aal1", nextLevel: "aal1" },
+      error: null,
+    });
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({})));
   });
 
@@ -61,6 +66,35 @@ describe("Supabase Auth forms", () => {
     });
     expect(mocks.refresh).not.toHaveBeenCalled();
     expect(fetch).toHaveBeenCalledWith("/api/evidence/personal-workspace", { method: "PUT", cache: "no-store" });
+  });
+
+  it("sends an MFA-enrolled session to the challenge instead of provisioning", async () => {
+    mocks.auth.mfa.getAuthenticatorAssuranceLevel.mockResolvedValue({
+      data: { currentLevel: "aal1", nextLevel: "aal2" },
+      error: null,
+    });
+    const user = userEvent.setup();
+    render(<AuthForm mode="login" returnTo="/workspace" />);
+    await user.type(screen.getByLabelText("Email"), "user@example.test");
+    await user.type(screen.getByLabelText("Password"), "synthetic-password");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+    await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith("/mfa?next=%2Fworkspace"));
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("redirects to the challenge when provisioning reports mfa_required", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(
+      { code: "mfa_required", error: "Complete two-factor authentication to continue." },
+      { status: 403 },
+    )));
+    const user = userEvent.setup();
+    render(<AuthForm mode="login" />);
+    await user.type(screen.getByLabelText("Email"), "user@example.test");
+    await user.type(screen.getByLabelText("Password"), "synthetic-password");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+    await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith("/mfa?next=%2F"));
   });
 
   it("shows a sanitized sign-in error", async () => {

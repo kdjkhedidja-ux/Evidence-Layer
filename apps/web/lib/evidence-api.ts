@@ -109,7 +109,10 @@ async function mfaBlocked(
 ): Promise<Response | null> {
   if (auth.kind !== "authenticated") return null;
   if (await mfaChallengeRequired(auth.client)) {
-    return json(403, { error: "Complete two-factor authentication to continue." });
+    return json(403, {
+      error: "Complete two-factor authentication to continue.",
+      code: "mfa_required",
+    });
   }
   return null;
 }
