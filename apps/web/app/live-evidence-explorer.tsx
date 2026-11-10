@@ -223,6 +223,17 @@ export default function LiveEvidenceExplorer({
   }, []);
 
   useEffect(() => {
+    if (!account) return;
+    if (new URLSearchParams(window.location.search).get("account") === "1") {
+      setAccountOpen(true);
+      setMobileMenuOpen(true);
+      requestAnimationFrame(() => {
+        document.getElementById("account-organization-title")?.scrollIntoView?.({ block: "start" });
+      });
+    }
+  }, [account]);
+
+  useEffect(() => {
     let active = true;
     async function loadMemberships() {
       setWorkspaces([]);
@@ -376,7 +387,7 @@ export default function LiveEvidenceExplorer({
   const sidebarItems = [
     { href: "/workspace", label: "Workspace", status: selectedWorkspace ? "Connected" : isLoading ? "Pending" : "Unavailable" },
     { href: relationshipsOnly ? "/" : "#explorer", label: "Evidence Explorer", status: recordsState === "ready" ? "Connected" : recordsState === "loading" ? "Pending" : "Unavailable" },
-    { href: relationshipsOnly ? "#relationships" : "/relationships", label: "Relationships", status: relationshipsState === "ready" ? "Partially available" : relationshipsState === "loading" ? "Pending" : "Unavailable" },
+    { href: relationshipsOnly ? "#relationships" : "/relationships", label: "Relationships", status: relationshipsState === "ready" ? "Connected" : relationshipsState === "loading" ? "Pending" : "Unavailable" },
     { href: navTarget("reading-guide"), label: "Reading Guide", status: recordsState === "ready" ? "Evidence-grounded" : recordsState === "loading" ? "Pending" : "Unavailable" },
     { href: navTarget("verification"), label: "Verification", status: sourcesState === "ready" ? "Limited / Read only" : sourcesState === "loading" ? "Pending" : "Unavailable" },
     { href: navTarget("evaluation"), label: "Evaluation", status: "Historical" },
@@ -435,7 +446,7 @@ export default function LiveEvidenceExplorer({
             <h1>{relationshipsOnly ? "Evidence Relationships" : "Evidence Explorer"}</h1>
             <p>{relationshipsOnly
               ? "Inspect and manage explicit, workspace-scoped links with their rationale and recorded basis."
-              : "Inspect workspace evidence, its exact source version, and relationships recorded by an authorized workspace owner."}</p>
+              : "Inspect workspace evidence, its exact source version, and relationships recorded by an authorized workspace owner or admin."}</p>
             {workspaceState === "ready" && workspaces.length > 0 && (
               <label className="live-workspace-picker">
                 Workspace
@@ -517,7 +528,7 @@ export default function LiveEvidenceExplorer({
                 <div className="live-section-heading"><div><p className="live-eyebrow">Explicit, persisted links only</p><h2>Relationships</h2></div><span>{relationships.length} links</span></div>
                 {relationshipsState === "loading" && <p className="live-muted" role="status">Loading recorded relationships…</p>}
                 {relationshipsState === "unavailable" && <p className="live-error" role="alert">Relationship service is unavailable. No fixture-defined or inferred links are shown.</p>}
-                {relationshipsState === "ready" && relationships.length === 0 && <div className="live-empty"><h3>No relationships recorded</h3><p>Only workspace owners can document a relationship. Similarity alone is never treated as proof.</p></div>}
+                {relationshipsState === "ready" && relationships.length === 0 && <div className="live-empty"><h3>No relationships recorded</h3><p>Only workspace owners and admins can document a relationship. Similarity alone is never treated as proof.</p></div>}
                 {relationshipsState === "ready" && relationships.length > 0 && (
                   <RelationshipCanvas
                     records={records}
@@ -579,7 +590,7 @@ export default function LiveEvidenceExplorer({
               <>
               <section id="reading-guide" className="live-section live-capability">
                 <p className="live-eyebrow">Reading Guide · Evidence-grounded</p><h2>Read the record before the conclusion</h2>
-                <ol><li>Start with the exact stored evidence text above.</li><li>Follow its linked source and version when a published, authorized version is available.</li><li>Relationships are owner-authored records with a stated rationale and basis; they are not inferred by text similarity.</li></ol>
+                <ol><li>Start with the exact stored evidence text above.</li><li>Follow its linked source and version when a published, authorized version is available.</li><li>Relationships are owner- or admin-authored records with a stated rationale and basis; they are not inferred by text similarity.</li></ol>
                 {selectedRecord ? (
                   <div className="live-guide-record">
                     <h3>Current record · {selectedRecord.source_label || selectedRecord.id}</h3>

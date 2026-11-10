@@ -225,6 +225,14 @@ describe("live Evidence Explorer", () => {
     expect(screen.getByRole("heading", { name: "Document a relationship" })).toBeInTheDocument();
   });
 
+  it("opens the account panel from the organization management link", async () => {
+    window.history.replaceState({}, "", "/?account=1");
+    render(<LiveEvidenceExplorer account={{ id: USER_ID, email: "reader@example.test" }} />);
+    expect(await screen.findByRole("button", { name: "Close account" })).toBeInTheDocument();
+    expect(screen.getByText("Account settings")).toBeInTheDocument();
+    window.history.replaceState({}, "", "/");
+  });
+
   it("requires authentication before displaying any workspace data", async () => {
     render(<LiveEvidenceExplorer account={null} />);
     expect(await screen.findByRole("heading", { name: "Sign in to inspect evidence" })).toBeInTheDocument();

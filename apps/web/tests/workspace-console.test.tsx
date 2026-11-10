@@ -121,6 +121,7 @@ describe("workspace product console", () => {
       "/workspace#membership-heading",
       "/workspace#session-management",
       "/mfa",
+      "/?account=1#account-organization-title",
       "/#explorer",
       "/workspace#records-heading",
       "/#reading-guide",
