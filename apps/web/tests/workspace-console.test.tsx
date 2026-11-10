@@ -119,6 +119,8 @@ describe("workspace product console", () => {
     const existingDestinations = new Set([
       "/workspace#workspace-session",
       "/workspace#membership-heading",
+      "/workspace#session-management",
+      "/mfa",
       "/#explorer",
       "/workspace#records-heading",
       "/#reading-guide",
@@ -173,6 +175,25 @@ describe("workspace product console", () => {
     expect(screen.getByText("Admin", { exact: true })).toBeInTheDocument();
     expect(screen.getByLabelText("Evidence content")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
+  });
+
+  it("shows the verified session expiry and signs out every session", async () => {
+    mocks.signOut.mockResolvedValue({ error: null });
+    render(
+      <WorkspaceConsole
+        userId={USER_ID}
+        email="reader@example.test"
+        sessionExpiresAt={1893456000}
+      />,
+    );
+    await screen.findByText("Current workspace evidence");
+    expect(screen.getByRole("heading", { name: "Session" })).toBeInTheDocument();
+    expect(screen.getByText(/Session expires:/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Sign out everywhere" }));
+    await waitFor(() => {
+      expect(mocks.signOut).toHaveBeenCalledWith({ scope: "global" });
+    });
+    expect(mocks.router.replace).toHaveBeenCalledWith("/login?reason=signed-out");
   });
 
   it("creates evidence using the current selected workspace path", async () => {

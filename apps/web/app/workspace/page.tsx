@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import WorkspaceConsole from "./workspace-console";
+import { mfaChallengeRequired } from "../../lib/supabase/mfa";
 import { getVerifiedAuthContext } from "../../lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -28,10 +30,14 @@ export default async function WorkspacePage() {
       />
     );
   }
+  if (auth.kind === "authenticated" && await mfaChallengeRequired(auth.client)) {
+    redirect("/mfa?next=%2Fworkspace");
+  }
   return (
     <WorkspaceConsole
       userId={auth.user.id}
       email={auth.user.email ?? "Account"}
+      sessionExpiresAt={auth.expiresAt}
     />
   );
 }

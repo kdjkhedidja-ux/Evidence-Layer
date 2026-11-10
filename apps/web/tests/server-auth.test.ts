@@ -20,14 +20,19 @@ describe("server-verified Supabase identity", () => {
     mocks.config.mockReturnValue({ url: "https://sample.supabase.co", publishableKey: "sb_publishable_synthetic" });
     mocks.client.auth.getUser.mockResolvedValue({ data: { user: { id: "user-a" } }, error: null });
     mocks.client.auth.getSession.mockResolvedValue({
-      data: { session: { user: { id: "user-a" }, access_token: "synthetic-access-token" } },
+      data: { session: { user: { id: "user-a" }, access_token: "synthetic-access-token", expires_at: 1893456000 } },
       error: null,
     });
   });
 
   it("verifies the user before retrieving a cookie session token", async () => {
     const result = await getVerifiedAuthContext();
-    expect(result).toMatchObject({ kind: "authenticated", user: { id: "user-a" }, accessToken: "synthetic-access-token" });
+    expect(result).toMatchObject({
+      kind: "authenticated",
+      user: { id: "user-a" },
+      accessToken: "synthetic-access-token",
+      expiresAt: 1893456000,
+    });
     expect(mocks.client.auth.getUser.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.client.auth.getSession.mock.invocationCallOrder[0],
     );
