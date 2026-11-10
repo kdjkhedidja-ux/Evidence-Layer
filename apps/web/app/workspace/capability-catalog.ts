@@ -233,9 +233,9 @@ export const CAPABILITY_GROUPS: readonly CapabilityGroup[] = [
     features: [
       {
         name: "Account profile",
-        status: "Limited / Read only",
-        detail: "The current account email is displayed; profile editing is not available.",
-        href: "/workspace#workspace-session",
+        status: "Connected",
+        detail: "Change the account email with confirmation, or change the password with the current password and recent-session verification.",
+        href: "/workspace#account-profile",
       },
       {
         name: "Security",

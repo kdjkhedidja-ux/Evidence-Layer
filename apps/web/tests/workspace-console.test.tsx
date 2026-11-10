@@ -123,6 +123,7 @@ describe("workspace product console", () => {
     const links = within(catalog).getAllByRole("link");
     const existingDestinations = new Set([
       "/workspace#workspace-session",
+      "/workspace#account-profile",
       "/workspace#membership-heading",
       "/workspace#session-management",
       "/mfa",
