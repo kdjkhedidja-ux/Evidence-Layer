@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ipaddress
 import os
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from urllib.parse import urlsplit
@@ -48,6 +49,7 @@ class SupabaseSettings:
     jwt_issuer: str
     jwt_audience: str
     jwt_algorithms: tuple[str, ...]
+    personal_api_key_gateway_secret: str | None = None
     jwks_cache_ttl_seconds: int = 300
     timeout_seconds: float = 3.0
 
@@ -116,6 +118,12 @@ class SupabaseSettings:
         ):
             raise ConfigurationError("Only a Supabase publishable API key is supported")
 
+        gateway_secret = values.get("PERSONAL_API_KEY_GATEWAY_SECRET", "").strip() or None
+        if gateway_secret is not None and not re.fullmatch(r"[0-9a-f]{64}", gateway_secret):
+            raise ConfigurationError(
+                "PERSONAL_API_KEY_GATEWAY_SECRET must be 32-byte lowercase hexadecimal"
+            )
+
         audience = values["SUPABASE_JWT_AUDIENCE"].strip()
         if audience != "authenticated":
             raise ConfigurationError("SUPABASE_JWT_AUDIENCE must be authenticated")
@@ -145,5 +153,6 @@ class SupabaseSettings:
             jwt_issuer=issuer,
             jwt_audience=audience,
             jwt_algorithms=algorithms,
+            personal_api_key_gateway_secret=gateway_secret,
             jwks_cache_ttl_seconds=cache_ttl,
         )

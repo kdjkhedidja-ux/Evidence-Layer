@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Literal, TypeVar
 from uuid import UUID
 
-from fastapi import Depends, FastAPI, HTTPException, Request, Response
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -44,6 +44,15 @@ from evidence_service.relationship_repository import (
     RelationshipDataUnavailable,
     RelationshipRepository,
     SupabaseRelationshipRepository,
+)
+from evidence_service.personal_api_key_repository import (
+    PersonalApiKeyAccessDenied,
+    PersonalApiKeyDataUnavailable,
+    PersonalApiKeyLimitReached,
+    PersonalApiKeyRateLimited,
+    SupabasePersonalApiKeyRepository,
+    decode_personal_api_key_cursor,
+    parse_personal_api_key,
 )
 from evidence_service.recovery_fence import (
     CloudflareRecoveryFenceReader,
@@ -268,6 +277,47 @@ class RelationshipResponse(BaseModel):
     created_at: datetime
     updated_by: UUID
     updated_at: datetime
+
+
+class PersonalApiKeyCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    workspace_id: UUID
+    name: str = Field(min_length=1, max_length=80)
+    expiration_days: int = Field(default=90, ge=1, le=90)
+
+
+class PersonalApiKeyResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    workspace_id: UUID
+    name: str
+    key_prefix: str
+    scopes: list[str]
+    created_at: datetime
+    expires_at: datetime
+    revoked_at: datetime | None
+    last_used_at: datetime | None
+
+
+class PersonalApiKeyCreatedResponse(PersonalApiKeyResponse):
+    token: str
+
+
+class PersonalApiKeyRevocationResponse(BaseModel):
+    id: UUID
+    revoked: bool
+
+
+class PersonalApiKeyEvidencePage(BaseModel):
+    items: list[EvidenceResponse]
+    next_cursor: str | None
+
+
+class PersonalApiKeyRelationshipPage(BaseModel):
+    items: list[RelationshipResponse]
+    next_cursor: str | None
 
 
 class DeletionRequestCreateRequest(BaseModel):
@@ -614,6 +664,17 @@ async def require_control_request(
     return await _verify_bearer(request, credentials)
 
 
+async def require_personal_api_key(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+) -> tuple[UUID, str]:
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        raise HTTPException(status_code=401, detail="Personal API key is required")
+    parsed = parse_personal_api_key(credentials.credentials)
+    if parsed is None:
+        raise HTTPException(status_code=401, detail="Personal API key is invalid")
+    return parsed
+
+
 def _workspace_directory(request: Request) -> WorkspaceDirectory:
     directory = request.app.state.workspace_directory
     if directory is None:
@@ -653,6 +714,14 @@ def _relationship_repository(request: Request) -> RelationshipRepository:
     if repository is None:
         repository = SupabaseRelationshipRepository(_settings_for(request))
         request.app.state.relationship_repository = repository
+    return repository
+
+
+def _personal_api_key_repository(request: Request) -> SupabasePersonalApiKeyRepository:
+    repository = request.app.state.personal_api_key_repository
+    if repository is None:
+        repository = SupabasePersonalApiKeyRepository(_settings_for(request))
+        request.app.state.personal_api_key_repository = repository
     return repository
 
 
@@ -743,6 +812,7 @@ def create_app(
     workspace_directory: WorkspaceDirectory | None = None,
     evidence_repository: EvidenceRepository | None = None,
     relationship_repository: RelationshipRepository | None = None,
+    personal_api_key_repository: SupabasePersonalApiKeyRepository | None = None,
     deletion_repository: DeletionRepository | None = None,
     organization_repository=None,
     source_read_path=None,
@@ -762,6 +832,7 @@ def create_app(
     application.state.workspace_directory = workspace_directory
     application.state.evidence_repository = evidence_repository
     application.state.relationship_repository = relationship_repository
+    application.state.personal_api_key_repository = personal_api_key_repository
     application.state.deletion_repository = deletion_repository
     application.state.organization_repository = organization_repository
     application.state.trusted_source_context_issuer = None
@@ -953,6 +1024,161 @@ def create_app(
                 )
                 for membership in memberships
             ],
+        )
+
+    @application.get("/v1/me/api-keys", response_model=list[PersonalApiKeyResponse])
+    async def list_personal_api_keys(
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> list[PersonalApiKeyResponse]:
+        try:
+            keys = await _with_account_gate(
+                request,
+                auth,
+                lambda: _personal_api_key_repository(request).list_keys(
+                    auth.access_token, auth.principal.subject
+                ),
+            )
+        except PersonalApiKeyDataUnavailable as exc:
+            raise HTTPException(status_code=503, detail="API key service is unavailable") from exc
+        return [PersonalApiKeyResponse.model_validate(key) for key in keys]
+
+    @application.post(
+        "/v1/me/api-keys",
+        response_model=PersonalApiKeyCreatedResponse,
+        status_code=201,
+    )
+    async def create_personal_api_key(
+        payload: PersonalApiKeyCreateRequest,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> PersonalApiKeyCreatedResponse:
+        try:
+            key, token = await _with_account_gate(
+                request,
+                auth,
+                lambda: _personal_api_key_repository(request).create_key(
+                    auth.access_token,
+                    workspace_id=payload.workspace_id,
+                    name=payload.name,
+                    expiration_days=payload.expiration_days,
+                ),
+            )
+        except PersonalApiKeyAccessDenied as exc:
+            raise HTTPException(status_code=403, detail="Active workspace membership is required") from exc
+        except PersonalApiKeyLimitReached as exc:
+            raise HTTPException(status_code=409, detail="The active API key limit was reached") from exc
+        except PersonalApiKeyDataUnavailable as exc:
+            raise HTTPException(status_code=503, detail="API key service is unavailable") from exc
+        return PersonalApiKeyCreatedResponse(**key.__dict__, token=token)
+
+    @application.delete(
+        "/v1/me/api-keys/{key_id}",
+        response_model=PersonalApiKeyRevocationResponse,
+    )
+    async def revoke_personal_api_key(
+        key_id: UUID,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> PersonalApiKeyRevocationResponse:
+        try:
+            revoked = await _with_account_gate(
+                request,
+                auth,
+                lambda: _personal_api_key_repository(request).revoke_key(
+                    auth.access_token, key_id
+                ),
+            )
+        except PersonalApiKeyAccessDenied as exc:
+            raise HTTPException(status_code=404, detail="API key not found") from exc
+        except PersonalApiKeyDataUnavailable as exc:
+            raise HTTPException(status_code=503, detail="API key service is unavailable") from exc
+        if not revoked:
+            raise HTTPException(status_code=404, detail="API key not found")
+        return PersonalApiKeyRevocationResponse(id=key_id, revoked=True)
+
+    @application.get(
+        "/v1/personal-api-keys/workspaces/{workspace_id}/evidence",
+        response_model=PersonalApiKeyEvidencePage,
+    )
+    async def read_evidence_with_personal_api_key(
+        workspace_id: UUID,
+        request: Request,
+        parsed_key: tuple[UUID, str] = Depends(require_personal_api_key),
+        limit: int = Query(default=50, ge=1, le=100),
+        cursor: str | None = Query(default=None, max_length=512),
+    ) -> PersonalApiKeyEvidencePage:
+        try:
+            cursor_created_at, cursor_id = decode_personal_api_key_cursor(cursor)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="Invalid page cursor") from exc
+
+        await _require_recovery_fence_open(request)
+        key_id, key_hash = parsed_key
+        try:
+            page = await _personal_api_key_repository(request).read_evidence(
+                key_id=key_id,
+                key_hash=key_hash,
+                workspace_id=workspace_id,
+                limit=limit,
+                cursor_created_at=cursor_created_at,
+                cursor_id=cursor_id,
+            )
+        except PersonalApiKeyAccessDenied as exc:
+            raise HTTPException(status_code=401, detail="Personal API key is invalid or revoked") from exc
+        except PersonalApiKeyRateLimited as exc:
+            raise HTTPException(
+                status_code=429,
+                detail="Personal API key rate limit exceeded",
+                headers={"Retry-After": "60"},
+            ) from exc
+        except PersonalApiKeyDataUnavailable as exc:
+            raise HTTPException(status_code=503, detail="Personal API key service is unavailable") from exc
+        return PersonalApiKeyEvidencePage(
+            items=[EvidenceResponse.model_validate(item) for item in page.items],
+            next_cursor=page.next_cursor,
+        )
+
+    @application.get(
+        "/v1/personal-api-keys/workspaces/{workspace_id}/relationships",
+        response_model=PersonalApiKeyRelationshipPage,
+    )
+    async def read_relationships_with_personal_api_key(
+        workspace_id: UUID,
+        request: Request,
+        parsed_key: tuple[UUID, str] = Depends(require_personal_api_key),
+        limit: int = Query(default=50, ge=1, le=100),
+        cursor: str | None = Query(default=None, max_length=512),
+    ) -> PersonalApiKeyRelationshipPage:
+        try:
+            cursor_created_at, cursor_id = decode_personal_api_key_cursor(cursor)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="Invalid page cursor") from exc
+
+        await _require_recovery_fence_open(request)
+        key_id, key_hash = parsed_key
+        try:
+            page = await _personal_api_key_repository(request).read_relationships(
+                key_id=key_id,
+                key_hash=key_hash,
+                workspace_id=workspace_id,
+                limit=limit,
+                cursor_created_at=cursor_created_at,
+                cursor_id=cursor_id,
+            )
+        except PersonalApiKeyAccessDenied as exc:
+            raise HTTPException(status_code=401, detail="Personal API key is invalid or revoked") from exc
+        except PersonalApiKeyRateLimited as exc:
+            raise HTTPException(
+                status_code=429,
+                detail="Personal API key rate limit exceeded",
+                headers={"Retry-After": "60"},
+            ) from exc
+        except PersonalApiKeyDataUnavailable as exc:
+            raise HTTPException(status_code=503, detail="Personal API key service is unavailable") from exc
+        return PersonalApiKeyRelationshipPage(
+            items=[RelationshipResponse.model_validate(item) for item in page.items],
+            next_cursor=page.next_cursor,
         )
 
     @application.post(

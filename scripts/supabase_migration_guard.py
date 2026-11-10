@@ -67,6 +67,7 @@ V_PERSONAL_WORKSPACE_DELETION = "20261108120000"
 V_ACCOUNT_TYPE = "20261109120000"
 V_ORGANIZATIONS = "20261109130000"
 V_GROUP_DELETION = "20261109140000"
+V_PERSONAL_API_KEYS = "20261110230000"
 V_INDIVIDUAL_ACCOUNT_TERMINAL = "20261108130000"
 V_AUDIT_FK_DROP = "20261108140000"
 V_ACCEPT_V2 = "20261108150000"
@@ -492,6 +493,8 @@ def expected_roles(versions: list[str]) -> set[str]:
         })
     if V_ACCOUNT_DELETION_WORKER in present:
         roles.add("account_deletion_worker")
+    if V_PERSONAL_API_KEYS in present:
+        roles.update({"personal_api_key_manager", "personal_api_key_reader"})
     return roles
 
 
@@ -527,6 +530,9 @@ def expected_policy_identity(policy: str) -> str:
         ("data_deletion_storage_queue_", "public", "data_deletion_storage_queue"),
         ("snapshot_verifier_allowlist_audit_", "private", "snapshot_verifier_allowlist_audit"),
         ("snapshot_verifier_allowlist_", "private", "snapshot_verifier_allowlist"),
+        ("personal_api_key_gateway_secrets_", "private", "personal_api_key_gateway_secrets"),
+        ("personal_api_key_gateway_nonces_", "private", "personal_api_key_gateway_nonces"),
+        ("personal_api_keys_", "public", "personal_api_keys"),
     )
     for prefix, expected_schema, table in relation_prefixes:
         if name.startswith(prefix):
@@ -554,6 +560,7 @@ def expected_catalog(versions: list[str]) -> dict:
     account_type = V_ACCOUNT_TYPE in present
     organizations = V_ORGANIZATIONS in present
     group_deletion = V_GROUP_DELETION in present
+    api_keys = V_PERSONAL_API_KEYS in present
     individual_terminal = V_INDIVIDUAL_ACCOUNT_TERMINAL in present
     audit_fk_drop = V_AUDIT_FK_DROP in present
     accept_v2 = V_ACCEPT_V2 in present
@@ -601,6 +608,10 @@ def expected_catalog(versions: list[str]) -> dict:
     if organizations:
         tables["public.organizations"] = (True, True)
         tables["public.organization_memberships"] = (True, True)
+    if api_keys:
+        tables["public.personal_api_keys"] = (True, True)
+        tables["private.personal_api_key_gateway_secrets"] = (True, True)
+        tables["private.personal_api_key_gateway_nonces"] = (True, True)
 
     indexes: set[str] = set()
     if identity:
@@ -635,6 +646,16 @@ def expected_catalog(versions: list[str]) -> dict:
             "public.organizations_owner_user_unique",
             "public.organization_memberships_pkey",
             "public.organization_memberships_user_active_idx",
+        })
+    if api_keys:
+        indexes.update({
+            "public.personal_api_keys_pkey",
+            "public.personal_api_keys_key_hash_key",
+            "public.personal_api_keys_user_active_idx",
+            "public.personal_api_keys_workspace_idx",
+            "private.personal_api_key_gateway_secrets_pkey",
+            "private.personal_api_key_gateway_nonces_pkey",
+            "private.personal_api_key_gateway_nonces_expiry_idx",
         })
     if source:
         indexes.update({
@@ -814,6 +835,25 @@ def expected_catalog(versions: list[str]) -> dict:
             "public.organizations_select_member",
             "public.organization_memberships_select_self",
         })
+    if api_keys:
+        policies.update({
+            "public.personal_api_keys_select_own",
+            "public.personal_api_keys_manager_select_own",
+            "public.personal_api_keys_manager_insert_own",
+            "public.personal_api_keys_manager_revoke_own",
+            "public.personal_api_keys_reader_select_exact",
+            "public.personal_api_keys_reader_update_exact",
+            "public.workspace_memberships_personal_api_key_manager_select",
+            "public.workspace_memberships_personal_api_key_reader_select",
+            "public.account_lifecycle_personal_api_key_manager_select",
+            "public.account_lifecycle_personal_api_key_reader_select",
+            "public.evidence_records_personal_api_key_reader_select",
+            "public.evidence_relationships_personal_api_key_reader_select",
+            "private.personal_api_key_gateway_secrets_reader_select",
+            "private.personal_api_key_gateway_nonces_reader_select",
+            "private.personal_api_key_gateway_nonces_reader_insert",
+            "private.personal_api_key_gateway_nonces_reader_delete",
+        })
 
     triggers: set[str] = set()
     if evidence:
@@ -965,6 +1005,16 @@ def expected_catalog(versions: list[str]) -> dict:
             "public.update_organization_member_role",
             "public.remove_organization_member",
         })
+    if api_keys:
+        functions.update({
+            "public.create_personal_api_key",
+            "public.revoke_personal_api_key",
+            "public.read_personal_api_key_evidence",
+            "public.read_personal_api_key_relationships",
+            "private.authorize_personal_api_key_read",
+            "private.configure_personal_api_key_gateway_secret",
+            "private.personal_api_key_subject",
+        })
 
     foreign_keys: set[tuple[str, str, str, str]] = set()
     if identity:
@@ -1014,6 +1064,11 @@ def expected_catalog(versions: list[str]) -> dict:
             ("organization_memberships_user_id_fkey", "public.organization_memberships", "auth.users", "c"),
             ("accounts_organization_id_fkey", "public.accounts", "public.organizations", "c"),
             ("workspaces_organization_id_fkey", "public.workspaces", "public.organizations", "c"),
+        })
+    if api_keys:
+        foreign_keys.update({
+            ("personal_api_keys_user_id_fkey", "public.personal_api_keys", "auth.users", "c"),
+            ("personal_api_keys_workspace_member_fkey", "public.personal_api_keys", "public.workspace_memberships", "c"),
         })
     if deletion_audit and not audit_fk_drop:
         audit_fk_action = "n" if personal_deletion else "r"

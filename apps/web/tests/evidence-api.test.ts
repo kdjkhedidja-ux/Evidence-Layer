@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { GET as getApiKeys, POST as postApiKey } from "../app/api/evidence/me/api-keys/route";
+import { DELETE as deleteApiKey } from "../app/api/evidence/me/api-keys/[keyId]/route";
 import { GET as getMe } from "../app/api/evidence/me/route";
 import { PUT as putPersonalWorkspace } from "../app/api/evidence/personal-workspace/route";
 import { GET as getWorkspace } from "../app/api/evidence/workspaces/[workspaceId]/route";
@@ -34,6 +36,76 @@ describe("same-origin Evidence Service proxy", () => {
     mocks.getAuth.mockResolvedValue(AUTHENTICATED);
     mocks.serviceUrl.mockReturnValue("https://evidence.example");
     vi.stubGlobal("fetch", vi.fn());
+  });
+
+  it("forwards API key management only with a verified session and same origin", async () => {
+    const fetchMock = vi.mocked(fetch).mockResolvedValue(Response.json([]));
+    const response = await getApiKeys(request("/api/evidence/me/api-keys"));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual([]);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://evidence.example/v1/me/api-keys",
+      expect.objectContaining({
+        method: "GET",
+        headers: expect.objectContaining({
+          Authorization: "Bearer synthetic-test-access-token",
+        }),
+      }),
+    );
+
+    const rejected = await postApiKey(request("/api/evidence/me/api-keys", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Origin: "https://attacker.example" },
+      body: JSON.stringify({}),
+    }));
+    expect(rejected.status).toBe(403);
+  });
+
+  it("creates a personal API key and rejects malformed input", async () => {
+    const key = {
+      id: WORKSPACE_ID,
+      workspace_id: WORKSPACE_ID,
+      name: "Reporting export",
+      key_prefix: "evl_pk_10000000",
+      scopes: ["evidence:read", "relationships:read"],
+      created_at: "2026-11-10T10:00:00Z",
+      expires_at: "2026-12-10T10:00:00Z",
+      revoked_at: null,
+      last_used_at: null,
+      token: `evl_pk_${WORKSPACE_ID}.${"A".repeat(43)}`,
+    };
+    vi.mocked(fetch).mockResolvedValue(Response.json(key, { status: 201 }));
+    const created = await postApiKey(request("/api/evidence/me/api-keys", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Origin: "https://app.example" },
+      body: JSON.stringify({ workspace_id: WORKSPACE_ID, name: "Reporting export", expiration_days: 30 }),
+    }));
+    expect(created.status).toBe(201);
+    expect(await created.json()).toMatchObject({ name: "Reporting export", token: key.token });
+
+    const invalid = await postApiKey(request("/api/evidence/me/api-keys", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Origin: "https://app.example" },
+      body: JSON.stringify({ workspace_id: "not-a-uuid", name: "", expiration_days: 500 }),
+    }));
+    expect(invalid.status).toBe(400);
+  });
+
+  it("revokes one API key and returns only the confirmed identity", async () => {
+    const fetchMock = vi.mocked(fetch).mockResolvedValue(Response.json({ id: WORKSPACE_ID, revoked: true }));
+    const response = await deleteApiKey(
+      request(`/api/evidence/me/api-keys/${WORKSPACE_ID}`, {
+        method: "DELETE",
+        headers: { Origin: "https://app.example" },
+      }),
+      { params: Promise.resolve({ keyId: WORKSPACE_ID }) },
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ id: WORKSPACE_ID, revoked: true });
+    expect(fetchMock).toHaveBeenCalledWith(
+      `https://evidence.example/v1/me/api-keys/${WORKSPACE_ID}`,
+      expect.objectContaining({ method: "DELETE" }),
+    );
   });
 
   it("does not call the service without a verified user session", async () => {

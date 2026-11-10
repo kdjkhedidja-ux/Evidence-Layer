@@ -48,6 +48,20 @@ export type WorkspaceEvidenceRelationship = {
   updated_at: string;
 };
 
+export type PersonalApiKeySummary = {
+  id: string;
+  workspace_id: string;
+  name: string;
+  key_prefix: string;
+  scopes: Array<"evidence:read" | "relationships:read">;
+  created_at: string;
+  expires_at: string;
+  revoked_at: string | null;
+  last_used_at: string | null;
+};
+
+export type PersonalApiKeyCreated = PersonalApiKeySummary & { token: string };
+
 function json(status: number, payload: unknown): Response {
   return Response.json(payload, {
     status,
@@ -208,6 +222,161 @@ export async function proxyEvidenceRequest({
   return account
     ? json(200, account)
     : json(502, { error: "Evidence service returned an invalid response." });
+}
+
+type PersonalApiKeyProxyOptions = {
+  request: Request;
+  method: "GET" | "POST" | "DELETE";
+  keyId?: string;
+};
+
+export async function proxyPersonalApiKeyRequest({
+  request,
+  method,
+  keyId,
+}: PersonalApiKeyProxyOptions): Promise<Response> {
+  if (method !== "GET" && !sameOrigin(request)) {
+    return json(403, { error: "Request origin was not accepted." });
+  }
+
+  const auth = await getVerifiedAuthContext();
+  if (auth.kind === "unauthenticated") return json(401, { error: "Authentication is required." });
+  if (auth.kind === "unavailable") return json(503, { error: "Identity verification is unavailable." });
+  const blocked = await mfaBlocked(auth);
+  if (blocked) return blocked;
+
+  const serviceUrl = getEvidenceServiceBaseUrl();
+  if (!serviceUrl) return json(503, { error: "Evidence service is unavailable." });
+
+  let endpoint = "/v1/me/api-keys";
+  let body: Record<string, unknown> | undefined;
+  if (method === "POST") {
+    let value: unknown;
+    try {
+      value = await request.json();
+    } catch {
+      return json(400, { error: "Invalid API key request." });
+    }
+    if (!value || typeof value !== "object") return json(400, { error: "Invalid API key request." });
+    const candidate = value as Record<string, unknown>;
+    const name = typeof candidate.name === "string" ? candidate.name.trim() : "";
+    if (
+      typeof candidate.workspace_id !== "string" ||
+      !UUID_PATTERN.test(candidate.workspace_id) ||
+      !name ||
+      name.length > 80 ||
+      !Number.isInteger(candidate.expiration_days) ||
+      Number(candidate.expiration_days) < 1 ||
+      Number(candidate.expiration_days) > 90
+    ) {
+      return json(400, { error: "Choose a workspace, a key name, and an expiry from 1 to 90 days." });
+    }
+    body = {
+      workspace_id: candidate.workspace_id,
+      name,
+      expiration_days: candidate.expiration_days,
+    };
+  }
+  if (method === "DELETE") {
+    if (!keyId || !UUID_PATTERN.test(keyId)) return json(400, { error: "Invalid API key id." });
+    endpoint = `/v1/me/api-keys/${keyId}`;
+  }
+
+  let upstream: Response;
+  try {
+    upstream = await fetch(`${serviceUrl}${endpoint}`, {
+      method,
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${auth.accessToken}`,
+        ...(body ? { "Content-Type": "application/json" } : {}),
+      },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+      cache: "no-store",
+      redirect: "manual",
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch {
+    return json(503, { error: "Evidence service is unavailable." });
+  }
+
+  const safeErrors: Record<number, string> = {
+    401: "Your session is no longer valid.",
+    403: "This API key action is not available for this account.",
+    404: "API key not found.",
+    409: "The active API key limit was reached.",
+    422: "The API key request is invalid.",
+    429: "The request limit was reached. Try again shortly.",
+  };
+  if (upstream.status in safeErrors) return json(upstream.status, { error: safeErrors[upstream.status] });
+  if (upstream.status >= 500 || upstream.status >= 300) {
+    return json(503, { error: "Evidence service is unavailable." });
+  }
+
+  let payload: unknown;
+  try {
+    payload = await upstream.json();
+  } catch {
+    return json(502, { error: "Evidence service returned an invalid response." });
+  }
+
+  if (method === "GET") {
+    if (!Array.isArray(payload)) return json(502, { error: "Evidence service returned an invalid response." });
+    const keys = payload.map((value) => safePersonalApiKey(value));
+    if (keys.some((value) => value === null)) return json(502, { error: "Evidence service returned an invalid response." });
+    return json(upstream.status, keys);
+  }
+  if (method === "DELETE") {
+    if (!payload || typeof payload !== "object") return json(502, { error: "Evidence service returned an invalid response." });
+    const result = payload as Record<string, unknown>;
+    if (result.id !== keyId || result.revoked !== true) return json(502, { error: "Evidence service returned an invalid response." });
+    return json(upstream.status, { id: keyId, revoked: true });
+  }
+
+  const created = safePersonalApiKey(payload, true);
+  return created && "token" in created
+    ? json(upstream.status, created)
+    : json(502, { error: "Evidence service returned an invalid response." });
+}
+
+function safePersonalApiKey(value: unknown, allowToken = false): PersonalApiKeySummary | PersonalApiKeyCreated | null {
+  if (!value || typeof value !== "object") return null;
+  const candidate = value as Record<string, unknown>;
+  const scopes = candidate.scopes;
+  const validScopes =
+    Array.isArray(scopes) &&
+    scopes.length === 2 &&
+    scopes.includes("evidence:read") &&
+    scopes.includes("relationships:read");
+  const timestamps = [candidate.created_at, candidate.expires_at];
+  const optionalTimestamps = [candidate.revoked_at, candidate.last_used_at];
+  if (
+    typeof candidate.id !== "string" || !UUID_PATTERN.test(candidate.id) ||
+    typeof candidate.workspace_id !== "string" || !UUID_PATTERN.test(candidate.workspace_id) ||
+    typeof candidate.name !== "string" || !candidate.name.trim() || candidate.name.length > 80 ||
+    typeof candidate.key_prefix !== "string" || !/^evl_pk_[0-9a-f]{8}$/.test(candidate.key_prefix) ||
+    !validScopes ||
+    timestamps.some((timestamp) => typeof timestamp !== "string" || !Number.isFinite(Date.parse(timestamp))) ||
+    optionalTimestamps.some((timestamp) => timestamp !== null && (typeof timestamp !== "string" || !Number.isFinite(Date.parse(timestamp))))
+  ) {
+    return null;
+  }
+  const base: PersonalApiKeySummary = {
+    id: candidate.id,
+    workspace_id: candidate.workspace_id,
+    name: candidate.name,
+    key_prefix: candidate.key_prefix,
+    scopes: scopes as PersonalApiKeySummary["scopes"],
+    created_at: candidate.created_at as string,
+    expires_at: candidate.expires_at as string,
+    revoked_at: candidate.revoked_at as string | null,
+    last_used_at: candidate.last_used_at as string | null,
+  };
+  if (!allowToken) return base;
+  const tokenPattern = new RegExp(`^evl_pk_${candidate.id}\\.[A-Za-z0-9_-]{43}$`);
+  return typeof candidate.token === "string" && tokenPattern.test(candidate.token)
+    ? { ...base, token: candidate.token }
+    : null;
 }
 
 function safeMe(value: unknown, userId: string): AccountSummary | null {
