@@ -105,13 +105,12 @@ Set both `NEXT_PUBLIC_*` values in the app's build environment before building:
 Next.js embeds public-prefixed variables in the browser bundle at build time.
 
 The deletion panel is hidden by default. The 2026-11-11 verification found all
-deletion tables and 37 applied migrations in production, historical
-`account_purged` audit rows, and a live worker polling loop. It did not verify
-the worker image revision, replica count, organization-purge fix, or a fresh
-accept-to-purged smoke. Leave `NEXT_PUBLIC_DELETION_REQUESTS_ENABLED` unset or
-set it to exactly `false` until the new worker version and migration are
-deployed, the worker is observed healthy, and an authenticated test-account
-accept-to-purged smoke is recorded in
+deletion tables and 38 applied migrations in production, historical
+`account_purged` audit rows, a live worker polling loop, and the organization
+purge migration applied. The new worker version and a fresh accept-to-purged
+smoke are not yet in place. Keep `NEXT_PUBLIC_DELETION_REQUESTS_ENABLED` at
+explicit `false` until the new worker is deployed, observed healthy, and an
+authenticated test-account accept-to-purged smoke is recorded in
 `docs/operations/DELETION-WORKER-VERIFY-2026-11-11.md`; then set it to `true`
 and redeploy.
 
