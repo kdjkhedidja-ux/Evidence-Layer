@@ -56,3 +56,6 @@ supabase/.temp/
 
 # Supabase CLI local state
 supabase/.branches/
+
+# Reviewed names-only worker template
+!services/evidence-service/.env.worker.example

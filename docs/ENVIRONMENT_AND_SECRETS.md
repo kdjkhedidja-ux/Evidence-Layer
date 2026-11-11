@@ -24,6 +24,7 @@
 | Web app (for example Vercel) | Public project settings plus a private service URL | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, server-only `EVIDENCE_SERVICE_URL` |
 | Supabase Auth dashboard | Hosted Auth SMTP configuration only | Resend SMTP password/API key, SMTP sender address; never place these in the web app |
 | Evidence Service runtime | Server-only Supabase Data API/JWT verification settings | Existing `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_JWT_*` variables from its service `.env.example` |
+| Account-deletion worker runtime | Server-only privileged worker credentials; never attach to the web app or public service | `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `DELETION_WORKER_INTERVAL_SECONDS`; one-shot CLI path uses `EVIDENCE_PURGE_DATABASE_URL` |
 | GitHub Codespaces | Encrypted Codespaces secrets | provider keys used for local work |
 
 Supabase secret and service-role keys must never reach the frontend, a
@@ -94,7 +95,7 @@ local Mailpit results do not establish hosted SMTP delivery.
 | `NEXT_PUBLIC_SUPABASE_URL` | Public | Supabase project API URL |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Public | `sb_publishable_...` key used by Supabase Auth SDK |
 | `EVIDENCE_SERVICE_URL` | Server-only | Evidence Service base URL used by same-origin Next.js route handlers |
-| `NEXT_PUBLIC_DELETION_REQUESTS_ENABLED` | Public | Enables the account deletion panel. Defaults to disabled; set to exactly `true` only after the deletion migrations are applied to the target database. |
+| `NEXT_PUBLIC_DELETION_REQUESTS_ENABLED` | Public | Enables the account deletion panel. Defaults to disabled. Set it to exactly `true` only after the target database has the deletion migrations, the account-deletion worker is deployed and observed draining requests, and a test-account accept-to-purged smoke passes. |
 
 Copy placeholders from `apps/web/.env.example`. The Resend SMTP password is
 not an application variable. The service keeps its separate required JWT and
@@ -103,12 +104,16 @@ Data API configuration documented in
 Set both `NEXT_PUBLIC_*` values in the app's build environment before building:
 Next.js embeds public-prefixed variables in the browser bundle at build time.
 
-The deletion panel is hidden by default. The production database did not contain
-`account_lifecycle`, `data_deletion_requests`, `data_deletion_manifest`,
-`data_deletion_work_set`, or `evidence_deletion_audit` as of the 2026-11-07
-verification. Leave `NEXT_PUBLIC_DELETION_REQUESTS_ENABLED` unset until those
-migrations are applied and verified through the release process; then set it to
-`true` and redeploy.
+The deletion panel is hidden by default. The 2026-11-11 verification found all
+deletion tables and 37 applied migrations in production, historical
+`account_purged` audit rows, and a live worker polling loop. It did not verify
+the worker image revision, replica count, organization-purge fix, or a fresh
+accept-to-purged smoke. Leave `NEXT_PUBLIC_DELETION_REQUESTS_ENABLED` unset or
+set it to exactly `false` until the new worker version and migration are
+deployed, the worker is observed healthy, and an authenticated test-account
+accept-to-purged smoke is recorded in
+`docs/operations/DELETION-WORKER-VERIFY-2026-11-11.md`; then set it to `true`
+and redeploy.
 
 ## Hosted Staging authentication smoke test
 

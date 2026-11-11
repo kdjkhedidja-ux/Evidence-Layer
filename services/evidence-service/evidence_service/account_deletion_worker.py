@@ -119,7 +119,7 @@ def run_account_deletion(
                 cursor.execute("set local role account_deletion_worker")
                 prepared = _call_json(
                     cursor,
-                    "select private.prepare_individual_account_purge_v2(%s)",
+                    "select private.prepare_individual_account_purge_v3(%s)",
                     (str(request_id),),
                 )
                 connection.commit()
