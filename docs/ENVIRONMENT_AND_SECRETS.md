@@ -110,8 +110,8 @@ deletion tables and 39 applied migrations in production, historical
 purge migrations applied. The new worker version is deployed with one replica;
 both the basic personal-account smoke and the organization/group-workspace/
 snapshot smoke passed, including Auth deletion and terminal `purged`. The flag
-remains explicit `false` pending an explicit operator decision to re-enable the
-UI. See `docs/operations/DELETION-WORKER-VERIFY-2026-11-11.md`.
+was re-enabled to `true` on 2026-11-11 after both smokes passed. See
+`docs/operations/DELETION-WORKER-VERIFY-2026-11-11.md`.
 
 ## Hosted Staging authentication smoke test
 
