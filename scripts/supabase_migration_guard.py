@@ -76,6 +76,7 @@ V_AUDIT_ACTIONS_V2 = "20261108200000"
 V_AUTH_IDENTIFIER_FKS = "20261108210000"
 V_MARK_PURGED_V3 = "20261108220000"
 V_ORG_WORKSPACE_PURGE = "20261111120000"
+V_IDEMPOTENT_PREPARE = "20261111150000"
 
 VERSION_RE = re.compile(r"^[0-9]{14}_[a-z0-9_]+\.sql$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -572,6 +573,7 @@ def expected_catalog(versions: list[str]) -> dict:
     auth_identifier_fks = V_AUTH_IDENTIFIER_FKS in present
     mark_purged_v3 = V_MARK_PURGED_V3 in present
     org_workspace_purge = V_ORG_WORKSPACE_PURGE in present
+    idempotent_prepare = V_IDEMPOTENT_PREPARE in present
     source = V_SOURCE_CATALOG in present
     storage = V_SNAPSHOT_STORAGE in present
     verifier = V_VERIFIER_IDENTITY in present
@@ -1000,8 +1002,9 @@ def expected_catalog(versions: list[str]) -> dict:
         functions.update({
             "private.deletion_workspace_is_account_owned",
             "private.prepare_individual_account_purge_v3",
-            "private.account_prepared_marker_exists",
         })
+    if idempotent_prepare:
+        functions.add("private.account_prepared_marker_exists")
     if account_type:
         functions.update({
             "private.provision_account_type_for_auth_user",
