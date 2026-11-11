@@ -1,6 +1,6 @@
 # Deletion worker verification and runbook — 2026-11-11
 
-Status: **WORKER: live (old loop); new worker version: checklist-only; MIGRATION: 38 applied + 39 pending; FLAG: false; BASIC SMOKE: PASS; ORG SMOKE: reproduced stuck, manual new-path completion PASS**
+Status: **WORKER: live (old loop); new worker version: checklist-only; MIGRATION: 39 applied; FLAG: false; BASIC SMOKE: PASS; ORG SMOKE: old-worker stuck reproduced, test account manually completed; new-worker org smoke pending**
 Scope: individual-account deletion UI flag, worker entrypoints, production status reconciliation, Railway deployment template, runbook, and smoke assessment. Production migration `20261111120000` was applied through the reviewed guard/CLI flow, the Vercel flag was changed from `true` to explicit `false`, and no account was accepted or purged by this task.
 
 ## 1. Flag verification
@@ -33,7 +33,7 @@ Read-only production checks were run through the Supabase Management API on 2026
 
 | Check | Observation | Interpretation |
 |---|---|---|
-| Applied migrations | 38, latest `20261111120000` | The organization-purge migration was applied and verified; no pending migrations remain. |
+| Applied migrations | 39, latest `20261111150000` | Both the organization-purge and idempotent re-prepare migrations were applied and verified; no pending migrations remain. |
 | Deletion request states | 16 `purged`, 8 `approval_pending`, 1 `journal_ack_pending`, 0 `accepted`, 0 `purge_pending`, 0 `purge_failed` | The worker path has completed historical purges. It is not currently showing a backlog. |
 | Terminal audit | 16 `account_prepared`, 16 `account_purged`, 16 `purge_verified` | Historical purges reached the terminal worker path. |
 | Last terminal audit | 2026-11-09 | There is no recent request to prove the worker is running today. |
@@ -162,7 +162,7 @@ Fix in this task:
 
 The first migration is `supabase/migrations/20261111120000_deletion_org_workspace_purge.sql` (38th migration). It was applied to production on 2026-11-11 using the reviewed release guard and the workflow's documented commands (`plan`, `assert-plan`, `supabase db push`, `verify`) because the available GitHub token could not dispatch the Actions workflow. Plan digest: `602f124feaa45d8792d2fc14fe9c6efaa5d6c5d83aca65e2e174d55a49af9495`. Post-apply verification reported 38 migrations, pending=0, and an empty remote schema diff.
 
-A second migration, `20261111150000_idempotent_prepare_v3.sql`, makes prepare v3 idempotent when a historical `account_prepared` marker already exists. Without it, a stuck request prepared by the old v2 worker would skip v3 (or hit the append-only audit unique key) and leave the group workspace behind. This migration adds a security-definer marker helper, guards the `account_prepared` insert, and is covered by `supabase/tests/account_prepare_idempotent.test.sql`.
+A second migration, `20261111150000_idempotent_prepare_v3.sql`, makes prepare v3 idempotent when a historical `account_prepared` marker already exists. Without it, a stuck request prepared by the old v2 worker would skip v3 (or hit the append-only audit unique key) and leave the group workspace behind. This migration adds a security-definer marker helper, guards the `account_prepared` insert, and is covered by `supabase/tests/account_prepare_idempotent.test.sql`. It was applied to production after the first migration using plan digest `cc356de82fe2ecc91d31f87565e39e2803ae34e6a72ef15e5d8082d576f948a5`; post-apply verification reported 39 migrations, pending=0, and an empty schema diff.
 
 ### Local verification performed
 
@@ -215,7 +215,7 @@ If the smoke fails or times out, leave the flag off and investigate the worker l
 - **Flag policy:** off unless `NEXT_PUBLIC_DELETION_REQUESTS_ENABLED` is exactly `true`.
 - **Production flag action:** completed. The value was `true`; it is now explicit `false`, and the production build was redeployed.
 - **Worker status:** current polling loop is live; the basic personal-account smoke passed on the old worker. The new worker code (stale-ack repair and `v3` preparation call) is not deployed; deploy it before the organization-specific smoke.
-- **New migrations:** 38 applied and verified; 39 (idempotent v3) pending reviewed apply at the time of this section.
+- **New migrations:** 38 and 39 applied and verified in production (39 migrations, pending=0, empty schema diff).
 - **Safe order:** migration applied; deploy the new worker code next, then run the smoke, then set the web flag to `true` only if the smoke passes.
 - **Stuck acknowledgement:** one historical production request has a manifest and `manifest_frozen` audit but remains `journal_ack_pending`; the deployed worker code will repair it on its next cycle after this change is deployed. Until then, it should be tracked as a stuck deletion request. The successful smoke did not resolve this separate historical row.
 
@@ -224,5 +224,5 @@ If the smoke fails or times out, leave the flag off and investigate the worker l
 1. The current worker has no lease; a second replica can race. Single replica is mandatory until a claim function is reviewed.
 2. `purge_failed` has no automatic retry; an operator runbook and alert are required.
 3. Historical `journal_ack_pending` rows are only repaired when the new worker version runs.
-4. The organization-workspace migration and idempotent v3 fix are covered by local pgTAP. The basic personal smoke passed on the old worker; the organization path reproduced the stuck state on the old worker and was completed manually on the test account. Production still needs the new worker deployed and a fresh organization smoke.
+4. The organization-workspace and idempotent v3 migrations are applied and covered by local pgTAP. The basic personal smoke passed on the old worker; the organization path reproduced the stuck state on the old worker and was completed manually on the dedicated test account. Production still needs the new worker deployed and a fresh organization smoke.
 5. The Vercel flag is confirmed `false` and the production build is deployed. Railway access is unauthorized, so the worker's image revision and replica count remain unknown; the successful smoke used an empty personal account rather than the organization/snapshot edge.
