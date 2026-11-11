@@ -10,7 +10,7 @@ A read-only health check is available as:
 PYTHONPATH=services/evidence-service python -m evidence_service.deletion_healthcheck
 ```
 
-It reads `DELETION_HEALTHCHECK_DATABASE_URL` or `DATABASE_URL` and emits one JSON object. Exit codes:
+It reads `DELETION_HEALTHCHECK_DATABASE_URL` or `DATABASE_URL` and emits one JSON object. A production run on 2026-11-11 returned `status: ok` with no alerts. Exit codes:
 
 - `0` — healthy;
 - `2` — at least one alert;
@@ -38,8 +38,8 @@ single-instance lock; alert on that event.
 - Keep `numReplicas=1` for the deletion worker.
 - The continuous worker now acquires a session-level PostgreSQL advisory lock
   (`evidence-layer-deletion-worker`) with a bounded retry window before it
-  starts processing. A second replica exits with `worker_lock_unavailable`
-  rather than racing.
+  starts processing. The lock is held in production. A second replica exits
+  with `worker_lock_unavailable` rather than racing.
 - Do not increase replicas until a database lease/claim function with
   `FOR UPDATE SKIP LOCKED`, ownership expiry, and recovery semantics is designed
   and tested. The advisory lock protects the current single-worker design; it
@@ -53,11 +53,13 @@ single-instance lock; alert on that event.
 Current observed state:
 
 - Evidence Service: `alimissoum552-a11y/Evidence-Layer` (mirror), deployment `44fbb6f2-0e3a-407a-8e20-fc6b6e5b18e6`.
-- Deletion worker: `alimissoum552-a11y/Evidence-Layer` (mirror), deployment `eeb6449e-7a2d-41f8-bb94-4f8b254fea87`.
+- Deletion worker: `alimissoum552-a11y/Evidence-Layer` (mirror), deployment `69570e18-4f2f-4707-8685-5b54dc597500`.
 - The earlier Evidence Service source was `saidzeghidi31-bit/Evidence-Layer`.
 
-The canonical repository is not unambiguous in repository history. Before the
-next production deploy, choose it explicitly and enforce one of:
+For this Codespace, the git remote is `alimissoum552-a11y/Evidence-Layer`; treat
+it as the canonical source unless the repository owner explicitly designates
+another upstream. Both Railway services now point to it. If a separate upstream
+is canonical, confirm it before the next deploy and enforce one of:
 
 1. connect both Railway services to the canonical repository/branch; or
 2. keep the mirror but block deploys until the mirror commit SHA equals the

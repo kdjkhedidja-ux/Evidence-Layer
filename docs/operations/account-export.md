@@ -85,8 +85,8 @@ A repeated create with the same idempotency key returns the existing job with `r
 
 - Migration `20261111180000_phase8_account_export.sql` is applied (40 migrations in production).
 - Evidence Service deployment `44fbb6f2-0e3a-407a-8e20-fc6b6e5b18e6` is live with the export routes (1 replica).
-- Worker deployment `eeb6449e-7a2d-41f8-bb94-4f8b254fea87` is live with the export-cleanup hook (1 replica); the cleanup function is being called.
-- Vercel production deployment `dpl_DAbgSJRRs3QbUPxA3ka3ttHQBfrq` is READY; `NEXT_PUBLIC_ACCOUNT_EXPORT_ENABLED=true`.
+- Worker deployment `69570e18-4f2f-4707-8685-5b54dc597500` is live with the export-cleanup hook and single-instance lock (1 replica); the cleanup function is being called.
+- Vercel production deployment `dpl_DLUo6MBYJ8yFcFRu86msQesL9Q1T` is READY; `NEXT_PUBLIC_ACCOUNT_EXPORT_ENABLED=true`.
 - Shared/group workspace export is not available.
 - The export artifact is a database row, not a separate export bucket; large exports are rejected rather than streamed.
 - Already-downloaded client copies cannot be recalled.

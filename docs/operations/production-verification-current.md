@@ -15,19 +15,21 @@ Related documents:
 
 | Area | Current state | How verified |
 |---|---|---|
-| Web deployment | Vercel project `evidence-layer`; production deployment `dpl_DAbgSJRRs3QbUPxA3ka3ttHQBfrq` is `READY`; `https://evidencelayer.dev/` returns HTTP 200; deletion and export flags are `true` | Vercel deployments/env API and HTTP probe |
+| Web deployment | Vercel project `evidence-layer`; production deployment `dpl_DLUo6MBYJ8yFcFRu86msQesL9Q1T` is `READY`; `https://evidencelayer.dev/` returns HTTP 200; deletion and export flags are `true` | Vercel deployments/env API and HTTP probe |
 | Deletion flag | `NEXT_PUBLIC_DELETION_REQUESTS_ENABLED=true` in production/preview/development; code default remains off unless exactly `"true"` | Vercel project env API; `apps/web/lib/deletion-flag.ts` |
 | Kill switch | Set the flag to `false` (or remove it), redeploy the web app, then check the worker before re-enabling | `ENVIRONMENT_AND_SECRETS.md` and worker runbook |
 | Migrations | 40 applied in production; latest `20261111180000`; repository and remote match; pending=0 | Supabase migration API plus `supabase db push --linked --dry-run` |
 | Deletion requests | 23 `purged`, 8 `approval_pending`, 0 `journal_ack_pending`, 0 `accepted`, 0 `purge_pending`, 0 `purge_failed` | Read-only SQL over `public.data_deletion_requests` |
 | Storage cleanup queue | 0 pending, 1 completed | Read-only SQL over `public.data_deletion_storage_queue` |
 | Evidence Service | Railway service `Evidence-Layer`; deployment `44fbb6f2-0e3a-407a-8e20-fc6b6e5b18e6` is `SUCCESS`; source `alimissoum552-a11y/Evidence-Layer`; `/healthz` returns HTTP 200; export routes return 401 without auth | Railway GraphQL API and HTTP probe |
-| Worker deployment | Railway service `evidence-deletion-worker`, environment `production`; deployment `eeb6449e-7a2d-41f8-bb94-4f8b254fea87` is `SUCCESS`; Dockerfile builder `services/evidence-service/Dockerfile.worker`; start `python -m evidence_service.deletion_worker`; export-cleanup calls observed | Railway GraphQL API and read-only SQL |
-| Worker sizing | Exactly 1 replica; session advisory lock prevents duplicate processing; no database lease/claim function | Railway service settings and `deletion_worker.py` |
+| Provider backup | `pitr_enabled=false`; API-listed provider backups = 0; WALG enabled; R2 logical dump from 2026-11-09 exists with a disposable restore drill | Supabase backups API and restore checklist |
+| Worker deployment | Railway service `evidence-deletion-worker`, environment `production`; deployment `69570e18-4f2f-4707-8685-5b54dc597500` is `SUCCESS`; Dockerfile builder `services/evidence-service/Dockerfile.worker`; start `python -m evidence_service.deletion_worker`; export-cleanup calls observed | Railway GraphQL API and read-only SQL |
+| Worker sizing | Exactly 1 replica; session advisory lock `evidence-layer-deletion-worker` is held in production; no database lease/claim function | Railway service settings and `pg_locks` |
 | Worker source | Connected to `alimissoum552-a11y/Evidence-Layer`, branch `main`; Evidence Service now uses the same mirror | Railway service settings |
 | Worker liveness | New-code stale-ack/repair marker observed in `pg_stat_statements`; 53 calls at the time of verification | Read-only SQL |
 | Worker retry behavior | `accepted`/`purge_pending` are retried every interval; `purge_failed` is not auto-retried | `deletion_worker.py` |
-| Narrowed export (C6/C4) | Deployed to production: migration 40 applied, Evidence Service 44fb live, worker eeb6 live with cleanup, Vercel `dpl_DAbgSJRRs3QbUPxA3ka3ttHQBfrq` READY, `NEXT_PUBLIC_ACCOUNT_EXPORT_ENABLED=true`; export create/download/revoke smoke passed | `docs/operations/account-export.md` |
+| Deletion healthcheck | Production run returned `status: ok`, no alerts, exit 0 | `python -m evidence_service.deletion_healthcheck` with pooler credential |
+| Narrowed export (C6/C4) | Deployed to production: migration 40 applied, Evidence Service 44fb live, worker 6957 live with cleanup/lock, Vercel `dpl_DLUo6MBYJ8yFcFRu86msQesL9Q1T` READY, `NEXT_PUBLIC_ACCOUNT_EXPORT_ENABLED=true`; export create/download/revoke smoke passed | `docs/operations/account-export.md` |
 | Historical stuck request | The prior `journal_ack_pending` request was promoted by the new worker and reached `purged` | Deletion request/audit read-only SQL |
 | Smoke evidence | Basic personal request `a5c0b20c-98b4-4b17-9929-13b22af5ed72` and organization/snapshot request `b115a771-197b-4666-9f50-b83cc16b05d1` reached `purged`; Auth lookup 404; workspace/snapshot counts 0 | `DELETION-WORKER-VERIFY-2026-11-11.md` |
 

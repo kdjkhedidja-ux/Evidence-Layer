@@ -33,19 +33,21 @@ Read-only production checks were run through the Supabase Management API on 2026
 
 | Check | Observation | Interpretation |
 |---|---|---|
-| Applied migrations | 39, latest `20261111150000` | Both the organization-purge and idempotent re-prepare migrations were applied and verified; no pending migrations remain. |
-| Deletion request states | 21 `purged`, 8 `approval_pending`, 0 `journal_ack_pending`, 0 `accepted`, 0 `purge_pending`, 0 `purge_failed` | The new worker completed both dedicated smokes and repaired the historical `journal_ack_pending` request; no accepted-state backlog remains. |
-| Terminal audit | 21 `account_prepared`, 21 `account_purged`, 21 `purge_verified` | Historical, repaired, and smoke purges reached the terminal worker path. |
+| Applied migrations | 40, latest `20261111180000` | Organization purge, idempotent re-prepare, and narrowed export migrations are applied; no pending migrations remain. |
+| Deletion request states | 23 `purged`, 8 `approval_pending`, 0 `journal_ack_pending`, 0 `accepted`, 0 `purge_pending`, 0 `purge_failed` | Dedicated smokes and the historical repair completed; no accepted-state backlog remains. |
+| Terminal audit | 23 `account_prepared`, 23 `account_purged`, 23 `purge_verified` | Historical, repaired, and smoke purges reached the terminal worker path. |
 | Last terminal audit | 2026-11-11 | The new worker completed the organization smoke and terminal marks. |
 | Storage queue | 0 pending, 1 completed | The one historical queue row was drained; no pending cleanup remains. |
 | Stuck acknowledgement | 0 currently; the historical `journal_ack_pending` request was promoted and reached `purged`. | The new worker repair is live and the historical stuck state is resolved. |
-| Current liveness | New worker deployment `a079a6e6-08b4-4f53-8584-4994b2bb1148` is `SUCCESS`; the new-code `pg_stat_statements` marker has 21 calls. | The new worker is live and polling production. |
-| New-code marker | 21 `pg_stat_statements` matches for the new stale-ack `update public.data_deletion_requests as request ...` statement. | The new worker version (stale-ack repair and `v3` call) is running in production. |
-| Vercel flag | Production/preview/development value is explicit `true`; production deployment `dpl_5gi55nVA3ompDHUMfpsMqQtJpt5j` is READY and `evidencelayer.dev` returns HTTP 200. | The deletion UI is enabled in the current production build after both smokes passed. |
+| Current liveness | Worker deployment `69570e18-4f2f-4707-8685-5b54dc597500` is `SUCCESS`; the new-code marker is observed; advisory lock is held. | The current worker is live and polling production. |
+| New-code marker | `pg_stat_statements` matches the stale-ack repair; `pg_locks` shows one `evidence-layer-deletion-worker` advisory lock. | The current worker version is running and duplicate processing is blocked. |
+| Vercel flag | Production/preview/development value is explicit `true`; production deployment `dpl_DLUo6MBYJ8yFcFRu86msQesL9Q1T` is READY and `evidencelayer.dev` returns HTTP 200. | The deletion and export UIs are enabled after their smokes passed. |
 | Basic smoke | Dedicated test request `a5c0b20c-98b4-4b17-9929-13b22af5ed72` reached `purged` in ~57s; protected route returned 403 after acceptance; Auth lookup returned 404. | Personal-account path is operational. |
-| Organization smoke | Dedicated request `b115a771-197b-4666-9f50-b83cc16b05d1` reached `purged` on the new worker; group workspace/snapshot counts 0, storage queue 0, Auth lookup 404. | The organization/group-workspace/snapshot path is operational on the new worker. |
+| Organization smoke | Dedicated request `b115a771-197b-4666-9f50-b83cc16b05d1` reached `purged` on the worker; group workspace/snapshot counts 0, storage queue 0, Auth lookup 404. | The organization/group-workspace/snapshot path is operational. |
+| Healthcheck | `python -m evidence_service.deletion_healthcheck` returned `status: ok`, exit 0, no alerts. | The alert signal is readable and currently clear. |
+| Worker concurrency | Exactly 1 replica; `pg_locks` shows the single-instance advisory lock. | Do not scale above one until a lease/claim design exists. |
 
-Deployment conclusion: **the new worker version is live in production.** The worker service is `evidence-deletion-worker` in project `evidence-layer-github-test`, environment `production`. Its source is connected to the accessible GitHub repository `alimissoum552-a11y/Evidence-Layer` on `main`; the build uses `Dockerfile` builder, `services/evidence-service/Dockerfile.worker`, start command `python -m evidence_service.deletion_worker`, restart-on-failure, and exactly one replica. `RAILWAY_DOCKERFILE_PATH` is set to the worker Dockerfile. The latest deployment `a079a6e6-08b4-4f53-8584-4994b2bb1148` is `SUCCESS`. Deployment `552438f8-300b-4200-a5bb-6f553539f7c0` first introduced the v3/stale-ack code; `a079...` added the missing-object Storage fix.
+Deployment conclusion: **the new worker version is live in production.** The worker service is `evidence-deletion-worker` in project `evidence-layer-github-test`, environment `production`. Its source is connected to the accessible GitHub repository `alimissoum552-a11y/Evidence-Layer` on `main`; the build uses `Dockerfile` builder, `services/evidence-service/Dockerfile.worker`, start command `python -m evidence_service.deletion_worker`, restart-on-failure, and exactly one replica. `RAILWAY_DOCKERFILE_PATH` is set to the worker Dockerfile. The latest deployment `69570e18-4f2f-4707-8685-5b54dc597500` is `SUCCESS`; it adds the single-instance advisory lock. Deployment `552438f8-300b-4200-a5bb-6f553539f7c0` introduced v3/stale-ack; `a079...` added the Storage missing-object fix; `eeb6449e...` added export cleanup.
 
 ## 4. Risk while the UI flag is on and the worker is down
 
