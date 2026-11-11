@@ -138,17 +138,22 @@ connector operation and does not imply that a service health endpoint exists.
 
 ## 10. Phase 4 — Google Drive connector
 
-Google Drive is the first production source connector. Connector priority is:
+Google Drive is the first production source connector. The first-wave
+read-only connector SDK covers Google Drive, GitHub, Dropbox, Confluence, and
+Notion. Connector priority is:
 
 1. Google Drive (first production connector).
 2. GitHub repositories.
-3. Confluence or Notion.
-4. SharePoint.
-5. Slack or Microsoft Teams.
-6. Relational databases and structured-data sources.
+3. Notion.
+4. Dropbox.
+5. Confluence.
+6. SharePoint.
+7. Slack or Microsoft Teams.
+8. Relational databases and structured-data sources.
 
 Local files and uploaded documents are the local base and are not a production
-source connector.
+source connector. The SDK adapters accept injected access tokens; OAuth flows,
+token storage, sync workers, ingestion, ACL mapping, and UI remain planned.
 
 ## 11. Phase 5 — SaaS beta (partially delivered)
 
