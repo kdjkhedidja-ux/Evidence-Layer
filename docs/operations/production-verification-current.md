@@ -8,6 +8,7 @@ Related documents:
 - [`DELETION-WORKER-VERIFY-2026-11-11.md`](DELETION-WORKER-VERIFY-2026-11-11.md) — detailed flag/worker runbook and smoke record
 - [`../IMPLEMENTATION-AUDIT-CURRENT.md`](../IMPLEMENTATION-AUDIT-CURRENT.md) — broader implementation audit
 - [`../ENVIRONMENT_AND_SECRETS.md`](../ENVIRONMENT_AND_SECRETS.md) — variable and kill-switch policy
+- [`../PHASE8-SCOPE-DECISIONS-2026-11-11.md`](../PHASE8-SCOPE-DECISIONS-2026-11-11.md) — Phase B gate scope decisions
 
 ## Verified production facts
 
