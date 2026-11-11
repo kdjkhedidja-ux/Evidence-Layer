@@ -33,6 +33,7 @@ class FakeRepository:
         )
         self.documents = None
         self.synced = False
+        self.deleted = False
 
     async def get_connection(self, access_token, connection_id):
         return self.connection
@@ -42,6 +43,9 @@ class FakeRepository:
 
     async def mark_sync(self, access_token, *, connection_id, success, error_category=None):
         self.synced = success
+
+    async def delete_connection(self, access_token, connection_id):
+        self.deleted = True
 
 
 class ConnectorSyncTests(unittest.IsolatedAsyncioTestCase):
@@ -74,3 +78,22 @@ class ConnectorSyncTests(unittest.IsolatedAsyncioTestCase):
         assert repository.documents is not None
         self.assertEqual(repository.documents[0]["content_text"], "<p>hello</p>")
         self.assertEqual(repository.documents[0]["revision"], "2")
+
+    async def test_disconnect_revokes_then_deletes(self):
+        seen = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen.append((request.url.host, request.url.path))
+            return httpx.Response(200, json={"ok": True})
+
+        repository = FakeRepository()
+        service = GoogleDriveSyncService(
+            repository,  # type: ignore[arg-type]
+            VAULT,
+            client_id="",
+            client_secret="",
+            transport=httpx.MockTransport(handler),
+        )
+        await service.disconnect("user-token", CONNECTION)
+        assert repository.deleted is True
+        self.assertTrue(any(host == "oauth2.googleapis.com" for host, _ in seen))
