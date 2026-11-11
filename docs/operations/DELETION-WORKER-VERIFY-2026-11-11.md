@@ -1,7 +1,7 @@
 # Deletion worker verification and runbook — 2026-11-11
 
-Status: **WORKER: live (new version deployed); MIGRATION: 39 applied; FLAG: false; BASIC SMOKE: PASS; ORG SMOKE: PASS on new worker**
-Scope: individual-account deletion UI flag, worker entrypoints, production status reconciliation, Railway deployment template, runbook, and smoke assessment. Production migration `20261111120000` was applied through the reviewed guard/CLI flow, the Vercel flag was changed from `true` to explicit `false`, and no account was accepted or purged by this task.
+Status: **WORKER: live (new version deployed); MIGRATION: 39 applied; FLAG: true (re-enabled after smokes); BASIC SMOKE: PASS; ORG SMOKE: PASS on new worker**
+Scope: individual-account deletion UI flag, worker entrypoints, production status reconciliation, Railway deployment template, runbook, and smoke assessment. Production migrations `20261111120000` and `20261111150000` were applied through the reviewed guard/CLI flow; the Vercel flag was changed from `true` to `false`, then re-enabled after the dedicated smokes passed. Only synthetic test accounts were purged by this task.
 
 ## 1. Flag verification
 
@@ -10,7 +10,7 @@ Scope: individual-account deletion UI flag, worker entrypoints, production statu
 | Code default | Disabled unless the value is exactly `"true"` (`apps/web/lib/deletion-flag.ts`). |
 | Previous behavior | Enabled unless the value was exactly `"false"`; this was the source of the drift recorded in the 2026-11-11 audit. |
 | Documented behavior | `docs/ENVIRONMENT_AND_SECRETS.md` documents default-disabled, the applied migration, and the worker/smoke precondition. |
-| Production value | Was `true` for production/preview/development. It was changed to explicit `false` through the Vercel API and the production project was redeployed on 2026-11-11. The public domains returned HTTP 200 after deployment. |
+| Production value | Was `true`, changed to explicit `false` before verification, then re-enabled to `true` on 2026-11-11 after the basic and organization smokes passed. Production deployment `dpl_5gi55nVA3ompDHUMfpsMqQtJpt5j` is READY; `evidencelayer.dev` returns HTTP 200. |
 
 The flag controls the account deletion panel. It does not disable the server-side `/v1/deletion-requests` routes; those remain lifecycle-gated and authenticated.
 
@@ -41,7 +41,7 @@ Read-only production checks were run through the Supabase Management API on 2026
 | Stuck acknowledgement | 0 currently; the historical `journal_ack_pending` request was promoted and reached `purged`. | The new worker repair is live and the historical stuck state is resolved. |
 | Current liveness | New worker deployment `a079a6e6-08b4-4f53-8584-4994b2bb1148` is `SUCCESS`; the new-code `pg_stat_statements` marker has 21 calls. | The new worker is live and polling production. |
 | New-code marker | 21 `pg_stat_statements` matches for the new stale-ack `update public.data_deletion_requests as request ...` statement. | The new worker version (stale-ack repair and `v3` call) is running in production. |
-| Vercel flag | Production/preview/development value is explicit `false`; production deployment `dpl_8Y68hwu1t95evgvYRCVLX2cuk4qz` served `evidencelayer.dev` with HTTP 200. | The deletion UI is hidden in the current production build. |
+| Vercel flag | Production/preview/development value is explicit `true`; production deployment `dpl_5gi55nVA3ompDHUMfpsMqQtJpt5j` is READY and `evidencelayer.dev` returns HTTP 200. | The deletion UI is enabled in the current production build after both smokes passed. |
 | Basic smoke | Dedicated test request `a5c0b20c-98b4-4b17-9929-13b22af5ed72` reached `purged` in ~57s; protected route returned 403 after acceptance; Auth lookup returned 404. | Personal-account path is operational. |
 | Organization smoke | Dedicated request `b115a771-197b-4666-9f50-b83cc16b05d1` reached `purged` on the new worker; group workspace/snapshot counts 0, storage queue 0, Auth lookup 404. | The organization/group-workspace/snapshot path is operational on the new worker. |
 
@@ -75,7 +75,7 @@ Status: **completed on 2026-11-11** through the Railway GraphQL API using the pr
 7. Place it in the same Railway project/region as the Evidence Service where the provider allows it.
 8. Configure restart-on-failure and retain at least 7 days of logs.
 9. Confirm the first startup line is `{"event": "worker_started", ...}` and that cycles emit `{"event": "worker_cycle", ...}`.
-10. Do not enable the web flag as part of service creation. Complete the smoke first.
+10. The web flag is enabled after the completed smokes; keep `false` + redeploy as the kill switch.
 
 If the operator cannot satisfy one replica or cannot keep the privileged URL out of the web/public service, stop and use a controlled one-off worker run instead; do not run multiple replicas against the current code.
 
@@ -219,16 +219,16 @@ If the smoke fails or times out, leave the flag off and investigate the worker l
 ## 9. Current operator decision
 
 - **Flag policy:** off unless `NEXT_PUBLIC_DELETION_REQUESTS_ENABLED` is exactly `true`.
-- **Production flag action:** completed. The value was `true`; it is now explicit `false`, and the production build was redeployed.
+- **Production flag action:** completed. The value was set back to `true` after both smokes passed, and the production build was redeployed.
 - **Worker status:** new version live with one replica. The historical `journal_ack_pending` request was promoted and purged; the final organization smoke passed.
 - **New migrations:** 38 and 39 applied and verified in production (39 migrations, pending=0, empty schema diff).
-- **Safe order:** migrations applied, new worker deployed, basic and organization smokes passed. The web flag remains `false` pending an explicit operator decision to re-enable the UI.
+- **Safe order:** migrations applied, new worker deployed, both smokes passed, web flag re-enabled. If the worker becomes unhealthy, set the flag to `false` and redeploy as the kill switch.
 - **Stuck acknowledgement:** resolved. The historical `journal_ack_pending` request was promoted by the new worker, reached `purged`, and its Auth identity is gone.
 
 ## 10. Residual risks
 
 1. The worker has no lease; a second replica can race. Exactly one replica is mandatory until a claim function is reviewed.
 2. `purge_failed` has no automatic retry; an operator runbook and alert are still required.
-3. The web flag remains `false`; re-enabling is an explicit operator decision after reviewing this record.
+3. The web flag is `true`; use `false` + redeploy as the immediate kill switch if the worker or queue becomes unhealthy.
 4. Source is connected to `alimissoum552-a11y/Evidence-Layer`; if the upstream repository is `saidzeghidi31-bit/Evidence-Layer`, future deploys must keep the connected mirror in sync or reconnect the Railway GitHub App.
 5. Backups/PITR and legal/retention gaps from the wider audit remain outside this worker deployment.

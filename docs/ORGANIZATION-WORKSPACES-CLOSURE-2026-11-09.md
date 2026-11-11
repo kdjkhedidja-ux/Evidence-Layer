@@ -9,8 +9,9 @@ part of this closure.
 > **2026-11-11 addendum:** The deletion UI flag policy is now **off unless
 > `NEXT_PUBLIC_DELETION_REQUESTS_ENABLED` is exactly `true`**. This supersedes
 > the 2026-11-09 “remains ON” operational decision while the worker deployment
-> and a test-account accept-to-purged smoke are unverified. See
-> `docs/operations/DELETION-WORKER-VERIFY-2026-11-11.md`.
+> and a test-account accept-to-purged smoke are unverified. On 2026-11-11 the
+> new worker and both smokes passed, and the production flag was re-enabled to
+> `true`. See `docs/operations/DELETION-WORKER-VERIFY-2026-11-11.md`.
 
 ## Scope delivered
 
