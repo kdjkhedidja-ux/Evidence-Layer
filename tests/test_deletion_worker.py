@@ -5,6 +5,7 @@ from unittest.mock import patch
 from uuid import UUID
 
 from evidence_service.deletion_worker import (
+    acquire_single_instance_lock,
     process_pending,
     reconcile_stale_manifest_ack,
 )
@@ -14,6 +15,7 @@ class FakeCursor:
     def __init__(self, rows, rowcount=0):
         self.rows = rows
         self.rowcount = rowcount
+        self.row = (0,)
 
     def __enter__(self):
         return self
@@ -28,7 +30,7 @@ class FakeCursor:
         return self.rows
 
     def fetchone(self):
-        return (0,)
+        return self.row
 
 
 class FakeConnection:
@@ -53,6 +55,17 @@ class DeletionWorkerTests(unittest.TestCase):
         self.assertEqual(connection.commits, 1)
         self.assertIn("journal_ack_pending", connection.cursor_obj.sql)
         self.assertIn("manifest_frozen", connection.cursor_obj.sql)
+
+    def test_single_instance_lock_acquires_when_available(self):
+        connection = FakeConnection([], repaired=1)
+        connection.cursor_obj.row = (True,)
+        self.assertTrue(acquire_single_instance_lock(connection, timeout_seconds=0))
+        self.assertIn("pg_try_advisory_lock", connection.cursor_obj.sql)
+
+    def test_single_instance_lock_times_out(self):
+        connection = FakeConnection([], repaired=0)
+        connection.cursor_obj.row = (False,)
+        self.assertFalse(acquire_single_instance_lock(connection, timeout_seconds=0))
 
     def test_process_pending_drains_storage_then_accounts(self):
         connection = FakeConnection([(REQUEST_ID,)], repaired=1)

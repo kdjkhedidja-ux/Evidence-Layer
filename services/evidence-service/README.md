@@ -174,6 +174,8 @@ migration, or deploy the service. Railway remains a future deployment target;
 no hosted deployment is established by this repository change.
 
 The account-deletion worker has a separate image (`Dockerfile.worker`), a
-Railway template (`railway.worker.json`), and a names-only environment template
-(`.env.worker.example`). Its deployment remains operator-controlled; see
-`docs/operations/DELETION-WORKER-VERIFY-2026-11-11.md`.
+Railway template (`railway.worker.json`), a health-check cron template
+(`railway.healthcheck.json`), and a names-only environment template
+(`.env.worker.example`). It holds a single-instance advisory lock and must run
+with exactly one replica. See `docs/operations/DELETION-WORKER-VERIFY-2026-11-11.md`
+and `docs/operations/worker-ops-hardening-2026-11-11.md`.

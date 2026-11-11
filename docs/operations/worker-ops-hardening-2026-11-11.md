@@ -1,0 +1,136 @@
+# Worker operations hardening — 2026-11-11
+
+Status: operational plan and current controls. This document does not rotate secrets, change backup configuration, or change the Railway project source. It records what is now enforced in code and what remains an operator action.
+
+## 1. Alerts: purge failures and stuck pending work
+
+A read-only health check is available as:
+
+```text
+PYTHONPATH=services/evidence-service python -m evidence_service.deletion_healthcheck
+```
+
+It reads `DELETION_HEALTHCHECK_DATABASE_URL` or `DATABASE_URL` and emits one JSON object. Exit codes:
+
+- `0` — healthy;
+- `2` — at least one alert;
+- `1` — check failed.
+
+Alert conditions:
+
+| Alert | Meaning |
+|---|---|
+| `purge_failed` | Terminal worker failure; inspect the request and error category |
+| `journal_ack_pending` | Acceptance/acknowledgement did not progress |
+| `purge_pending_age` | Oldest `purge_pending` exceeds `DELETION_PURGE_PENDING_WARN_MINUTES` (default 10) |
+| `accepted_age` | Oldest `accepted` exceeds `DELETION_ACCEPTED_WARN_MINUTES` (default 10) |
+| `storage_queue_age` | Pending Storage cleanup object exceeds `DELETION_QUEUE_WARN_MINUTES` (default 30) |
+
+Recommended schedule: every 5 minutes from a Railway cron service using
+`services/evidence-service/railway.healthcheck.json` (or the dashboard equivalent),
+with `DELETION_HEALTHCHECK_DATABASE_URL` set to a read-only/limited credential.
+Page when the process exits `2` or fails to run for two consecutive periods.
+The worker also emits `worker_lock_unavailable` if another instance holds the
+single-instance lock; alert on that event.
+
+## 2. One replica and the no-duplicate rule
+
+- Keep `numReplicas=1` for the deletion worker.
+- The continuous worker now acquires a session-level PostgreSQL advisory lock
+  (`evidence-layer-deletion-worker`) with a bounded retry window before it
+  starts processing. A second replica exits with `worker_lock_unavailable`
+  rather than racing.
+- Do not increase replicas until a database lease/claim function with
+  `FOR UPDATE SKIP LOCKED`, ownership expiry, and recovery semantics is designed
+  and tested. The advisory lock protects the current single-worker design; it
+  is not a general horizontal-scaling design.
+- During a rolling deploy, a new worker may wait briefly for the old worker to
+  release the lock. A persistent `worker_lock_unavailable` means the old
+  instance is still running or the service was scaled above one.
+
+## 3. Railway source and canonical repository sync
+
+Current observed state:
+
+- Evidence Service: `alimissoum552-a11y/Evidence-Layer` (mirror), deployment `44fbb6f2-0e3a-407a-8e20-fc6b6e5b18e6`.
+- Deletion worker: `alimissoum552-a11y/Evidence-Layer` (mirror), deployment `eeb6449e-7a2d-41f8-bb94-4f8b254fea87`.
+- The earlier Evidence Service source was `saidzeghidi31-bit/Evidence-Layer`.
+
+The canonical repository is not unambiguous in repository history. Before the
+next production deploy, choose it explicitly and enforce one of:
+
+1. connect both Railway services to the canonical repository/branch; or
+2. keep the mirror but block deploys until the mirror commit SHA equals the
+   canonical reviewed SHA.
+
+Deploy only commits whose SHA has passed the repository checks. Record the SHA
+next to the deployment ID. A deploy without a verified SHA is a release
+incident, not a routine deploy.
+
+## 4. Backup verification and restore
+
+Current provider facts (read-only check, 2026-11-11):
+
+- `pitr_enabled`: **false**
+- API-listed provider backups: **0**
+- WALG: **enabled**
+- Existing artifact: private R2 logical dump from 2026-11-09, with checksum and
+  a successful disposable PostgreSQL restore drill. It covers `public` +
+  `private`; it excludes `auth`, `storage`, and `extensions`.
+
+The logical dump is a valid rollback aid for repository schema/data checks, but
+it is **not** PITR and not a full Auth/Storage restore proof. Refresh the
+logical dump by **2026-11-18** and record its checksum/date. Decide on provider
+PITR or a scheduled managed backup by **2026-11-30**. Run a fresh restore drill
+after either change. Existing procedure:
+`docs/PRODUCTION-RESTORE-CHECKLIST-2026-11-09.md`.
+
+Restore is an incident action, not a routine release step: close the Recovery
+Fence, restore into a disposable target first, validate row/FK counts, then
+follow the incident commander's production restore and deletion-reconciliation
+procedure. Do not claim PITR/backup coverage until the provider shows a
+recovery point and the drill covers Auth/Storage.
+
+## 5. Worker secret rotation
+
+Plan date: **2026-12-11** (or immediately on suspected exposure).
+
+Secrets in scope:
+
+- `SUPABASE_SERVICE_ROLE_KEY` used by the worker for Auth/Storage admin calls;
+- the privileged `DATABASE_URL` password used by the worker;
+- `EVIDENCE_PURGE_DATABASE_URL` for the one-shot path;
+- any separate health-check database credential;
+- `RECOVERY_FENCE_READ_HMAC_KEY` remains a service/fence credential and is not
+  changed by the worker rotation alone.
+
+Rotation sequence:
+
+1. Create the replacement credential/key in Supabase.
+2. Update the Railway worker environment from the secret store; never commit values.
+3. Redeploy the worker and verify `worker_started`, a `worker_cycle`, and
+   `deletion_healthcheck` exit `0`.
+4. Run one dedicated test-account `accepted → purged` smoke and confirm Auth 404.
+5. Revoke the old key/password after the worker is healthy.
+6. Record rotation date, operator, deployment ID, and smoke request ID.
+
+Do not rotate during an active incident or while a deletion request is
+mid-flight unless the incident commander requires it.
+
+## 6. Predictable deployment checklist
+
+1. Reviewed migration plan/apply/verify (if schema changed).
+2. Deploy Evidence Service; verify `/healthz` 200 and export routes 401 without auth.
+3. Deploy the worker; verify one replica, `worker_started`/`worker_cycle`, and lock acquisition.
+4. Run deletion + export smokes on dedicated test accounts; verify terminal states and cleanup.
+5. Enable any UI flag only after the smoke passes.
+6. Record commit SHA, deployment IDs, flags, migration count, and smoke IDs.
+7. Roll back to the previous Railway deployment IDs and hide the UI flag if the smoke fails.
+
+## Residual risks
+
+- No provider PITR or provider-listed backup; the logical dump can be stale.
+- No full Auth/Storage restore proof; no provider absence proof for deleted data.
+- The advisory lock is not a lease and does not make multiple replicas safe.
+- Health-check alerting depends on an operator-created cron/monitor; it is not yet a paging integration.
+- Canonical repository and mirror sync remain an explicit release gate.

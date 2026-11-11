@@ -15,6 +15,9 @@ from .account_deletion_worker import _connect, run_account_deletion
 from .export_cleanup_worker import run_export_cleanup
 from .storage_cleanup_worker import run_storage_cleanup
 
+LOCK_KEY = "evidence-layer-deletion-worker"
+LOCK_TIMEOUT_SECONDS = 180
+
 PENDING_SQL = """
 select request_id
   from public.data_deletion_requests
@@ -39,6 +42,22 @@ update public.data_deletion_requests as request
           and audit.action = 'manifest_frozen'
    )
 """
+
+
+def acquire_single_instance_lock(connection, *, timeout_seconds: int = LOCK_TIMEOUT_SECONDS) -> bool:
+    """Hold a session advisory lock so two worker replicas cannot race."""
+    deadline = time.monotonic() + timeout_seconds
+    while True:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "select pg_try_advisory_lock(hashtext(%s))", (LOCK_KEY,)
+            )
+            row = cursor.fetchone()
+        if row and row[0]:
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(2)
 
 
 def reconcile_stale_manifest_ack(connection) -> int:
@@ -74,6 +93,9 @@ def main() -> int:
     if not database_url:
         raise RuntimeError("DATABASE_URL is required")
     connection = _connect(database_url)
+    if not acquire_single_instance_lock(connection):
+        print(json.dumps({"event": "worker_lock_unavailable"}), flush=True)
+        return 2
     print(
         json.dumps({"event": "worker_started", "interval_seconds": interval}),
         flush=True,
