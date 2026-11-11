@@ -7,8 +7,9 @@ Date: 2026-11-11
 > template and runbook were added, and migration `20261111120000` now includes
 > organization-owned group workspaces/snapshots in account purge. The migration
 > was applied to production on 2026-11-11, the Vercel flag was changed from
-> `true` to explicit `false`, and the production web build was redeployed. The
-> new worker version and a fresh accept-to-purged smoke remain pending. See
+> `true` to explicit `false`, and the production web build was redeployed. A
+> dedicated personal test account completed accept-to-purged on the old worker;
+> the new worker version and organization/snapshot smoke remain pending. See
 > `docs/operations/DELETION-WORKER-VERIFY-2026-11-11.md`.
 Scope: repository code, migrations, tests, configuration, and status documents. The audit itself was read-only; a separate 2026-11-11 execution update (recorded in the addendum and ops runbook) applied the new migration, changed the Vercel flag to `false`, and redeployed the web build. No account was accepted or purged.
 
