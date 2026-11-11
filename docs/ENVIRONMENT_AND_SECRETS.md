@@ -24,7 +24,7 @@
 | Web app (for example Vercel) | Public project settings plus a private service URL | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, server-only `EVIDENCE_SERVICE_URL` |
 | Supabase Auth dashboard | Hosted Auth SMTP configuration only | Resend SMTP password/API key, SMTP sender address; never place these in the web app |
 | Evidence Service runtime | Server-only Supabase Data API/JWT verification settings | Existing `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_JWT_*` variables from its service `.env.example` |
-| Account-deletion worker runtime | Server-only privileged worker credentials; never attach to the web app or public service | `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `DELETION_WORKER_INTERVAL_SECONDS`; one-shot CLI path uses `EVIDENCE_PURGE_DATABASE_URL` |
+| Account-deletion worker runtime | Server-only privileged worker credentials; never attach to the web app or public service | `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `DELETION_WORKER_INTERVAL_SECONDS`, `RAILWAY_DOCKERFILE_PATH`; one-shot CLI path uses `EVIDENCE_PURGE_DATABASE_URL` |
 | GitHub Codespaces | Encrypted Codespaces secrets | provider keys used for local work |
 
 Supabase secret and service-role keys must never reach the frontend, a
@@ -34,8 +34,10 @@ Resend API.
 
 ## Supabase Auth and Resend setup (manual)
 
-No hosted Supabase Auth or Resend configuration is established by this code.
-An authorized operator must configure it in the Supabase and Resend dashboards:
+Hosted Supabase Auth is used by the production workspace. The procedure below
+is the configuration/verification path for a non-production project; it is not
+a claim about the current hosted SMTP provider state. An authorized operator
+must configure it in the Supabase and Resend dashboards:
 
 1. In Resend, add and verify the sending domain intended for authentication
 mail, including the required DNS records. Use an address on that verified
@@ -112,6 +114,23 @@ both the basic personal-account smoke and the organization/group-workspace/
 snapshot smoke passed, including Auth deletion and terminal `purged`. The flag
 was re-enabled to `true` on 2026-11-11 after both smokes passed. See
 `docs/operations/DELETION-WORKER-VERIFY-2026-11-11.md`.
+
+### Deletion kill switch
+
+If the deletion worker or Storage queue is unhealthy:
+
+1. Set `NEXT_PUBLIC_DELETION_REQUESTS_ENABLED` to `false` (or remove it) in the
+   target Vercel environment.
+2. Redeploy the web app so the public build hides the deletion UI.
+3. Check the Railway worker deployment, logs/heartbeat, and that
+   `numReplicas=1`; investigate `purge_pending`/`purge_failed` and the Storage
+   queue with the read-only SQL in the worker runbook.
+4. Do not manually delete customer rows or queue entries. Do not re-enable the
+   flag until the worker is healthy and a dedicated test-account
+   accept-to-purged smoke passes.
+
+The server-side `/v1/deletion-requests` routes remain authenticated and
+lifecycle-gated while the UI flag is off.
 
 ## Hosted Staging authentication smoke test
 
