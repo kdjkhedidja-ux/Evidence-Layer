@@ -4188,6 +4188,125 @@
       "line": 26,
       "verb": "create or",
       "rationale_ref": "function-definition"
+    },
+    {
+      "id": "4e5a915b0fb5557b",
+      "file": "20261111180000_phase8_account_export.sql",
+      "line": 66,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "aa469e56d6c3c37e",
+      "file": "20261111180000_phase8_account_export.sql",
+      "line": 67,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "000b548bfe9db50d",
+      "file": "20261111180000_phase8_account_export.sql",
+      "line": 68,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "3afd847b23f4a2c8",
+      "file": "20261111180000_phase8_account_export.sql",
+      "line": 69,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "53157d9e0801ff5e",
+      "file": "20261111180000_phase8_account_export.sql",
+      "line": 71,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "4401ef4da4d12a79",
+      "file": "20261111180000_phase8_account_export.sql",
+      "line": 73,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "4ea4935a2848aaa7",
+      "file": "20261111180000_phase8_account_export.sql",
+      "line": 76,
+      "verb": "create function",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "90ff14972baeacb0",
+      "file": "20261111180000_phase8_account_export.sql",
+      "line": 172,
+      "verb": "create function",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "0027d68d2ba6c2f2",
+      "file": "20261111180000_phase8_account_export.sql",
+      "line": 236,
+      "verb": "create function",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "5a894a3838d05ca4",
+      "file": "20261111180000_phase8_account_export.sql",
+      "line": 283,
+      "verb": "create function",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "4837962c22416e50",
+      "file": "20261111180000_phase8_account_export.sql",
+      "line": 311,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "91fb8226e12a77c6",
+      "file": "20261111180000_phase8_account_export.sql",
+      "line": 314,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "dfa293ac7fb6a34a",
+      "file": "20261111180000_phase8_account_export.sql",
+      "line": 316,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "2da2bdcfb08f90d1",
+      "file": "20261111180000_phase8_account_export.sql",
+      "line": 318,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "e1d0b4316b3d72fa",
+      "file": "20261111180000_phase8_account_export.sql",
+      "line": 321,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "0a3276e7af2027e0",
+      "file": "20261111180000_phase8_account_export.sql",
+      "line": 324,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "f5ce2ffc745bdbed",
+      "file": "20261111180000_phase8_account_export.sql",
+      "line": 326,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
     }
   ]
 }

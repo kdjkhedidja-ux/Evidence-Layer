@@ -236,6 +236,12 @@
       "version": "20261111150000",
       "sha256": "09c9e252019cc52f5725a5cc9b93698fa40fc8c6f09b60cb0675ce4dbfbb4f16",
       "provenance": "Make prepare v3 idempotent when a historical account_prepared marker already exists; prevents a stuck purge from skipping workspace cleanup."
+    },
+    {
+      "file": "20261111180000_phase8_account_export.sql",
+      "version": "20261111180000",
+      "sha256": "c111a8462d515843094148ad870dacd96f391cef29ba3b2fbfe72e427684e6f1",
+      "provenance": "Narrowed Phase 8 account/personal export storage, mediated grant RPCs, revocation, and expiry cleanup."
     }
   ]
 }

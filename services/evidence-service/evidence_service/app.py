@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import base64
 from collections.abc import Awaitable, Callable
 from datetime import datetime
 from typing import Literal, TypeVar
 from uuid import UUID
 
-from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -30,6 +31,12 @@ from evidence_service.auth import (
     VerifiedTokenVerifier,
 )
 from evidence_service.config import ConfigurationError, SupabaseSettings
+from evidence_service.export_repository import (
+    ExportAccessDenied,
+    ExportDataUnavailable,
+    ExportTooLarge,
+    SupabaseExportRepository,
+)
 from evidence_service.evidence_repository import (
     EvidenceAccessDenied,
     EvidenceDataUnavailable,
@@ -152,6 +159,27 @@ class OrganizationMemberRemovalResponse(BaseModel):
     user_id: UUID
     removed: bool
 
+
+
+class AccountExportCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    idempotency_key: str = Field(min_length=1, max_length=128)
+
+
+class AccountExportResponse(BaseModel):
+    export_id: UUID
+    status: str
+    ready_at: datetime | None
+    expires_at: datetime | None
+    reused: bool
+    grant_token: str | None
+    download_path: str
+
+
+class AccountExportRevokeResponse(BaseModel):
+    export_id: UUID
+    revoked: bool
 
 class WorkspaceResponse(BaseModel):
     id: UUID
@@ -717,6 +745,14 @@ def _relationship_repository(request: Request) -> RelationshipRepository:
     return repository
 
 
+
+def _export_repository(request: Request) -> SupabaseExportRepository:
+    repository = request.app.state.export_repository
+    if repository is None:
+        repository = SupabaseExportRepository(_settings_for(request))
+        request.app.state.export_repository = repository
+    return repository
+
 def _personal_api_key_repository(request: Request) -> SupabasePersonalApiKeyRepository:
     repository = request.app.state.personal_api_key_repository
     if repository is None:
@@ -814,6 +850,7 @@ def create_app(
     relationship_repository: RelationshipRepository | None = None,
     personal_api_key_repository: SupabasePersonalApiKeyRepository | None = None,
     deletion_repository: DeletionRepository | None = None,
+    export_repository: SupabaseExportRepository | None = None,
     organization_repository=None,
     source_read_path=None,
     source_catalog_factory=None,
@@ -834,6 +871,7 @@ def create_app(
     application.state.relationship_repository = relationship_repository
     application.state.personal_api_key_repository = personal_api_key_repository
     application.state.deletion_repository = deletion_repository
+    application.state.export_repository = export_repository
     application.state.organization_repository = organization_repository
     application.state.trusted_source_context_issuer = None
     application.state.source_read_path = source_read_path
@@ -1025,6 +1063,115 @@ def create_app(
                 for membership in memberships
             ],
         )
+
+
+    @application.post(
+        "/v1/me/exports",
+        response_model=AccountExportResponse,
+        status_code=201,
+    )
+    async def create_account_export(
+        payload: AccountExportCreateRequest,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> AccountExportResponse:
+        try:
+            job = await _with_account_gate(
+                request,
+                auth,
+                lambda: _export_repository(request).create_export(
+                    auth.access_token,
+                    principal_id=auth.principal.subject,
+                    idempotency_key=payload.idempotency_key,
+                ),
+            )
+        except ExportTooLarge as exc:
+            raise HTTPException(
+                status_code=413, detail="Export exceeds the narrowed size limit"
+            ) from exc
+        except ExportAccessDenied as exc:
+            raise HTTPException(status_code=403, detail="Export is not authorized") from exc
+        except ExportDataUnavailable as exc:
+            raise HTTPException(
+                status_code=503, detail="Export service is unavailable"
+            ) from exc
+        return AccountExportResponse(
+            export_id=job.export_id,
+            status=job.status,
+            ready_at=job.ready_at,
+            expires_at=job.expires_at,
+            reused=job.reused,
+            grant_token=job.grant_token,
+            download_path=f"/v1/me/exports/{job.export_id}/download",
+        )
+
+    @application.get("/v1/me/exports/{export_id}/download")
+    async def download_account_export(
+        export_id: UUID,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+        grant: str | None = Header(default=None, alias="X-Export-Grant"),
+    ) -> Response:
+        if not grant:
+            raise HTTPException(status_code=404, detail="Export not found")
+        try:
+            download = await _with_account_gate(
+                request,
+                auth,
+                lambda: _export_repository(request).redeem_export(
+                    auth.access_token,
+                    export_id=export_id,
+                    grant_token=grant,
+                ),
+            )
+        except ExportAccessDenied as exc:
+            raise HTTPException(status_code=403, detail="Export is not authorized") from exc
+        except ExportDataUnavailable as exc:
+            raise HTTPException(
+                status_code=503, detail="Export download is unavailable"
+            ) from exc
+        if download is None:
+            raise HTTPException(status_code=404, detail="Export not found")
+        # Recheck immediately before releasing the buffered artifact.
+        await _require_protected_access(request, auth)
+        digest = base64.b64encode(bytes.fromhex(download.sha256)).decode("ascii")
+        return Response(
+            content=download.content,
+            media_type="application/zip",
+            headers={
+                "Cache-Control": "private, no-store",
+                "Content-Disposition": (
+                    f'attachment; filename="evidence-layer-export-{export_id}.zip"'
+                ),
+                "Content-Digest": f"sha-256=:{digest}:",
+                "X-Content-Type-Options": "nosniff",
+            },
+        )
+
+    @application.post(
+        "/v1/me/exports/{export_id}/revoke",
+        response_model=AccountExportRevokeResponse,
+    )
+    async def revoke_account_export(
+        export_id: UUID,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> AccountExportRevokeResponse:
+        try:
+            revoked = await _with_account_gate(
+                request,
+                auth,
+                lambda: _export_repository(request).revoke_export(
+                    auth.access_token, export_id=export_id
+                ),
+            )
+        except ExportAccessDenied as exc:
+            raise HTTPException(status_code=403, detail="Export is not authorized") from exc
+        except ExportDataUnavailable as exc:
+            raise HTTPException(
+                status_code=503, detail="Export service is unavailable"
+            ) from exc
+        return AccountExportRevokeResponse(export_id=export_id, revoked=revoked)
 
     @application.get("/v1/me/api-keys", response_model=list[PersonalApiKeyResponse])
     async def list_personal_api_keys(

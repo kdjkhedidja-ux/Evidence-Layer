@@ -27,6 +27,9 @@ class FakeCursor:
     def fetchall(self):
         return self.rows
 
+    def fetchone(self):
+        return (0,)
+
 
 class FakeConnection:
     def __init__(self, rows, repaired=0):
@@ -64,6 +67,7 @@ class DeletionWorkerTests(unittest.TestCase):
         storage.assert_called_once_with(limit=500, connection=connection)
         account.assert_called_once_with(REQUEST_ID, connection=connection)
         self.assertEqual(result["repaired_stale_ack"], 1)
+        self.assertEqual(result["exports_cleaned"], 0)
         self.assertEqual(result["storage"]["completed"], 1)
         self.assertEqual(len(result["accounts"]), 1)
 
@@ -78,6 +82,7 @@ class DeletionWorkerTests(unittest.TestCase):
             result = process_pending(connection)
         account.assert_not_called()
         self.assertEqual(result["repaired_stale_ack"], 0)
+        self.assertEqual(result["exports_cleaned"], 0)
         self.assertEqual(result["accounts"], [])
 
 

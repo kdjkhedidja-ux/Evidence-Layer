@@ -36,17 +36,18 @@ covers Supabase Auth (email confirmation, recovery, TOTP MFA), personal and
 organization workspaces, evidence and relationship CRUD, verified
 source-catalogue reads, workspace-scoped read-only personal API keys, account
 deletion, and the public ROI/evaluation pages. The service exposes lifecycle-
-gated `/v1` account, workspace, evidence, source, and deletion routes backed by
-Supabase RLS. The dedicated account-deletion worker is deployed on Railway with
+gated `/v1` account, workspace, evidence, source, deletion, and narrowed
+export routes backed by Supabase RLS. The dedicated account-deletion worker is deployed on Railway with
 one replica; the current operational record is
 [`docs/operations/DELETION-WORKER-VERIFY-2026-11-11.md`](docs/operations/DELETION-WORKER-VERIFY-2026-11-11.md).
 
 The hosted retrieval/scoring path is not yet wired into the product. The
 JEV/lexical scoring core remains a library and evaluation path, and the FastAPI
-service does not perform retrieval or scoring. Still absent are a hosted
-retrieval/scoring endpoint, source ingestion/publish UI, export, mediated
-download links, billing/metering, production connectors, and shared-workspace
-deletion approvals. Phase 8 is not closed. The planned target architecture is
+service does not perform retrieval or scoring. A narrowed account/personal export and mediated download path is implemented
+in the service and web code but is not yet deployed to production. Still absent
+are a hosted retrieval/scoring endpoint, source ingestion/publish UI, full
+shared/group export, general-purpose download/CDN delivery, billing/metering,
+production connectors, and shared-workspace deletion approvals. Phase 8 is not closed. The planned target architecture is
 Vercel/Next.js for the frontend, Supabase for backend services, Railway for the
 persistent HTTP MCP/worker services, JEV as the core evidence-scoring and
 ranking provider when explicitly authorized, and Lexical as its supporting

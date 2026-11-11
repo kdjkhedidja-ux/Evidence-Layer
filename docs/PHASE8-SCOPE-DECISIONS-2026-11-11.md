@@ -1,6 +1,6 @@
 # Phase 8 Scope Decisions — 2026-11-11
 
-Status: product-scope decision record for the remaining Phase 8 gates. This document does **not** implement C3/C4/C6 workflows, change production flags, deploy the worker, or apply migrations. Phase 8 is **not closed**.
+Status: product-scope decision record for the remaining Phase 8 gates. Phase C has since implemented C6/C4 locally and closed C8 as a local narrowed acceptance; **production export deployment is pending**. This document does not change production flags, deploy the worker, or apply migrations. Full Phase 8 is **not closed**.
 
 Context:
 

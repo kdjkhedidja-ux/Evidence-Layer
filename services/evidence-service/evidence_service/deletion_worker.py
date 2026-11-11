@@ -12,6 +12,7 @@ import json
 import os
 import time
 from .account_deletion_worker import _connect, run_account_deletion
+from .export_cleanup_worker import run_export_cleanup
 from .storage_cleanup_worker import run_storage_cleanup
 
 PENDING_SQL = """
@@ -50,6 +51,7 @@ def reconcile_stale_manifest_ack(connection) -> int:
 
 def process_pending(connection) -> dict:
     repaired = reconcile_stale_manifest_ack(connection)
+    exports_cleaned = run_export_cleanup(connection=connection)
     storage = run_storage_cleanup(limit=500, connection=connection)
     with connection.cursor() as cursor:
         cursor.execute(PENDING_SQL)
@@ -60,6 +62,7 @@ def process_pending(connection) -> dict:
     ]
     return {
         "repaired_stale_ack": repaired,
+        "exports_cleaned": exports_cleaned,
         "storage": storage,
         "accounts": accounts,
     }
