@@ -2,7 +2,7 @@
 
 Personal-scope decision: see [`personal-connector-scope.md`](personal-connector-scope.md). The first production path is personal-only; no shared/group document ingestion.
 
-Status: **read-only adapters for five providers; Google Drive and Notion vertical slices are implemented locally.** The slice includes OAuth connect/callback, app-level encrypted token storage, a manual bounded sync, connector-document storage, and a minimal Connect/Sync UI. Migration `20261111190000` is **not applied to production**; the slice is not production-deployed. Background scheduling, ACL mapping, source-snapshot verification, deletion propagation, and production rollout are not yet implemented.
+Status: **read-only adapters for five providers; Google Drive and Notion vertical slices are implemented locally.** Vercel production has the Notion OAuth client/callback env and the web build, but both connector flags are off and the connector migration/service routes are not deployed. The slice includes OAuth connect/callback, app-level encrypted token storage, a manual bounded sync, connector-document storage, and a minimal Connect/Sync UI. Migration `20261111190000` is **not applied to production**; the slice is not production-deployed. Background scheduling, ACL mapping, source-snapshot verification, deletion propagation, and production rollout are not yet implemented.
 
 Implemented providers:
 
