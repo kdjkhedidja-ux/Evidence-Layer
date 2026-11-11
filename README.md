@@ -45,7 +45,10 @@ The hosted retrieval/scoring path is not yet wired into the product. The
 JEV/lexical scoring core remains a library and evaluation path, and the FastAPI
 service does not perform retrieval or scoring. A narrowed account/personal export and mediated download path is deployed to
 production and was enabled after a create/download/revoke smoke. Shared/group
-export remains unavailable. Still absent
+export remains unavailable. A read-only connector SDK for Google Drive,
+GitHub, Dropbox, Confluence, and Notion exists under
+`src/evidence_layer/connectors/`; OAuth acquisition, token storage, sync
+workers, ingestion, and the connector UI are not implemented yet. Still absent
 are a hosted retrieval/scoring endpoint, source ingestion/publish UI, full
 shared/group export, general-purpose download/CDN delivery, billing/metering,
 production connectors, and shared-workspace deletion approvals. Phase 8 is not closed. The planned target architecture is
@@ -122,7 +125,7 @@ provider architecture described in Current Status and the architecture docs.
 - No Jev, rerankers, or LLM calls were in the original Phase 1 default core. JEV
   scoring was added later and is the primary evidence scorer in the current
   approved architecture.
-- No connectors; no cost calculation in the default core
+- No production connector ingestion (read-only adapters exist in `src/evidence_layer/connectors/`); no cost calculation in the default core
 - No SaaS dashboard, no deployment
 - No API keys, secrets, or `.env` files
 - No paid model APIs (OpenAI, Anthropic, Cohere, Voyage, ...)

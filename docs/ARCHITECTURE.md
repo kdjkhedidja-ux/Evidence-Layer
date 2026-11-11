@@ -118,13 +118,17 @@ document data or scorer behavior.
 - The browser must not receive provider keys, database service-role secrets,
   or unrestricted billing credentials.
 
-### Google Drive connector (planned)
+### Connector SDK (read-only slice implemented)
 
-- Authenticate the user's delegated access, ingest authorized files, retain
-  source identity, support synchronization and deletion, and enforce tenant
-  boundaries.
-- OAuth scopes, sync strategy, supported file types, retention, and error
-  semantics remain to be specified.
+- `src/evidence_layer/connectors/` defines a normalized read-only connector
+  contract and adapters for Google Drive, GitHub, Dropbox, Confluence, and
+  Notion.
+- Adapters accept an already-authorized access token and return normalized
+  source items/documents with provider identity, revision, content type, and
+  SHA-256.
+- OAuth acquisition, encrypted token storage, sync workers, ingestion into
+  source snapshots, ACL mapping, deletion propagation, and connector UI remain
+  planned. The SDK is not a production connector product yet.
 
 ### JEV / TypeSafe evidence scoring
 
