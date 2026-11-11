@@ -9,6 +9,7 @@ Related documents:
 - [`../IMPLEMENTATION-AUDIT-CURRENT.md`](../IMPLEMENTATION-AUDIT-CURRENT.md) — broader implementation audit
 - [`../ENVIRONMENT_AND_SECRETS.md`](../ENVIRONMENT_AND_SECRETS.md) — variable and kill-switch policy
 - [`../PHASE8-SCOPE-DECISIONS-2026-11-11.md`](../PHASE8-SCOPE-DECISIONS-2026-11-11.md) — Phase B gate scope decisions
+- [`worker-ops-hardening-2026-11-11.md`](worker-ops-hardening-2026-11-11.md) — alerts, single-instance lock, canonical sync, backup, secret rotation
 
 ## Verified production facts
 
@@ -22,7 +23,7 @@ Related documents:
 | Storage cleanup queue | 0 pending, 1 completed | Read-only SQL over `public.data_deletion_storage_queue` |
 | Evidence Service | Railway service `Evidence-Layer`; deployment `44fbb6f2-0e3a-407a-8e20-fc6b6e5b18e6` is `SUCCESS`; source `alimissoum552-a11y/Evidence-Layer`; `/healthz` returns HTTP 200; export routes return 401 without auth | Railway GraphQL API and HTTP probe |
 | Worker deployment | Railway service `evidence-deletion-worker`, environment `production`; deployment `eeb6449e-7a2d-41f8-bb94-4f8b254fea87` is `SUCCESS`; Dockerfile builder `services/evidence-service/Dockerfile.worker`; start `python -m evidence_service.deletion_worker`; export-cleanup calls observed | Railway GraphQL API and read-only SQL |
-| Worker sizing | Exactly 1 replica; no database lease/claim function | Railway service settings and `deletion_worker.py` |
+| Worker sizing | Exactly 1 replica; session advisory lock prevents duplicate processing; no database lease/claim function | Railway service settings and `deletion_worker.py` |
 | Worker source | Connected to `alimissoum552-a11y/Evidence-Layer`, branch `main`; Evidence Service now uses the same mirror | Railway service settings |
 | Worker liveness | New-code stale-ack/repair marker observed in `pg_stat_statements`; 53 calls at the time of verification | Read-only SQL |
 | Worker retry behavior | `accepted`/`purge_pending` are retried every interval; `purge_failed` is not auto-retried | `deletion_worker.py` |
@@ -40,7 +41,7 @@ Related documents:
 
 ## Residual risks and explicit non-claims
 
-- **PITR / full backup:** not verified or claimed. The recorded backup evidence is a logical `public`/`private` dump; provider PITR and a full Auth/Storage restore are not proven.
+- **PITR / full backup:** not verified or claimed. Provider PITR is disabled and the API lists 0 provider backups; a private R2 logical `public`/`private` dump from 2026-11-09 exists with a disposable restore drill, but it excludes Auth/Storage and can be stale. See `worker-ops-hardening-2026-11-11.md`.
 - **Deletion absence proof:** database/Storage/Auth paths and smoke evidence are recorded, but provider backups and already-delivered client bytes are outside the claim. Phase 8 is not closed.
 - **Audit retention:** the documented 365-day retention policy is not automated.
 - **Worker concurrency:** no lease/claim function; exactly one replica is mandatory.

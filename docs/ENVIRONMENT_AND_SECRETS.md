@@ -118,6 +118,13 @@ was re-enabled to `true` on 2026-11-11 after both smokes passed. See
 
 ### Account export rollout
 
+The optional deletion health-check cron uses `DELETION_HEALTHCHECK_DATABASE_URL`
+plus `DELETION_PURGE_PENDING_WARN_MINUTES`, `DELETION_ACCEPTED_WARN_MINUTES`, and
+`DELETION_QUEUE_WARN_MINUTES` (names only; values live in the worker secret store).
+
+See `docs/operations/worker-ops-hardening-2026-11-11.md` for the alert runbook,
+single-instance rule, backup status, and secret-rotation plan.
+
 The export UI is hidden unless `NEXT_PUBLIC_ACCOUNT_EXPORT_ENABLED` is exactly
 `true`. The export migration, service routes, BFF routes, and a successful
 export/download/revocation smoke must be in place first. Production was enabled
