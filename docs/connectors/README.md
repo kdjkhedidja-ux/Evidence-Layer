@@ -1,6 +1,6 @@
 # Connector SDK — first read-only slice
 
-Status: **read-only connector adapters implemented; OAuth acquisition, encrypted token storage, sync workers, database ingestion, and UI are not yet implemented.** This is the contract layer for the five low-complexity connectors selected for the first wave.
+Status: **read-only adapters for five providers plus a Google Drive vertical slice are implemented locally.** The slice includes OAuth connect/callback, app-level encrypted token storage, a manual bounded sync, connector-document storage, and a minimal Connect/Sync UI. Migration `20261111190000` is **not applied to production**; the slice is not production-deployed. Background scheduling, ACL mapping, source-snapshot verification, deletion propagation, and production rollout are not yet implemented.
 
 Implemented providers:
 
@@ -79,6 +79,29 @@ They share a simple read-only HTTP model and avoid the first-wave complexity of 
 - append-only ingestion can be validated before building broad connector administration.
 
 Dropbox and Notion are fast to integrate; GitHub is fast for technical teams; Confluence needs Atlassian OAuth/cloud-id work; Google Drive has the broadest user reach but the most OAuth verification/export nuance.
+
+## Implemented Google Drive vertical slice
+
+- OAuth start/callback: `/api/connectors/google-drive/start` and `/api/connectors/google-drive/callback` in the Next.js BFF.
+- Scope requested: `https://www.googleapis.com/auth/drive.readonly`; offline access and consent are requested to obtain a refresh token.
+- Token vault: service-side AES-256-GCM encryption with `CONNECTOR_TOKEN_ENCRYPTION_KEY` (base64 32-byte key). Only ciphertext is stored.
+- Tables: `connector_connections` and `connector_documents`, forced RLS, owner-only policies, no anon/service-role table grants.
+- Manual sync: `POST /v1/connectors/{connection_id}/sync?limit=10` (maximum 25); one Drive page per call, up to 2 MiB per document, 2,000 blocks for Notion later.
+- Content: text-like documents stored in `content_text`; binary content stored as base64 with a 2 MiB cap. No write-back to Drive.
+- UI: account page shows Connect Google Drive, connection status, Sync, and Disconnect.
+- Refresh: service refreshes an expired Drive access token using the stored refresh token and server-only Google OAuth client credentials.
+- Disconnect: deletes the connection; `connector_documents` cascade. It does not revoke the Google grant in this slice.
+
+Environment names only:
+
+```text
+CONNECTOR_TOKEN_ENCRYPTION_KEY   # base64 32-byte key, service only
+GOOGLE_OAUTH_CLIENT_ID
+GOOGLE_OAUTH_CLIENT_SECRET
+GOOGLE_OAUTH_REDIRECT_URI        # web; defaults to <origin>/api/connectors/google-drive/callback
+```
+
+Google Cloud console: create a Web application OAuth client, add the exact callback URI, and keep the client secret server-side. No secret belongs in the repository or browser bundle.
 
 ## Required next layer (not implemented)
 

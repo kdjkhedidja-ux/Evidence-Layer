@@ -242,6 +242,12 @@
       "version": "20261111180000",
       "sha256": "c111a8462d515843094148ad870dacd96f391cef29ba3b2fbfe72e427684e6f1",
       "provenance": "Narrowed Phase 8 account/personal export storage, mediated grant RPCs, revocation, and expiry cleanup."
+    },
+    {
+      "file": "20261111190000_connector_connections_and_documents.sql",
+      "version": "20261111190000",
+      "sha256": "449edaee9443899e848b6b9cbd9b593ae8900231284c58c2a472acac8c8f43b6",
+      "provenance": "Narrowed Google Drive connector connections and normalized connector documents with forced RLS and owner-only policies."
     }
   ]
 }

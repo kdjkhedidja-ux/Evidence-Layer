@@ -61,7 +61,7 @@ export default function DocumentationPage() {
           <article className="public-card public-card--muted">
             <h3>Planned or requiring a separate release</h3>
             <ul>
-              <li>Production source connectors (a read-only connector SDK exists, but OAuth, token storage, sync, ingestion, and UI are not available), hosted retrieval, and a customer-data service.</li>
+              <li>Production source connectors beyond the Google Drive code slice (the connector SDK and Google Drive OAuth/manual-sync path exist; background sync, ACL mapping, source verification, and production rollout are not available), hosted retrieval, and a customer-data service.</li>
               <li>Provider transfer authorisation and live JEV use in an authorised service path.</li>
               <li>Integrated source routing, account usage reporting, billing, and a customer Comparison Lab.</li>
               <li>A supported final-answer generation integration; callers currently own that step.</li>

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import os
 from collections.abc import Awaitable, Callable
 from datetime import datetime
 from typing import Literal, TypeVar
@@ -180,6 +181,35 @@ class AccountExportResponse(BaseModel):
 class AccountExportRevokeResponse(BaseModel):
     export_id: UUID
     revoked: bool
+
+
+class ConnectorConnectionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    access_token: str = Field(min_length=1)
+    refresh_token: str | None = None
+    expires_at: datetime | None = None
+    scopes: list[str] = Field(default_factory=list)
+    account_email: str | None = Field(default=None, max_length=320)
+
+
+class ConnectorConnectionResponse(BaseModel):
+    connection_id: UUID
+    provider: str
+    account_email: str | None
+    scopes: list[str]
+    status: str
+    last_sync_at: datetime | None
+    last_error_category: str | None
+
+
+class ConnectorSyncResponse(BaseModel):
+    connection_id: UUID
+    listed: int
+    ingested: int
+    skipped: int
+    next_cursor: str | None
+
 
 class WorkspaceResponse(BaseModel):
     id: UUID
@@ -746,6 +776,47 @@ def _relationship_repository(request: Request) -> RelationshipRepository:
 
 
 
+
+
+def _connector_connection_response(connection) -> ConnectorConnectionResponse:
+    return ConnectorConnectionResponse(
+        connection_id=connection.connection_id,
+        provider=connection.provider,
+        account_email=connection.account_email,
+        scopes=list(connection.scopes),
+        status=connection.status,
+        last_sync_at=connection.last_sync_at,
+        last_error_category=connection.last_error_category,
+    )
+
+def _connector_repository(request: Request) -> ConnectorRepository:
+    repository = request.app.state.connector_repository
+    if repository is None:
+        repository = ConnectorRepository(_settings_for(request))
+        request.app.state.connector_repository = repository
+    return repository
+
+
+def _connector_vault(request: Request) -> TokenVault:
+    vault = request.app.state.connector_vault
+    if vault is None:
+        vault = TokenVault.from_environment()
+        request.app.state.connector_vault = vault
+    return vault
+
+
+def _google_drive_sync_service(request: Request) -> GoogleDriveSyncService:
+    service = request.app.state.connector_sync_service
+    if service is None:
+        service = GoogleDriveSyncService(
+            _connector_repository(request),
+            _connector_vault(request),
+            client_id=os.environ.get("GOOGLE_OAUTH_CLIENT_ID", ""),
+            client_secret=os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET", ""),
+        )
+        request.app.state.connector_sync_service = service
+    return service
+
 def _export_repository(request: Request) -> SupabaseExportRepository:
     repository = request.app.state.export_repository
     if repository is None:
@@ -851,6 +922,9 @@ def create_app(
     personal_api_key_repository: SupabasePersonalApiKeyRepository | None = None,
     deletion_repository: DeletionRepository | None = None,
     export_repository: SupabaseExportRepository | None = None,
+    connector_repository: ConnectorRepository | None = None,
+    connector_sync_service: GoogleDriveSyncService | None = None,
+    connector_vault: TokenVault | None = None,
     organization_repository=None,
     source_read_path=None,
     source_catalog_factory=None,
@@ -872,6 +946,9 @@ def create_app(
     application.state.personal_api_key_repository = personal_api_key_repository
     application.state.deletion_repository = deletion_repository
     application.state.export_repository = export_repository
+    application.state.connector_repository = connector_repository
+    application.state.connector_sync_service = connector_sync_service
+    application.state.connector_vault = connector_vault
     application.state.organization_repository = organization_repository
     application.state.trusted_source_context_issuer = None
     application.state.source_read_path = source_read_path
@@ -1172,6 +1249,139 @@ def create_app(
                 status_code=503, detail="Export service is unavailable"
             ) from exc
         return AccountExportRevokeResponse(export_id=export_id, revoked=revoked)
+
+
+    @application.post(
+        "/v1/connectors/google_drive/connection",
+        response_model=ConnectorConnectionResponse,
+        status_code=201,
+    )
+    async def connect_google_drive(
+        payload: ConnectorConnectionRequest,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> ConnectorConnectionResponse:
+        try:
+            vault = _connector_vault(request)
+            encrypted_access = vault.encrypt(payload.access_token)
+            if not encrypted_access:
+                raise TokenVaultUnavailable
+            encrypted_refresh = vault.encrypt(payload.refresh_token)
+            connection = await _with_account_gate(
+                request,
+                auth,
+                lambda: _connector_repository(request).upsert_connection(
+                    auth.access_token,
+                    user_id=auth.principal.subject,
+                    provider="google_drive",
+                    account_email=payload.account_email,
+                    scopes=list(payload.scopes),
+                    access_token_ciphertext=encrypted_access,
+                    refresh_token_ciphertext=encrypted_refresh,
+                    access_token_expires_at=payload.expires_at,
+                ),
+            )
+        except TokenVaultUnavailable as exc:
+            raise HTTPException(
+                status_code=503, detail="Connector token vault is unavailable"
+            ) from exc
+        except ConnectorDenied as exc:
+            raise HTTPException(status_code=403, detail="Connector is not authorized") from exc
+        except ConnectorUnavailable as exc:
+            raise HTTPException(
+                status_code=503, detail="Connector service is unavailable"
+            ) from exc
+        return _connector_connection_response(connection)
+
+    @application.get(
+        "/v1/connectors",
+        response_model=list[ConnectorConnectionResponse],
+    )
+    async def list_connectors(
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> list[ConnectorConnectionResponse]:
+        try:
+            connections = await _with_account_gate(
+                request,
+                auth,
+                lambda: _connector_repository(request).list_connections(
+                    auth.access_token
+                ),
+            )
+        except ConnectorDenied as exc:
+            raise HTTPException(status_code=403, detail="Connector is not authorized") from exc
+        except ConnectorUnavailable as exc:
+            raise HTTPException(
+                status_code=503, detail="Connector service is unavailable"
+            ) from exc
+        return [_connector_connection_response(connection) for connection in connections]
+
+    @application.delete("/v1/connectors/{connection_id}", status_code=204)
+    async def delete_connector(
+        connection_id: UUID,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> Response:
+        try:
+            await _with_account_gate(
+                request,
+                auth,
+                lambda: _connector_repository(request).delete_connection(
+                    auth.access_token, connection_id
+                ),
+            )
+        except ConnectorNotFound as exc:
+            raise HTTPException(status_code=404, detail="Connector not found") from exc
+        except ConnectorDenied as exc:
+            raise HTTPException(status_code=403, detail="Connector is not authorized") from exc
+        except ConnectorUnavailable as exc:
+            raise HTTPException(
+                status_code=503, detail="Connector service is unavailable"
+            ) from exc
+        return Response(status_code=204)
+
+    @application.post(
+        "/v1/connectors/{connection_id}/sync",
+        response_model=ConnectorSyncResponse,
+    )
+    async def sync_connector(
+        connection_id: UUID,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+        limit: int = Query(default=10, ge=1, le=25),
+    ) -> ConnectorSyncResponse:
+        try:
+            result = await _with_account_gate(
+                request,
+                auth,
+                lambda: _google_drive_sync_service(request).sync(
+                    auth.access_token, connection_id, limit=limit
+                ),
+            )
+        except TokenVaultUnavailable as exc:
+            raise HTTPException(
+                status_code=503, detail="Connector token vault is unavailable"
+            ) from exc
+        except ConnectorNotFound as exc:
+            raise HTTPException(status_code=404, detail="Connector not found") from exc
+        except ConnectorDenied as exc:
+            raise HTTPException(status_code=403, detail="Connector is not authorized") from exc
+        except ConnectorAuthUnavailable as exc:
+            raise HTTPException(
+                status_code=409, detail="Connector authorization expired"
+            ) from exc
+        except (ConnectorSyncError, ConnectorUnavailable) as exc:
+            raise HTTPException(
+                status_code=503, detail="Connector sync is unavailable"
+            ) from exc
+        return ConnectorSyncResponse(
+            connection_id=UUID(result.connection_id),
+            listed=result.listed,
+            ingested=result.ingested,
+            skipped=result.skipped,
+            next_cursor=result.next_cursor,
+        )
 
     @application.get("/v1/me/api-keys", response_model=list[PersonalApiKeyResponse])
     async def list_personal_api_keys(

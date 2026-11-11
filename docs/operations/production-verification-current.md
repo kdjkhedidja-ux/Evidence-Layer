@@ -18,7 +18,7 @@ Related documents:
 | Web deployment | Vercel project `evidence-layer`; production deployment `dpl_DLUo6MBYJ8yFcFRu86msQesL9Q1T` is `READY`; `https://evidencelayer.dev/` returns HTTP 200; deletion and export flags are `true` | Vercel deployments/env API and HTTP probe |
 | Deletion flag | `NEXT_PUBLIC_DELETION_REQUESTS_ENABLED=true` in production/preview/development; code default remains off unless exactly `"true"` | Vercel project env API; `apps/web/lib/deletion-flag.ts` |
 | Kill switch | Set the flag to `false` (or remove it), redeploy the web app, then check the worker before re-enabling | `ENVIRONMENT_AND_SECRETS.md` and worker runbook |
-| Migrations | 40 applied in production; latest `20261111180000`; repository and remote match; pending=0 | Supabase migration API plus `supabase db push --linked --dry-run` |
+| Migrations | 40 applied in production; latest `20261111180000`; repository has 41 with the local connector migration `20261111190000` not applied; production pending=0 | Supabase migration API plus `supabase db push --linked --dry-run` |
 | Deletion requests | 23 `purged`, 8 `approval_pending`, 0 `journal_ack_pending`, 0 `accepted`, 0 `purge_pending`, 0 `purge_failed` | Read-only SQL over `public.data_deletion_requests` |
 | Storage cleanup queue | 0 pending, 1 completed | Read-only SQL over `public.data_deletion_storage_queue` |
 | Evidence Service | Railway service `Evidence-Layer`; deployment `44fbb6f2-0e3a-407a-8e20-fc6b6e5b18e6` is `SUCCESS`; source `alimissoum552-a11y/Evidence-Layer`; `/healthz` returns HTTP 200; export routes return 401 without auth | Railway GraphQL API and HTTP probe |
@@ -29,6 +29,7 @@ Related documents:
 | Worker liveness | New-code stale-ack/repair marker observed in `pg_stat_statements`; 53 calls at the time of verification | Read-only SQL |
 | Worker retry behavior | `accepted`/`purge_pending` are retried every interval; `purge_failed` is not auto-retried | `deletion_worker.py` |
 | Deletion healthcheck | Production run returned `status: ok`, no alerts, exit 0 | `python -m evidence_service.deletion_healthcheck` with pooler credential |
+| Google Drive connector slice | Read-only adapters, OAuth BFF, encrypted token vault, manual sync, and connector document tables are implemented locally; connector migration and production deploy are pending | `docs/connectors/README.md` |
 | Narrowed export (C6/C4) | Deployed to production: migration 40 applied, Evidence Service 44fb live, worker 6957 live with cleanup/lock, Vercel `dpl_DLUo6MBYJ8yFcFRu86msQesL9Q1T` READY, `NEXT_PUBLIC_ACCOUNT_EXPORT_ENABLED=true`; export create/download/revoke smoke passed | `docs/operations/account-export.md` |
 | Historical stuck request | The prior `journal_ack_pending` request was promoted by the new worker and reached `purged` | Deletion request/audit read-only SQL |
 | Smoke evidence | Basic personal request `a5c0b20c-98b4-4b17-9929-13b22af5ed72` and organization/snapshot request `b115a771-197b-4666-9f50-b83cc16b05d1` reached `purged`; Auth lookup 404; workspace/snapshot counts 0 | `DELETION-WORKER-VERIFY-2026-11-11.md` |

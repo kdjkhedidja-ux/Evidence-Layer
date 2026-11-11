@@ -152,8 +152,11 @@ Notion. Connector priority is:
 8. Relational databases and structured-data sources.
 
 Local files and uploaded documents are the local base and are not a production
-source connector. The SDK adapters accept injected access tokens; OAuth flows,
-token storage, sync workers, ingestion, ACL mapping, and UI remain planned.
+source connector. The SDK adapters accept injected access tokens. Google Drive has a first
+vertical slice (local only): OAuth connect/callback, encrypted token storage,
+manual bounded sync into `connector_documents`, and a minimal connect/sync UI. Background
+scheduling, ACL mapping, source-snapshot verification, deletion propagation,
+and production rollout remain planned.
 
 ## 11. Phase 5 — SaaS beta (partially delivered)
 

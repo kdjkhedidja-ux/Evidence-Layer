@@ -78,6 +78,7 @@ V_MARK_PURGED_V3 = "20261108220000"
 V_ORG_WORKSPACE_PURGE = "20261111120000"
 V_IDEMPOTENT_PREPARE = "20261111150000"
 V_PHASE8_EXPORT = "20261111180000"
+V_CONNECTORS = "20261111190000"
 
 VERSION_RE = re.compile(r"^[0-9]{14}_[a-z0-9_]+\.sql$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -538,6 +539,8 @@ def expected_policy_identity(policy: str) -> str:
         ("personal_api_key_gateway_secrets_", "private", "personal_api_key_gateway_secrets"),
         ("personal_api_key_gateway_nonces_", "private", "personal_api_key_gateway_nonces"),
         ("personal_api_keys_", "public", "personal_api_keys"),
+        ("connector_connections_", "public", "connector_connections"),
+        ("connector_documents_", "public", "connector_documents"),
     )
     for prefix, expected_schema, table in relation_prefixes:
         if name.startswith(prefix):
@@ -576,6 +579,7 @@ def expected_catalog(versions: list[str]) -> dict:
     org_workspace_purge = V_ORG_WORKSPACE_PURGE in present
     idempotent_prepare = V_IDEMPOTENT_PREPARE in present
     phase8_export = V_PHASE8_EXPORT in present
+    connectors = V_CONNECTORS in present
     source = V_SOURCE_CATALOG in present
     storage = V_SNAPSHOT_STORAGE in present
     verifier = V_VERIFIER_IDENTITY in present
@@ -623,6 +627,9 @@ def expected_catalog(versions: list[str]) -> dict:
     if phase8_export:
         tables["public.data_export_jobs"] = (True, True)
         tables["public.data_export_grants"] = (True, True)
+    if connectors:
+        tables["public.connector_connections"] = (True, True)
+        tables["public.connector_documents"] = (True, True)
 
     indexes: set[str] = set()
     if identity:
@@ -667,6 +674,16 @@ def expected_catalog(versions: list[str]) -> dict:
             "private.personal_api_key_gateway_secrets_pkey",
             "private.personal_api_key_gateway_nonces_pkey",
             "private.personal_api_key_gateway_nonces_expiry_idx",
+        })
+    if connectors:
+        indexes.update({
+            "public.connector_connections_pkey",
+            "public.connector_connections_user_provider_key",
+            "public.connector_connections_user_idx",
+            "public.connector_documents_pkey",
+            "public.connector_documents_revision_key",
+            "public.connector_documents_connection_idx",
+            "public.connector_documents_user_idx",
         })
     if phase8_export:
         indexes.update({
@@ -856,6 +873,17 @@ def expected_catalog(versions: list[str]) -> dict:
         policies.update({
             "public.organizations_select_member",
             "public.organization_memberships_select_self",
+        })
+    if connectors:
+        policies.update({
+            "public.connector_connections_owner_select",
+            "public.connector_connections_owner_insert",
+            "public.connector_connections_owner_update",
+            "public.connector_connections_owner_delete",
+            "public.connector_documents_owner_select",
+            "public.connector_documents_owner_insert",
+            "public.connector_documents_owner_update",
+            "public.connector_documents_owner_delete",
         })
     if api_keys:
         policies.update({
@@ -1106,6 +1134,12 @@ def expected_catalog(versions: list[str]) -> dict:
             ("data_export_jobs_requester_user_id_fkey", "public.data_export_jobs", "auth.users", "c"),
             ("data_export_grants_export_id_fkey", "public.data_export_grants", "public.data_export_jobs", "c"),
             ("data_export_grants_requester_user_id_fkey", "public.data_export_grants", "auth.users", "c"),
+        })
+    if connectors:
+        foreign_keys.update({
+            ("connector_connections_user_id_fkey", "public.connector_connections", "auth.users", "c"),
+            ("connector_documents_user_id_fkey", "public.connector_documents", "auth.users", "c"),
+            ("connector_documents_connection_id_fkey", "public.connector_documents", "public.connector_connections", "c"),
         })
     if api_keys:
         foreign_keys.update({
