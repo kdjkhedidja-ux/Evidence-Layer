@@ -25,6 +25,8 @@
 | Supabase Auth dashboard | Hosted Auth SMTP configuration only | Resend SMTP password/API key, SMTP sender address; never place these in the web app |
 | Evidence Service runtime | Server-only Supabase Data API/JWT verification settings | Existing `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_JWT_*` variables from its service `.env.example` |
 | Account-deletion worker runtime | Server-only privileged worker credentials; never attach to the web app or public service | `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `DELETION_WORKER_INTERVAL_SECONDS`, `RAILWAY_DOCKERFILE_PATH`; one-shot CLI path uses `EVIDENCE_PURGE_DATABASE_URL` |
+| Google Drive connector runtime | Server-only OAuth/token-vault credentials; never expose the token-encryption key or client secret to the browser | `CONNECTOR_TOKEN_ENCRYPTION_KEY`, `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` |
+| Google Drive connector web OAuth | Server-only OAuth callback credentials | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_URI` |
 | GitHub Codespaces | Encrypted Codespaces secrets | provider keys used for local work |
 
 Supabase secret and service-role keys must never reach the frontend, a
@@ -115,6 +117,15 @@ both the basic personal-account smoke and the organization/group-workspace/
 snapshot smoke passed, including Auth deletion and terminal `purged`. The flag
 was re-enabled to `true` on 2026-11-11 after both smokes passed. See
 `docs/operations/DELETION-WORKER-VERIFY-2026-11-11.md`.
+
+### Google Drive connector rollout
+
+The connector migration, service routes, BFF OAuth routes, encryption key, and
+Google OAuth client must be deployed before testing. The token-encryption key is
+base64-encoded 32-byte material and belongs only in the service secret store.
+The OAuth client secret belongs in both server-side environments (BFF token
+exchange and service refresh), never in `NEXT_PUBLIC_*` variables. See
+`docs/connectors/README.md`.
 
 ### Account export rollout
 

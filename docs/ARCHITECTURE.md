@@ -126,9 +126,11 @@ document data or scorer behavior.
 - Adapters accept an already-authorized access token and return normalized
   source items/documents with provider identity, revision, content type, and
   SHA-256.
-- OAuth acquisition, encrypted token storage, sync workers, ingestion into
-  source snapshots, ACL mapping, deletion propagation, and connector UI remain
-  planned. The SDK is not a production connector product yet.
+- Google Drive has a first vertical slice: BFF OAuth connect/callback,
+  service-side AES-GCM token vault, manual bounded sync into connector
+  documents, and a minimal account UI. Background scheduling, ACL mapping,
+  source-snapshot verification, deletion propagation, and production rollout
+  remain planned.
 
 ### JEV / TypeSafe evidence scoring
 

@@ -4307,6 +4307,118 @@
       "line": 326,
       "verb": "grant execute",
       "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "ece8d7befa3fa7d7",
+      "file": "20261111190000_connector_connections_and_documents.sql",
+      "line": 58,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "a64c834d8d7f7bfb",
+      "file": "20261111190000_connector_connections_and_documents.sql",
+      "line": 59,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "9c9096529e34926b",
+      "file": "20261111190000_connector_connections_and_documents.sql",
+      "line": 60,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "57b3cca8a512190b",
+      "file": "20261111190000_connector_connections_and_documents.sql",
+      "line": 61,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "6c4c4ac142c7fd54",
+      "file": "20261111190000_connector_connections_and_documents.sql",
+      "line": 63,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "7ad1448637fe50ce",
+      "file": "20261111190000_connector_connections_and_documents.sql",
+      "line": 65,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "608412239c16ea7f",
+      "file": "20261111190000_connector_connections_and_documents.sql",
+      "line": 68,
+      "verb": "grant select",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "a14d8bbdc10f8d7b",
+      "file": "20261111190000_connector_connections_and_documents.sql",
+      "line": 70,
+      "verb": "grant select",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "a52aed0fe4e2da54",
+      "file": "20261111190000_connector_connections_and_documents.sql",
+      "line": 73,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "ab69edfd8535e43f",
+      "file": "20261111190000_connector_connections_and_documents.sql",
+      "line": 79,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "48609e9c2ea65671",
+      "file": "20261111190000_connector_connections_and_documents.sql",
+      "line": 85,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "ba68a4d5038591bd",
+      "file": "20261111190000_connector_connections_and_documents.sql",
+      "line": 92,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "aa86750a039d4f8b",
+      "file": "20261111190000_connector_connections_and_documents.sql",
+      "line": 98,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "de1d96c6b8a5859f",
+      "file": "20261111190000_connector_connections_and_documents.sql",
+      "line": 104,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "cef4606f9ddd50b0",
+      "file": "20261111190000_connector_connections_and_documents.sql",
+      "line": 110,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "133ffcc822d5bffb",
+      "file": "20261111190000_connector_connections_and_documents.sql",
+      "line": 117,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
     }
   ]
 }
