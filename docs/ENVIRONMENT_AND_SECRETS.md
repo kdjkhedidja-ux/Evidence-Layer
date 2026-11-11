@@ -98,7 +98,7 @@ local Mailpit results do not establish hosted SMTP delivery.
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Public | `sb_publishable_...` key used by Supabase Auth SDK |
 | `EVIDENCE_SERVICE_URL` | Server-only | Evidence Service base URL used by same-origin Next.js route handlers |
 | `NEXT_PUBLIC_DELETION_REQUESTS_ENABLED` | Public | Enables the account deletion panel. Defaults to disabled. Set it to exactly `true` only after the target database has the deletion migrations, the account-deletion worker is deployed and observed draining requests, and a test-account accept-to-purged smoke passes. |
-| `NEXT_PUBLIC_ACCOUNT_EXPORT_ENABLED` | Public | Enables the account/personal export UI. Defaults to disabled. Set it to exactly `true` only after migration `20261111180000`, the Evidence Service export routes, and the BFF routes are deployed and an authenticated export/download smoke passes. |
+| `NEXT_PUBLIC_ACCOUNT_EXPORT_ENABLED` | Public | Enables the account/personal export UI. Defaults to disabled. Production is `true` after the 2026-11-11 export/download/revoke smoke; set it to exactly `true` only after migration `20261111180000`, Evidence Service export routes, BFF routes, and that smoke are in place. |
 
 Copy placeholders from `apps/web/.env.example`. The Resend SMTP password is
 not an application variable. The service keeps its separate required JWT and
@@ -120,9 +120,10 @@ was re-enabled to `true` on 2026-11-11 after both smokes passed. See
 
 The export UI is hidden unless `NEXT_PUBLIC_ACCOUNT_EXPORT_ENABLED` is exactly
 `true`. The export migration, service routes, BFF routes, and a successful
-export/download/revocation smoke must be in place first. Keeping the flag
-off/unset does not disable the authenticated service routes, but it prevents the
-UI from offering an unavailable feature.
+export/download/revocation smoke must be in place first. Production was enabled
+after the 2026-11-11 smoke. Keeping the flag off/unset does not disable the
+authenticated service routes, but it prevents the UI from offering an
+unavailable feature.
 
 ### Deletion kill switch
 

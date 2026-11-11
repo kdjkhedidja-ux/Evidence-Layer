@@ -43,10 +43,9 @@ one replica; the current operational record is
 
 The hosted retrieval/scoring path is not yet wired into the product. The
 JEV/lexical scoring core remains a library and evaluation path, and the FastAPI
-service does not perform retrieval or scoring. A narrowed account/personal export and mediated download path is implemented
-in the service and web code. The web BFF/UI code is deployed behind an
-off-by-default flag; the production migration and Evidence Service routes are
-still pending. Still absent
+service does not perform retrieval or scoring. A narrowed account/personal export and mediated download path is deployed to
+production and was enabled after a create/download/revoke smoke. Shared/group
+export remains unavailable. Still absent
 are a hosted retrieval/scoring endpoint, source ingestion/publish UI, full
 shared/group export, general-purpose download/CDN delivery, billing/metering,
 production connectors, and shared-workspace deletion approvals. Phase 8 is not closed. The planned target architecture is

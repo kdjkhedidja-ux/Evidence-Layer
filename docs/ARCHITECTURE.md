@@ -111,10 +111,10 @@ document data or scorer behavior.
   hosted auth screens, personal and organization workspaces, evidence and
   relationship CRUD, verified source-catalogue reads, personal API-key
   management, account-deletion UI, and public ROI/evaluation pages.
-- It exposes a narrowed account/personal export path in the service/BFF code,
-  but production deployment is pending. Hosted retrieval/scoring, source
-  ingestion/publish, shared/group export, general download/CDN delivery, usage/
-  plan billing, and the Comparison Lab remain absent.
+- It exposes a narrowed account/personal export path with mediated download
+  grants. Hosted retrieval/scoring, source ingestion/publish, shared/group
+  export, general download/CDN delivery, usage/plan billing, and the Comparison
+  Lab remain absent.
 - The browser must not receive provider keys, database service-role secrets,
   or unrestricted billing credentials.
 
@@ -221,10 +221,10 @@ document data or scorer behavior.
 
 Account, workspace, evidence, relationship, source-catalogue, and deletion
 operations are implemented in the hosted web/service path. A narrowed
-account/personal export and mediated download path exists in code but is not
-production-deployed. Retrieval, scoring, provider-transfer enforcement,
-connectors, shared/group export, general download/CDN delivery, usage metering,
-and billing remain target capabilities or partial work.
+account/personal export and mediated download path is deployed with a
+`private, no-store` grant flow. Retrieval, scoring, provider-transfer
+enforcement, connectors, shared/group export, general download/CDN delivery,
+usage metering, and billing remain target capabilities or partial work.
 
 Hosted authentication and tenant-isolation enforcement, database/RLS, the
 account/workspace/evidence/source/deletion APIs, organization workspaces,
@@ -232,8 +232,7 @@ personal API keys, and the deletion worker are implemented. Missing: a hosted
 retrieval/scoring endpoint, hosted provider-transfer authorization, production
 source connectors and Decisions integration, source ingestion/publish,
 shared/group export, general download/CDN delivery, usage metering/billing,
-shared-workspace deletion approvals, and the remaining Phase 8 gates. The
-narrowed account/personal export exists in code but is not production-deployed.
+shared-workspace deletion approvals, and the remaining Phase 8 gates.
 
 ## Initial Data Concepts
 
@@ -319,7 +318,7 @@ administration beyond the current RLS model are not implemented.
 
 Vercel currently hosts the authenticated workspace app from `main`; Railway
 hosts the FastAPI identity/data service and the deletion worker. These
-deployments do not mean that hosted retrieval/scoring, connectors, production
+deployments do not mean that hosted retrieval/scoring, connectors, shared/group
 export, billing, or full Phase 8 are complete.
 
 ## Open Architecture Decisions
