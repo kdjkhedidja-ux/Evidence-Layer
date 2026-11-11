@@ -230,6 +230,12 @@
       "version": "20261111120000",
       "sha256": "e630124a2c6ae2cf11069809c92bbbc48577141d0376a84f287aabd25ba6132c",
       "provenance": "Include organization-owned group workspaces and snapshots in account purge; fix owner/admin workspace predicate; add regression pgTAP."
+    },
+    {
+      "file": "20261111150000_idempotent_prepare_v3.sql",
+      "version": "20261111150000",
+      "sha256": "7299679c9159e41afb88e6851aa4079c109ef09fb7fcfdd2dc7788095de21294",
+      "provenance": "Make prepare v3 idempotent when a historical account_prepared marker already exists; prevents a stuck purge from skipping workspace cleanup."
     }
   ]
 }
