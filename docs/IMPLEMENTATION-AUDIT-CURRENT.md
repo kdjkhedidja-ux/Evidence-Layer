@@ -7,9 +7,10 @@ Date: 2026-11-11
 > template and runbook were added, and migration `20261111120000` now includes
 > organization-owned group workspaces/snapshots in account purge. The migration
 > was applied to production on 2026-11-11, the Vercel flag was changed from
-> `true` to explicit `false`, and the production web build was redeployed. A
-> dedicated personal test account completed accept-to-purged on the old worker;
-> the new worker version and organization/snapshot smoke remain pending. See
+> `true` to explicit `false`, and the production web build was redeployed. The new
+> worker version is deployed with one replica; both personal and organization/
+> snapshot smokes reached `purged` and Auth deletion. The flag remains `false`
+> pending an explicit operator decision. See
 > `docs/operations/DELETION-WORKER-VERIFY-2026-11-11.md`.
 Scope: repository code, migrations, tests, configuration, and status documents. The audit itself was read-only; a separate 2026-11-11 execution update (recorded in the addendum and ops runbook) applied the new migration, changed the Vercel flag to `false`, and redeployed the web build. No account was accepted or purged.
 
@@ -29,7 +30,7 @@ Status legend:
 3. Production evidence is mixed and mostly document-derived. The 2026-11-07 release applied the first deletion batch; the 2026-11-09 organization closure claims 35 migrations applied and live deletion smokes reaching `purged` plus Auth 404. The current checkout had 37 migrations at audit time; the 2026-11-11 execution update applied the 38th org-workspace purge migration and the 39th idempotent re-prepare migration (verified, pending=0, empty schema diff). The two personal-API-key migrations still have no separate closure record.
 4. At audit time the deletion UI was enabled by default in code (`flag !== "false"`), while `docs/ENVIRONMENT_AND_SECRETS.md` still said it was hidden/disabled. The 2026-11-11 execution update changed the code to off-unless-`true`, updated ENVIRONMENT, and added a closure addendum; the production value was confirmed `true` and then changed to explicit `false`; the production web build was redeployed.
 5. A continuous account-deletion worker exists, but there is no repository evidence that it is deployed, scheduled, monitored, or given leases/retry handling. An accepted account is denied access immediately; if no worker runs, that account can remain blocked indefinitely.
-6. A likely deletion edge case exists for organization owners: account purge preparation selects personal and sole-owner workspaces only, while group workspaces have `admin` memberships and snapshots use `ON DELETE RESTRICT`. A snapshot-populated group workspace may therefore block Auth identity deletion and leave the request stuck in `purge_pending`. The closure only records an empty group-workspace smoke.
+6. A deletion edge case existed for organization owners: account purge preparation selected personal and sole-owner workspaces only, while group workspaces have `admin` memberships and snapshots use `ON DELETE RESTRICT`. The 2026-11-11 execution update fixed this with migrations 38/39, deployed the new worker, and passed a snapshot-populated organization smoke reaching `purged` with Auth 404.
 7. Phase 8 is still open. Download-link mediation/revocation (C4) and export (C6) are not implemented; shared-workspace owner unanimity (C3), isolated restore environment (C1), and provider-backed restore reconciliation (C7) remain partial; C8 acceptance is not met. ADR 0009 validly removes the external WORM journal from Phase 8 scope.
 8. Scoring is present as a library and as historical evaluation artifacts: lexical is the safe default, JEV is optional/hard-denied in the package policy, and the hosted service exposes CRUD/source reads but **no retrieval or scoring endpoint**. The product’s scoring capability is therefore not wired into the production SaaS path.
 9. Sources support catalogue listing, exact-version provenance, and verified byte reads. There is no user-facing source ingestion/publish workflow and no confirmed production verifier deployment.
@@ -116,8 +117,8 @@ Status legend:
 
 1. **Make status and flag documentation true.** Update `README.md`, `docs/ARCHITECTURE.md`, `docs/ROADMAP.md`, `docs/ENVIRONMENT_AND_SECRETS.md`, and the public documentation page to describe the current authenticated product; document the deletion flag’s actual default and the production value. This is the smallest change with the highest operational impact.
 2. **Publish a current production verification record.** Record the deployed service SHA, applied migration count (including `20261110230000` and `20261110233000`), deletion flag value, worker deployment/heartbeat, and an authenticated read/write/delete smoke. Do not infer production PASS from local tests or from the 2026-11-09 closure alone.
-3. **Operationalize the account-deletion worker.** Deploy the new continuous worker version, define leases/retry/backoff, alert on `purge_pending` age and `purge_failed`, restrict and rotate `EVIDENCE_PURGE_DATABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`, and publish a runbook. The old worker is live, but the new v3/stale-ack code is not deployed.
-4. **Fix and test the organization-owner deletion edge.** Add a pgTAP/integration test with an organization owner, a group workspace, and a snapshot object. Account preparation currently selects `personal_owner_id = actor` or a workspace where the actor is sole `owner`; group workspaces give the owner an `admin` role, and `source_snapshots.workspace_id` is `ON DELETE RESTRICT`. A snapshot-populated group workspace can therefore prevent Auth deletion and leave the request at `purge_pending`. Either include organization-owned workspaces in preparation or explicitly block the request with a safe, user-visible outcome.
+3. **Operationalize the account-deletion worker.** The new continuous worker version is deployed with one replica and the runbook exists. Remaining: add a lease/claim function, define retry/backoff, alert on `purge_pending` age and `purge_failed`, and rotate the privileged credentials.
+4. **Organization-owner deletion edge — completed.** The pgTAP coverage, v3 predicate, idempotent re-prepare, and deployed-worker organization smoke all pass. Keep the regression tests in CI.
 5. **Close or explicitly defer the remaining Phase 8 product gates.** C3 (shared-workspace owner approval), C4 (mediated download links/cache/revocation), C6 (export), and C7 (provider-backed restore reconciliation) need either implementation or a recorded ADR/product decision. For C6/C4, a narrow starting increment is an export-to-programmatic-download path plus revocation semantics, not an AWS re-architecture.
 6. **Automate audit retention and deletion absence proof.** The 365-day audit-retention policy is documented but no job enforces it. C5 also needs an explicit absence check that covers database rows, Storage objects, and retained metadata before claiming completion.
 
@@ -135,8 +136,8 @@ Status legend:
 ## 5. Suggestions (prioritized, smallest useful increments)
 
 1. **Truth-and-verify increment (days).** One commit updating the stale status docs and flag semantics, plus a generated `docs/operations/production-verification-current.md` populated by the existing `production_smoke.py`/`production_smoke_auth.py` scripts. This removes the largest operator-confusion risk without touching production.
-2. **Worker-runbook increment (small).** Run the existing continuous worker as a Railway service using `Dockerfile.worker`, add a heartbeat/age query and alerts for `purge_pending`/`purge_failed`, and record one synthetic accepted→`purged` run including Auth 404 and Storage absence. No new architecture is required.
-3. **Organization deletion correctness increment (small).** Add the snapshot-populated group-workspace test, then minimally extend `prepare_individual_account_purge_v2` to delete/queue organization-owned workspace snapshots before the organization cascade. Verify that the Auth admin delete succeeds and the request reaches `purged`.
+2. **Worker-runbook increment (remaining).** The worker is deployed and smokes pass. Add a heartbeat/age alert for `purge_pending`/`purge_failed` and a lease/claim function; no new architecture is required.
+3. **Organization deletion correctness increment — completed.** Migrations 38/39, pgTAP coverage, and a production organization smoke are in place.
 4. **Phase 8 decision increment (small).** Record one ADR that either finances/orders C3+C4+C6 or explicitly defers them with residual risk. If implementation is chosen, start with export (data rights) and then mediated download links with revocation; keep the external WORM journal out per ADR 0009.
 5. **Production-surface increment (medium).** Verify the snapshot verifier and source-publish operator path in production, then remove the public documentation’s “fictional explorer / unhosted service” claims. If the verifier cannot be operated, keep the source catalogue read-only and say so explicitly.
 
@@ -154,7 +155,7 @@ Status legend:
 ## 7. Risks (top 5 residual)
 
 1. **Deletion accepted before a worker is guaranteed to run.** The UI is default-on, acceptance immediately denies access, and worker deployment/monitoring is not evidenced. Result: a user can be permanently locked out of their data with no visible recovery path.
-2. **Organization-owner deletion can still fail until the new worker is deployed.** The migration and `v3` predicate are applied, but production runs the old worker; a snapshot-populated group workspace can therefore still leave the request at `purge_pending`.
+2. **Organization-owner deletion is fixed and smoke-tested**, but depends on the connected Railway source and single-replica worker remaining in sync with the reviewed commit.
 3. **Documentation/flag/schema drift misleads operators and users.** README/ARCHITECTURE/public docs describe a synthetic prototype; the flag semantics are now aligned, but the worker image revision and fresh deletion smoke are still missing. Result: wrong enablement decisions and false public claims.
 4. **Recovery Fence configuration is a single point of failure.** Every protected `/v1` route requires a configured external fence and fails closed with 503 if it is missing/unreachable. The repository does not document the production fence configuration or a verification receipt.
 5. **Restore can resurrect data with no deletion-aware proof.** PITR is disabled, managed backups are zero, the logical dump excludes Auth/Storage, and there is no provider-backed reconciliation. Result: a restore or retained copy can reintroduce data that the product reports as purged; old download links/caches are also unaddressed (C4).

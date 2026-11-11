@@ -107,13 +107,11 @@ Next.js embeds public-prefixed variables in the browser bundle at build time.
 The deletion panel is hidden by default. The 2026-11-11 verification found all
 deletion tables and 39 applied migrations in production, historical
 `account_purged` audit rows, a live worker polling loop, and the organization
-purge migrations applied. A dedicated personal test account completed
-accept-to-purged successfully on the old worker, but the new worker version and
-an organization/snapshot smoke are not yet in place. Keep
-`NEXT_PUBLIC_DELETION_REQUESTS_ENABLED` at explicit `false` until the new worker
-is deployed, observed healthy, and the organization-specific smoke is recorded
-in `docs/operations/DELETION-WORKER-VERIFY-2026-11-11.md`; then set it to `true`
-and redeploy.
+purge migrations applied. The new worker version is deployed with one replica;
+both the basic personal-account smoke and the organization/group-workspace/
+snapshot smoke passed, including Auth deletion and terminal `purged`. The flag
+remains explicit `false` pending an explicit operator decision to re-enable the
+UI. See `docs/operations/DELETION-WORKER-VERIFY-2026-11-11.md`.
 
 ## Hosted Staging authentication smoke test
 
