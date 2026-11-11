@@ -83,8 +83,8 @@ A repeated create with the same idempotency key returns the existing job with `r
 ## Production deployment status and residual risks
 
 - Migration `20261111180000_phase8_account_export.sql` is **not applied to production** by this change.
-- The Evidence Service and BFF export routes are **not deployed to production** by this change.
-- `NEXT_PUBLIC_ACCOUNT_EXPORT_ENABLED` is unset/off in production; keep it off until deployment and the export smoke pass.
+- The Evidence Service export routes are **not deployed to production** by this change; the web BFF/UI code is deployed with `NEXT_PUBLIC_ACCOUNT_EXPORT_ENABLED` unset/off.
+- Keep the export UI flag off until the migration, Evidence Service routes, worker cleanup hook, and export smoke are in place.
 - Shared/group workspace export is not available.
 - The export artifact is a database row, not a separate export bucket; large exports are rejected rather than streamed.
 - Already-downloaded client copies cannot be recalled.

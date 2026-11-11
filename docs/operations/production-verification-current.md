@@ -26,7 +26,7 @@ Related documents:
 | Worker source | Connected to `alimissoum552-a11y/Evidence-Layer`, branch `main`; this is the accessible mirror, not the original upstream `saidzeghidi31-bit/Evidence-Layer` used by the Evidence Service | Railway service settings |
 | Worker liveness | New-code stale-ack/repair marker observed in `pg_stat_statements`; 53 calls at the time of verification | Read-only SQL |
 | Worker retry behavior | `accepted`/`purge_pending` are retried every interval; `purge_failed` is not auto-retried | `deletion_worker.py` |
-| Narrowed export (C6/C4) | Implemented and locally accepted; migration `20261111180000`, service/BFF routes, and cleanup wiring are **not deployed to production**; `NEXT_PUBLIC_ACCOUNT_EXPORT_ENABLED` is unset/off | `docs/operations/account-export.md` |
+| Narrowed export (C6/C4) | Implemented and locally accepted; migration `20261111180000` and Evidence Service routes are **not deployed to production**. Web BFF/UI code is deployed with `NEXT_PUBLIC_ACCOUNT_EXPORT_ENABLED` unset/off; worker cleanup hook is not deployed | `docs/operations/account-export.md` |
 | Historical stuck request | The prior `journal_ack_pending` request was promoted by the new worker and reached `purged` | Deletion request/audit read-only SQL |
 | Smoke evidence | Basic personal request `a5c0b20c-98b4-4b17-9929-13b22af5ed72` and organization/snapshot request `b115a771-197b-4666-9f50-b83cc16b05d1` reached `purged`; Auth lookup 404; workspace/snapshot counts 0 | `DELETION-WORKER-VERIFY-2026-11-11.md` |
 
@@ -47,5 +47,5 @@ Related documents:
 - **Failure recovery:** `purge_failed` has no automatic retry or alerting; an operator must inspect and decide.
 - **Railway sources are split:** the Evidence Service deploys from `saidzeghidi31-bit/Evidence-Layer`, while the worker deploys from the `alimissoum552-a11y/Evidence-Layer` mirror. Future changes must be mirrored or Railway must be connected consistently to one reviewed repository.
 - **Secret rotation:** the worker holds privileged `DATABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`; rotation and custody are not evidenced in this record.
-- **Export deployment:** the narrowed account/personal export is local-only; production export endpoints, migration, UI flag, and worker cleanup hook are pending.
+- **Export deployment:** the narrowed account/personal export backend is local-only; production migration, Evidence Service routes, UI flag, and worker cleanup hook are pending. The web BFF/UI code is deployed behind the off flag.
 - **Phase 8:** C4/C6 are implemented and locally accepted, and C8 is closed for the narrowed local scope; production export deployment is pending. C3 shared-workspace approvals, full C5 absence proof, C7 provider restore reconciliation, and the original full Phase 8 scope remain open/deferred. External WORM journal remains out of scope per ADR 0009.
