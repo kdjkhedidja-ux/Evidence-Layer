@@ -178,6 +178,24 @@ class ConnectorRepository:
             raise ConnectorNotFound
         return self._connection(rows[0], include_secrets=True)
 
+    async def get_connection_for_provider(
+        self, access_token: str, provider: str
+    ) -> ConnectorConnection | None:
+        response = await self._request(
+            "GET",
+            access_token,
+            "connector_connections",
+            params={
+                "select": CONNECTION_SECRET_SELECT,
+                "provider": f"eq.{provider}",
+                "limit": "1",
+            },
+        )
+        rows = response.json()
+        if not isinstance(rows, list) or not rows:
+            return None
+        return self._connection(rows[0], include_secrets=True)
+
     async def update_tokens(
         self,
         access_token: str,

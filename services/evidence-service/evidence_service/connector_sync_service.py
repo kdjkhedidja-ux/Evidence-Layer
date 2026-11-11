@@ -147,6 +147,35 @@ class GoogleDriveSyncService:
             await self._mark_failure(access_token, connection.connection_id, "provider")
             raise ConnectorSyncError("connector sync failed") from exc
 
+    async def disconnect(self, access_token: str, connection_id: Any) -> None:
+        """Best-effort Google revocation, then always remove the local connection."""
+        try:
+            connection = await self._repository.get_connection(
+                access_token, connection_id
+            )
+            tokens = [
+                self._vault.decrypt(connection.refresh_token_ciphertext),
+                self._vault.decrypt(connection.access_token_ciphertext),
+            ]
+            for token in tokens:
+                if not token:
+                    continue
+                try:
+                    async with httpx.AsyncClient(
+                        timeout=10.0, transport=self._transport
+                    ) as client:
+                        await client.post(
+                            "https://oauth2.googleapis.com/revoke",
+                            data={"token": token},
+                            headers={"Content-Type": "application/x-www-form-urlencoded"},
+                        )
+                except httpx.HTTPError:
+                    continue
+        except Exception:
+            # Local removal is safety-critical; Google revocation is best effort.
+            pass
+        await self._repository.delete_connection(access_token, connection_id)
+
     def _decrypt(self, ciphertext: str | None) -> str:
         value = self._vault.decrypt(ciphertext)
         if not value:

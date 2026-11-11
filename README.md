@@ -47,9 +47,10 @@ service does not perform retrieval or scoring. A narrowed account/personal expor
 production and was enabled after a create/download/revoke smoke. Shared/group
 export remains unavailable. A read-only connector SDK for Google Drive,
 GitHub, Dropbox, Confluence, and Notion exists under
-`src/evidence_layer/connectors/`. Google Drive also has a first vertical slice:
-OAuth connect/callback, server-side encrypted token storage, a manual bounded
-sync into `connector_documents`, and a minimal account UI. Background
+`src/evidence_layer/connectors/`. Google Drive also has a first personal-only
+vertical slice: OAuth connect/callback, server-side encrypted token storage, a
+manual bounded sync into owner-only `connector_documents`, and a minimal
+account UI (local only; not production-deployed). Background
 scheduling, ACL mapping, source-snapshot verification, deletion propagation,
 and production deployment are not implemented. Still absent
 are a hosted retrieval/scoring endpoint, source ingestion/publish UI, full

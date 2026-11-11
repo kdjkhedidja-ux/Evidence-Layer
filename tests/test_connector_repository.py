@@ -53,7 +53,7 @@ class ConnectorRepositoryTests(unittest.IsolatedAsyncioTestCase):
                 assert body["access_token_ciphertext"] == "v1.access"
                 return httpx.Response(201, json=[_row()])
             if request.method == "GET" and request.url.path.endswith("/connector_connections"):
-                if "connection_id" in request.url.params:
+                if "connection_id" in request.url.params or "provider" in request.url.params:
                     return httpx.Response(200, json=[_row(include_secrets=True)])
                 return httpx.Response(200, json=[_row()])
             if request.method == "POST" and request.url.path.endswith("/connector_documents"):
@@ -78,6 +78,9 @@ class ConnectorRepositoryTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(listed), 1)
         loaded = await repository.get_connection("token", CONNECTION)
         self.assertEqual(loaded.access_token_ciphertext, "v1.access")
+        by_provider = await repository.get_connection_for_provider("token", "google_drive")
+        assert by_provider is not None
+        self.assertEqual(by_provider.refresh_token_ciphertext, "v1.refresh")
         await repository.upsert_documents("token", [{
             "user_id": str(USER),
             "connection_id": str(CONNECTION),

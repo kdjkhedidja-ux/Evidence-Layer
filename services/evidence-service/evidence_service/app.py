@@ -1266,11 +1266,23 @@ def create_app(
             encrypted_access = vault.encrypt(payload.access_token)
             if not encrypted_access:
                 raise TokenVaultUnavailable
-            encrypted_refresh = vault.encrypt(payload.refresh_token)
+            repository = _connector_repository(request)
+            existing = await _with_account_gate(
+                request,
+                auth,
+                lambda: repository.get_connection_for_provider(
+                    auth.access_token, "google_drive"
+                ),
+            )
+            encrypted_refresh = (
+                vault.encrypt(payload.refresh_token)
+                if payload.refresh_token
+                else (existing.refresh_token_ciphertext if existing else None)
+            )
             connection = await _with_account_gate(
                 request,
                 auth,
-                lambda: _connector_repository(request).upsert_connection(
+                lambda: repository.upsert_connection(
                     auth.access_token,
                     user_id=auth.principal.subject,
                     provider="google_drive",
@@ -1327,7 +1339,7 @@ def create_app(
             await _with_account_gate(
                 request,
                 auth,
-                lambda: _connector_repository(request).delete_connection(
+                lambda: _google_drive_sync_service(request).disconnect(
                     auth.access_token, connection_id
                 ),
             )
