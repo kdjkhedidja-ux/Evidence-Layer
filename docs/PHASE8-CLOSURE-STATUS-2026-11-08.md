@@ -21,8 +21,8 @@ document is the status matrix under that narrower scope. It does not claim Phase
 | **C7 — restore reconciliation** | **PARTIAL** | Local restore-reconciliation contract/tests (P5); no provider-backed full data-plane restore, no deletion-journal watermark. |
 | **C8 — local + operational acceptance** | **NOT MET** | Cross-gate suite and production gates are not complete; see checklist below. |
 
-**Phase 8 CLOSED: NO — OPEN**, with reduced blockers (C0 external journal is no
-longer one of them).
+**Full Phase 8 CLOSED: NO — OPEN**, with reduced blockers (C0 external journal is no
+longer one of them). **Narrowed Phase 8: CLOSED (local acceptance, 2026-11-11).**
 
 ## 2026-11-11 Phase B scope decision
 
@@ -45,6 +45,18 @@ This table supersedes the “Remaining MUST items” list below.
 delivery/revocation, and C8 narrowed acceptance report. C1, C3, full C5 proof,
 and C7 are explicit deferrals with residual risk. Phase 8 may close only as a
 narrowed Phase 8 after Phase C; the original full C1–C8 scope is not met.
+
+### 2026-11-11 Phase C implementation status
+
+| Gate | Status | Evidence |
+|---|---|---|
+| C4 — mediated export download / revocation | **IMPLEMENTED (local)** | `20261111180000_phase8_account_export.sql`; grant RPCs; `account_export_grants.test.sql`; FastAPI/BFF tests |
+| C6 — account/personal export | **IMPLEMENTED (local)** | Export repository, manifest/checksums, private RLS artifact, size/row caps, cleanup worker, API/UI path |
+| C8 — narrowed acceptance | **CLOSED (local)** | 21 pgTAP files / 589 tests, export/worker/guard Python tests, 196 web tests, and deletion smoke `8de519e1-69ad-48d3-a2bf-d2959958d985` reaching `purged`; production export deployment is still pending |
+| C1, C3, full C5, C7 | **DEFERRED** | Explicitly deferred with residual risk in `PHASE8-SCOPE-DECISIONS-2026-11-11.md` |
+
+C6/C4 are **not deployed to production** by this change. The narrowed Phase 8
+closure is a local acceptance result, not a production availability claim.
 
 ## Minimum Phase 8 exit checklist (2026-11-08 snapshot; superseded by the 2026-11-11 decision)
 
@@ -87,5 +99,7 @@ scope decision record for residual risks.
   `purged` for the tested account path; this is not full provider absence proof
   (C5 limited claim).
 - No provider PITR/full data-plane restore equivalence.
+- No production export deployment or production export availability claim.
+- No shared/group workspace export.
 - No Phase 8 closure authorization; the separate Gate 0 production record is
   `docs/operations/production-verification-current.md`.

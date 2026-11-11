@@ -77,6 +77,7 @@ V_AUTH_IDENTIFIER_FKS = "20261108210000"
 V_MARK_PURGED_V3 = "20261108220000"
 V_ORG_WORKSPACE_PURGE = "20261111120000"
 V_IDEMPOTENT_PREPARE = "20261111150000"
+V_PHASE8_EXPORT = "20261111180000"
 
 VERSION_RE = re.compile(r"^[0-9]{14}_[a-z0-9_]+\.sql$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -574,6 +575,7 @@ def expected_catalog(versions: list[str]) -> dict:
     mark_purged_v3 = V_MARK_PURGED_V3 in present
     org_workspace_purge = V_ORG_WORKSPACE_PURGE in present
     idempotent_prepare = V_IDEMPOTENT_PREPARE in present
+    phase8_export = V_PHASE8_EXPORT in present
     source = V_SOURCE_CATALOG in present
     storage = V_SNAPSHOT_STORAGE in present
     verifier = V_VERIFIER_IDENTITY in present
@@ -618,6 +620,9 @@ def expected_catalog(versions: list[str]) -> dict:
         tables["public.personal_api_keys"] = (True, True)
         tables["private.personal_api_key_gateway_secrets"] = (True, True)
         tables["private.personal_api_key_gateway_nonces"] = (True, True)
+    if phase8_export:
+        tables["public.data_export_jobs"] = (True, True)
+        tables["public.data_export_grants"] = (True, True)
 
     indexes: set[str] = set()
     if identity:
@@ -662,6 +667,15 @@ def expected_catalog(versions: list[str]) -> dict:
             "private.personal_api_key_gateway_secrets_pkey",
             "private.personal_api_key_gateway_nonces_pkey",
             "private.personal_api_key_gateway_nonces_expiry_idx",
+        })
+    if phase8_export:
+        indexes.update({
+            "public.data_export_jobs_pkey",
+            "public.data_export_jobs_idempotency_key",
+            "public.data_export_jobs_requester_created_idx",
+            "public.data_export_jobs_expiry_idx",
+            "public.data_export_grants_pkey",
+            "public.data_export_grants_requester_idx",
         })
     if source:
         indexes.update({
@@ -1005,6 +1019,13 @@ def expected_catalog(versions: list[str]) -> dict:
         })
     if idempotent_prepare:
         functions.add("private.account_prepared_marker_exists")
+    if phase8_export:
+        functions.update({
+            "public.finalize_account_export",
+            "public.redeem_account_export_grant",
+            "public.revoke_account_export",
+            "private.cleanup_expired_exports",
+        })
     if account_type:
         functions.update({
             "private.provision_account_type_for_auth_user",

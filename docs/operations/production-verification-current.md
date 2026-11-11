@@ -17,8 +17,8 @@ Related documents:
 | Web deployment | Vercel project `evidence-layer`; latest production deployment `dpl_44EXrZD8ir3sEaD4GAiBLde9UiNo` is `READY`; `https://evidencelayer.dev/` returns HTTP 200 | Vercel deployments/domains API and HTTP probe |
 | Deletion flag | `NEXT_PUBLIC_DELETION_REQUESTS_ENABLED=true` in production/preview/development; code default remains off unless exactly `"true"` | Vercel project env API; `apps/web/lib/deletion-flag.ts` |
 | Kill switch | Set the flag to `false` (or remove it), redeploy the web app, then check the worker before re-enabling | `ENVIRONMENT_AND_SECRETS.md` and worker runbook |
-| Migrations | 39 applied; latest `20261111150000`; remote database is up to date; no pending migrations | Supabase migration API plus `supabase db push --linked --dry-run` |
-| Deletion requests | 21 `purged`, 8 `approval_pending`, 0 `journal_ack_pending`, 0 `accepted`, 0 `purge_pending`, 0 `purge_failed` | Read-only SQL over `public.data_deletion_requests` |
+| Migrations | 39 applied in production; latest `20261111150000`; repository has 40 with the local Phase C export migration not yet applied | Supabase migration API plus `supabase db push --linked --dry-run` |
+| Deletion requests | 22 `purged`, 8 `approval_pending`, 0 `journal_ack_pending`, 0 `accepted`, 0 `purge_pending`, 0 `purge_failed` | Read-only SQL over `public.data_deletion_requests` |
 | Storage cleanup queue | 0 pending, 1 completed | Read-only SQL over `public.data_deletion_storage_queue` |
 | Evidence Service | Railway service `Evidence-Layer`; deployment `d07db57a-7105-4d31-b3de-09bfa55386c4` is `SUCCESS` (2026-11-10); source `saidzeghidi31-bit/Evidence-Layer`; `/healthz` returns HTTP 200; it is not a retrieval/scoring endpoint | Railway GraphQL API and HTTP probe |
 | Worker deployment | Railway service `evidence-deletion-worker`, environment `production`; deployment `a079a6e6-08b4-4f53-8584-4994b2bb1148` is `SUCCESS`; Dockerfile builder `services/evidence-service/Dockerfile.worker`; start `python -m evidence_service.deletion_worker` | Railway GraphQL API |
@@ -26,6 +26,7 @@ Related documents:
 | Worker source | Connected to `alimissoum552-a11y/Evidence-Layer`, branch `main`; this is the accessible mirror, not the original upstream `saidzeghidi31-bit/Evidence-Layer` used by the Evidence Service | Railway service settings |
 | Worker liveness | New-code stale-ack/repair marker observed in `pg_stat_statements`; 53 calls at the time of verification | Read-only SQL |
 | Worker retry behavior | `accepted`/`purge_pending` are retried every interval; `purge_failed` is not auto-retried | `deletion_worker.py` |
+| Narrowed export (C6/C4) | Implemented and locally accepted; migration `20261111180000`, service/BFF routes, and cleanup wiring are **not deployed to production**; `NEXT_PUBLIC_ACCOUNT_EXPORT_ENABLED` is unset/off | `docs/operations/account-export.md` |
 | Historical stuck request | The prior `journal_ack_pending` request was promoted by the new worker and reached `purged` | Deletion request/audit read-only SQL |
 | Smoke evidence | Basic personal request `a5c0b20c-98b4-4b17-9929-13b22af5ed72` and organization/snapshot request `b115a771-197b-4666-9f50-b83cc16b05d1` reached `purged`; Auth lookup 404; workspace/snapshot counts 0 | `DELETION-WORKER-VERIFY-2026-11-11.md` |
 
@@ -46,4 +47,5 @@ Related documents:
 - **Failure recovery:** `purge_failed` has no automatic retry or alerting; an operator must inspect and decide.
 - **Railway sources are split:** the Evidence Service deploys from `saidzeghidi31-bit/Evidence-Layer`, while the worker deploys from the `alimissoum552-a11y/Evidence-Layer` mirror. Future changes must be mirrored or Railway must be connected consistently to one reviewed repository.
 - **Secret rotation:** the worker holds privileged `DATABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`; rotation and custody are not evidenced in this record.
-- **Phase 8:** C3 shared-workspace approvals, C4 download-link mediation/revocation, C6 export, C7 provider-backed restore reconciliation, and C8 acceptance remain open. External WORM journal remains out of scope per ADR 0009.
+- **Export deployment:** the narrowed account/personal export is local-only; production export endpoints, migration, UI flag, and worker cleanup hook are pending.
+- **Phase 8:** C4/C6 are implemented and locally accepted, and C8 is closed for the narrowed local scope; production export deployment is pending. C3 shared-workspace approvals, full C5 absence proof, C7 provider restore reconciliation, and the original full Phase 8 scope remain open/deferred. External WORM journal remains out of scope per ADR 0009.

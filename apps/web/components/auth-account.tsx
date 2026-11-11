@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { createSupabaseBrowserClient } from "../lib/supabase/client";
 import { deletionRequestsEnabled as resolveDeletionRequestsEnabled } from "../lib/deletion-flag";
+import { accountExportEnabled as resolveAccountExportEnabled } from "../lib/export-flag";
 import type { DeletionRequestView } from "../lib/deletion-api";
 
 type Workspace = { id: string; name: string; role: "owner" | "admin" | "member" };
@@ -39,6 +40,9 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
   const [deletionConfirmed, setDeletionConfirmed] = useState(false);
   const [personalDeletionPending, setPersonalDeletionPending] = useState(false);
   const [personalDeletionMessage, setPersonalDeletionMessage] = useState("");
+  const [exportJob, setExportJob] = useState<{ export_id: string; expires_at: string | null; grant_token: string | null } | null>(null);
+  const [exportPending, setExportPending] = useState(false);
+  const [exportMessage, setExportMessage] = useState("");
   const [lookupId, setLookupId] = useState("");
   const [accountType, setAccountType] = useState<"individual" | "organization">("individual");
   const [organizationName, setOrganizationName] = useState<string | null>(null);
@@ -57,6 +61,9 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
   const [workspaceActionPending, setWorkspaceActionPending] = useState<string | null>(null);
   const deletionRequestsEnabled = resolveDeletionRequestsEnabled({
     flag: process.env.NEXT_PUBLIC_DELETION_REQUESTS_ENABLED,
+  });
+  const accountExportEnabled = resolveAccountExportEnabled({
+    flag: process.env.NEXT_PUBLIC_ACCOUNT_EXPORT_ENABLED,
   });
 
   const loadWorkspaces = useCallback(async (): Promise<Workspace[] | null> => {
@@ -400,6 +407,106 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
     }
   }, [readDeletionResponse]);
 
+  const createAccountExport = useCallback(async (): Promise<void> => {
+    setExportPending(true);
+    setExportMessage("");
+    try {
+      const response = await fetch("/api/evidence/me/exports", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idempotency_key: crypto.randomUUID() }),
+      });
+      if (response.status === 401) {
+        setExportMessage("Your session expired. Sign in again.");
+        return;
+      }
+      if (!response.ok) {
+        setExportMessage("The export could not be created.");
+        return;
+      }
+      const payload = (await response.json()) as {
+        export_id?: string;
+        expires_at?: string | null;
+        grant_token?: string | null;
+      };
+      if (!payload.export_id) {
+        setExportMessage("The export could not be created.");
+        return;
+      }
+      setExportJob({
+        export_id: payload.export_id,
+        expires_at: payload.expires_at ?? null,
+        grant_token: payload.grant_token ?? null,
+      });
+      setExportMessage(
+        payload.grant_token
+          ? "Export ready. Download it once before it expires."
+          : "An export already exists for this request; request a new export for a new download grant.",
+      );
+    } catch {
+      setExportMessage("The export service is unavailable.");
+    } finally {
+      setExportPending(false);
+    }
+  }, []);
+
+  const downloadAccountExport = useCallback(async (): Promise<void> => {
+    if (!exportJob?.grant_token) return;
+    setExportPending(true);
+    setExportMessage("");
+    try {
+      const response = await fetch(
+        `/api/evidence/me/exports/${encodeURIComponent(exportJob.export_id)}/download`,
+        {
+          headers: { "X-Export-Grant": exportJob.grant_token },
+          cache: "no-store",
+        },
+      );
+      if (!response.ok) {
+        setExportMessage("The export download is unavailable or expired.");
+        setExportJob({ ...exportJob, grant_token: null });
+        return;
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `evidence-layer-export-${exportJob.export_id}.zip`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      setExportJob({ ...exportJob, grant_token: null });
+      setExportMessage("Download started. The grant is now consumed.");
+    } catch {
+      setExportMessage("The export download is unavailable.");
+    } finally {
+      setExportPending(false);
+    }
+  }, [exportJob]);
+
+  const revokeAccountExport = useCallback(async (): Promise<void> => {
+    if (!exportJob) return;
+    setExportPending(true);
+    setExportMessage("");
+    try {
+      const response = await fetch(
+        `/api/evidence/me/exports/${encodeURIComponent(exportJob.export_id)}/revoke`,
+        { method: "POST" },
+      );
+      if (!response.ok) {
+        setExportMessage("The export could not be revoked.");
+        return;
+      }
+      setExportJob(null);
+      setExportMessage("Export revoked and artifact removed.");
+    } catch {
+      setExportMessage("The export service is unavailable.");
+    } finally {
+      setExportPending(false);
+    }
+  }, [exportJob]);
+
   const deletionStorageKey = `evidence-layer:deletion-request:${userId}`;
 
   useEffect(() => {
@@ -717,6 +824,35 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
           )}
         </section>
       )}
+      {accountExportEnabled ? (
+      <section className="account-deletion" aria-labelledby="account-export-title">
+        <h3 id="account-export-title">Export account data</h3>
+        <p className="account-deletion-scope">
+          Creates a private ZIP of your account profile and personal workspace data.
+          Shared/group workspaces are not included. The export and its single-use
+          download grant expire within 24 hours.
+        </p>
+        <div className="account-deletion-actions">
+          <button type="button" disabled={exportPending} onClick={() => void createAccountExport()}>
+            {exportPending ? "Working…" : "Create export"}
+          </button>
+          {exportJob?.grant_token && (
+            <button type="button" disabled={exportPending} onClick={() => void downloadAccountExport()}>
+              Download export
+            </button>
+          )}
+          {exportJob && (
+            <button type="button" disabled={exportPending} onClick={() => void revokeAccountExport()}>
+              Revoke export
+            </button>
+          )}
+        </div>
+        {exportJob?.expires_at && (
+          <p className="account-deletion-scope">Expires: {new Date(exportJob.expires_at).toLocaleString()}</p>
+        )}
+        {exportMessage && <p className="account-message" role="status">{exportMessage}</p>}
+      </section>
+      ) : null}
       {deletionRequestsEnabled ? (
       <section className="account-deletion" aria-labelledby="account-deletion-title">
         <h3>Personal workspace deletion</h3>
