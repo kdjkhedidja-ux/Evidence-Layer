@@ -1063,6 +1063,14 @@ class CatalogCompletenessTests(unittest.TestCase):
             r"\bcreate\s+table\s+(?:if\s+not\s+exists\s+)?([a-z_][a-z0-9_]*\.)?([a-z_][a-z0-9_]*)\s*\([^;]*?constraint\s+([a-z_][a-z0-9_]*)\s+unique\b",
             re.I,
         )
+        table_block = re.compile(
+            r"\bcreate\s+table\s+(?:if\s+not\s+exists\s+)?([a-z_][a-z0-9_]*\.)?([a-z_][a-z0-9_]*)\s*\((.*?)\);",
+            re.I | re.S,
+        )
+        column_unique = re.compile(
+            r"\b([a-z_][a-z0-9_]*)\s+(?:uuid|text|bigint|integer|timestamptz|boolean|jsonb|bytea|smallint|numeric)[^,;]*?\bunique\b",
+            re.I,
+        )
         found = set()
         for match in create_index.finditer(joined):
             schema = match.group(2).rstrip(".") if match.group(2) else "public"
@@ -1079,6 +1087,12 @@ class CatalogCompletenessTests(unittest.TestCase):
             if schema == "pg_temp":
                 continue
             found.add(f"{schema}.{match.group(3)}")
+        for match in table_block.finditer(joined):
+            schema = match.group(1).rstrip(".") if match.group(1) else "public"
+            if schema == "pg_temp":
+                continue
+            for column in column_unique.finditer(match.group(3)):
+                found.add(f"{schema}.{match.group(2)}_{column.group(1)}_key")
         # A later migration may intentionally drop a constraint/index created
         # earlier. Only names that are never re-added leave the final catalog.
         drop_constraint = re.compile(r"\bdrop\s+constraint\s+(?:if\s+exists\s+)?([a-z_][a-z0-9_]*)", re.I)

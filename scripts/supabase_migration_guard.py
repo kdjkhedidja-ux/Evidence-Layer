@@ -675,6 +675,8 @@ def expected_catalog(versions: list[str]) -> dict:
             "public.data_export_jobs_requester_created_idx",
             "public.data_export_jobs_expiry_idx",
             "public.data_export_grants_pkey",
+            "public.data_export_grants_export_id_key",
+            "public.data_export_grants_token_hash_key",
             "public.data_export_grants_requester_idx",
         })
     if source:
@@ -1098,6 +1100,12 @@ def expected_catalog(versions: list[str]) -> dict:
             ("organization_memberships_user_id_fkey", "public.organization_memberships", "auth.users", "c"),
             ("accounts_organization_id_fkey", "public.accounts", "public.organizations", "c"),
             ("workspaces_organization_id_fkey", "public.workspaces", "public.organizations", "c"),
+        })
+    if phase8_export:
+        foreign_keys.update({
+            ("data_export_jobs_requester_user_id_fkey", "public.data_export_jobs", "auth.users", "c"),
+            ("data_export_grants_export_id_fkey", "public.data_export_grants", "public.data_export_jobs", "c"),
+            ("data_export_grants_requester_user_id_fkey", "public.data_export_grants", "auth.users", "c"),
         })
     if api_keys:
         foreign_keys.update({
