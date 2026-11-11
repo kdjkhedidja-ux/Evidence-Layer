@@ -2,7 +2,7 @@
 
 Personal-scope decision: see [`personal-connector-scope.md`](personal-connector-scope.md). The first production path is personal-only; no shared/group document ingestion.
 
-Status: **read-only adapters for five providers; Google Drive and Notion vertical slices are implemented locally.** Vercel production has the Notion OAuth client/callback env and the web build, but both connector flags are off and the connector migration/service routes are not deployed. The slice includes OAuth connect/callback, app-level encrypted token storage, a manual bounded sync, connector-document storage, and a minimal Connect/Sync UI. Migration `20261111190000` is **not applied to production**; the slice is not production-deployed. Background scheduling, ACL mapping, source-snapshot verification, deletion propagation, and production rollout are not yet implemented.
+Status: **Notion personal OAuth/manual-sync is deployed to production; Google Drive remains Coming soon.** Migration 41 is applied, the Evidence Service connector routes are live, and the Notion web flag is enabled. A live Notion connect/sync/disconnect smoke is still required. Google Drive is gated off pending Google OAuth verification. The slice includes OAuth connect/callback, app-level encrypted token storage, a manual bounded sync, connector-document storage, and a minimal Connect/Sync UI. Migration `20261111190000` is applied in production for the connector tables. Background scheduling, ACL mapping, source-snapshot verification, deletion propagation, and production rollout are not yet implemented.
 
 Implemented providers:
 
@@ -118,7 +118,7 @@ Google Cloud console: create a Web application OAuth client, add the exact callb
 - Token exchange is server-side with `NOTION_OAUTH_CLIENT_ID` / `NOTION_OAUTH_CLIENT_SECRET`; tokens are encrypted in the same vault as Drive.
 - Manual sync: `POST /v1/connectors/{connection_id}/sync` dispatches to Notion when the connection provider is `notion`.
 - Pages are rendered from the block tree to text; API version defaults to `2026-03-11`.
-- Personal-only UI: `NEXT_PUBLIC_NOTION_CONNECTOR_ENABLED` defaults off and shows “Notion · Coming soon”.
+- Personal-only UI: `NEXT_PUBLIC_NOTION_CONNECTOR_ENABLED` is enabled in production after the 2026-11-11 connector deployment; a live OAuth smoke remains pending. Google Drive remains gated off and shows “Coming soon”.
 - Migration 41 already supports the `notion` provider; no additional schema migration is required.
 
 ## Required next layer (not implemented)
