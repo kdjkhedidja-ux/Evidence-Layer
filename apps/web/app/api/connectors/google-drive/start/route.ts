@@ -20,6 +20,9 @@ export async function GET(request: Request): Promise<NextResponse> {
   if (auth.kind === "unauthenticated") return redirect(request, "/login?next=/workspace");
   if (auth.kind === "unavailable") return redirect(request, "/workspace?connector=google_drive&status=unavailable");
 
+  if (process.env.NEXT_PUBLIC_GOOGLE_DRIVE_CONNECTOR_ENABLED !== "true") {
+    return redirect(request, "/workspace?connector=google_drive&status=coming_soon");
+  }
   const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
   if (!clientId) return redirect(request, "/workspace?connector=google_drive&status=configuration");
 

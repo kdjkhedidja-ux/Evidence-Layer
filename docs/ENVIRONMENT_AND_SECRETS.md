@@ -101,6 +101,7 @@ local Mailpit results do not establish hosted SMTP delivery.
 | `EVIDENCE_SERVICE_URL` | Server-only | Evidence Service base URL used by same-origin Next.js route handlers |
 | `NEXT_PUBLIC_DELETION_REQUESTS_ENABLED` | Public | Enables the account deletion panel. Defaults to disabled. Set it to exactly `true` only after the target database has the deletion migrations, the account-deletion worker is deployed and observed draining requests, and a test-account accept-to-purged smoke passes. |
 | `NEXT_PUBLIC_ACCOUNT_EXPORT_ENABLED` | Public | Enables the account/personal export UI. Defaults to disabled. Production is `true` after the 2026-11-11 export/download/revoke smoke; set it to exactly `true` only after migration `20261111180000`, Evidence Service export routes, BFF routes, and that smoke are in place. |
+| `NEXT_PUBLIC_GOOGLE_DRIVE_CONNECTOR_ENABLED` | Public | Enables the Google Drive Connect UI. Defaults to disabled and displays “Coming soon”. Set to exactly `true` only after the connector migration, service/BFF deployment, Google OAuth client, and a live connect/sync/disconnect smoke pass. |
 
 Copy placeholders from `apps/web/.env.example`. The Resend SMTP password is
 not an application variable. The service keeps its separate required JWT and
@@ -119,6 +120,10 @@ was re-enabled to `true` on 2026-11-11 after both smokes passed. See
 `docs/operations/DELETION-WORKER-VERIFY-2026-11-11.md`.
 
 ### Google Drive connector rollout
+
+The public UI is gated by `NEXT_PUBLIC_GOOGLE_DRIVE_CONNECTOR_ENABLED`; default is
+off and the connector is shown as “Coming soon”. Do not enable it until Google
+OAuth verification and the production connector deployment are complete.
 
 The connector migration, service routes, BFF OAuth routes, encryption key, and
 Google OAuth client must be deployed before testing. The token-encryption key is

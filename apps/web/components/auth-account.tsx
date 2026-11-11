@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { createSupabaseBrowserClient } from "../lib/supabase/client";
 import { deletionRequestsEnabled as resolveDeletionRequestsEnabled } from "../lib/deletion-flag";
 import { accountExportEnabled as resolveAccountExportEnabled } from "../lib/export-flag";
+import { googleDriveConnectorEnabled as resolveGoogleDriveConnectorEnabled } from "../lib/connector-flags";
 import type { DeletionRequestView } from "../lib/deletion-api";
 
 type Workspace = { id: string; name: string; role: "owner" | "admin" | "member" };
@@ -75,6 +76,9 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
   });
   const accountExportEnabled = resolveAccountExportEnabled({
     flag: process.env.NEXT_PUBLIC_ACCOUNT_EXPORT_ENABLED,
+  });
+  const googleDriveConnectorEnabled = resolveGoogleDriveConnectorEnabled({
+    flag: process.env.NEXT_PUBLIC_GOOGLE_DRIVE_CONNECTOR_ENABLED,
   });
 
   const loadWorkspaces = useCallback(async (): Promise<Workspace[] | null> => {
@@ -930,7 +934,11 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
           in your workspace connector store; no files are written back to Drive.
         </p>
         <div className="account-deletion-actions">
-          <a href="/api/connectors/google-drive/start">Connect Google Drive</a>
+          {googleDriveConnectorEnabled ? (
+            <a href="/api/connectors/google-drive/start">Connect Google Drive</a>
+          ) : (
+            <span>Google Drive · Coming soon</span>
+          )}
           <button type="button" disabled={connectorPending} onClick={() => void loadConnectors()}>
             Refresh sources
           </button>
