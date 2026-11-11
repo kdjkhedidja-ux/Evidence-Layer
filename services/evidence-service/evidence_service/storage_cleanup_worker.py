@@ -38,6 +38,20 @@ def delete_storage_object(
             "authorization": f"Bearer {service_key}",
         },
     )
+    if response.status_code == 400:
+        # Supabase Storage reports a missing object as HTTP 400 with a
+        # statusCode of 404 and error/code not_found. Treat it as an
+        # idempotent delete so one stale queue row cannot block the queue.
+        try:
+            payload = response.json()
+        except Exception:
+            payload = {}
+        if (
+            payload.get("error") == "not_found"
+            or payload.get("code") == "NoSuchKey"
+            or str(payload.get("statusCode")) == "404"
+        ):
+            return 404
     return response.status_code
 
 

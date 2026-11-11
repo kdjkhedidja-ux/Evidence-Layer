@@ -44,19 +44,24 @@ class FakeConnection:
 
 
 class FakeResponse:
-    def __init__(self, status_code: int):
+    def __init__(self, status_code: int, payload=None):
         self.status_code = status_code
+        self.payload = payload or {}
+
+    def json(self):
+        return self.payload
 
 
 class FakeClient:
-    def __init__(self, status_code: int = 200):
+    def __init__(self, status_code: int = 200, payload=None):
         self.status_code = status_code
+        self.payload = payload
         self.calls: list[tuple[str, dict]] = []
         self.closed = False
 
     def delete(self, url: str, headers: dict):
         self.calls.append((url, headers))
-        return FakeResponse(self.status_code)
+        return FakeResponse(self.status_code, self.payload)
 
     def close(self):
         self.closed = True
@@ -78,6 +83,20 @@ class StorageCleanupWorkerTests(unittest.TestCase):
         result = run_storage_cleanup(connection=connection, client=FakeClient(404))
         self.assertEqual(result["completed"], 1)
         self.assertEqual(result["failed"], 0)
+
+    def test_storage_missing_object_400_is_treated_as_deleted(self):
+        connection = FakeConnection([("queue-1", "workspace/w/source/s/version/v")])
+        client = FakeClient(
+            400,
+            {
+                "statusCode": "404",
+                "error": "not_found",
+                "message": "Object not found",
+                "code": "NoSuchKey",
+            },
+        )
+        result = run_storage_cleanup(connection=connection, client=client)
+        self.assertEqual(result, {"processed": 1, "completed": 1, "failed": 0})
 
     def test_failure_records_attempt_and_last_error(self):
         connection = FakeConnection([("queue-1", "workspace/w/source/s/version/v")])
