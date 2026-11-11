@@ -34,9 +34,9 @@ Read-only production checks were run through the Supabase Management API on 2026
 | Check | Observation | Interpretation |
 |---|---|---|
 | Applied migrations | 39, latest `20261111150000` | Both the organization-purge and idempotent re-prepare migrations were applied and verified; no pending migrations remain. |
-| Deletion request states | 16 `purged`, 8 `approval_pending`, 1 `journal_ack_pending`, 0 `accepted`, 0 `purge_pending`, 0 `purge_failed` | The worker path has completed historical purges. It is not currently showing a backlog. |
-| Terminal audit | 16 `account_prepared`, 16 `account_purged`, 16 `purge_verified` | Historical purges reached the terminal worker path. |
-| Last terminal audit | 2026-11-09 | There is no recent request to prove the worker is running today. |
+| Deletion request states | 18 `purged` (16 historical + 2 dedicated smoke), 8 `approval_pending`, 1 `journal_ack_pending`, 0 `accepted`, 0 `purge_pending`, 0 `purge_failed` | The worker path completed both test-account smokes. The only non-terminal accepted-state anomaly is the separate historical `journal_ack_pending` row; no `purge_pending` backlog remains. |
+| Terminal audit | 18 `account_prepared`, 18 `account_purged`, 18 `purge_verified` | Historical and smoke purges reached the terminal worker path. |
+| Last terminal audit | 2026-11-11 | The old worker completed the dedicated basic smoke; current polling is confirmed separately below. |
 | Storage queue | 0 pending, 0 completed, 0 total | No orphaned queue rows were observed. |
 | Stuck acknowledgement | 1 request at `journal_ack_pending`, with 1 manifest row and 1 `manifest_frozen` audit row | This is a proven historical stuck state. The new worker code promotes exactly this state to `accepted`; it does not purge an unacknowledged request. |
 | Current liveness | The worker's pending-request query counter increased from 3731 to 3732 over a 70-second read-only observation window. | The currently deployed worker loop is polling production now. This does not identify its version, replica count, or deployment receipt. |
