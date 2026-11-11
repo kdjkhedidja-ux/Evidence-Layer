@@ -40,13 +40,18 @@ def _handler(request: httpx.Request) -> httpx.Response:
             "organization_name": None,
             "created_at": "2026-11-11T00:00:00Z",
         }])
-    if path.endswith("/rest/v1/workspaces"):
-        assert request.url.params["personal_owner_id"] == f"eq.{PRINCIPAL}"
+    if path.endswith("/rest/v1/workspace_memberships"):
+        assert request.url.params["user_id"] == f"eq.{PRINCIPAL}"
+        assert request.url.params["role"] == "eq.owner"
         return httpx.Response(200, json=[{
-            "id": str(WORKSPACE),
-            "name": "Personal",
-            "created_at": "2026-11-11T00:00:00Z",
-            "personal_owner_id": str(PRINCIPAL),
+            "workspace_id": str(WORKSPACE),
+            "role": "owner",
+            "status": "active",
+            "workspaces": {
+                "id": str(WORKSPACE),
+                "name": "Personal",
+                "created_at": "2026-11-11T00:00:00Z",
+            },
         }])
     if path.endswith("/rest/v1/evidence_records"):
         return httpx.Response(200, json=[{

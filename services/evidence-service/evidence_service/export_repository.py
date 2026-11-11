@@ -233,15 +233,23 @@ class SupabaseExportRepository:
         )
         if len(account_rows) != 1:
             raise ExportAccessDenied
-        workspaces = await self._rows(
+        membership_rows = await self._rows(
             access_token,
-            "workspaces",
+            "workspace_memberships",
             {
-                "select": "id,name,created_at,personal_owner_id",
-                "personal_owner_id": f"eq.{principal_id}",
-                "order": "id.asc",
+                "select": "workspace_id,role,status,workspaces(id,name,created_at)",
+                "user_id": f"eq.{principal_id}",
+                "status": "eq.active",
+                "role": "eq.owner",
+                "order": "workspace_id.asc",
             },
         )
+        workspaces: list[dict[str, Any]] = []
+        for membership in membership_rows:
+            workspace = membership.get("workspaces")
+            if not isinstance(workspace, dict) or not workspace.get("id"):
+                raise ExportDataUnavailable
+            workspaces.append(workspace)
         evidence: dict[str, list[dict[str, Any]]] = {}
         relationships: dict[str, list[dict[str, Any]]] = {}
         sources: dict[str, list[dict[str, Any]]] = {}
