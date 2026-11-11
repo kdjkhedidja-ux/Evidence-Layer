@@ -1,7 +1,7 @@
 # Deletion worker verification and runbook — 2026-11-11
 
-Status: **WORKER: live (current polling loop observed); new worker version: checklist-only**
-Scope: individual-account deletion UI flag, worker entrypoints, production status reconciliation, Railway deployment template, runbook, and smoke assessment. No production migration was applied, no feature flag was changed, and no account was accepted or purged by this task.
+Status: **WORKER: live (old loop); new worker version: checklist-only; MIGRATION: applied; FLAG: false**
+Scope: individual-account deletion UI flag, worker entrypoints, production status reconciliation, Railway deployment template, runbook, and smoke assessment. Production migration `20261111120000` was applied through the reviewed guard/CLI flow, the Vercel flag was changed from `true` to explicit `false`, and no account was accepted or purged by this task.
 
 ## 1. Flag verification
 
@@ -9,8 +9,8 @@ Scope: individual-account deletion UI flag, worker entrypoints, production statu
 |---|---|
 | Code default | Disabled unless the value is exactly `"true"` (`apps/web/lib/deletion-flag.ts`). |
 | Previous behavior | Enabled unless the value was exactly `"false"`; this was the source of the drift recorded in the 2026-11-11 audit. |
-| Documented behavior | `docs/ENVIRONMENT_AND_SECRETS.md` now documents default-disabled and the worker/smoke precondition. The stale “hidden until migrations are applied” paragraph was replaced with the current 37-migration/worker-status statement. |
-| Production value | Not inspected from this environment. The 2026-11-09 organization closure recorded the flag as ON. The current policy is **off unless `true`**, so an unset or non-`true` production value renders the panel hidden. If production explicitly has `true`, an operator must set it to `false` (or remove it) and redeploy until the smoke below passes. |
+| Documented behavior | `docs/ENVIRONMENT_AND_SECRETS.md` documents default-disabled, the applied migration, and the worker/smoke precondition. |
+| Production value | Was `true` for production/preview/development. It was changed to explicit `false` through the Vercel API and the production project was redeployed on 2026-11-11. The public domains returned HTTP 200 after deployment. |
 
 The flag controls the account deletion panel. It does not disable the server-side `/v1/deletion-requests` routes; those remain lifecycle-gated and authenticated.
 
@@ -33,7 +33,7 @@ Read-only production checks were run through the Supabase Management API on 2026
 
 | Check | Observation | Interpretation |
 |---|---|---|
-| Applied migrations | 37, latest `20261110233000` | Production schema matches the checkout before this task’s new 38th migration. |
+| Applied migrations | 38, latest `20261111120000` | The organization-purge migration was applied and verified; no pending migrations remain. |
 | Deletion request states | 16 `purged`, 8 `approval_pending`, 1 `journal_ack_pending`, 0 `accepted`, 0 `purge_pending`, 0 `purge_failed` | The worker path has completed historical purges. It is not currently showing a backlog. |
 | Terminal audit | 16 `account_prepared`, 16 `account_purged`, 16 `purge_verified` | Historical purges reached the terminal worker path. |
 | Last terminal audit | 2026-11-09 | There is no recent request to prove the worker is running today. |
@@ -41,8 +41,9 @@ Read-only production checks were run through the Supabase Management API on 2026
 | Stuck acknowledgement | 1 request at `journal_ack_pending`, with 1 manifest row and 1 `manifest_frozen` audit row | This is a proven historical stuck state. The new worker code promotes exactly this state to `accepted`; it does not purge an unacknowledged request. |
 | Current liveness | The worker's pending-request query counter increased from 3731 to 3732 over a 70-second read-only observation window. | The currently deployed worker loop is polling production now. This does not identify its version, replica count, or deployment receipt. |
 | New-code marker | Zero `pg_stat_statements` matches for the new stale-ack `update public.data_deletion_requests as request ...` statement. | The new worker version (stale-ack repair and `v3` call) is not running in production. |
+| Vercel flag | Production/preview/development value is explicit `false`; production deployment `dpl_8Y68hwu1t95evgvYRCVLX2cuk4qz` served `evidencelayer.dev` with HTTP 200. | The deletion UI is hidden in the current production build. |
 
-Deployment conclusion: **the currently deployed worker loop is live; the new worker version and organization purge migration are not deployed.** There is no Railway token/CLI in this Codespace and no worker log stream was available, so the worker's image revision and replica count remain unknown. Do not claim the new `v3`/stale-ack repair is live until it is deployed and observed.
+Deployment conclusion: **the current worker loop is live and the new migration is applied; the new worker version is not deployed.** There is no Railway token/CLI in this Codespace and no worker log stream was available, so the worker's image revision and replica count remain unknown. Do not claim the new `v3`/stale-ack repair is live until it is deployed and observed.
 
 ## 4. Risk while the UI flag is on and the worker is down
 
@@ -158,7 +159,7 @@ Fix in this task:
 - Aligned the worker `workspaces` select/delete RLS policies with the same predicate.
 - Added `supabase/tests/account_organization_purge.test.sql` with a real organization owner, group workspace, staged snapshot, evidence row, request/accept, preparation, Storage queue assertion, Auth deletion, and terminal `purged` assertion.
 
-The new migration is `supabase/migrations/20261111120000_deletion_org_workspace_purge.sql` (38th migration). It is **not applied to production by this task**. Apply it through the reviewed migration release process before enabling deletion. The migration was applied and the pgTAP suite passed in the local Supabase stack; it still needs the normal CI/production release path.
+The new migration is `supabase/migrations/20261111120000_deletion_org_workspace_purge.sql` (38th migration). It was applied to production on 2026-11-11 using the reviewed release guard and the workflow's documented commands (`plan`, `assert-plan`, `supabase db push`, `verify`) because the available GitHub token could not dispatch the Actions workflow. Plan digest: `602f124feaa45d8792d2fc14fe9c6efaa5d6c5d83aca65e2e174d55a49af9495`. Post-apply verification reported 38 migrations, pending=0, and an empty remote schema diff.
 
 ### Local verification performed
 
@@ -175,7 +176,7 @@ The new migration is `supabase/migrations/20261111120000_deletion_org_workspace_
 
 **Result: SKIP.**
 
-Reason: this environment has no Railway deployment control, no worker liveness stream, and no dedicated test user/Auth admin credential. Creating or accepting a real production account without a proven running worker would violate the safety rules and could strand the account. No account was touched.
+Reason: the new worker version is not deployed (no Railway control/token in this environment) and there is no dedicated test user/Auth admin credential. The currently running worker is the old version, so an organization-snapshot smoke would not exercise the new path. No account was touched.
 
 A valid smoke, after the operator checklist:
 
@@ -193,10 +194,10 @@ If the smoke fails or times out, leave the flag off and investigate the worker l
 ## 9. Current operator decision
 
 - **Flag policy:** off unless `NEXT_PUBLIC_DELETION_REQUESTS_ENABLED` is exactly `true`.
-- **Production flag action:** if the Vercel environment currently has `true`, set it to `false` and redeploy until the worker deployment and smoke are recorded. If it is unset or already `false`, no action is required.
+- **Production flag action:** completed. The value was `true`; it is now explicit `false`, and the production build was redeployed.
 - **Worker status:** current polling loop is live; the new worker code (stale-ack repair and `v3` preparation call) is not deployed. Deploy it through the operator checklist before the smoke.
-- **New migration:** pending reviewed apply; not applied by this task.
-- **Safe order:** apply the new migration first, then deploy the new worker code, then run the smoke, then set the web flag to `true`. Deploying the worker before the migration would make `v3` unavailable.
+- **New migration:** applied and verified in production (38 migrations, pending=0, empty schema diff).
+- **Safe order:** migration applied; deploy the new worker code next, then run the smoke, then set the web flag to `true` only if the smoke passes.
 - **Stuck acknowledgement:** one historical production request has a manifest and `manifest_frozen` audit but remains `journal_ack_pending`; the deployed worker code will repair it on its next cycle after this change is deployed. Until then, it should be tracked as a stuck deletion request.
 
 ## 10. Residual risks
@@ -204,5 +205,5 @@ If the smoke fails or times out, leave the flag off and investigate the worker l
 1. The current worker has no lease; a second replica can race. Single replica is mandatory until a claim function is reviewed.
 2. `purge_failed` has no automatic retry; an operator runbook and alert are required.
 3. Historical `journal_ack_pending` rows are only repaired when the new worker version runs.
-4. The new organization-workspace migration and pgTAP test are not yet exercised by the database CI in this environment.
-5. The production flag value and Vercel deployment were not inspected; the operator must confirm them before claiming the UI is safe. The worker's image revision and replica count are also unknown.
+4. The organization-workspace migration is applied and the local/CI pgTAP suite passed; production behavior still needs the new worker and a smoke.
+5. The Vercel flag is confirmed `false` and the production build is deployed. The worker's image revision and replica count remain unknown.
