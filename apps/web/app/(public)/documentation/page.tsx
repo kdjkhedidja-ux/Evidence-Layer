@@ -46,7 +46,7 @@ export default function DocumentationPage() {
               <li>A JEV adapter and provider policy with whole-request lexical fallback behavior.</li>
               <li>A local stdio MCP tool named <code>retrieve_evidence</code>.</li>
               <li>Real-World and synthetic evaluation data, frozen manifests, result hashes, and offline verification scripts.</li>
-              <li>A Next.js Evidence Explorer that renders fictional local sample records and source references.</li>
+              <li>An authenticated Next.js workspace with Supabase Auth, personal and organization workspaces, evidence and relationship CRUD, verified source-catalogue reads, read-only personal API keys, account deletion, and public ROI/evaluation pages.</li>
             </ul>
           </article>
           <article className="public-card public-card--muted">
@@ -54,7 +54,7 @@ export default function DocumentationPage() {
             <ul>
               <li>The standard local MCP path is lexical-only and the corpus source boundary denies reads by default unless a trusted source boundary is injected.</li>
               <li>Live JEV transfer is not enabled on the supported application package paths.</li>
-              <li>There is no production customer-document retrieval or answer-generation flow in the public Evidence Explorer.</li>
+              <li>The hosted service stores workspace evidence metadata but exposes no retrieval/scoring endpoint, source ingestion/publish flow, export, or mediated download links.</li>
               <li>The local deterministic source-routing library is not wired into a service.</li>
             </ul>
           </article>
@@ -108,11 +108,13 @@ export default function DocumentationPage() {
       <section className="public-section" aria-labelledby="docs-integrations">
         <h2 id="docs-integrations">Integrations and security boundaries</h2>
         <p>
-          The repository includes Supabase Auth and server-side workspace API code for account
-          identity and workspace metadata. That is separate from evidence retrieval. Google Drive
-          ingestion, a production source router, a customer-facing retrieval API, and an LLM answer
-          provider are not implemented in the current service. The local service and evaluation
-          harness should not be treated as a production SaaS endpoint.
+          The hosted product includes Supabase Auth, RLS-backed personal and organization
+          workspaces, evidence/relationship/source-catalogue operations, read-only personal API
+          keys, and an operational account-deletion worker. The FastAPI service is the
+          identity/data boundary, not the evidence-retrieval or scoring endpoint. Google Drive
+          ingestion, a production source router, a customer-facing retrieval/scoring API, export,
+          mediated download links, and an LLM answer provider are not implemented in the current
+          service. Phase 8 is not closed.
         </p>
         <p>
           Provider keys belong on a trusted server boundary. Source-access permission does not

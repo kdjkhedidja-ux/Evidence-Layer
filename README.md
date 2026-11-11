@@ -7,10 +7,12 @@ The layer receives a **task** and a set of **candidate evidence passages**, then
 selects the smallest reliable evidence set, reduces context size, and recommends
 whether the agent should **answer**, **abstain**, or **escalate**.
 
-> The current repository provides the local evidence foundation and a
-> reproducible evaluation dataset. See [the canonical roadmap](docs/ROADMAP.md)
-> for delivery phase numbering. This is a *separate, independent project* (not
-> EMORA).
+> The repository contains both the local evidence-scoring/evaluation foundation
+> and the hosted authenticated workspace product. See
+> [the canonical roadmap](docs/ROADMAP.md) for delivery phase numbering and
+> [`docs/operations/production-verification-current.md`](docs/operations/production-verification-current.md)
+> for the current production boundary. This is a *separate, independent project*
+> (not EMORA).
 
 ## Current Status
 
@@ -27,19 +29,28 @@ The current corpus retriever also denies source reads by default, so it does
 not return corpus evidence without a future trusted source boundary. The
 historical held-out comparison was **Inconclusive**.
 
-A local stdio MCP server (`retrieve_evidence`) is implemented. A Next.js
-Evidence Explorer prototype also exists in `apps/web/`; it uses synthetic
-fixture data only, and its production deployment from `main` on Vercel is
-confirmed. It is a UI prototype, not an authenticated SaaS dashboard or a
-customer-data service. The hosted SaaS product layer remains unimplemented:
-there is no hosted HTTP MCP service, hosted authentication, per-user
-tenant-isolation enforcement, database/RLS, hosted provider-transfer
-authorization, billing, or production source connector. The health-only FastAPI
-service at `services/evidence-service/` is deployed on Railway and exposes only
-`GET /healthz`; it does not perform customer operations or read evidence. The
-planned target architecture is Vercel/Next.js for the frontend, Supabase for
-backend services, Railway for the persistent HTTP MCP server, JEV as the core
-evidence-scoring and ranking provider, and Lexical as its supporting fallback.
+A local stdio MCP server (`retrieve_evidence`) is implemented. The repository
+also contains an authenticated Next.js workspace product in `apps/web/` and a
+FastAPI identity/data service in `services/evidence-service/`. The web app
+covers Supabase Auth (email confirmation, recovery, TOTP MFA), personal and
+organization workspaces, evidence and relationship CRUD, verified
+source-catalogue reads, workspace-scoped read-only personal API keys, account
+deletion, and the public ROI/evaluation pages. The service exposes lifecycle-
+gated `/v1` account, workspace, evidence, source, and deletion routes backed by
+Supabase RLS. The dedicated account-deletion worker is deployed on Railway with
+one replica; the current operational record is
+[`docs/operations/DELETION-WORKER-VERIFY-2026-11-11.md`](docs/operations/DELETION-WORKER-VERIFY-2026-11-11.md).
+
+The hosted retrieval/scoring path is not yet wired into the product. The
+JEV/lexical scoring core remains a library and evaluation path, and the FastAPI
+service does not perform retrieval or scoring. Still absent are a hosted
+retrieval/scoring endpoint, source ingestion/publish UI, export, mediated
+download links, billing/metering, production connectors, and shared-workspace
+deletion approvals. Phase 8 is not closed. The planned target architecture is
+Vercel/Next.js for the frontend, Supabase for backend services, Railway for the
+persistent HTTP MCP/worker services, JEV as the core evidence-scoring and
+ranking provider when explicitly authorized, and Lexical as its supporting
+fallback.
 A local deterministic routing foundation (source contract, catalog filter,
 deterministic router, and output validator in
 `src/evidence_layer/routing/`) exists as an unwired library with no allowing

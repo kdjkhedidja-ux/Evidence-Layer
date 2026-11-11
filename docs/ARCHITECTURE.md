@@ -76,37 +76,43 @@ document data or scorer behavior.
   injected JEV policy and is lexical-only, but the retriever's default source
   boundary denies corpus reads before opening content. The tool therefore does
   not currently return corpus evidence without a future trusted source boundary.
-- A separate local FastAPI health-only service exposes `GET /healthz`; it has no
-  retrieval, authentication, MCP, or provider integration.
-- The persistent Railway HTTP service is planned; it will host the same MCP
-  protocol and `retrieve_evidence` tool.
+- The FastAPI identity/data service at `services/evidence-service/` exposes
+  lifecycle-gated `/v1` account, workspace, evidence, relationship, source, and
+  deletion routes backed by Supabase Auth and RLS. It is deployed on Railway and
+  has no retrieval or scoring endpoint.
+- A persistent Railway HTTP MCP/retrieval service is planned; it will host the
+  `retrieve_evidence` tool behind authenticated tenant context.
 - The future customer-facing service must authenticate/authorize the caller
   and establish tenant context.
 - It must validate requests, invoke retrieval and scoring, enforce usage limits,
   and return sanitized results.
 - It must keep secrets server-side and emit request-level operational metadata.
 
-### Supabase backend (planned)
+### Supabase backend (implemented core; broader schemas planned)
 
-- **Postgres:** authoritative relational metadata, ownership, and usage
-  records.
+- **Postgres + RLS:** authoritative accounts, personal and organization
+  workspaces, memberships, evidence records, relationships, verified source
+  catalogue metadata, deletion requests/manifests/audit, and personal API-key
+  hashes.
+- **Auth:** hosted Supabase Auth is integrated for signup, confirmation,
+  recovery, login, and TOTP MFA.
+- **Storage:** verified source snapshots and the deletion Storage-cleanup queue.
 - **pgvector:** optional embedding/vector search if justified by retrieval
   needs; lexical scoring remains the deterministic whole-request scoring
   fallback when JEV scoring fails.
-- **Auth:** user identity and authentication integration.
-- **Edge Functions:** narrowly scoped backend operations where appropriate;
-  do not duplicate core scoring semantics without a defined boundary.
-- Initial logical entities: tenants/users, connected sources, documents,
-  chunks, ingestion state, and usage events. Exact schema and migrations are
-  not yet defined.
+- **Edge Functions:** not the primary backend boundary; the reviewed FastAPI
+  service and SQL functions own the current account/data operations.
+- Connector documents/chunks, ingestion state, and usage/billing events remain
+  planned schemas.
 
-### Evidence Explorer prototype (implemented UI; SaaS dashboard planned)
+### Authenticated workspace app (implemented; SaaS expansion planned)
 
-- The Next.js app at `apps/web/` is a synthetic-only Evidence Explorer
-  prototype, deployed from `main` on Vercel. It has no backend integration or
-  customer account operations.
-- Account setup, Google Drive connection, usage and plan visibility, and the
-  Comparison Lab remain planned product capabilities.
+- The Next.js app at `apps/web/` is deployed on Vercel from `main`. It provides
+  hosted auth screens, personal and organization workspaces, evidence and
+  relationship CRUD, verified source-catalogue reads, personal API-key
+  management, account-deletion UI, and public ROI/evaluation pages.
+- It does not expose hosted retrieval/scoring, source ingestion/publish, export,
+  mediated download links, usage/plan billing, or the Comparison Lab.
 - The browser must not receive provider keys, database service-role secrets,
   or unrestricted billing credentials.
 
@@ -211,14 +217,18 @@ document data or scorer behavior.
    recorded once per request, with safe provider metadata where available.
 8. The dashboard reads authorized account, source, usage, and experiment data.
 
-This flow is a design target; production retrieval, policy, auth, storage, and
-usage enforcement are not present yet.
+Account, workspace, evidence, relationship, source-catalogue, and deletion
+operations are implemented in the hosted web/service path. Retrieval, scoring,
+provider-transfer enforcement, connectors, export/download links, usage
+metering, and billing remain target capabilities or partial work.
 
-Hosted authentication and tenant-isolation enforcement, hosted provider-transfer
-authorization, production source connectors and Decisions integration, the
-hosted customer-data service, hosted database/RLS, SaaS dashboard capabilities,
-and billing are not implemented. The health-only FastAPI service is deployed on
-Railway but has no customer-data capabilities.
+Hosted authentication and tenant-isolation enforcement, database/RLS, the
+account/workspace/evidence/source/deletion APIs, organization workspaces,
+personal API keys, and the deletion worker are implemented. Missing: a hosted
+retrieval/scoring endpoint, hosted provider-transfer authorization, production
+source connectors and Decisions integration, source ingestion/publish, export
+and mediated download links, usage metering/billing, shared-workspace deletion
+approvals, and the remaining Phase 8 gates.
 
 ## Initial Data Concepts
 
@@ -231,9 +241,11 @@ Railway but has no customer-data capabilities.
 - **Experiment/run:** Comparison Lab configuration and aggregate result with
   explicit scope and provenance.
 
-No production database schema or migration currently exists, and database-level
-tenant controls such as PostgreSQL RLS are not implemented. Do not infer a final
-schema or isolation mechanism from these logical concepts.
+The reviewed migrations and RLS policies for accounts, workspaces, evidence,
+relationships, source catalogue, and deletion are implemented. Connector
+documents/chunks, ingestion state, usage/billing events, and any final
+cross-tenant analytics schema remain logical concepts rather than a frozen
+production schema.
 
 ## Plans and Limits (Target)
 
@@ -283,24 +295,27 @@ system already exists. The target design should:
 - Extend through explicit contracts and incremental, validated additions. Add
   abstractions only when an evidenced requirement needs them.
 
-These are target design constraints. Configuration versioning, safe migration
-workflows, hosted workspaces, and their authorization controls are not
-implemented.
+These are target design constraints. Hosted workspaces and their current RLS
+controls are implemented; connector configuration versioning, connector
+migration workflows, plan/billing enforcement, and future shared-workspace
+administration beyond the current RLS model are not implemented.
 
 ## Deployment Boundaries
 
-- Vercel: synthetic-only Next.js Evidence Explorer prototype; SaaS dashboard
-  capabilities remain planned.
-- Supabase: backend services and data.
-- Railway: health-only service deployed; persistent MCP service remains planned.
+- Vercel: authenticated Next.js workspace app, public site, and ROI/evaluation
+  pages.
+- Supabase: hosted Auth, Postgres/RLS, Storage, and reviewed migrations.
+- Railway: FastAPI identity/data service and the account-deletion worker; the
+  persistent MCP/retrieval service remains planned.
 - TypeSafe: external JEV evidence-scoring API.
 - OpenAI Decisions API: experimental source-routing option for complex
   queries, evaluated against the deterministic baseline before any proposed
   production-default change; not a scorer or answer generator.
 
-Vercel currently hosts the synthetic-only Evidence Explorer prototype from
-`main`; Railway hosts the separate health-only service. These deployments do
-not mean that the hosted customer-data architecture is implemented.
+Vercel currently hosts the authenticated workspace app from `main`; Railway
+hosts the FastAPI identity/data service and the deletion worker. These
+deployments do not mean that hosted retrieval/scoring, connectors, export,
+billing, or Phase 8 are complete.
 
 ## Open Architecture Decisions
 
@@ -310,32 +325,34 @@ not mean that the hosted customer-data architecture is implemented.
 - Selective Decisions API routing criteria, source metadata schema, and
   deterministic routing fallback behavior.
 - Decisions API routing quota, cost controls, and operational limits.
-- Exact Supabase schema, migrations, tenant model, and retention/deletion
-  policies.
+- Connector/ingestion schema, usage/billing model, automated audit retention,
+  and the remaining shared-workspace/download/export/restore deletion decisions
+  (Phase 8 C3/C4/C6/C7).
 - Google Drive OAuth scopes and synchronization model.
 - Whether the Comparison Lab compares lexical against JEV, or other frozen
   configurations, and what user data it stores.
 
 ## Platform Deployment Target
 
-This separates the existing deployments from the target architecture. The
-Evidence Explorer UI prototype is deployed from `main` on Vercel; the
-health-only Python service is deployed on Railway. Neither provides customer
-retrieval or hosted SaaS operations.
+This separates the existing deployments from the target retrieval
+architecture. The authenticated workspace app is deployed from `main` on
+Vercel; the FastAPI identity/data service and deletion worker are deployed on
+Railway. They provide account/workspace/evidence/source/deletion operations but
+not hosted retrieval or scoring.
 
 ```text
 Vercel:
-- Synthetic-only Next.js Evidence Explorer prototype at apps/web (deployed)
-- preview deployments from PRs later
+- Authenticated Next.js workspace app at apps/web (deployed)
+- public documentation, ROI, and evaluation pages
 
 Supabase:
-- Postgres + pgvector
-- Auth + Storage later
+- Auth, Postgres/RLS, and Storage (deployed)
 - migrations are source of truth
 
 Railway:
-- health-only Python service at services/evidence-service (deployed)
-- persistent MCP/HTTP customer service remains future work
+- FastAPI identity/data service at services/evidence-service (deployed)
+- account-deletion worker, one replica (deployed)
+- persistent MCP/HTTP retrieval service remains future work
 ```
 
 Repository scaffolding for these targets lives in `apps/web`, `supabase/`, and

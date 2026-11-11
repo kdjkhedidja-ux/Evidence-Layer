@@ -21,6 +21,21 @@ MCP responses, logs, or browser storage.
 User-provided keys are a later Pro Plus and Enterprise capability, with strict
 encryption, isolation, rotation, and audit requirements.
 
+## 2.1 Current implementation status (2026-11-11)
+
+The authenticated SaaS foundation is implemented: Supabase Auth with email
+confirmation/recovery/TOTP MFA, personal and organization workspaces, evidence
+and relationship CRUD, verified source-catalogue reads, workspace-scoped
+read-only personal API keys, account deletion, and RLS-backed FastAPI `/v1`
+routes. The account-deletion worker is deployed with one replica; personal and
+organization/snapshot smokes reached `purged`. See
+[`docs/operations/DELETION-WORKER-VERIFY-2026-11-11.md`](operations/DELETION-WORKER-VERIFY-2026-11-11.md).
+
+Hosted retrieval/scoring, source ingestion/publish, export, mediated download
+links, billing/metering, production connectors, shared-workspace deletion
+approvals, and the remaining Phase 8 gates are not complete. Phase 8 is not
+closed. Phase B product decisions for C3/C4/C6/C7 remain open.
+
 ## 3. Intelligence architecture
 
 Evidence-Layer has separate routing, evidence-scoring, and answer-generation
@@ -88,8 +103,10 @@ injecting a JEV policy. The retriever's current default source-read boundary
 denies before corpus content is opened, so the tool does not return corpus
 evidence absent a future trusted source boundary. Live JEV transfer is
 hard-denied on supported package paths; injected dependencies do not enable it.
-The separate FastAPI service is deployed on Railway and is health-only
-(`GET /healthz`); it is not part of corpus retrieval or a customer-data service.
+The FastAPI identity/data service is deployed on Railway with lifecycle-gated
+account, workspace, evidence, source, and deletion routes; the separate
+account-deletion worker is also deployed. Neither service is the corpus
+retrieval/scoring path.
 The MCP tool provides strict request validation and safe errors over stdio.
 
 ## 7. Phase 1 — Prove evidence-selection value
@@ -129,14 +146,15 @@ Google Drive is the first production source connector. Connector priority is:
 Local files and uploaded documents are the local base and are not a production
 source connector.
 
-## 11. Phase 5 — SaaS beta
+## 11. Phase 5 — SaaS beta (partially delivered)
 
-Phase 5 delivers an individual SaaS beta with authentication and mandatory
-per-user tenant isolation that protects each user's data, a personal workspace,
-local-file upload, Google Drive connection, a hosted MCP HTTP endpoint, API
-keys, usage metering, monitoring, and free-tier usage limits. Usage metering and
-safety limits do not imply payment collection. Billing is deferred to Phase 6,
-after beta reliability and usage economics are validated.
+The hosted auth, RLS-backed tenant isolation, personal/organization workspaces,
+evidence/relationship/source-catalogue operations, personal API keys, and
+account-deletion path are implemented. Local-file upload, Google Drive
+connection, a hosted MCP HTTP endpoint, usage metering/monitoring, free-tier
+limits, and billing remain planned. Usage metering and safety limits do not
+imply payment collection; billing is deferred to Phase 6 after beta reliability
+and usage economics are validated.
 
 ## 12. Phase 6 — Billing and expansion
 
