@@ -178,35 +178,62 @@ export default function PrivacyPage() {
       </section>
 
       <section className="public-section" aria-labelledby="privacy-deletion">
-        <h2 id="privacy-deletion">9. Account deletion requests</h2>
+        <h2 id="privacy-deletion">9. Account deletion and data removal</h2>
         <p>
-          A signed-in person can create an account-scoped deletion request from the account panel.
-          The request is idempotent, and accepting it blocks access to the account&apos;s data
-          immediately. The current implementation does not offer cancellation after acceptance.
+          A signed-in person can request account deletion from the account panel. The request is
+          idempotent, and accepting it blocks access immediately; cancellation after acceptance is
+          not offered. The deletion worker removes the account&apos;s personal workspace data,
+          verified source snapshots and queued Storage objects, the authentication identity, and
+          records a terminal <code>purged</code> state. Organization-owner deletion also removes the
+          organization&apos;s group workspaces and snapshots.
         </p>
         <p>
-          The implemented deletion slice removes the principal&apos;s source grants, member
-          (non-owner) workspace memberships, and evidence and relationships in workspaces where the
-          account is the sole active owner and no other active members exist. It records a
-          content-free audit event for each successful deletion: actor, workspace, resource
-          identifier, action, and result. It does not store the deleted text in that audit record.
+          Shared-workspace data and other members&apos; records are not deleted by an account-scoped
+          request; shared-workspace owner-unanimity deletion is not implemented. Provider backups,
+          point-in-time recovery copies, and bytes already delivered to a client are not proven
+          erased. Do not treat account deletion as a full provider-backup erasure guarantee.
         </p>
         <p>
-          This slice retains workspaces and owner memberships, evidence and relationships in shared
-          workspaces, the source catalogue and snapshot metadata, stored objects, and the
-          authentication identity. A request therefore does not yet achieve complete account
-          erasure, and stored files or published snapshots are not deleted. Terminal purge and full
-          erasure require separate work and are not offered by this interface.
+          Connector users can disconnect a Google Drive source in the account panel. Disconnect
+          removes the local connection and imported connector documents and attempts Google token
+          revocation. Users can also revoke the app&apos;s access at
+          <a href="https://myaccount.google.com/permissions" rel="noreferrer">Google Account permissions</a>.
+          See <a href="/data-deletion">Data deletion instructions</a>.
+        </p>
+      </section>
+
+      <section className="public-section" aria-labelledby="privacy-google-drive">
+        <h2 id="privacy-google-drive">10. Google Drive connector data</h2>
+        <p>
+          When you choose to connect Google Drive, Evidence Layer requests the
+          <code>drive.readonly</code> scope and accesses only files visible to the Google account
+          you authorize. The connector is being prepared for a personal, read-only workflow. It
+          does not write to Drive or modify your files.
         </p>
         <p>
-          If a request fails or is blocked, the account remains denied rather than silently
-          returning to service. Requests, statuses, and the implementing scope are shown in the
-          product and in the project&apos;s deletion documentation.
+          Google user data is used only to ingest the documents you select or sync into your private
+          connector store so you can use them in your Evidence Layer workspace. It is not sold, used
+          for advertising, or used to train generalized AI/ML models. It is not shared with third
+          parties except infrastructure providers that process it on our behalf under contract.
+          Human review is not performed except where necessary for security, abuse, or legal
+          compliance.
+        </p>
+        <p>
+          OAuth access and refresh tokens are encrypted at rest with a server-side key. Imported
+          connector documents are protected by owner-only row-level security. Data is retained until
+          you disconnect the connector or delete your account, subject to the provider backup
+          limitations described above. Disconnect is available in the account panel; you can also
+          revoke access from your Google Account.
+        </p>
+        <p>
+          Evidence Layer&apos;s use of information received from Google APIs will adhere to the
+          <a href="https://developers.google.com/terms/api-services-user-data-policy" rel="noreferrer">Google API Services User Data Policy</a>,
+          including the Limited Use requirements.
         </p>
       </section>
 
       <section className="public-section" aria-labelledby="privacy-changes">
-        <h2 id="privacy-changes">10. Changes and contact</h2>
+        <h2 id="privacy-changes">11. Changes and contact</h2>
         <p>
           Material changes to processing should be reflected here before the affected feature is
           activated. For privacy questions, contact <strong>[insert verified privacy contact]</strong>.

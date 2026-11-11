@@ -7,6 +7,7 @@ const PUBLIC_LINKS = [
   { href: "/cost-performance", label: "Cost & Performance" },
   { href: "/privacy", label: "Privacy Policy" },
   { href: "/terms", label: "Terms of Use" },
+  { href: "/data-deletion", label: "Data Deletion" },
 ] as const;
 
 export function PublicSiteShell({

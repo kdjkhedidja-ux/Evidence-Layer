@@ -98,9 +98,9 @@ describe("public information pages", () => {
 
   it("explains the implemented account deletion scope without promising erasure", () => {
     render(<PrivacyPage />);
-    expect(screen.getByRole("heading", { name: "9. Account deletion requests" })).toBeInTheDocument();
-    expect(screen.getByText(/does not yet achieve complete account erasure/i)).toBeInTheDocument();
-    expect(screen.getByText(/shared workspaces/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "9. Account deletion and data removal" })).toBeInTheDocument();
+    expect(screen.getByText(/provider backups/i)).toBeInTheDocument();
+    expect(screen.getByText(/Shared-workspace data/i)).toBeInTheDocument();
 
     render(<TermsPage />);
     expect(screen.getByText(/Account deletion requests\./i)).toBeInTheDocument();
