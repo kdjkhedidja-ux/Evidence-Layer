@@ -34,7 +34,8 @@ organization/snapshot smokes reached `purged`. See
 Hosted retrieval/scoring, source ingestion/publish, billing/metering,
 production connectors, shared-workspace deletion approvals, and the remaining
 Phase 8 gates are not complete. A narrowed account/personal export and mediated
-download path is implemented locally; production deployment is pending. Phase 8 is not
+download path is deployed and smoke-tested; shared/group export remains
+unavailable. Phase 8 is not
 closed. Phase B decisions are recorded in
 [`PHASE8-SCOPE-DECISIONS-2026-11-11.md`](PHASE8-SCOPE-DECISIONS-2026-11-11.md):
 C4/C6 are in Phase C, while C1/C3/full C5/C7 are deferred with residual risk.

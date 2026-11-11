@@ -54,7 +54,7 @@ export default function DocumentationPage() {
             <ul>
               <li>The standard local MCP path is lexical-only and the corpus source boundary denies reads by default unless a trusted source boundary is injected.</li>
               <li>Live JEV transfer is not enabled on the supported application package paths.</li>
-              <li>The hosted service stores workspace evidence metadata but exposes no retrieval/scoring endpoint or source ingestion/publish flow. A narrowed account/personal export path exists in the codebase; it is not yet deployed to production. Shared/group export, general download/CDN delivery, and mediated export links are not available.</li>
+              <li>The hosted service stores workspace evidence metadata but exposes no retrieval/scoring endpoint or source ingestion/publish flow. A narrowed account/personal export is available with single-use, expiring download grants. Shared/group export and general download/CDN delivery are not available.</li>
               <li>The local deterministic source-routing library is not wired into a service.</li>
             </ul>
           </article>

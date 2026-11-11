@@ -1,6 +1,6 @@
 # Account export and mediated download (narrowed Phase 8)
 
-Status: **implemented and locally accepted; not deployed to production in this change.**
+Status: **deployed to production and smoke-tested on 2026-11-11.**
 Scope: account and personal-workspace export only. Shared/group workspace export is deferred with C3 (see `docs/PHASE8-SCOPE-DECISIONS-2026-11-11.md`).
 
 ## What the export contains
@@ -79,14 +79,16 @@ A repeated create with the same idempotency key returns the existing job with `r
 - Python repository/route/worker/guard tests pass; migration guard: 40 files, 713 statements, 612 approved, 0 hard-denied.
 - Web typecheck passes; 29 files, 196 Vitest tests pass.
 - C8 deletion-worker smoke on a dedicated test account: request `8de519e1-69ad-48d3-a2bf-d2959958d985` reached `purged`, protected access returned 403, Auth lookup returned 404.
+- Production export smoke: export `02526f9e-4b11-41c4-91cf-6d9e57da3fd4` downloaded once with `private, no-store` and a valid ZIP; second download 404. Revoked export `d98bb0a9-07d1-4093-83f3-90debde15aa1` cleared the artifact and its download returned 404. Test account purge request `52d4c0ae-267d-437a-b67f-8226cd540ef9` reached `purged`, Auth 404.
 
 ## Production deployment status and residual risks
 
-- Migration `20261111180000_phase8_account_export.sql` is **not applied to production** by this change.
-- The Evidence Service export routes are **not deployed to production** by this change; the web BFF/UI code is deployed with `NEXT_PUBLIC_ACCOUNT_EXPORT_ENABLED` unset/off.
-- Keep the export UI flag off until the migration, Evidence Service routes, worker cleanup hook, and export smoke are in place.
+- Migration `20261111180000_phase8_account_export.sql` is applied (40 migrations in production).
+- Evidence Service deployment `44fbb6f2-0e3a-407a-8e20-fc6b6e5b18e6` is live with the export routes (1 replica).
+- Worker deployment `eeb6449e-7a2d-41f8-bb94-4f8b254fea87` is live with the export-cleanup hook (1 replica); the cleanup function is being called.
+- Vercel production deployment `dpl_DAbgSJRRs3QbUPxA3ka3ttHQBfrq` is READY; `NEXT_PUBLIC_ACCOUNT_EXPORT_ENABLED=true`.
 - Shared/group workspace export is not available.
 - The export artifact is a database row, not a separate export bucket; large exports are rejected rather than streamed.
 - Already-downloaded client copies cannot be recalled.
-- Expiry cleanup is wired into the continuous worker code but the production worker deployment has not been updated in this change. Until that deploy, expiry enforcement is limited to the RPC checks and any operator-run cleanup.
+- Expiry cleanup depends on the continuous worker; if the worker is unhealthy, artifacts remain until cleanup resumes.
 - No full provider backup/PITR absence proof is claimed.

@@ -22,7 +22,7 @@ document is the status matrix under that narrower scope. It does not claim Phase
 | **C8 — local + operational acceptance** | **NOT MET** | Cross-gate suite and production gates are not complete; see checklist below. |
 
 **Full Phase 8 CLOSED: NO — OPEN**, with reduced blockers (C0 external journal is no
-longer one of them). **Narrowed Phase 8: CLOSED (local acceptance, 2026-11-11).**
+longer one of them). **Narrowed Phase 8: CLOSED (local + production smoke, 2026-11-11).**
 
 ## 2026-11-11 Phase B scope decision
 
@@ -50,13 +50,13 @@ narrowed Phase 8 after Phase C; the original full C1–C8 scope is not met.
 
 | Gate | Status | Evidence |
 |---|---|---|
-| C4 — mediated export download / revocation | **IMPLEMENTED (local)** | `20261111180000_phase8_account_export.sql`; grant RPCs; `account_export_grants.test.sql`; FastAPI/BFF tests |
-| C6 — account/personal export | **IMPLEMENTED (local)** | Export repository, manifest/checksums, private RLS artifact, size/row caps, cleanup worker, API/UI path |
-| C8 — narrowed acceptance | **CLOSED (local)** | 21 pgTAP files / 589 tests, export/worker/guard Python tests, 196 web tests, and deletion smoke `8de519e1-69ad-48d3-a2bf-d2959958d985` reaching `purged`; production export deployment is still pending |
+| C4 — mediated export download / revocation | **IMPLEMENTED (production)** | Migration 40; Evidence Service `44fb...`; BFF/UI; production create/download/revoke smoke passed |
+| C6 — account/personal export | **IMPLEMENTED (production, account/personal only)** | Export repository, manifest/checksums, private RLS artifact, size/row caps, cleanup worker, API/UI; production smoke passed |
+| C8 — narrowed acceptance | **CLOSED (narrowed, local + production smoke)** | 21 pgTAP files / 589 tests, export/worker/guard Python tests, 196 web tests, deletion smoke `8de519e1-69ad-48d3-a2bf-d2959958d985`, and production export/download/revoke smoke (`02526f9e...`, `d98bb0a9...`) |
 | C1, C3, full C5, C7 | **DEFERRED** | Explicitly deferred with residual risk in `PHASE8-SCOPE-DECISIONS-2026-11-11.md` |
 
-C6/C4 are **not deployed to production** by this change. The narrowed Phase 8
-closure is a local acceptance result, not a production availability claim.
+C6/C4 are deployed to production for account/personal scope, with `NEXT_PUBLIC_ACCOUNT_EXPORT_ENABLED=true`
+after the passing smoke. Shared/group export remains out of scope.
 
 ## Minimum Phase 8 exit checklist (2026-11-08 snapshot; superseded by the 2026-11-11 decision)
 
