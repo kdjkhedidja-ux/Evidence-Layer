@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 
 import { NextResponse } from "next/server";
 
+import { resolveNotionRedirectUri } from "../../../../../lib/notion-oauth";
 import { getVerifiedAuthContext } from "../../../../../lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -24,9 +25,11 @@ export async function GET(request: Request): Promise<NextResponse> {
 
   const clientId = process.env.NOTION_OAUTH_CLIENT_ID;
   if (!clientId) return redirect(request, "/workspace?connector=notion&status=configuration");
-  const redirectUri =
-    process.env.NOTION_REDIRECT_URI ??
-    new URL("/api/connectors/notion/callback", request.url).toString();
+  const redirectUri = resolveNotionRedirectUri({
+    configured: process.env.NOTION_REDIRECT_URI,
+    requestUrl: request.url,
+  });
+  if (!redirectUri) return redirect(request, "/workspace?connector=notion&status=configuration");
   const state = randomBytes(32).toString("base64url");
   const url = new URL("https://api.notion.com/v1/oauth/authorize");
   url.searchParams.set("owner", "user");

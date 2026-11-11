@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { createNotionConnection } from "../../../../../lib/connector-api";
+import { resolveNotionRedirectUri } from "../../../../../lib/notion-oauth";
 import { getVerifiedAuthContext } from "../../../../../lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -34,10 +35,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   const clientId = process.env.NOTION_OAUTH_CLIENT_ID;
   const clientSecret = process.env.NOTION_OAUTH_CLIENT_SECRET;
-  const redirectUri =
-    process.env.NOTION_REDIRECT_URI ??
-    new URL("/api/connectors/notion/callback", request.url).toString();
-  if (!clientId || !clientSecret) {
+  const redirectUri = resolveNotionRedirectUri({
+    configured: process.env.NOTION_REDIRECT_URI,
+    requestUrl: request.url,
+  });
+  if (!clientId || !clientSecret || !redirectUri) {
     return redirect(request, "/workspace?connector=notion&status=configuration");
   }
 

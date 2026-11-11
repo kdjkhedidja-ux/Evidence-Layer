@@ -111,6 +111,10 @@ Google Cloud console: create a Web application OAuth client, add the exact callb
 
 - Public Notion OAuth connection with the page picker; no Marketplace listing required for OAuth use.
 - OAuth start/callback: `/api/connectors/notion/start` and `/api/connectors/notion/callback`.
+- `NOTION_REDIRECT_URI` must be the app callback (for example
+  `https://evidencelayer.dev/api/connectors/notion/callback`), not Notion's
+  authorization endpoint `https://api.notion.com/v1/oauth/authorize`. The route
+  rejects a non-callback value.
 - Token exchange is server-side with `NOTION_OAUTH_CLIENT_ID` / `NOTION_OAUTH_CLIENT_SECRET`; tokens are encrypted in the same vault as Drive.
 - Manual sync: `POST /v1/connectors/{connection_id}/sync` dispatches to Notion when the connection provider is `notion`.
 - Pages are rendered from the block tree to text; API version defaults to `2026-03-11`.

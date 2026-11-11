@@ -138,7 +138,9 @@ The connector migration, service routes, BFF OAuth routes, encryption key, and
 Google OAuth client must be deployed before testing. The token-encryption key is
 base64-encoded 32-byte material and belongs only in the service secret store.
 The OAuth client secret belongs in both server-side environments (BFF token
-exchange and service refresh), never in `NEXT_PUBLIC_*` variables. See
+exchange and service refresh), never in `NEXT_PUBLIC_*` variables. For Notion,
+`NOTION_REDIRECT_URI` must be the app callback
+(`/api/connectors/notion/callback`), not Notion's authorization endpoint. See
 `docs/connectors/README.md`.
 
 ### Account export rollout
