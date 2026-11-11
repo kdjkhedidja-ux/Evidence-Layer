@@ -17,6 +17,8 @@ This is intentionally narrower than an enterprise connector. It does not claim s
 | Stage | Ready? | Notes |
 |---|---|---|
 | Internal demo / test users | Yes, with a test OAuth client | Keep the OAuth app in testing mode and use explicit test users. |
+
+At launch, set `NEXT_PUBLIC_GOOGLE_DRIVE_CONNECTOR_ENABLED` to `true` only after verification and deployment; otherwise the UI shows **Google Drive · Coming soon**.
 | Public multi-user launch | No | Google restricted-scope verification and background sync/deletion work are still required. |
 | Company/shared workspace | No | Requires organization connector, admin consent, shared-drive selection, ACL mapping, and audit. |
 
