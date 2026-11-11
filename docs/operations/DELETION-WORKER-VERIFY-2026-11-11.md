@@ -1,6 +1,6 @@
 # Deletion worker verification and runbook — 2026-11-11
 
-Status: **WORKER: live (old loop); new worker version: checklist-only; MIGRATION: 39 applied; FLAG: false; BASIC SMOKE: PASS; ORG SMOKE: old-worker stuck reproduced, test account manually completed; new-worker org smoke pending**
+Status: **WORKER: live (new version deployed); MIGRATION: 39 applied; FLAG: false; BASIC SMOKE: PASS; ORG SMOKE: PASS on new worker**
 Scope: individual-account deletion UI flag, worker entrypoints, production status reconciliation, Railway deployment template, runbook, and smoke assessment. Production migration `20261111120000` was applied through the reviewed guard/CLI flow, the Vercel flag was changed from `true` to explicit `false`, and no account was accepted or purged by this task.
 
 ## 1. Flag verification
@@ -34,17 +34,18 @@ Read-only production checks were run through the Supabase Management API on 2026
 | Check | Observation | Interpretation |
 |---|---|---|
 | Applied migrations | 39, latest `20261111150000` | Both the organization-purge and idempotent re-prepare migrations were applied and verified; no pending migrations remain. |
-| Deletion request states | 18 `purged` (16 historical + 2 dedicated smoke), 8 `approval_pending`, 1 `journal_ack_pending`, 0 `accepted`, 0 `purge_pending`, 0 `purge_failed` | The worker path completed both test-account smokes. The only non-terminal accepted-state anomaly is the separate historical `journal_ack_pending` row; no `purge_pending` backlog remains. |
-| Terminal audit | 18 `account_prepared`, 18 `account_purged`, 18 `purge_verified` | Historical and smoke purges reached the terminal worker path. |
-| Last terminal audit | 2026-11-11 | The old worker completed the dedicated basic smoke; current polling is confirmed separately below. |
-| Storage queue | 0 pending, 0 completed, 0 total | No orphaned queue rows were observed. |
-| Stuck acknowledgement | 1 request at `journal_ack_pending`, with 1 manifest row and 1 `manifest_frozen` audit row | This is a proven historical stuck state. The new worker code promotes exactly this state to `accepted`; it does not purge an unacknowledged request. |
-| Current liveness | The worker's pending-request query counter increased from 3731 to 3732 over a 70-second read-only observation window. | The currently deployed worker loop is polling production now. This does not identify its version, replica count, or deployment receipt. |
-| New-code marker | Zero `pg_stat_statements` matches for the new stale-ack `update public.data_deletion_requests as request ...` statement. | The new worker version (stale-ack repair and `v3` call) is not running in production. |
+| Deletion request states | 21 `purged`, 8 `approval_pending`, 0 `journal_ack_pending`, 0 `accepted`, 0 `purge_pending`, 0 `purge_failed` | The new worker completed both dedicated smokes and repaired the historical `journal_ack_pending` request; no accepted-state backlog remains. |
+| Terminal audit | 21 `account_prepared`, 21 `account_purged`, 21 `purge_verified` | Historical, repaired, and smoke purges reached the terminal worker path. |
+| Last terminal audit | 2026-11-11 | The new worker completed the organization smoke and terminal marks. |
+| Storage queue | 0 pending, 1 completed | The one historical queue row was drained; no pending cleanup remains. |
+| Stuck acknowledgement | 0 currently; the historical `journal_ack_pending` request was promoted and reached `purged`. | The new worker repair is live and the historical stuck state is resolved. |
+| Current liveness | New worker deployment `a079a6e6-08b4-4f53-8584-4994b2bb1148` is `SUCCESS`; the new-code `pg_stat_statements` marker has 21 calls. | The new worker is live and polling production. |
+| New-code marker | 21 `pg_stat_statements` matches for the new stale-ack `update public.data_deletion_requests as request ...` statement. | The new worker version (stale-ack repair and `v3` call) is running in production. |
 | Vercel flag | Production/preview/development value is explicit `false`; production deployment `dpl_8Y68hwu1t95evgvYRCVLX2cuk4qz` served `evidencelayer.dev` with HTTP 200. | The deletion UI is hidden in the current production build. |
-| Basic smoke | Dedicated test request `a5c0b20c-98b4-4b17-9929-13b22af5ed72` reached `purged` in ~57s; protected route returned 403 after acceptance; Auth lookup returned 404. | The old worker's personal-account path is operational. This does not exercise the new organization/snapshot path. |
+| Basic smoke | Dedicated test request `a5c0b20c-98b4-4b17-9929-13b22af5ed72` reached `purged` in ~57s; protected route returned 403 after acceptance; Auth lookup returned 404. | Personal-account path is operational. |
+| Organization smoke | Dedicated request `b115a771-197b-4666-9f50-b83cc16b05d1` reached `purged` on the new worker; group workspace/snapshot counts 0, storage queue 0, Auth lookup 404. | The organization/group-workspace/snapshot path is operational on the new worker. |
 
-Deployment conclusion: **the current worker loop is live and the new migrations are applied; the new worker version is not deployed.** A `RAILWAY_API_KEY` exists in this Codespace. It can read the Railway project and worker service through the GraphQL API, but it cannot deploy: the CLI `link`/`up` path returns `Unauthorized`, `serviceConnect` to the GitHub repository is denied (`User does not have access to the repo`), and a GHCR image push is denied (`installation not allowed to Create organization package`). No worker deployment was made. The worker service is in the `evidence-layer-github-test` production environment, has one replica, uses `Dockerfile.worker`, and already has the required variable names (`DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `DELETION_WORKER_INTERVAL_SECONDS`); its latest deployment is from 2026-11-09 and its image revision is unknown. Do not claim the new `v3`/stale-ack repair is live until it is deployed and observed.
+Deployment conclusion: **the new worker version is live in production.** The worker service is `evidence-deletion-worker` in project `evidence-layer-github-test`, environment `production`. Its source is connected to the accessible GitHub repository `alimissoum552-a11y/Evidence-Layer` on `main`; the build uses `Dockerfile` builder, `services/evidence-service/Dockerfile.worker`, start command `python -m evidence_service.deletion_worker`, restart-on-failure, and exactly one replica. `RAILWAY_DOCKERFILE_PATH` is set to the worker Dockerfile. The latest deployment `a079a6e6-08b4-4f53-8584-4994b2bb1148` is `SUCCESS`. Deployment `552438f8-300b-4200-a5bb-6f553539f7c0` first introduced the v3/stale-ack code; `a079...` added the missing-object Storage fix.
 
 ## 4. Risk while the UI flag is on and the worker is down
 
@@ -57,7 +58,7 @@ Therefore the safe default is **off unless `true`**. Do not turn it on until the
 
 ## 5. Railway deployment checklist
 
-Run this as an operator with Railway project access. Values come only from the existing secret store/operator environment.
+Status: **completed on 2026-11-11** through the Railway GraphQL API using the project access token. The checklist is retained for rebuilding the service or reproducing the configuration.
 
 1. Create a Railway service from the repository root, separate from the Evidence Service.
 2. Set the service config file to `services/evidence-service/railway.worker.json`. Railway is deprecating config-as-code for new services; if the dashboard rejects it, apply the same settings manually (Dockerfile, start command, one replica, restart-on-failure).
@@ -68,6 +69,7 @@ Run this as an operator with Railway project access. Values come only from the e
    - `SUPABASE_URL`
    - `SUPABASE_SERVICE_ROLE_KEY`
    - `DELETION_WORKER_INTERVAL_SECONDS` (default 60)
+   - `RAILWAY_DOCKERFILE_PATH=services/evidence-service/Dockerfile.worker`
    - `EVIDENCE_PURGE_DATABASE_URL` only for the one-shot CLI path.
 6. Keep the worker private: no public HTTP service, no healthcheck path, no ingress.
 7. Place it in the same Railway project/region as the Evidence Service where the provider allows it.
@@ -153,6 +155,8 @@ select action, count(*)::int as events, max(occurred_at) as latest
 
 Problem: account preparation selected only personal workspaces or workspaces where the requester was the sole `owner`. Organization group workspaces give the owner an `admin` membership, and `source_snapshots.workspace_id` is `ON DELETE RESTRICT`. A group workspace with a snapshot could therefore block the Auth identity delete and leave the request at `purge_pending`.
 
+A second defect was found during deployment: Supabase Storage returns HTTP `400` with `statusCode: 404` / `error: not_found` for an already-missing object. The old worker treated that as a failure, so one stale queue row blocked all account purges. `storage_cleanup_worker.py` now treats that response as an idempotent delete and records the row as completed.
+
 Fix in this task:
 
 - Added `private.deletion_workspace_is_account_owned(request_id, workspace_id)`, which recognizes personal workspaces, sole-owner workspaces, and workspaces owned by an organization whose `owner_user_id` is the requester.
@@ -169,7 +173,7 @@ A second migration, `20261111150000_idempotent_prepare_v3.sql`, makes prepare v3
 - `python scripts/supabase_migration_guard.py validate` — 39 reviewed migrations, manifest matches.
 - `python scripts/supabase_migration_guard.py classify` — 691 statements, 595 registry-approved, 0 hard-denied.
 - `python -m unittest tests.test_deletion_worker` — 3/3 pass.
-- `python -m unittest tests.test_account_deletion_worker tests.test_storage_cleanup_worker` — 12/12 pass.
+- `python -m unittest tests.test_account_deletion_worker tests.test_storage_cleanup_worker` — 15/15 pass, including the Storage 400/not-found case.
 - `python -m unittest tests.test_supabase_migration_guard` — 74/74 pass.
 - `tests.test_purge_worker` was not run: it imports `pytest`, which is not installed in this Codespace.
 - `npx vitest run` — 29 files, 194/194 tests pass (including the deletion flag and account deletion UI tests).
@@ -195,9 +199,11 @@ This smoke exercised the currently deployed old worker and an empty personal acc
 
 A dedicated organization test account was created with one group workspace and one staged snapshot. The old worker reproduced the defect: request `6582a5d5-7e76-4517-816e-fcf71456fba3` was accepted at 14:45:28, `account_prepared` was written at 14:46:03 with `snapshots_deleted=1` but `workspaces_deleted=0`, and the request stayed `purge_pending`; the group workspace and membership remained and the Auth identity was not deleted. This confirms the old v2 path is insufficient for group workspaces.
 
-The new v3 path was then exercised manually against that dedicated test request. The first attempt hit the expected append-only `account_prepared` unique constraint, which is why migration 39 makes v3 idempotent. After the idempotency fix, the test account was completed through the normal worker functions (workspace delete under the worker role, lifecycle delete, Auth admin delete, terminal mark): request `purged`, group workspace/membership count 0, Auth delete returned 200. This was a test-account repair, not a deployed-worker smoke.
+The new v3 path was first exercised manually against that dedicated test request. The first attempt hit the expected append-only `account_prepared` unique constraint, which is why migration 39 makes v3 idempotent. After the idempotency fix, the test account was completed through the normal worker functions (workspace delete under the worker role, lifecycle delete, Auth admin delete, terminal mark): request `purged`, group workspace/membership count 0, Auth delete returned 200. That was a test-account repair, not a deployed-worker smoke.
 
-A valid organization-specific smoke, after the operator checklist:
+Final organization smoke on the deployed new worker: request `b115a771-197b-4666-9f50-b83cc16b05d1` was created with a dedicated organization account, one group workspace and one staged snapshot; it returned 403 on protected access after acceptance, reached `purged`, left workspace/snapshot counts at 0 and the Storage queue at 0, and the Auth admin lookup returned 404. **PASS.**
+
+The reusable procedure is:
 
 1. Create a dedicated test user (never a human primary account).
 2. Create a minimal personal workspace and one evidence row.
@@ -214,15 +220,15 @@ If the smoke fails or times out, leave the flag off and investigate the worker l
 
 - **Flag policy:** off unless `NEXT_PUBLIC_DELETION_REQUESTS_ENABLED` is exactly `true`.
 - **Production flag action:** completed. The value was `true`; it is now explicit `false`, and the production build was redeployed.
-- **Worker status:** current polling loop is live; the basic personal-account smoke passed on the old worker. The new worker code (stale-ack repair and `v3` preparation call) is not deployed; deploy it before the organization-specific smoke.
+- **Worker status:** new version live with one replica. The historical `journal_ack_pending` request was promoted and purged; the final organization smoke passed.
 - **New migrations:** 38 and 39 applied and verified in production (39 migrations, pending=0, empty schema diff).
-- **Safe order:** migration applied; deploy the new worker code next, then run the smoke, then set the web flag to `true` only if the smoke passes.
-- **Stuck acknowledgement:** one historical production request has a manifest and `manifest_frozen` audit but remains `journal_ack_pending`; the deployed worker code will repair it on its next cycle after this change is deployed. Until then, it should be tracked as a stuck deletion request. The successful smoke did not resolve this separate historical row.
+- **Safe order:** migrations applied, new worker deployed, basic and organization smokes passed. The web flag remains `false` pending an explicit operator decision to re-enable the UI.
+- **Stuck acknowledgement:** resolved. The historical `journal_ack_pending` request was promoted by the new worker, reached `purged`, and its Auth identity is gone.
 
 ## 10. Residual risks
 
-1. The current worker has no lease; a second replica can race. Single replica is mandatory until a claim function is reviewed.
-2. `purge_failed` has no automatic retry; an operator runbook and alert are required.
-3. Historical `journal_ack_pending` rows are only repaired when the new worker version runs.
-4. The organization-workspace and idempotent v3 migrations are applied and covered by local pgTAP. The basic personal smoke passed on the old worker; the organization path reproduced the stuck state on the old worker and was completed manually on the dedicated test account. Production still needs the new worker deployed and a fresh organization smoke.
-5. The Vercel flag is confirmed `false` and the production build is deployed. Railway project read is possible but deploy permission is denied, so the new worker version is not live and its image revision remains unknown; the successful basic smoke used an empty personal account rather than the organization/snapshot edge.
+1. The worker has no lease; a second replica can race. Exactly one replica is mandatory until a claim function is reviewed.
+2. `purge_failed` has no automatic retry; an operator runbook and alert are still required.
+3. The web flag remains `false`; re-enabling is an explicit operator decision after reviewing this record.
+4. Source is connected to `alimissoum552-a11y/Evidence-Layer`; if the upstream repository is `saidzeghidi31-bit/Evidence-Layer`, future deploys must keep the connected mirror in sync or reconnect the Railway GitHub App.
+5. Backups/PITR and legal/retention gaps from the wider audit remain outside this worker deployment.
