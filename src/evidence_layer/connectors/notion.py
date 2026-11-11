@@ -19,7 +19,7 @@ class NotionConfig:
     page_size: int = 50
     max_blocks: int = 2000
     api_base: str = "https://api.notion.com/v1"
-    notion_version: str = "2022-06-28"
+    notion_version: str = "2026-03-11"
 
 
 class NotionConnector:

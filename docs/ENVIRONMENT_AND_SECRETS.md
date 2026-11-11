@@ -27,6 +27,7 @@
 | Account-deletion worker runtime | Server-only privileged worker credentials; never attach to the web app or public service | `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `DELETION_WORKER_INTERVAL_SECONDS`, `RAILWAY_DOCKERFILE_PATH`; one-shot CLI path uses `EVIDENCE_PURGE_DATABASE_URL` |
 | Google Drive connector runtime | Server-only OAuth/token-vault credentials; never expose the token-encryption key or client secret to the browser | `CONNECTOR_TOKEN_ENCRYPTION_KEY`, `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` |
 | Google Drive connector web OAuth | Server-only OAuth callback credentials | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_URI` |
+| Notion connector web OAuth | Server-only Notion OAuth callback credentials | `NOTION_OAUTH_CLIENT_ID`, `NOTION_OAUTH_CLIENT_SECRET`, `NOTION_REDIRECT_URI`, `NEXT_PUBLIC_NOTION_CONNECTOR_ENABLED` |
 | GitHub Codespaces | Encrypted Codespaces secrets | provider keys used for local work |
 
 Supabase secret and service-role keys must never reach the frontend, a
@@ -118,6 +119,14 @@ both the basic personal-account smoke and the organization/group-workspace/
 snapshot smoke passed, including Auth deletion and terminal `purged`. The flag
 was re-enabled to `true` on 2026-11-11 after both smokes passed. See
 `docs/operations/DELETION-WORKER-VERIFY-2026-11-11.md`.
+
+### Notion connector rollout
+
+Notion uses a **public OAuth connection** with the page picker. Each user
+authorizes their own workspace/pages; the OAuth client ID/secret are app-level
+secrets and must remain server-side. `NEXT_PUBLIC_NOTION_CONNECTOR_ENABLED`
+defaults to off and shows “Coming soon”. Marketplace listing is not required
+for OAuth use. See `docs/connectors/README.md`.
 
 ### Google Drive connector rollout
 
