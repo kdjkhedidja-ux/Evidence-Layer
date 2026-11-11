@@ -1,6 +1,6 @@
 # Deletion worker verification and runbook — 2026-11-11
 
-Status: **WORKER: live (old loop); new worker version: checklist-only; MIGRATION: applied; FLAG: false**
+Status: **WORKER: live (old loop); new worker version: checklist-only; MIGRATION: applied; FLAG: false; BASIC SMOKE: PASS**
 Scope: individual-account deletion UI flag, worker entrypoints, production status reconciliation, Railway deployment template, runbook, and smoke assessment. Production migration `20261111120000` was applied through the reviewed guard/CLI flow, the Vercel flag was changed from `true` to explicit `false`, and no account was accepted or purged by this task.
 
 ## 1. Flag verification
@@ -42,8 +42,9 @@ Read-only production checks were run through the Supabase Management API on 2026
 | Current liveness | The worker's pending-request query counter increased from 3731 to 3732 over a 70-second read-only observation window. | The currently deployed worker loop is polling production now. This does not identify its version, replica count, or deployment receipt. |
 | New-code marker | Zero `pg_stat_statements` matches for the new stale-ack `update public.data_deletion_requests as request ...` statement. | The new worker version (stale-ack repair and `v3` call) is not running in production. |
 | Vercel flag | Production/preview/development value is explicit `false`; production deployment `dpl_8Y68hwu1t95evgvYRCVLX2cuk4qz` served `evidencelayer.dev` with HTTP 200. | The deletion UI is hidden in the current production build. |
+| Basic smoke | Dedicated test request `a5c0b20c-98b4-4b17-9929-13b22af5ed72` reached `purged` in ~57s; protected route returned 403 after acceptance; Auth lookup returned 404. | The old worker's personal-account path is operational. This does not exercise the new organization/snapshot path. |
 
-Deployment conclusion: **the current worker loop is live and the new migration is applied; the new worker version is not deployed.** There is no Railway token/CLI in this Codespace and no worker log stream was available, so the worker's image revision and replica count remain unknown. Do not claim the new `v3`/stale-ack repair is live until it is deployed and observed.
+Deployment conclusion: **the current worker loop is live and the new migration is applied; the new worker version is not deployed.** A `RAILWAY_API_KEY` exists in this Codespace, but the Railway CLI/API returned `Unauthorized` for account and project operations, so no service inventory, deploy, or log stream was possible. The worker's image revision and replica count remain unknown. Do not claim the new `v3`/stale-ack repair is live until it is deployed and observed.
 
 ## 4. Risk while the UI flag is on and the worker is down
 
@@ -174,11 +175,21 @@ The new migration is `supabase/migrations/20261111120000_deletion_org_workspace_
 
 ## 8. Controlled smoke
 
-**Result: SKIP.**
+**Result: PASS for a dedicated personal test account; SKIP for the organization/snapshot path.**
 
-Reason: the new worker version is not deployed (no Railway control/token in this environment) and there is no dedicated test user/Auth admin credential. The currently running worker is the old version, so an organization-snapshot smoke would not exercise the new path. No account was touched.
+Run on 2026-11-11 with a dedicated synthetic account and no human primary account:
 
-A valid smoke, after the operator checklist:
+- 14:22:56 — request created (`approval_pending`).
+- 14:22:57 — accepted (`accepted`); protected route immediately returned 403.
+- 14:23:52 — worker claimed and applied the purge effect.
+- 14:23:54 — `account_prepared` and `account_purged` audit events written; request status `purged`.
+- Auth admin lookup for the test user returned 404.
+
+Request ID: `a5c0b20c-98b4-4b17-9929-13b22af5ed72`. No email, token, or other PII is recorded. The polling helper initially treated Management API HTTP 201 as non-success and printed a timeout; direct read-only verification confirmed the terminal state above.
+
+This smoke exercised the currently deployed old worker and an empty personal account. It does **not** exercise the new organization/group-workspace/snapshot path. That path remains blocked on deploying the new worker version.
+
+A valid organization-specific smoke, after the operator checklist:
 
 1. Create a dedicated test user (never a human primary account).
 2. Create a minimal personal workspace and one evidence row.
@@ -195,15 +206,15 @@ If the smoke fails or times out, leave the flag off and investigate the worker l
 
 - **Flag policy:** off unless `NEXT_PUBLIC_DELETION_REQUESTS_ENABLED` is exactly `true`.
 - **Production flag action:** completed. The value was `true`; it is now explicit `false`, and the production build was redeployed.
-- **Worker status:** current polling loop is live; the new worker code (stale-ack repair and `v3` preparation call) is not deployed. Deploy it through the operator checklist before the smoke.
+- **Worker status:** current polling loop is live; the basic personal-account smoke passed on the old worker. The new worker code (stale-ack repair and `v3` preparation call) is not deployed; deploy it before the organization-specific smoke.
 - **New migration:** applied and verified in production (38 migrations, pending=0, empty schema diff).
 - **Safe order:** migration applied; deploy the new worker code next, then run the smoke, then set the web flag to `true` only if the smoke passes.
-- **Stuck acknowledgement:** one historical production request has a manifest and `manifest_frozen` audit but remains `journal_ack_pending`; the deployed worker code will repair it on its next cycle after this change is deployed. Until then, it should be tracked as a stuck deletion request.
+- **Stuck acknowledgement:** one historical production request has a manifest and `manifest_frozen` audit but remains `journal_ack_pending`; the deployed worker code will repair it on its next cycle after this change is deployed. Until then, it should be tracked as a stuck deletion request. The successful smoke did not resolve this separate historical row.
 
 ## 10. Residual risks
 
 1. The current worker has no lease; a second replica can race. Single replica is mandatory until a claim function is reviewed.
 2. `purge_failed` has no automatic retry; an operator runbook and alert are required.
 3. Historical `journal_ack_pending` rows are only repaired when the new worker version runs.
-4. The organization-workspace migration is applied and the local/CI pgTAP suite passed; production behavior still needs the new worker and a smoke.
-5. The Vercel flag is confirmed `false` and the production build is deployed. The worker's image revision and replica count remain unknown.
+4. The organization-workspace migration is applied and the local/CI pgTAP suite passed. The basic personal smoke passed on the old worker; the organization/snapshot path still needs the new worker and its own smoke.
+5. The Vercel flag is confirmed `false` and the production build is deployed. Railway access is unauthorized, so the worker's image revision and replica count remain unknown; the successful smoke used an empty personal account rather than the organization/snapshot edge.
