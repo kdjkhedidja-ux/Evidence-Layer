@@ -172,3 +172,8 @@ The image runs as a non-root user. The health check calls only `/healthz`.
 This change does not configure Railway, link a Supabase project, apply a remote
 migration, or deploy the service. Railway remains a future deployment target;
 no hosted deployment is established by this repository change.
+
+The account-deletion worker has a separate image (`Dockerfile.worker`), a
+Railway template (`railway.worker.json`), and a names-only environment template
+(`.env.worker.example`). Its deployment remains operator-controlled; see
+`docs/operations/DELETION-WORKER-VERIFY-2026-11-11.md`.

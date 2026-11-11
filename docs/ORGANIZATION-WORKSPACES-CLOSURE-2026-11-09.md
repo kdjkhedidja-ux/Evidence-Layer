@@ -6,6 +6,12 @@ https://evidence-layer-gold.vercel.app. Enterprise-only features beyond this
 scope (SSO, email invitations, billing, multi-organization membership) are not
 part of this closure.
 
+> **2026-11-11 addendum:** The deletion UI flag policy is now **off unless
+> `NEXT_PUBLIC_DELETION_REQUESTS_ENABLED` is exactly `true`**. This supersedes
+> the 2026-11-09 “remains ON” operational decision while the worker deployment
+> and a test-account accept-to-purged smoke are unverified. See
+> `docs/operations/DELETION-WORKER-VERIFY-2026-11-11.md`.
+
 ## Scope delivered
 
 - Individual accounts start as `individual`; an organization account is created
@@ -71,8 +77,9 @@ Service endpoints:
   the queue; a snapshot-populated group workspace deletion should be included in
   any future Storage acceptance run.
 - No enterprise SSO, organization billing, or multiple organization membership.
-- The personal deletion flag remains ON per the earlier decision; the
-  organization management UI is gated by account type.
+- The personal deletion flag was ON per the 2026-11-09 decision; the
+  2026-11-11 addendum supersedes that default pending worker verification.
+  The organization management UI is gated by account type.
 - Supabase PITR remains off; the external R2 attestation is the recovery
   substitute (48-hour guard window).
 

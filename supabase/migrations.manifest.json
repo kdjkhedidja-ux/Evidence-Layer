@@ -224,6 +224,12 @@
       "version": "20261110233000",
       "sha256": "2ff25766b0c14963f57fce054c8d84f2e87f1fb61fb95e69e826b956d4d4598b",
       "provenance": "Grant the authenticated role execute on the claim-only personal API key subject helper used by its self-read policy."
+    },
+    {
+      "file": "20261111120000_deletion_org_workspace_purge.sql",
+      "version": "20261111120000",
+      "sha256": "e630124a2c6ae2cf11069809c92bbbc48577141d0376a84f287aabd25ba6132c",
+      "provenance": "Include organization-owned group workspaces and snapshots in account purge; fix owner/admin workspace predicate; add regression pgTAP."
     }
   ]
 }

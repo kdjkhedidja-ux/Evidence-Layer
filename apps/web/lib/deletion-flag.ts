@@ -3,11 +3,11 @@ export type DeletionFlagEnv = {
 };
 
 /**
- * The individual deletion UI is enabled by default. An explicit
- * NEXT_PUBLIC_DELETION_REQUESTS_ENABLED=false is the emergency kill switch.
- * The Vercel credential available to this project cannot write project env
- * vars, so production enablement must not depend on setting one.
+ * The individual deletion UI is disabled by default. Set the public flag to
+ * exactly "true" only after the deletion worker is deployed, observed healthy,
+ * and an authenticated accept-to-purged smoke has passed for the target
+ * environment. Any other value keeps the UI hidden.
  */
 export function deletionRequestsEnabled({ flag }: DeletionFlagEnv): boolean {
-  return flag !== "false";
+  return flag === "true";
 }

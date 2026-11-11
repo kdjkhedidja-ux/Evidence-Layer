@@ -4097,6 +4097,69 @@
       "line": 4,
       "verb": "grant execute",
       "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "2c9b46e588bfac95",
+      "file": "20261111120000_deletion_org_workspace_purge.sql",
+      "line": 8,
+      "verb": "create function",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "0f5d94e74dbb357d",
+      "file": "20261111120000_deletion_org_workspace_purge.sql",
+      "line": 40,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "e032c83616d71359",
+      "file": "20261111120000_deletion_org_workspace_purge.sql",
+      "line": 42,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "9b56ebc564f2aebd",
+      "file": "20261111120000_deletion_org_workspace_purge.sql",
+      "line": 45,
+      "verb": "create or",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "d71a7ad743ccc056",
+      "file": "20261111120000_deletion_org_workspace_purge.sql",
+      "line": 102,
+      "verb": "create function",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "f570b7fc8eb99a14",
+      "file": "20261111120000_deletion_org_workspace_purge.sql",
+      "line": 198,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "e3646f0f5c8e6d9f",
+      "file": "20261111120000_deletion_org_workspace_purge.sql",
+      "line": 200,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "2670a8aa50085dd1",
+      "file": "20261111120000_deletion_org_workspace_purge.sql",
+      "line": 203,
+      "verb": "alter policy",
+      "rationale_ref": "rls-policy-alter"
+    },
+    {
+      "id": "f748d4b5a60301ad",
+      "file": "20261111120000_deletion_org_workspace_purge.sql",
+      "line": 212,
+      "verb": "alter policy",
+      "rationale_ref": "rls-policy-alter"
     }
   ]
 }
