@@ -4160,6 +4160,34 @@
       "line": 212,
       "verb": "alter policy",
       "rationale_ref": "rls-policy-alter"
+    },
+    {
+      "id": "e140e87deff88438",
+      "file": "20261111150000_idempotent_prepare_v3.sql",
+      "line": 6,
+      "verb": "create function",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "85383e2ca321fa8e",
+      "file": "20261111150000_idempotent_prepare_v3.sql",
+      "line": 21,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "d156ebedd258efb7",
+      "file": "20261111150000_idempotent_prepare_v3.sql",
+      "line": 23,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "349b1067cb019342",
+      "file": "20261111150000_idempotent_prepare_v3.sql",
+      "line": 26,
+      "verb": "create or",
+      "rationale_ref": "function-definition"
     }
   ]
 }

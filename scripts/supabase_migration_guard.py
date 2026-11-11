@@ -1000,6 +1000,7 @@ def expected_catalog(versions: list[str]) -> dict:
         functions.update({
             "private.deletion_workspace_is_account_owned",
             "private.prepare_individual_account_purge_v3",
+            "private.account_prepared_marker_exists",
         })
     if account_type:
         functions.update({

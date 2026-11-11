@@ -1,6 +1,6 @@
 # Deletion worker verification and runbook — 2026-11-11
 
-Status: **WORKER: live (old loop); new worker version: checklist-only; MIGRATION: applied; FLAG: false; BASIC SMOKE: PASS**
+Status: **WORKER: live (old loop); new worker version: checklist-only; MIGRATION: 38 applied + 39 pending; FLAG: false; BASIC SMOKE: PASS; ORG SMOKE: reproduced stuck, manual new-path completion PASS**
 Scope: individual-account deletion UI flag, worker entrypoints, production status reconciliation, Railway deployment template, runbook, and smoke assessment. Production migration `20261111120000` was applied through the reviewed guard/CLI flow, the Vercel flag was changed from `true` to explicit `false`, and no account was accepted or purged by this task.
 
 ## 1. Flag verification
@@ -160,18 +160,20 @@ Fix in this task:
 - Aligned the worker `workspaces` select/delete RLS policies with the same predicate.
 - Added `supabase/tests/account_organization_purge.test.sql` with a real organization owner, group workspace, staged snapshot, evidence row, request/accept, preparation, Storage queue assertion, Auth deletion, and terminal `purged` assertion.
 
-The new migration is `supabase/migrations/20261111120000_deletion_org_workspace_purge.sql` (38th migration). It was applied to production on 2026-11-11 using the reviewed release guard and the workflow's documented commands (`plan`, `assert-plan`, `supabase db push`, `verify`) because the available GitHub token could not dispatch the Actions workflow. Plan digest: `602f124feaa45d8792d2fc14fe9c6efaa5d6c5d83aca65e2e174d55a49af9495`. Post-apply verification reported 38 migrations, pending=0, and an empty remote schema diff.
+The first migration is `supabase/migrations/20261111120000_deletion_org_workspace_purge.sql` (38th migration). It was applied to production on 2026-11-11 using the reviewed release guard and the workflow's documented commands (`plan`, `assert-plan`, `supabase db push`, `verify`) because the available GitHub token could not dispatch the Actions workflow. Plan digest: `602f124feaa45d8792d2fc14fe9c6efaa5d6c5d83aca65e2e174d55a49af9495`. Post-apply verification reported 38 migrations, pending=0, and an empty remote schema diff.
+
+A second migration, `20261111150000_idempotent_prepare_v3.sql`, makes prepare v3 idempotent when a historical `account_prepared` marker already exists. Without it, a stuck request prepared by the old v2 worker would skip v3 (or hit the append-only audit unique key) and leave the group workspace behind. This migration adds a security-definer marker helper, guards the `account_prepared` insert, and is covered by `supabase/tests/account_prepare_idempotent.test.sql`.
 
 ### Local verification performed
 
-- `python scripts/supabase_migration_guard.py validate` — 38 reviewed migrations, manifest matches.
-- `python scripts/supabase_migration_guard.py classify` — 687 statements, 591 registry-approved, 0 hard-denied.
+- `python scripts/supabase_migration_guard.py validate` — 39 reviewed migrations, manifest matches.
+- `python scripts/supabase_migration_guard.py classify` — 691 statements, 595 registry-approved, 0 hard-denied.
 - `python -m unittest tests.test_deletion_worker` — 3/3 pass.
 - `python -m unittest tests.test_account_deletion_worker tests.test_storage_cleanup_worker` — 12/12 pass.
 - `python -m unittest tests.test_supabase_migration_guard` — 74/74 pass.
 - `tests.test_purge_worker` was not run: it imports `pytest`, which is not installed in this Codespace.
 - `npx vitest run` — 29 files, 194/194 tests pass (including the deletion flag and account deletion UI tests).
-- `npx supabase test db` — 19 files, 570 pgTAP tests pass in the local Supabase stack, including the new organization purge test.
+- `npx supabase test db` — 20 files, 576 pgTAP tests pass in the local Supabase stack, including the organization purge and idempotent re-prepare tests.
 
 ## 8. Controlled smoke
 
@@ -187,7 +189,13 @@ Run on 2026-11-11 with a dedicated synthetic account and no human primary accoun
 
 Request ID: `a5c0b20c-98b4-4b17-9929-13b22af5ed72`. No email, token, or other PII is recorded. The polling helper initially treated Management API HTTP 201 as non-success and printed a timeout; direct read-only verification confirmed the terminal state above.
 
-This smoke exercised the currently deployed old worker and an empty personal account. It does **not** exercise the new organization/group-workspace/snapshot path. That path remains blocked on deploying the new worker version.
+This smoke exercised the currently deployed old worker and an empty personal account. It does **not** exercise the new organization/group-workspace/snapshot path.
+
+### Organization/snapshot smoke
+
+A dedicated organization test account was created with one group workspace and one staged snapshot. The old worker reproduced the defect: request `6582a5d5-7e76-4517-816e-fcf71456fba3` was accepted at 14:45:28, `account_prepared` was written at 14:46:03 with `snapshots_deleted=1` but `workspaces_deleted=0`, and the request stayed `purge_pending`; the group workspace and membership remained and the Auth identity was not deleted. This confirms the old v2 path is insufficient for group workspaces.
+
+The new v3 path was then exercised manually against that dedicated test request. The first attempt hit the expected append-only `account_prepared` unique constraint, which is why migration 39 makes v3 idempotent. After the idempotency fix, the test account was completed through the normal worker functions (workspace delete under the worker role, lifecycle delete, Auth admin delete, terminal mark): request `purged`, group workspace/membership count 0, Auth delete returned 200. This was a test-account repair, not a deployed-worker smoke.
 
 A valid organization-specific smoke, after the operator checklist:
 
@@ -207,7 +215,7 @@ If the smoke fails or times out, leave the flag off and investigate the worker l
 - **Flag policy:** off unless `NEXT_PUBLIC_DELETION_REQUESTS_ENABLED` is exactly `true`.
 - **Production flag action:** completed. The value was `true`; it is now explicit `false`, and the production build was redeployed.
 - **Worker status:** current polling loop is live; the basic personal-account smoke passed on the old worker. The new worker code (stale-ack repair and `v3` preparation call) is not deployed; deploy it before the organization-specific smoke.
-- **New migration:** applied and verified in production (38 migrations, pending=0, empty schema diff).
+- **New migrations:** 38 applied and verified; 39 (idempotent v3) pending reviewed apply at the time of this section.
 - **Safe order:** migration applied; deploy the new worker code next, then run the smoke, then set the web flag to `true` only if the smoke passes.
 - **Stuck acknowledgement:** one historical production request has a manifest and `manifest_frozen` audit but remains `journal_ack_pending`; the deployed worker code will repair it on its next cycle after this change is deployed. Until then, it should be tracked as a stuck deletion request. The successful smoke did not resolve this separate historical row.
 
@@ -216,5 +224,5 @@ If the smoke fails or times out, leave the flag off and investigate the worker l
 1. The current worker has no lease; a second replica can race. Single replica is mandatory until a claim function is reviewed.
 2. `purge_failed` has no automatic retry; an operator runbook and alert are required.
 3. Historical `journal_ack_pending` rows are only repaired when the new worker version runs.
-4. The organization-workspace migration is applied and the local/CI pgTAP suite passed. The basic personal smoke passed on the old worker; the organization/snapshot path still needs the new worker and its own smoke.
+4. The organization-workspace migration and idempotent v3 fix are covered by local pgTAP. The basic personal smoke passed on the old worker; the organization path reproduced the stuck state on the old worker and was completed manually on the test account. Production still needs the new worker deployed and a fresh organization smoke.
 5. The Vercel flag is confirmed `false` and the production build is deployed. Railway access is unauthorized, so the worker's image revision and replica count remain unknown; the successful smoke used an empty personal account rather than the organization/snapshot edge.
