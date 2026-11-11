@@ -39,6 +39,8 @@ Adapters do not write to providers, do not persist tokens, and do not log author
 
 ### Google Drive
 
+Verification package: [`google-oauth-verification-package.md`](google-oauth-verification-package.md).
+
 - Recommended scope: `https://www.googleapis.com/auth/drive.readonly`.
 - Lists `files` with `trashed = false`; supports shared drives via `supportsAllDrives` and optional `driveId`.
 - Google-native Docs/Sheets/Slides are exported as HTML/CSV/PDF by default; override `export_mime_types`.

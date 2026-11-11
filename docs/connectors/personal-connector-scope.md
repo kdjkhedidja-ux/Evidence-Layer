@@ -29,6 +29,8 @@ This is intentionally narrower than an enterprise connector. It does not claim s
 - Best-effort provider revocation on disconnect.
 - 2 MiB per-document cap; 10–25 documents per manual sync; text/binary content only.
 
+Verification package: [`google-oauth-verification-package.md`](google-oauth-verification-package.md).
+
 ## Required before public personal launch
 
 1. **Google OAuth verification**
