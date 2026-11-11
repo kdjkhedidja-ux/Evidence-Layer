@@ -805,6 +805,17 @@ def _connector_vault(request: Request) -> TokenVault:
     return vault
 
 
+
+def _notion_sync_service(request: Request) -> NotionSyncService:
+    service = request.app.state.notion_sync_service
+    if service is None:
+        service = NotionSyncService(
+            _connector_repository(request),
+            _connector_vault(request),
+        )
+        request.app.state.notion_sync_service = service
+    return service
+
 def _google_drive_sync_service(request: Request) -> GoogleDriveSyncService:
     service = request.app.state.connector_sync_service
     if service is None:
@@ -924,6 +935,7 @@ def create_app(
     export_repository: SupabaseExportRepository | None = None,
     connector_repository: ConnectorRepository | None = None,
     connector_sync_service: GoogleDriveSyncService | None = None,
+    notion_sync_service: NotionSyncService | None = None,
     connector_vault: TokenVault | None = None,
     organization_repository=None,
     source_read_path=None,
@@ -948,6 +960,7 @@ def create_app(
     application.state.export_repository = export_repository
     application.state.connector_repository = connector_repository
     application.state.connector_sync_service = connector_sync_service
+    application.state.notion_sync_service = notion_sync_service
     application.state.connector_vault = connector_vault
     application.state.organization_repository = organization_repository
     application.state.trusted_source_context_issuer = None
@@ -1305,6 +1318,48 @@ def create_app(
             ) from exc
         return _connector_connection_response(connection)
 
+
+    @application.post(
+        "/v1/connectors/notion/connection",
+        response_model=ConnectorConnectionResponse,
+        status_code=201,
+    )
+    async def connect_notion(
+        payload: ConnectorConnectionRequest,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> ConnectorConnectionResponse:
+        try:
+            vault = _connector_vault(request)
+            encrypted_access = vault.encrypt(payload.access_token)
+            if not encrypted_access:
+                raise TokenVaultUnavailable
+            connection = await _with_account_gate(
+                request,
+                auth,
+                lambda: _connector_repository(request).upsert_connection(
+                    auth.access_token,
+                    user_id=auth.principal.subject,
+                    provider="notion",
+                    account_email=payload.account_email,
+                    scopes=list(payload.scopes),
+                    access_token_ciphertext=encrypted_access,
+                    refresh_token_ciphertext=None,
+                    access_token_expires_at=None,
+                ),
+            )
+        except TokenVaultUnavailable as exc:
+            raise HTTPException(
+                status_code=503, detail="Connector token vault is unavailable"
+            ) from exc
+        except ConnectorDenied as exc:
+            raise HTTPException(status_code=403, detail="Connector is not authorized") from exc
+        except ConnectorUnavailable as exc:
+            raise HTTPException(
+                status_code=503, detail="Connector service is unavailable"
+            ) from exc
+        return _connector_connection_response(connection)
+
     @application.get(
         "/v1/connectors",
         response_model=list[ConnectorConnectionResponse],
@@ -1336,13 +1391,29 @@ def create_app(
         auth: AuthenticatedRequest = Depends(require_authenticated_request),
     ) -> Response:
         try:
-            await _with_account_gate(
+            connection = await _with_account_gate(
                 request,
                 auth,
-                lambda: _google_drive_sync_service(request).disconnect(
+                lambda: _connector_repository(request).get_connection(
                     auth.access_token, connection_id
                 ),
             )
+            if connection.provider == "notion":
+                await _with_account_gate(
+                    request,
+                    auth,
+                    lambda: _notion_sync_service(request).disconnect(
+                        auth.access_token, connection_id
+                    ),
+                )
+            else:
+                await _with_account_gate(
+                    request,
+                    auth,
+                    lambda: _google_drive_sync_service(request).disconnect(
+                        auth.access_token, connection_id
+                    ),
+                )
         except ConnectorNotFound as exc:
             raise HTTPException(status_code=404, detail="Connector not found") from exc
         except ConnectorDenied as exc:
@@ -1364,13 +1435,31 @@ def create_app(
         limit: int = Query(default=10, ge=1, le=25),
     ) -> ConnectorSyncResponse:
         try:
-            result = await _with_account_gate(
+            connection = await _with_account_gate(
                 request,
                 auth,
-                lambda: _google_drive_sync_service(request).sync(
-                    auth.access_token, connection_id, limit=limit
+                lambda: _connector_repository(request).get_connection(
+                    auth.access_token, connection_id
                 ),
             )
+            if connection.provider == "notion":
+                result = await _with_account_gate(
+                    request,
+                    auth,
+                    lambda: _notion_sync_service(request).sync(
+                        auth.access_token, connection_id, limit=limit
+                    ),
+                )
+            elif connection.provider == "google_drive":
+                result = await _with_account_gate(
+                    request,
+                    auth,
+                    lambda: _google_drive_sync_service(request).sync(
+                        auth.access_token, connection_id, limit=limit
+                    ),
+                )
+            else:
+                raise HTTPException(status_code=400, detail="Unsupported connector provider")
         except TokenVaultUnavailable as exc:
             raise HTTPException(
                 status_code=503, detail="Connector token vault is unavailable"
@@ -1383,7 +1472,7 @@ def create_app(
             raise HTTPException(
                 status_code=409, detail="Connector authorization expired"
             ) from exc
-        except (ConnectorSyncError, ConnectorUnavailable) as exc:
+        except (ConnectorSyncError, NotionSyncError, ConnectorUnavailable) as exc:
             raise HTTPException(
                 status_code=503, detail="Connector sync is unavailable"
             ) from exc

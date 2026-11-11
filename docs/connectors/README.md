@@ -2,7 +2,7 @@
 
 Personal-scope decision: see [`personal-connector-scope.md`](personal-connector-scope.md). The first production path is personal-only; no shared/group document ingestion.
 
-Status: **read-only adapters for five providers plus a Google Drive vertical slice are implemented locally.** The slice includes OAuth connect/callback, app-level encrypted token storage, a manual bounded sync, connector-document storage, and a minimal Connect/Sync UI. Migration `20261111190000` is **not applied to production**; the slice is not production-deployed. Background scheduling, ACL mapping, source-snapshot verification, deletion propagation, and production rollout are not yet implemented.
+Status: **read-only adapters for five providers; Google Drive and Notion vertical slices are implemented locally.** The slice includes OAuth connect/callback, app-level encrypted token storage, a manual bounded sync, connector-document storage, and a minimal Connect/Sync UI. Migration `20261111190000` is **not applied to production**; the slice is not production-deployed. Background scheduling, ACL mapping, source-snapshot verification, deletion propagation, and production rollout are not yet implemented.
 
 Implemented providers:
 
@@ -12,7 +12,7 @@ Implemented providers:
 | GitHub | Git Trees API for one repository/ref | Contents API raw bytes | injected GitHub App/fine-grained token; public repos can omit token | 2 MiB |
 | Dropbox | `files/list_folder` + continuation cursor | `files/download` | injected OAuth access token | 2 MiB |
 | Confluence | REST `content` pages, offset cursor | page `body.storage` HTML | injected Atlassian OAuth token | 8 MiB |
-| Notion | Search or database query cursor | page block tree rendered to text | injected Notion integration token | 2,000 blocks |
+| Notion | Search or database query cursor | page block tree rendered to text | public OAuth connection (page picker); adapter also accepts an integration token | 2,000 blocks |
 
 Package: `src/evidence_layer/connectors/`. Tests: `tests/test_connectors.py`. Install the connector extra with `pip install -r requirements-connectors.txt`.
 
@@ -68,7 +68,7 @@ Verification package: [`google-oauth-verification-package.md`](google-oauth-veri
 
 ### Notion
 
-- Simplest auth is an internal integration token; the user must explicitly share pages/databases with the integration. Public OAuth is possible later.
+- The production path uses a **public OAuth connection** with Notion's page picker; each user authorizes their own workspace/pages. An internal integration token remains useful for adapter tests, but must not be used as a shared multi-user credential.
 - Lists via Search or a database query; fetches block children recursively to depth 2 and caps total blocks.
 - Renders rich text to plain text; page properties beyond the title are not yet exported.
 - Watch: explicit page sharing, API version changes, block pagination/rate limits.
@@ -90,7 +90,7 @@ Dropbox and Notion are fast to integrate; GitHub is fast for technical teams; Co
 - Scope requested: `https://www.googleapis.com/auth/drive.readonly`; offline access and consent are requested to obtain a refresh token.
 - Token vault: service-side AES-256-GCM encryption with `CONNECTOR_TOKEN_ENCRYPTION_KEY` (base64 32-byte key). Only ciphertext is stored.
 - Tables: `connector_connections` and `connector_documents`, forced RLS, owner-only policies, no anon/service-role table grants.
-- Manual sync: `POST /v1/connectors/{connection_id}/sync?limit=10` (maximum 25); one Drive page per call, up to 2 MiB per document, 2,000 blocks for Notion later.
+- Manual sync: `POST /v1/connectors/{connection_id}/sync?limit=10` (maximum 25); one provider page per call, up to 2 MiB per document.
 - Content: text-like documents stored in `content_text`; binary content stored as base64 with a 2 MiB cap. No write-back to Drive.
 - UI: account page shows Connect Google Drive, connection status, Sync, and Disconnect.
 - Refresh: service refreshes an expired Drive access token using the stored refresh token and server-only Google OAuth client credentials.
@@ -107,9 +107,19 @@ GOOGLE_OAUTH_REDIRECT_URI        # web; defaults to <origin>/api/connectors/goog
 
 Google Cloud console: create a Web application OAuth client, add the exact callback URI, and keep the client secret server-side. No secret belongs in the repository or browser bundle.
 
+## Implemented Notion vertical slice
+
+- Public Notion OAuth connection with the page picker; no Marketplace listing required for OAuth use.
+- OAuth start/callback: `/api/connectors/notion/start` and `/api/connectors/notion/callback`.
+- Token exchange is server-side with `NOTION_OAUTH_CLIENT_ID` / `NOTION_OAUTH_CLIENT_SECRET`; tokens are encrypted in the same vault as Drive.
+- Manual sync: `POST /v1/connectors/{connection_id}/sync` dispatches to Notion when the connection provider is `notion`.
+- Pages are rendered from the block tree to text; API version defaults to `2026-03-11`.
+- Personal-only UI: `NEXT_PUBLIC_NOTION_CONNECTOR_ENABLED` defaults off and shows “Notion · Coming soon”.
+- Migration 41 already supports the `notion` provider; no additional schema migration is required.
+
 ## Required next layer (not implemented)
 
-1. **OAuth applications + callback routes** for Google, Dropbox, Atlassian, Notion; GitHub App installation flow.
+1. **OAuth applications + callback routes** for Dropbox, Atlassian, and GitHub; Google verification and Notion Marketplace listing are separate optional tracks.
 2. **Token vault**: encrypted per-user/per-workspace tokens, refresh rotation, revocation, no browser exposure.
 3. **Connector selection UI** and explicit folder/site/page/repo selection.
 4. **Sync worker** with delta cursors, idempotency, backoff, per-connector health, and deletion/tombstone propagation.

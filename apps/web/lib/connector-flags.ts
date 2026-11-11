@@ -2,3 +2,8 @@
 export function googleDriveConnectorEnabled({ flag }: { flag?: string }): boolean {
   return flag === "true";
 }
+
+/** Notion stays coming soon until its OAuth connection and deployment are verified. */
+export function notionConnectorEnabled({ flag }: { flag?: string }): boolean {
+  return flag === "true";
+}

@@ -154,7 +154,8 @@ Notion. Connector priority is:
 Local files and uploaded documents are the local base and are not a production
 source connector. The SDK adapters accept injected access tokens. Google Drive has a first personal-only vertical slice (local only): OAuth
 connect/callback, encrypted token storage, manual bounded sync into owner-only
-`connector_documents`, and a minimal connect/sync UI. Background
+`connector_documents`, and a minimal connect/sync UI. Notion has the same local
+OAuth/manual-sync slice. Background
 scheduling, ACL mapping, source-snapshot verification, deletion propagation,
 and production rollout remain planned.
 

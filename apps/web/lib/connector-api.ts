@@ -113,3 +113,18 @@ export async function createGoogleDriveConnection(
     body: JSON.stringify(payload),
   });
 }
+
+export async function createNotionConnection(
+  accessToken: string,
+  payload: {
+    access_token: string;
+    account_email: string | null;
+    scopes: string[];
+  },
+): Promise<Response> {
+  return upstreamJson("/v1/connectors/notion/connection", accessToken, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
