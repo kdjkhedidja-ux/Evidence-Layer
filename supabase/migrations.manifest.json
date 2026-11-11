@@ -234,7 +234,7 @@
     {
       "file": "20261111150000_idempotent_prepare_v3.sql",
       "version": "20261111150000",
-      "sha256": "7299679c9159e41afb88e6851aa4079c109ef09fb7fcfdd2dc7788095de21294",
+      "sha256": "09c9e252019cc52f5725a5cc9b93698fa40fc8c6f09b60cb0675ce4dbfbb4f16",
       "provenance": "Make prepare v3 idempotent when a historical account_prepared marker already exists; prevents a stuck purge from skipping workspace cleanup."
     }
   ]
