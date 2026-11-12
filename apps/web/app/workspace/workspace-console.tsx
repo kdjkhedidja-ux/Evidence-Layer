@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { createSupabaseBrowserClient } from "../../lib/supabase/client";
 import AccountProfile from "./account-profile";
+import ConnectorSources from "../../components/connector-sources";
 import PersonalApiKeys from "./personal-api-keys";
 import { CAPABILITY_GROUPS } from "./capability-catalog";
 
@@ -574,6 +575,8 @@ export default function WorkspaceConsole({
         <AccountProfile email={email} />
 
         <PersonalApiKeys workspaces={workspaces} />
+
+        <ConnectorSources />
 
         <section id="session-management" className="workspace-panel" aria-labelledby="session-heading">
           <div className="workspace-section-heading">

@@ -92,7 +92,7 @@ Dropbox and Notion are fast to integrate; GitHub is fast for technical teams; Co
 - Tables: `connector_connections` and `connector_documents`, forced RLS, owner-only policies, no anon/service-role table grants.
 - Manual sync: `POST /v1/connectors/{connection_id}/sync?limit=10` (maximum 25); one provider page per call, up to 2 MiB per document.
 - Content: text-like documents stored in `content_text`; binary content stored as base64 with a 2 MiB cap. No write-back to Drive.
-- UI: account page shows Connect Google Drive, connection status, Sync, and Disconnect.
+- UI: the workspace page shows Connected sources, Connect, connection status, Sync, and Disconnect.
 - Refresh: service refreshes an expired Drive access token using the stored refresh token and server-only Google OAuth client credentials.
 - Disconnect: deletes the connection; `connector_documents` cascade. It does not revoke the Google grant in this slice.
 
