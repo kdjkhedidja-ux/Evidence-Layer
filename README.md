@@ -52,7 +52,8 @@ server-side encrypted token storage, a manual bounded sync into owner-only
 `connector_documents`, and a minimal account UI. It remains **Coming soon**
 until Google OAuth verification. Notion has the same OAuth/manual-sync slice and
 is enabled for personal production use; a live smoke remains pending. GitHub App installation-based read-only sync is deployed and smoke-tested;
-empty repositories are skipped. Background
+empty repositories are skipped. The API-key retrieval endpoint and HTTP MCP
+server are implemented; see `docs/connectors/api-retrieval-mcp.md`. Background
 scheduling, ACL mapping, source-snapshot verification, deletion propagation,
 and production deployment are not implemented. Still absent
 are a hosted retrieval/scoring endpoint, source ingestion/publish UI, full
