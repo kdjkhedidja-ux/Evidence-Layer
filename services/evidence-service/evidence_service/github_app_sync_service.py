@@ -176,6 +176,9 @@ class GitHubAppSyncService:
                 branch = repository.get("default_branch") or "main"
                 if not owner or not name:
                     continue
+                if repository.get("size") == 0:
+                    skipped += 1
+                    continue
                 connector = GitHubConnector(
                     GitHubConfig(
                         owner=str(owner),
@@ -186,7 +189,11 @@ class GitHubAppSyncService:
                     ),
                     transport=self._transport,
                 )
-                page = await connector.list_items(limit=min(5, max(1, limit)))
+                try:
+                    page = await connector.list_items(limit=min(5, max(1, limit)))
+                except ConnectorError:
+                    skipped += 1
+                    continue
                 listed += len(page.items)
                 for item in page.items:
                     try:

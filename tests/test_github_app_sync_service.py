@@ -78,6 +78,30 @@ class GitHubAppSyncTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(repository.documents[0]["provider"], "github")
         self.assertEqual(repository.documents[0]["content_text"], "hello")
 
+    async def test_sync_skips_empty_repository(self):
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.url.path == "/installation/repositories":
+                return httpx.Response(200, json={"repositories": [{
+                    "name": "empty",
+                    "default_branch": "main",
+                    "size": 0,
+                    "owner": {"login": "acme"},
+                }]})
+            return httpx.Response(404)
+
+        repository = FakeRepository()
+        service = GitHubAppSyncService(
+            repository,  # type: ignore[arg-type]
+            app_id="123",
+            private_key="unused",
+            transport=httpx.MockTransport(handler),
+        )
+        with patch.object(service, "_installation_token", AsyncMock(return_value="install-token")):
+            result = await service.sync("user-token", CONNECTION, limit=5)
+        self.assertEqual(result.ingested, 0)
+        self.assertEqual(result.skipped, 1)
+        self.assertTrue(repository.synced)
+
     async def test_connect_stores_installation_config(self):
         class ConnectRepository(FakeRepository):
             def __init__(self):
