@@ -4385,6 +4385,36 @@ select:focus-visible,
   flex: 1 1 100%;
 }
 
+.account-deletion-actions > a,
+.account-deletion-actions > span {
+  flex: 1 1 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  border: 1px solid var(--sidebar-control-line);
+  border-radius: 6px;
+  background: var(--sidebar-bg);
+  color: var(--sidebar-ink);
+  padding: 6px 9px;
+  font: inherit;
+  font-size: 10px;
+  line-height: 1.35;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.account-deletion-actions > a:hover {
+  border-color: var(--sidebar-focus);
+  background: var(--sidebar-hover);
+}
+
+.account-deletion-actions > span {
+  cursor: default;
+  opacity: 0.65;
+}
+
 .account-deletion-lookup {
   align-items: stretch;
 }
