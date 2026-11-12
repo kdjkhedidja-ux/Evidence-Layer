@@ -135,7 +135,7 @@ select json_build_object('id', external_id, 'text', content_text)
 
 Queries file: one `{"query":"..."}` object per line. The report compares the full corpus token size with the selected API context size. The included fixture report is a harness smoke test, not a production GitHub measurement.
 
-A/B token report: [`el-vs-baseline-deepseek-tokens-2026-11-12.md`](../operations/el-vs-baseline-deepseek-tokens-2026-11-12.md).
+A/B token reports: [`first run`](../operations/el-vs-baseline-deepseek-tokens-2026-11-12.md) and [`GitHub README run`](../operations/el-vs-baseline-deepseek-tokens-github-readme-2026-11-12.md).
 
 ## Enablement/config notes
 
