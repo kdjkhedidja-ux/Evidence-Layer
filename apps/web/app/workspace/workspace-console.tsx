@@ -598,10 +598,10 @@ export default function WorkspaceConsole({
             <button type="button" onClick={signOutEverywhere} disabled={pending}>
               {pending ? "Signing out…" : "Sign out everywhere"}
             </button>
+            <Link className="workspace-secondary-action" href="/mfa?next=%2Fworkspace">
+              Manage two-factor authentication
+            </Link>
           </div>
-          <p>
-            <Link href="/mfa?next=%2Fworkspace">Manage two-factor authentication</Link>
-          </p>
           {sessionMessage && <p className="workspace-message" role="alert">{sessionMessage}</p>}
         </section>
 
