@@ -20,7 +20,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   if (process.env.NEXT_PUBLIC_GITHUB_CONNECTOR_ENABLED !== "true") {
     return redirect(request, "/workspace?connector=github&status=coming_soon");
   }
-  const slug = process.env.GITHUB_APP_SLUG;
+  const slug = process.env.GITHUB_APP_SLUG ?? process.env.GIT_APP_SLUG;
   if (!slug) return redirect(request, "/workspace?connector=github&status=configuration");
   const state = randomBytes(32).toString("base64url");
   const url = new URL(`https://github.com/apps/${encodeURIComponent(slug)}/installations/new`);

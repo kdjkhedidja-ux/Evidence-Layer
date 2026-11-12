@@ -134,9 +134,9 @@ Google Cloud console: create a Web application OAuth client, add the exact callb
 Environment names only:
 
 ```text
-GITHUB_APP_SLUG             # web; installation URL slug
-GITHUB_APP_ID               # service; App JWT issuer
-GITHUB_APP_PRIVATE_KEY      # service; PEM private key
+GITHUB_APP_SLUG             # web; installation URL slug (alias: GIT_APP_SLUG)
+GITHUB_APP_ID               # service; App JWT issuer (alias: GIT_APP_ID)
+GITHUB_APP_PRIVATE_KEY      # service; full PEM private key (alias: GIT_APP_PRIVATE_KEY)
 NEXT_PUBLIC_GITHUB_CONNECTOR_ENABLED
 ```
 
