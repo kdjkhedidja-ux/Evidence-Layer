@@ -51,9 +51,8 @@ GitHub, Dropbox, Confluence, and Notion exists under
 server-side encrypted token storage, a manual bounded sync into owner-only
 `connector_documents`, and a minimal account UI. It remains **Coming soon**
 until Google OAuth verification. Notion has the same OAuth/manual-sync slice and
-is enabled for personal production use; a live smoke remains pending. GitHub has
-an installation-based read-only App slice in code, gated off until its App is
-configured and smoke-tested. Background
+is enabled for personal production use; a live smoke remains pending. GitHub App installation-based read-only sync is deployed and smoke-tested;
+empty repositories are skipped. Background
 scheduling, ACL mapping, source-snapshot verification, deletion propagation,
 and production deployment are not implemented. Still absent
 are a hosted retrieval/scoring endpoint, source ingestion/publish UI, full

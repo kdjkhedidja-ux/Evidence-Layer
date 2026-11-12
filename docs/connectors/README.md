@@ -2,7 +2,7 @@
 
 Personal-scope decision: see [`personal-connector-scope.md`](personal-connector-scope.md). The first production path is personal-only; no shared/group document ingestion.
 
-Status: **Notion personal OAuth/manual-sync is deployed to production; Google Drive remains Coming soon.** Migration 41 is applied, the Evidence Service connector routes are live, and the Notion web flag is enabled. A live Notion connect/sync/disconnect smoke is still required. Google Drive is gated off pending Google OAuth verification. The slice includes OAuth connect/callback, app-level encrypted token storage, a manual bounded sync, connector-document storage, and a minimal Connect/Sync UI. Migration `20261111190000` is applied in production for the connector tables. Background scheduling, ACL mapping, source-snapshot verification, deletion propagation, and production rollout are not yet implemented.
+Status: **Notion personal OAuth/manual-sync and GitHub App installation sync are deployed; Google Drive remains Coming soon.** Migrations 41 and 42 are applied, the Evidence Service connector routes are live, and the Notion/GitHub web flags are enabled. A live Notion connect/sync/disconnect smoke is still required. Google Drive is gated off pending Google OAuth verification. The slice includes OAuth connect/callback, app-level encrypted token storage, a manual bounded sync, connector-document storage, and a minimal Connect/Sync UI. Migration `20261111190000` is applied in production for the connector tables. Background scheduling, ACL mapping, source-snapshot verification, deletion propagation, and production rollout are not yet implemented.
 
 Implemented providers:
 
@@ -121,7 +121,7 @@ Google Cloud console: create a Web application OAuth client, add the exact callb
 - Personal-only UI: `NEXT_PUBLIC_NOTION_CONNECTOR_ENABLED` is enabled in production after the 2026-11-11 connector deployment; a live OAuth smoke remains pending. Google Drive remains gated off and shows “Coming soon”.
 - Migration 41 already supports the `notion` provider; no additional schema migration is required.
 
-## GitHub App vertical slice (local)
+## GitHub App vertical slice (deployed)
 
 - Auth: **GitHub App installation**, not a broad OAuth `repo` token. The installation token is minted server-side and never stored.
 - Required App permissions: **Contents: read**, **Metadata: read**. Installation scope can be all repositories or selected repositories.
@@ -129,7 +129,7 @@ Google Cloud console: create a Web application OAuth client, add the exact callb
 - Start URL: `/api/connectors/github/start` redirects to the App's installation page with a state cookie.
 - The service stores `provider_config={"installation_id": ...}`; no user access token is persisted.
 - Sync lists the installation's repositories and ingests bounded README/code files from selected repositories (up to 5 repositories, 25 documents, 2 MiB per file).
-- UI is gated by `NEXT_PUBLIC_GITHUB_CONNECTOR_ENABLED` and defaults off/Coming soon.
+- UI is enabled by `NEXT_PUBLIC_GITHUB_CONNECTOR_ENABLED` in production; empty repositories and unavailable trees are skipped without failing the sync.
 
 Environment names only:
 
@@ -140,7 +140,7 @@ GITHUB_APP_PRIVATE_KEY      # service; full PEM private key (alias: GIT_APP_PRIV
 NEXT_PUBLIC_GITHUB_CONNECTOR_ENABLED
 ```
 
-GitHub App setup: create a GitHub App, set the callback/setup URL, grant Contents: read + Metadata: read, install it on a test repository, then enable the UI flag after a live connect/sync/disconnect smoke. No Marketplace listing is required.
+GitHub App setup is complete for the current production App. Empty repositories are skipped; install on a non-empty repository to ingest README/code documents. No Marketplace listing is required.
 
 ## Required next layer (not implemented)
 

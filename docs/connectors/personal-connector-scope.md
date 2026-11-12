@@ -12,7 +12,7 @@ Decision: **personal connector only** for the first production path.
 
 This is intentionally narrower than an enterprise connector. It does not claim shared-workspace evidence ingestion.
 
-Next connectors: **Notion** (public OAuth/page picker) and **GitHub** (GitHub App installation with Contents: read). Each user authorizes their own workspace/repositories; app-level credentials are not user credentials.
+Implemented personal connectors: **Notion** (public OAuth/page picker) and **GitHub** (GitHub App installation with Contents: read). Each user authorizes their own workspace/repositories; app-level credentials are not user credentials. **Google Drive remains Coming soon.**
 
 ## Current readiness
 
