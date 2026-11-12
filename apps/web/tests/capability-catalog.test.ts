@@ -44,11 +44,11 @@ describe("workspace capability catalog contract", () => {
 
   it("uses only the approved status vocabulary and real existing destinations", () => {
     const existingDestinations = new Set([
-      "/workspace#workspace-session",
-      "/workspace#account-profile",
+      "/?account=1#account-panel",
+      "/?account=1#account-profile",
+      "/?account=1#account-session-title",
       "/workspace#personal-api-keys",
       "/workspace#membership-heading",
-      "/workspace#session-management",
       "/mfa",
       "/?account=1#account-organization-title",
       "/#explorer",

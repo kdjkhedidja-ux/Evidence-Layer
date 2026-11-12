@@ -122,10 +122,10 @@ describe("workspace product console", () => {
     const catalog = screen.getByRole("region", { name: "Capability Catalog" });
     const links = within(catalog).getAllByRole("link");
     const existingDestinations = new Set([
-      "/workspace#workspace-session",
-      "/workspace#account-profile",
       "/workspace#membership-heading",
-      "/workspace#session-management",
+      "/?account=1#account-panel",
+      "/?account=1#account-profile",
+      "/?account=1#account-session-title",
       "/mfa",
       "/?account=1#account-organization-title",
       "/#explorer",
@@ -190,23 +190,12 @@ describe("workspace product console", () => {
     expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
   });
 
-  it("shows the verified session expiry and signs out every session", async () => {
-    mocks.signOut.mockResolvedValue({ error: null });
-    render(
-      <WorkspaceConsole
-        userId={USER_ID}
-        email="reader@example.test"
-        sessionExpiresAt={1893456000}
-      />,
-    );
+  it("keeps account profile and session controls out of the workspace page", async () => {
+    render(<WorkspaceConsole userId={USER_ID} email="reader@example.test" />);
     await screen.findByText("Current workspace evidence");
-    expect(screen.getByRole("heading", { name: "Session" })).toBeInTheDocument();
-    expect(screen.getByText(/Session expires:/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Sign out everywhere" }));
-    await waitFor(() => {
-      expect(mocks.signOut).toHaveBeenCalledWith({ scope: "global" });
-    });
-    expect(mocks.router.replace).toHaveBeenCalledWith("/login?reason=signed-out");
+    expect(screen.queryByRole("heading", { name: "Account profile", level: 2 })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Sign out everywhere" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Session", level: 2 })).not.toBeInTheDocument();
   });
 
   it("creates evidence using the current selected workspace path", async () => {

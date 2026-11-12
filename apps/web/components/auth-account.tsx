@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import AccountProfile from "../app/workspace/account-profile";
 import { createSupabaseBrowserClient } from "../lib/supabase/client";
 import { deletionRequestsEnabled as resolveDeletionRequestsEnabled } from "../lib/deletion-flag";
 import { accountExportEnabled as resolveAccountExportEnabled } from "../lib/export-flag";
@@ -43,6 +44,8 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
   const [exportJob, setExportJob] = useState<{ export_id: string; expires_at: string | null; grant_token: string | null } | null>(null);
   const [exportPending, setExportPending] = useState(false);
   const [exportMessage, setExportMessage] = useState("");
+  const [sessionPending, setSessionPending] = useState(false);
+  const [sessionMessage, setSessionMessage] = useState("");
   const [lookupId, setLookupId] = useState("");
   const [accountType, setAccountType] = useState<"individual" | "organization">("individual");
   const [organizationName, setOrganizationName] = useState<string | null>(null);
@@ -378,6 +381,24 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
       setPending(false);
     }
   }
+  async function signOutEverywhere() {
+    setSessionPending(true);
+    setSessionMessage("");
+    try {
+      const { error } = await createSupabaseBrowserClient().auth.signOut({ scope: "global" });
+      if (error) {
+        setSessionMessage("Signing out all sessions could not be confirmed. Try again.");
+        return;
+      }
+      router.replace("/login?reason=signed-out");
+      router.refresh();
+    } catch {
+      setSessionMessage("Signing out all sessions could not be confirmed. Try again.");
+    } finally {
+      setSessionPending(false);
+    }
+  }
+
 
   const readDeletionResponse = useCallback(async (response: Response): Promise<DeletionRequestView | null> => {
     let payload: unknown = null;
@@ -657,6 +678,23 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
         </button>
       </div>
       <p className="account-email">{email}</p>
+      <AccountProfile email={email} />
+      <section className="account-deletion" aria-labelledby="account-session-title">
+        <h3 id="account-session-title">Account session</h3>
+        <p className="account-deletion-scope">
+          Signing out everywhere ends every session for this account. Session inventory and
+          per-device management are not available in the current service contract.
+        </p>
+        <div className="account-deletion-actions">
+          <button type="button" onClick={signOutEverywhere} disabled={sessionPending}>
+            {sessionPending ? "Signing out…" : "Sign out everywhere"}
+          </button>
+          <a className="account-secondary-action" href="/mfa?next=%2F%3Faccount%3D1">
+            Manage two-factor authentication
+          </a>
+        </div>
+        {sessionMessage && <p className="account-message" role="alert">{sessionMessage}</p>}
+      </section>
       {state === "loading" && <p role="status">Checking workspace access…</p>}
       {state === "expired" && (
         <p role="alert">Your session expired. <a href="/login?reason=session-expired">Sign in again</a>.</p>

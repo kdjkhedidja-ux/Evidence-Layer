@@ -37,7 +37,6 @@ export default async function WorkspacePage() {
     <WorkspaceConsole
       userId={auth.user.id}
       email={auth.user.email ?? "Account"}
-      sessionExpiresAt={auth.expiresAt}
     />
   );
 }
