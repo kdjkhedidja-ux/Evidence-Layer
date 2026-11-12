@@ -135,6 +135,8 @@ select json_build_object('id', external_id, 'text', content_text)
 
 Queries file: one `{"query":"..."}` object per line. The report compares the full corpus token size with the selected API context size. The included fixture report is a harness smoke test, not a production GitHub measurement.
 
+A/B token report: [`el-vs-baseline-deepseek-tokens-2026-11-12.md`](../operations/el-vs-baseline-deepseek-tokens-2026-11-12.md).
+
 ## Enablement/config notes
 
 - Service flag: `EVIDENCE_RETRIEVE_API_ENABLED=true` (default false; endpoint returns 404 while disabled).
