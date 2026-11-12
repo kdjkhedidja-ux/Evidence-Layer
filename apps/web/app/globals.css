@@ -4832,3 +4832,16 @@ p, li {
 .workspace-form-actions button:not([type="submit"]):hover:not(:disabled) {
   border-color: var(--accent-color);
 }
+
+/* Account panel embeds the profile as a compact account section. */
+.account-panel .account-profile {
+  padding: 10px 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.account-panel .account-profile h2 {
+  font-size: 1rem;
+}

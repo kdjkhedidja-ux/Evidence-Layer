@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { createSupabaseBrowserClient } from "../../lib/supabase/client";
-import AccountProfile from "./account-profile";
 import ConnectorSources from "../../components/connector-sources";
 import PersonalApiKeys from "./personal-api-keys";
 import { CAPABILITY_GROUPS } from "./capability-catalog";
@@ -61,11 +60,9 @@ function formatBytes(value: number): string {
 export default function WorkspaceConsole({
   userId,
   email,
-  sessionExpiresAt = null,
 }: {
   userId: string;
   email: string;
-  sessionExpiresAt?: number | null;
 }) {
   const router = useRouter();
   const [loadState, setLoadState] = useState<LoadState>("loading");
@@ -74,7 +71,6 @@ export default function WorkspaceConsole({
   const [records, setRecords] = useState<EvidenceRecord[]>([]);
   const [recordsState, setRecordsState] = useState<LoadState>("ready");
   const [message, setMessage] = useState("");
-  const [sessionMessage, setSessionMessage] = useState("");
   const [pending, setPending] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteConfirmationId, setDeleteConfirmationId] = useState<string | null>(null);
@@ -453,28 +449,7 @@ export default function WorkspaceConsole({
     }
   }
 
-  async function signOutEverywhere() {
-    setPending(true);
-    setSessionMessage("");
-    try {
-      const { error } = await createSupabaseBrowserClient().auth.signOut({ scope: "global" });
-      if (error) {
-        setSessionMessage("Signing out all sessions could not be confirmed. Try again.");
-        return;
-      }
-      router.replace("/login?reason=signed-out");
-      router.refresh();
-    } catch {
-      setSessionMessage("Signing out all sessions could not be confirmed. Try again.");
-    } finally {
-      setPending(false);
-    }
-  }
 
-  const sessionExpiryIso = sessionExpiresAt
-    ? new Date(sessionExpiresAt * 1000).toISOString()
-    : null;
-  const sessionExpiry = sessionExpiryIso ? dateLabel(sessionExpiryIso) : null;
 
   return (
     <main className="workspace-page">
@@ -572,41 +547,10 @@ export default function WorkspaceConsole({
           )}
         </section>
 
-        <AccountProfile email={email} />
 
         <PersonalApiKeys workspaces={workspaces} />
 
         <ConnectorSources />
-
-        <section id="session-management" className="workspace-panel" aria-labelledby="session-heading">
-          <div className="workspace-section-heading">
-            <div>
-              <p className="eyebrow">Verified browser session</p>
-              <h2 id="session-heading">Session</h2>
-            </div>
-            <span className="workspace-role">Server verified</span>
-          </div>
-          <p className="workspace-note">
-            Supabase Auth verified this session server-side before workspace data was returned.
-            Session inventory and per-device management are not available in the current service
-            contract. Signing out everywhere ends every session for this account.
-          </p>
-          {sessionExpiry && sessionExpiryIso && (
-            <p>
-              <strong>Session expires:</strong>{" "}
-              <time dateTime={sessionExpiryIso}>{sessionExpiry}</time>
-            </p>
-          )}
-          <div className="workspace-form-actions">
-            <button type="button" onClick={signOutEverywhere} disabled={pending}>
-              {pending ? "Signing out…" : "Sign out everywhere"}
-            </button>
-            <Link className="workspace-secondary-action" href="/mfa?next=%2Fworkspace">
-              Manage two-factor authentication
-            </Link>
-          </div>
-          {sessionMessage && <p className="workspace-message" role="alert">{sessionMessage}</p>}
-        </section>
 
         {selectedWorkspace && (
           <section className="workspace-panel" aria-labelledby="records-heading">

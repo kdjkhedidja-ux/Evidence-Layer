@@ -32,6 +32,19 @@ describe("authenticated workspace controls", () => {
     mocks.onAuthStateChange.mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } });
   });
 
+  it("shows account profile and session controls in the account panel", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        Response.json({ user_id: "user-a", workspaces: [] }),
+      ),
+    );
+    render(<AuthAccount userId="user-a" email="a@example.test" />);
+    expect(screen.getByRole("heading", { name: "Account profile" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sign out everywhere" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Manage two-factor authentication" })).toBeInTheDocument();
+  });
+
   it("reports an expired service session without exposing response details", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: "secret detail" }), { status: 401 })));
     render(<AuthAccount userId="user-a" email="a@example.test" />);

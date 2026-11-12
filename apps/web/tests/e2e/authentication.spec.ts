@@ -139,7 +139,7 @@ test("account panel signs out cleanly before a different synthetic account signs
   await expect(accountPanel).toBeVisible();
   await expect(accountPanel.getByText(email, { exact: true })).toBeVisible();
   await expect(accountPanel.getByText(accounts[0].workspace.name, { exact: true })).toBeVisible();
-  await accountPanel.getByRole("button", { name: "Sign out" }).click();
+  await accountPanel.getByRole("button", { name: "Sign out", exact: true }).click();
   await expect(page).toHaveURL("http://localhost:3000/login?reason=signed-out");
   await expect(page.getByRole("status")).toContainText("You have been signed out.");
 

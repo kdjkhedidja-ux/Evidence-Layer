@@ -97,13 +97,12 @@ export default function AccountProfile({ email }: { email: string }) {
   }
 
   return (
-    <section id="account-profile" className="workspace-panel" aria-labelledby="account-profile-heading">
+    <section id="account-profile" className="workspace-panel account-profile" aria-labelledby="account-profile-heading">
       <div className="workspace-section-heading">
         <div>
           <p className="eyebrow">Account settings</p>
           <h2 id="account-profile-heading">Account profile</h2>
         </div>
-        <span className="workspace-role">{email}</span>
       </div>
 
       <form className="workspace-form" onSubmit={changeEmail}>
