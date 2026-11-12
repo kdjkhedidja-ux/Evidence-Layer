@@ -142,6 +142,10 @@ NEXT_PUBLIC_GITHUB_CONNECTOR_ENABLED
 
 GitHub App setup is complete for the current production App. Empty repositories are skipped; install on a non-empty repository to ingest README/code documents. No Marketplace listing is required.
 
+## API-key retrieval and MCP
+
+See [`api-retrieval-mcp.md`](api-retrieval-mcp.md) for the retrieve/get-document endpoints, MCP server, curl examples, and the token-reduction harness.
+
 ## Required next layer (not implemented)
 
 1. **OAuth applications + callback routes** for Dropbox, Atlassian, and GitHub; Google verification and Notion Marketplace listing are separate optional tracks.

@@ -257,6 +257,52 @@ class SupabasePersonalApiKeyRepository:
         items, next_cursor = self._page(records, limit)
         return PersonalApiKeyPage(items=items, next_cursor=next_cursor)
 
+    async def read_evidence_document(
+        self,
+        *,
+        key_id: UUID,
+        key_hash: str,
+        workspace_id: UUID,
+        evidence_id: UUID,
+    ) -> EvidenceRecord | None:
+        secret = self._settings.personal_api_key_gateway_secret
+        if secret is None:
+            raise PersonalApiKeyDataUnavailable
+        timestamp = int(time.time())
+        nonce = uuid4()
+        proof = gateway_signature(
+            secret,
+            resource="evidence",
+            key_id=key_id,
+            workspace_id=workspace_id,
+            key_hash=key_hash,
+            timestamp=timestamp,
+            nonce=nonce,
+            limit=1,
+            cursor_created_at=None,
+            cursor_id=None,
+        )
+        response = await self._request(
+            "POST",
+            "rpc/read_personal_api_key_evidence_document",
+            json={
+                "p_key_id": str(key_id),
+                "p_workspace_id": str(workspace_id),
+                "p_evidence_id": str(evidence_id),
+            },
+            headers={
+                "x-evidence-api-key-hash": key_hash,
+                "x-evidence-api-key-gateway-timestamp": str(timestamp),
+                "x-evidence-api-key-gateway-nonce": str(nonce),
+                "x-evidence-api-key-gateway-proof": proof,
+            },
+        )
+        payload = self._json_list(response)
+        records = SupabaseEvidenceRepository._parse_rows(
+            httpx.Response(200, json=payload), workspace_id
+        )
+        return records[0] if records else None
+
     async def read_relationships(
         self,
         *,

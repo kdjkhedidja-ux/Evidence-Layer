@@ -46,6 +46,8 @@ def test_service_routes_are_limited_and_docs_are_disabled() -> None:
         ("POST", "/v1/connectors/google_drive/connection"),
         ("POST", "/v1/connectors/notion/connection"),
         ("POST", "/v1/connectors/github/connection"),
+        ("POST", "/v1/personal-api-keys/workspaces/{workspace_id}/retrieve"),
+        ("GET", "/v1/personal-api-keys/workspaces/{workspace_id}/evidence/{evidence_id}"),
         ("GET", "/v1/connectors"),
         ("DELETE", "/v1/connectors/{connection_id}"),
         ("POST", "/v1/connectors/{connection_id}/sync"),
