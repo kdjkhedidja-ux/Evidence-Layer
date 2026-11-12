@@ -1,6 +1,6 @@
 # API-key retrieval, MCP, and token-reduction harness
 
-Status: **implemented; disabled by default in production** via `EVIDENCE_RETRIEVE_API_ENABLED=true`.
+Status: **implemented and enabled in production on 2026-11-12** with `EVIDENCE_RETRIEVE_API_ENABLED=true`. A synthetic workspace smoke returned selected evidence and `get_document` 200; the test account was purged afterward.
 
 ## Retrieval endpoint
 

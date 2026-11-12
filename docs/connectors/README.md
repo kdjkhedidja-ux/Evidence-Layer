@@ -144,7 +144,7 @@ GitHub App setup is complete for the current production App. Empty repositories 
 
 ## API-key retrieval and MCP
 
-See [`api-retrieval-mcp.md`](api-retrieval-mcp.md) for the retrieve/get-document endpoints, MCP server, curl examples, and the token-reduction harness.
+See [`api-retrieval-mcp.md`](api-retrieval-mcp.md) for the enabled retrieve/get-document endpoints, MCP server, curl examples, and the token-reduction harness.
 
 ## Required next layer (not implemented)
 
