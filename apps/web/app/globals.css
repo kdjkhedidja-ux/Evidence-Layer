@@ -4798,3 +4798,37 @@ p, li {
   border-radius: var(--button-radius);
   font-size: 12px;
 }
+
+.workspace-form-actions > a.workspace-secondary-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--button-height);
+  padding: 0 12px;
+  border: 1px solid var(--border-control-color);
+  border-radius: var(--button-radius);
+  background: var(--bg-secondary);
+  color: var(--text-main);
+  font-size: var(--button-font-size);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.workspace-form-actions > a.workspace-secondary-action:hover {
+  border-color: var(--accent-color);
+}
+
+.workspace-form-actions button:not([type="submit"]) {
+  min-height: var(--button-height);
+  padding: 0 12px;
+  border: 1px solid var(--border-control-color);
+  border-radius: var(--button-radius);
+  background: var(--bg-secondary);
+  color: var(--text-main);
+  font-size: var(--button-font-size);
+  cursor: pointer;
+}
+
+.workspace-form-actions button:not([type="submit"]):hover:not(:disabled) {
+  border-color: var(--accent-color);
+}
