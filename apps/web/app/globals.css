@@ -4734,3 +4734,67 @@ p, li {
     transition: none;
   }
 }
+
+/* Button consistency: same control height within a surface, green for positive
+   confirmation actions, neutral for secondary/administrative actions. */
+:root {
+  --button-height: 36px;
+  --button-height-primary: 44px;
+  --button-font-size: 12px;
+  --button-font-size-primary: 13px;
+  --button-radius: 6px;
+}
+
+.auth-submit,
+.account-action,
+.workspace-form button[type="submit"],
+.workspace-source-form button,
+.workspace-empty button,
+.account-organization-form button[type="submit"] {
+  min-height: var(--button-height-primary);
+  padding: 0 16px;
+  border-radius: var(--button-radius);
+  border-color: var(--accent-color);
+  background: var(--accent-color);
+  color: var(--bg-secondary);
+  font-size: var(--button-font-size-primary);
+  font-weight: 650;
+}
+
+.account-panel button:not(.account-action):not(.account-signout),
+.account-deletion-actions > a,
+.account-deletion-actions > span,
+.workspace-user button,
+.workspace-record-actions button,
+.workspace-form button:not([type="submit"]),
+.api-key-list button,
+.api-key-token button,
+.organization-members li button,
+.organization-workspaces li button {
+  min-height: var(--button-height);
+  padding: 0 12px;
+  border-radius: var(--button-radius);
+  font-size: var(--button-font-size);
+}
+
+.live-row-actions button,
+.live-edit-form button,
+.live-relationship-form button,
+.live-secondary-button,
+.live-source-row button,
+.live-account-button {
+  min-height: 30px;
+  padding: 0 9px;
+  border-radius: var(--button-radius);
+  font-size: 11px;
+}
+
+.relationship-canvas-controls button,
+.relationship-canvas-actions button,
+.live-dialog-close {
+  min-height: 32px;
+  min-width: 32px;
+  padding: 0 8px;
+  border-radius: var(--button-radius);
+  font-size: 12px;
+}
