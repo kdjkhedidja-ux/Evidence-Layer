@@ -254,6 +254,12 @@
       "version": "20261111200000",
       "sha256": "33165ed9a54c0dcf512134520dc5a029d0994dcf6b778b8691f9844d9666aa0e",
       "provenance": "Add provider_config and nullable user-token storage for GitHub App installation-based connector connections."
+    },
+    {
+      "file": "20261112120000_personal_api_key_evidence_document.sql",
+      "version": "20261112120000",
+      "sha256": "20e9d241ec2fd350273d99727e6281830aac3e73ea6563f5b6742ea5eb69189b",
+      "provenance": "Add a workspace/lifecycle-scoped API-key RPC for single evidence document reads used by MCP get_document."
     }
   ]
 }

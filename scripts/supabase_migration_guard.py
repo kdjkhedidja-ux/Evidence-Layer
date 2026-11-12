@@ -79,6 +79,7 @@ V_ORG_WORKSPACE_PURGE = "20261111120000"
 V_IDEMPOTENT_PREPARE = "20261111150000"
 V_PHASE8_EXPORT = "20261111180000"
 V_CONNECTORS = "20261111190000"
+V_API_KEY_DOCUMENT = "20261112120000"
 
 VERSION_RE = re.compile(r"^[0-9]{14}_[a-z0-9_]+\.sql$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -580,6 +581,7 @@ def expected_catalog(versions: list[str]) -> dict:
     idempotent_prepare = V_IDEMPOTENT_PREPARE in present
     phase8_export = V_PHASE8_EXPORT in present
     connectors = V_CONNECTORS in present
+    api_key_document = V_API_KEY_DOCUMENT in present
     source = V_SOURCE_CATALOG in present
     storage = V_SNAPSHOT_STORAGE in present
     verifier = V_VERIFIER_IDENTITY in present
@@ -1069,6 +1071,8 @@ def expected_catalog(versions: list[str]) -> dict:
             "public.update_organization_member_role",
             "public.remove_organization_member",
         })
+    if api_key_document:
+        functions.add("public.read_personal_api_key_evidence_document")
     if api_keys:
         functions.update({
             "public.create_personal_api_key",

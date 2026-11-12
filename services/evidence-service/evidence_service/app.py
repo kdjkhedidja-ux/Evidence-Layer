@@ -73,6 +73,7 @@ from evidence_service.relationship_repository import (
     RelationshipRepository,
     SupabaseRelationshipRepository,
 )
+from evidence_service.retrieval_service import RetrievalSelection, select_evidence
 from evidence_service.personal_api_key_repository import (
     PersonalApiKeyAccessDenied,
     PersonalApiKeyDataUnavailable,
@@ -393,6 +394,44 @@ class PersonalApiKeyCreatedResponse(PersonalApiKeyResponse):
 class PersonalApiKeyRevocationResponse(BaseModel):
     id: UUID
     revoked: bool
+
+
+
+class PersonalApiKeyRetrieveRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    query: str = Field(min_length=1, max_length=2000)
+    top_k: int = Field(default=5, ge=1, le=20)
+    max_tokens: int = Field(default=1200, ge=1, le=8000)
+    max_chars: int = Field(default=6000, ge=1, le=40000)
+    candidate_limit: int = Field(default=50, ge=1, le=100)
+
+
+class PersonalApiKeyRetrievedItem(BaseModel):
+    evidence_id: UUID
+    content: str
+    source_label: str | None
+    source_id: UUID | None
+    source_version_id: UUID | None
+    score: float
+    token_count: int
+    char_count: int
+
+
+class PersonalApiKeyRetrieveResponse(BaseModel):
+    status: str
+    query: str
+    workspace_id: UUID
+    top_k: int
+    max_tokens: int
+    max_chars: int
+    candidate_count: int
+    selected_count: int
+    used_tokens: int
+    used_chars: int
+    token_estimator: str
+    scoring_provider: str
+    evidence: list[PersonalApiKeyRetrievedItem]
 
 
 class PersonalApiKeyEvidencePage(BaseModel):
@@ -973,6 +1012,7 @@ def create_app(
     evidence_repository: EvidenceRepository | None = None,
     relationship_repository: RelationshipRepository | None = None,
     personal_api_key_repository: SupabasePersonalApiKeyRepository | None = None,
+    retrieval_enabled: bool | None = None,
     deletion_repository: DeletionRepository | None = None,
     export_repository: SupabaseExportRepository | None = None,
     connector_repository: ConnectorRepository | None = None,
@@ -999,6 +1039,11 @@ def create_app(
     application.state.evidence_repository = evidence_repository
     application.state.relationship_repository = relationship_repository
     application.state.personal_api_key_repository = personal_api_key_repository
+    application.state.retrieval_enabled = (
+        retrieval_enabled
+        if retrieval_enabled is not None
+        else os.environ.get("EVIDENCE_RETRIEVE_API_ENABLED") == "true"
+    )
     application.state.deletion_repository = deletion_repository
     application.state.export_repository = export_repository
     application.state.connector_repository = connector_repository
@@ -1731,6 +1776,112 @@ def create_app(
             items=[RelationshipResponse.model_validate(item) for item in page.items],
             next_cursor=page.next_cursor,
         )
+
+
+    @application.post(
+        "/v1/personal-api-keys/workspaces/{workspace_id}/retrieve",
+        response_model=PersonalApiKeyRetrieveResponse,
+    )
+    async def retrieve_with_personal_api_key(
+        workspace_id: UUID,
+        payload: PersonalApiKeyRetrieveRequest,
+        request: Request,
+        parsed_key: tuple[UUID, str] = Depends(require_personal_api_key),
+    ) -> PersonalApiKeyRetrieveResponse:
+        if not request.app.state.retrieval_enabled:
+            raise HTTPException(status_code=404, detail="Retrieval API is not enabled")
+        await _require_recovery_fence_open(request)
+        key_id, key_hash = parsed_key
+        try:
+            page = await _personal_api_key_repository(request).read_evidence(
+                key_id=key_id,
+                key_hash=key_hash,
+                workspace_id=workspace_id,
+                limit=payload.candidate_limit,
+                cursor_created_at=None,
+                cursor_id=None,
+            )
+        except PersonalApiKeyAccessDenied as exc:
+            raise HTTPException(status_code=401, detail="Personal API key is invalid or revoked") from exc
+        except PersonalApiKeyRateLimited as exc:
+            raise HTTPException(
+                status_code=429,
+                detail="Personal API key rate limit exceeded",
+                headers={"Retry-After": "60"},
+            ) from exc
+        except PersonalApiKeyDataUnavailable as exc:
+            raise HTTPException(status_code=503, detail="Personal API key service is unavailable") from exc
+
+        records = [item for item in page.items if hasattr(item, "content")]
+        result: RetrievalSelection = select_evidence(
+            records,
+            query=payload.query,
+            top_k=payload.top_k,
+            max_tokens=payload.max_tokens,
+            max_chars=payload.max_chars,
+        )
+        return PersonalApiKeyRetrieveResponse(
+            status=result.status,
+            query=payload.query,
+            workspace_id=workspace_id,
+            top_k=payload.top_k,
+            max_tokens=payload.max_tokens,
+            max_chars=payload.max_chars,
+            candidate_count=result.candidate_count,
+            selected_count=len(result.selected),
+            used_tokens=result.used_tokens,
+            used_chars=result.used_chars,
+            token_estimator=result.token_estimator,
+            scoring_provider="lexical_stopword_filtered",
+            evidence=[
+                PersonalApiKeyRetrievedItem(
+                    evidence_id=item.record.id,
+                    content=item.record.content,
+                    source_label=item.record.source_label,
+                    source_id=item.record.source_id,
+                    source_version_id=item.record.source_version_id,
+                    score=item.score,
+                    token_count=item.token_count,
+                    char_count=item.char_count,
+                )
+                for item in result.selected
+            ],
+        )
+
+    @application.get(
+        "/v1/personal-api-keys/workspaces/{workspace_id}/evidence/{evidence_id}",
+        response_model=EvidenceResponse,
+    )
+    async def read_evidence_document_with_personal_api_key(
+        workspace_id: UUID,
+        evidence_id: UUID,
+        request: Request,
+        parsed_key: tuple[UUID, str] = Depends(require_personal_api_key),
+    ) -> EvidenceResponse:
+        if not request.app.state.retrieval_enabled:
+            raise HTTPException(status_code=404, detail="Retrieval API is not enabled")
+        await _require_recovery_fence_open(request)
+        key_id, key_hash = parsed_key
+        try:
+            record = await _personal_api_key_repository(request).read_evidence_document(
+                key_id=key_id,
+                key_hash=key_hash,
+                workspace_id=workspace_id,
+                evidence_id=evidence_id,
+            )
+        except PersonalApiKeyAccessDenied as exc:
+            raise HTTPException(status_code=401, detail="Personal API key is invalid or revoked") from exc
+        except PersonalApiKeyRateLimited as exc:
+            raise HTTPException(
+                status_code=429,
+                detail="Personal API key rate limit exceeded",
+                headers={"Retry-After": "60"},
+            ) from exc
+        except PersonalApiKeyDataUnavailable as exc:
+            raise HTTPException(status_code=503, detail="Personal API key service is unavailable") from exc
+        if record is None:
+            raise HTTPException(status_code=404, detail="Evidence document not found")
+        return EvidenceResponse.model_validate(record)
 
     @application.post(
         "/v1/me/organization",

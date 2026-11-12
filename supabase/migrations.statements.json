@@ -4433,6 +4433,27 @@
       "line": 6,
       "verb": "alter table",
       "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "88eddca61a4de767",
+      "file": "20261112120000_personal_api_key_evidence_document.sql",
+      "line": 2,
+      "verb": "create function",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "248a0f869639d633",
+      "file": "20261112120000_personal_api_key_evidence_document.sql",
+      "line": 36,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "710a3ea1de3cce44",
+      "file": "20261112120000_personal_api_key_evidence_document.sql",
+      "line": 38,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
     }
   ]
 }

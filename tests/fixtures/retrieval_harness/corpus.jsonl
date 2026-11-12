@@ -1,0 +1,5 @@
+{"id":"doc-1","text":"Evidence Layer uses lexical retrieval to select bounded context for AI agents."}
+{"id":"doc-2","text":"GitHub connector syncs selected repositories into workspace evidence documents."}
+{"id":"doc-3","text":"Personal API keys are workspace-scoped, lifecycle-gated, read-only credentials."}
+{"id":"doc-4","text":"The connector store keeps documents private to the account owner."}
+{"id":"doc-5","text":"Unrelated cooking notes should not be selected for engineering queries."}
