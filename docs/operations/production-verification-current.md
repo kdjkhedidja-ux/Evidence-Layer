@@ -15,13 +15,13 @@ Related documents:
 
 | Area | Current state | How verified |
 |---|---|---|
-| Web deployment | Vercel project `evidence-layer`; production deployment `dpl_DLUo6MBYJ8yFcFRu86msQesL9Q1T` is `READY`; `https://evidencelayer.dev/` returns HTTP 200; deletion and export flags are `true` | Vercel deployments/env API and HTTP probe |
+| Web deployment | Vercel project `evidence-layer`; production deployment `dpl_4irkpM6cm3rUQ6UkP3egH73LhgTs` is `READY`; `https://evidencelayer.dev/` returns HTTP 200; deletion/export/Notion flags are `true`; Google Drive flag is off | Vercel deployments/env API and HTTP probe |
 | Deletion flag | `NEXT_PUBLIC_DELETION_REQUESTS_ENABLED=true` in production/preview/development; code default remains off unless exactly `"true"` | Vercel project env API; `apps/web/lib/deletion-flag.ts` |
 | Kill switch | Set the flag to `false` (or remove it), redeploy the web app, then check the worker before re-enabling | `ENVIRONMENT_AND_SECRETS.md` and worker runbook |
-| Migrations | 40 applied in production; latest `20261111180000`; repository has 41 with the local connector migration `20261111190000` not applied; production pending=0 | Supabase migration API plus `supabase db push --linked --dry-run` |
+| Migrations | 41 applied in production; latest `20261111190000`; pending=0 | Supabase migration API plus `supabase db push --linked --dry-run` |
 | Deletion requests | 23 `purged`, 8 `approval_pending`, 0 `journal_ack_pending`, 0 `accepted`, 0 `purge_pending`, 0 `purge_failed` | Read-only SQL over `public.data_deletion_requests` |
 | Storage cleanup queue | 0 pending, 1 completed | Read-only SQL over `public.data_deletion_storage_queue` |
-| Evidence Service | Railway service `Evidence-Layer`; deployment `44fbb6f2-0e3a-407a-8e20-fc6b6e5b18e6` is `SUCCESS`; source `alimissoum552-a11y/Evidence-Layer`; `/healthz` returns HTTP 200; export routes return 401 without auth | Railway GraphQL API and HTTP probe |
+| Evidence Service | Railway service `Evidence-Layer`; deployment `cbc3ffd3-1fab-49e6-a040-6d19dddb2224` is `SUCCESS`; source `alimissoum552-a11y/Evidence-Layer`; `/healthz` returns HTTP 200; export and connector routes return 401 without auth | Railway GraphQL API and HTTP probe |
 | Provider backup | `pitr_enabled=false`; API-listed provider backups = 0; WALG enabled; R2 logical dump from 2026-11-09 exists with a disposable restore drill | Supabase backups API and restore checklist |
 | Worker deployment | Railway service `evidence-deletion-worker`, environment `production`; deployment `69570e18-4f2f-4707-8685-5b54dc597500` is `SUCCESS`; Dockerfile builder `services/evidence-service/Dockerfile.worker`; start `python -m evidence_service.deletion_worker`; export-cleanup calls observed | Railway GraphQL API and read-only SQL |
 | Worker sizing | Exactly 1 replica; session advisory lock `evidence-layer-deletion-worker` is held in production; no database lease/claim function | Railway service settings and `pg_locks` |
@@ -29,7 +29,7 @@ Related documents:
 | Worker liveness | New-code stale-ack/repair marker observed in `pg_stat_statements`; 53 calls at the time of verification | Read-only SQL |
 | Worker retry behavior | `accepted`/`purge_pending` are retried every interval; `purge_failed` is not auto-retried | `deletion_worker.py` |
 | Deletion healthcheck | Production run returned `status: ok`, no alerts, exit 0 | `python -m evidence_service.deletion_healthcheck` with pooler credential |
-| Connector slices | Google Drive and Notion read-only OAuth/manual-sync code exists locally. Vercel production has the Notion OAuth env (`NOTION_OAUTH_CLIENT_ID`, `NOTION_OAUTH_CLIENT_SECRET`, callback `NOTION_REDIRECT_URI`); both connector UI flags are off/Coming soon. Migration 41 and Evidence Service connector routes are not deployed | `docs/connectors/README.md` |
+| Connector slices | Notion personal OAuth/manual-sync is deployed (migration 41, Evidence Service routes, encrypted token vault, Vercel env/flag). Google Drive remains **Coming soon** behind its off flag until Google verification/deployment. Notion live OAuth smoke is still pending | `docs/connectors/README.md` |
 | Narrowed export (C6/C4) | Deployed to production: migration 40 applied, Evidence Service 44fb live, worker 6957 live with cleanup/lock, Vercel `dpl_DLUo6MBYJ8yFcFRu86msQesL9Q1T` READY, `NEXT_PUBLIC_ACCOUNT_EXPORT_ENABLED=true`; export create/download/revoke smoke passed | `docs/operations/account-export.md` |
 | Historical stuck request | The prior `journal_ack_pending` request was promoted by the new worker and reached `purged` | Deletion request/audit read-only SQL |
 | Smoke evidence | Basic personal request `a5c0b20c-98b4-4b17-9929-13b22af5ed72` and organization/snapshot request `b115a771-197b-4666-9f50-b83cc16b05d1` reached `purged`; Auth lookup 404; workspace/snapshot counts 0 | `DELETION-WORKER-VERIFY-2026-11-11.md` |
@@ -44,7 +44,7 @@ Related documents:
 
 ## Residual risks and explicit non-claims
 
-- **PITR / full backup:** not verified or claimed. Provider PITR is disabled and the API lists 0 provider backups; a private R2 logical `public`/`private` dump from 2026-11-09 exists with a disposable restore drill, but it excludes Auth/Storage and can be stale. See `worker-ops-hardening-2026-11-11.md`.
+- **PITR / full backup:** not verified or claimed. Provider PITR is disabled and the API lists 0 provider backups; a private R2 logical `public`/`private` dump from 2026-11-11 exists with a disposable restore drill (24 tables, 88 policies), but it excludes Auth/Storage and can be stale. See `PRODUCTION-RESTORE-CHECKLIST-2026-11-11.md`.
 - **Deletion absence proof:** database/Storage/Auth paths and smoke evidence are recorded, but provider backups and already-delivered client bytes are outside the claim. Phase 8 is not closed.
 - **Audit retention:** the documented 365-day retention policy is not automated.
 - **Worker concurrency:** no lease/claim function; exactly one replica is mandatory.
@@ -52,4 +52,5 @@ Related documents:
 - **Railway sources are split:** the Evidence Service deploys from `saidzeghidi31-bit/Evidence-Layer`, while the worker deploys from the `alimissoum552-a11y/Evidence-Layer` mirror. Future changes must be mirrored or Railway must be connected consistently to one reviewed repository.
 - **Secret rotation:** the worker holds privileged `DATABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`; rotation and custody are not evidenced in this record.
 - **Export deployment:** the narrowed account/personal export is deployed with flag `true` after a passing production create/download/revoke smoke. Shared/group export remains unavailable.
+- **Connector deployment:** Notion is enabled for personal OAuth use; a live Notion connect/sync/disconnect smoke is still required. Google Drive is not exposed and remains Coming soon.
 - **Phase 8:** C4/C6 are deployed for account/personal scope, and C8 is closed for the narrowed scope with a production smoke. C3 shared-workspace approvals, full C5 absence proof, C7 provider restore reconciliation, and the original full Phase 8 scope remain open/deferred. External WORM journal remains out of scope per ADR 0009.

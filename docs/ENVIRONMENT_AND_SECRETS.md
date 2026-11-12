@@ -102,7 +102,8 @@ local Mailpit results do not establish hosted SMTP delivery.
 | `EVIDENCE_SERVICE_URL` | Server-only | Evidence Service base URL used by same-origin Next.js route handlers |
 | `NEXT_PUBLIC_DELETION_REQUESTS_ENABLED` | Public | Enables the account deletion panel. Defaults to disabled. Set it to exactly `true` only after the target database has the deletion migrations, the account-deletion worker is deployed and observed draining requests, and a test-account accept-to-purged smoke passes. |
 | `NEXT_PUBLIC_ACCOUNT_EXPORT_ENABLED` | Public | Enables the account/personal export UI. Defaults to disabled. Production is `true` after the 2026-11-11 export/download/revoke smoke; set it to exactly `true` only after migration `20261111180000`, Evidence Service export routes, BFF routes, and that smoke are in place. |
-| `NEXT_PUBLIC_GOOGLE_DRIVE_CONNECTOR_ENABLED` | Public | Enables the Google Drive Connect UI. Defaults to disabled and displays “Coming soon”. Set to exactly `true` only after the connector migration, service/BFF deployment, Google OAuth client, and a live connect/sync/disconnect smoke pass. |
+| `NEXT_PUBLIC_GOOGLE_DRIVE_CONNECTOR_ENABLED` | Public | Enables the Google Drive Connect UI. Defaults to disabled and displays “Coming soon”. Google Drive remains off until Google OAuth verification, deployment, and a live smoke pass. |
+| `NEXT_PUBLIC_NOTION_CONNECTOR_ENABLED` | Public | Enables the Notion Connect UI. Production is `true` after the 2026-11-11 Notion connector deployment; a live connect/sync/disconnect smoke is still required. |
 
 Copy placeholders from `apps/web/.env.example`. The Resend SMTP password is
 not an application variable. The service keeps its separate required JWT and

@@ -20,8 +20,8 @@ Next connector: **Notion**, using a public OAuth connection and page picker. Eac
 |---|---|---|
 | Internal demo / test users | Yes, with a test OAuth client | Keep the OAuth app in testing mode and use explicit test users. |
 
-At launch, set `NEXT_PUBLIC_GOOGLE_DRIVE_CONNECTOR_ENABLED` to `true` only after verification and deployment; otherwise the UI shows **Google Drive · Coming soon**.
-| Public multi-user launch | No | Google restricted-scope verification and background sync/deletion work are still required. |
+Notion is enabled for personal OAuth use. Google Drive is gated off and shows **Google Drive · Coming soon** until verification and deployment.
+| Public multi-user launch | Notion personal: enabled; Google Drive: no | Notion OAuth is deployed; Google restricted-scope verification and background sync/deletion work are still required. |
 | Company/shared workspace | No | Requires organization connector, admin consent, shared-drive selection, ACL mapping, and audit. |
 
 ## What is already enforced
