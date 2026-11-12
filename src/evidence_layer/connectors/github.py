@@ -104,7 +104,8 @@ class GitHubConnector:
         header_type = response.headers.get("content-type", "").split(";")[0].strip()
         content_type = (
             item.mime_type
-            if item.mime_type and header_type in ("", "application/octet-stream")
+            if item.mime_type
+            and header_type in ("", "application/octet-stream", "application/vnd.github.raw")
             else header_type or item.mime_type or "application/octet-stream"
         )
         return ConnectorDocument.build(
