@@ -4845,3 +4845,35 @@ p, li {
 .account-panel .account-profile h2 {
   font-size: 1rem;
 }
+
+.workspace-id-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.workspace-id-row code {
+  padding: 4px 7px;
+  border: 1px solid var(--border-control-color);
+  border-radius: 5px;
+  background: var(--bg-secondary);
+  color: var(--text-main);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.workspace-id-copy {
+  min-height: 30px;
+  padding: 0 9px;
+  border: 1px solid var(--border-control-color);
+  border-radius: var(--button-radius);
+  background: var(--bg-secondary);
+  color: var(--text-main);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.workspace-id-copy:hover {
+  border-color: var(--accent-color);
+}
