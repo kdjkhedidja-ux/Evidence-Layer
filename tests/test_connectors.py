@@ -81,7 +81,7 @@ class GitHubTests(unittest.IsolatedAsyncioTestCase):
                     {"path": "big.bin", "type": "blob", "sha": "sha-big", "size": 999999},
                 ]})
             if request.url.path == "/repos/acme/docs/contents/README.md":
-                return httpx.Response(200, content=b"hello", headers={"content-type": "application/octet-stream"})
+                return httpx.Response(200, content=b"hello", headers={"content-type": "application/vnd.github.raw"})
             return httpx.Response(404)
 
         connector = GitHubConnector(
