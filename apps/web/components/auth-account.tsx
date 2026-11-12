@@ -936,8 +936,8 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
       <section className="account-deletion" aria-labelledby="connectors-title">
         <h3 id="connectors-title">Connected sources</h3>
         <p className="account-deletion-scope">
-          Connect a read-only Google Drive source, then run a bounded sync. Documents are stored
-          in your workspace connector store; no files are written back to Drive.
+          Connect a read-only Notion or Google Drive source, then run a bounded sync. Documents are
+          stored in your workspace connector store; no files are written back to the provider.
         </p>
         <div className="account-deletion-actions">
           {googleDriveConnectorEnabled ? (
