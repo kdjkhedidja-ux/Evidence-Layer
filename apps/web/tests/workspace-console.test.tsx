@@ -185,6 +185,8 @@ describe("workspace product console", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getByText("Admin", { exact: true })).toBeInTheDocument();
+    expect(screen.getByText(WORKSPACE_ID)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy" })).toBeInTheDocument();
     expect(screen.getByText("Type:").closest("p")).toHaveTextContent("Group workspace");
     expect(screen.getByLabelText("Evidence content")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();

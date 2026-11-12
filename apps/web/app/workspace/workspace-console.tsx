@@ -68,6 +68,7 @@ export default function WorkspaceConsole({
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [workspaceId, setWorkspaceId] = useState("");
+  const [workspaceIdCopied, setWorkspaceIdCopied] = useState(false);
   const [records, setRecords] = useState<EvidenceRecord[]>([]);
   const [recordsState, setRecordsState] = useState<LoadState>("ready");
   const [message, setMessage] = useState("");
@@ -432,6 +433,16 @@ export default function WorkspaceConsole({
     }
   }
 
+  async function copyWorkspaceId() {
+    if (!selectedWorkspace) return;
+    try {
+      await navigator.clipboard.writeText(selectedWorkspace.id);
+      setWorkspaceIdCopied(true);
+    } catch {
+      setWorkspaceIdCopied(false);
+    }
+  }
+
   async function signOut() {
     setPending(true);
     try {
@@ -527,6 +538,13 @@ export default function WorkspaceConsole({
                         ? "Admin"
                         : "Member"}
                   </p>
+                  <div className="workspace-id-row">
+                    <strong>Workspace ID:</strong>
+                    <code>{selectedWorkspace.id}</code>
+                    <button type="button" className="workspace-id-copy" onClick={() => void copyWorkspaceId()}>
+                      {workspaceIdCopied ? "Copied" : "Copy"}
+                    </button>
+                  </div>
                 </>
               )}
               <p>
