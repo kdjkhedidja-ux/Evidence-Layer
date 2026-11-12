@@ -103,7 +103,6 @@ export default function AccountProfile({ email }: { email: string }) {
           <p className="eyebrow">Account settings</p>
           <h2 id="account-profile-heading">Account profile</h2>
         </div>
-        <span className="workspace-role">{email}</span>
       </div>
 
       <form className="workspace-form" onSubmit={changeEmail}>
