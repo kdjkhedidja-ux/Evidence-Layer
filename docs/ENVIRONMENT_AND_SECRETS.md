@@ -28,6 +28,7 @@
 | Google Drive connector runtime | Server-only OAuth/token-vault credentials; never expose the token-encryption key or client secret to the browser | `CONNECTOR_TOKEN_ENCRYPTION_KEY`, `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` |
 | Google Drive connector web OAuth | Server-only OAuth callback credentials | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_URI` |
 | Notion connector web OAuth | Server-only Notion OAuth callback credentials | `NOTION_OAUTH_CLIENT_ID`, `NOTION_OAUTH_CLIENT_SECRET`, `NOTION_REDIRECT_URI`, `NEXT_PUBLIC_NOTION_CONNECTOR_ENABLED` |
+| GitHub connector | Server-only GitHub App credentials; installation tokens are minted on demand and not stored | `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_SLUG`, `NEXT_PUBLIC_GITHUB_CONNECTOR_ENABLED` |
 | GitHub Codespaces | Encrypted Codespaces secrets | provider keys used for local work |
 
 Supabase secret and service-role keys must never reach the frontend, a
@@ -128,6 +129,13 @@ authorizes their own workspace/pages; the OAuth client ID/secret are app-level
 secrets and must remain server-side. `NEXT_PUBLIC_NOTION_CONNECTOR_ENABLED`
 defaults to off and shows “Coming soon”. Marketplace listing is not required
 for OAuth use. See `docs/connectors/README.md`.
+
+### GitHub connector rollout
+
+Create a GitHub App with Contents: read and Metadata: read. Set the setup URL to
+`https://evidencelayer.dev/api/connectors/github/callback`, install it on a test
+repository, then set `NEXT_PUBLIC_GITHUB_CONNECTOR_ENABLED=true` only after a
+live connect/sync/disconnect smoke. The App private key must remain server-side.
 
 ### Google Drive connector rollout
 

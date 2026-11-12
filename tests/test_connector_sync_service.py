@@ -28,6 +28,7 @@ class FakeRepository:
             last_sync_at=None,
             last_error_category=None,
             access_token_expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+            provider_config={},
             access_token_ciphertext=VAULT.encrypt("drive-token"),
             refresh_token_ciphertext=None,
         )

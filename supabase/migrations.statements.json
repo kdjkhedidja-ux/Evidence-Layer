@@ -4419,6 +4419,20 @@
       "line": 117,
       "verb": "create policy",
       "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "564f40f3d0669d77",
+      "file": "20261111200000_connector_github_app.sql",
+      "line": 3,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "5f1a8b266961957d",
+      "file": "20261111200000_connector_github_app.sql",
+      "line": 6,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
     }
   ]
 }

@@ -128,3 +128,14 @@ export async function createNotionConnection(
     body: JSON.stringify(payload),
   });
 }
+
+export async function createGitHubConnection(
+  accessToken: string,
+  installationId: number,
+): Promise<Response> {
+  return upstreamJson("/v1/connectors/github/connection", accessToken, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ installation_id: installationId }),
+  });
+}

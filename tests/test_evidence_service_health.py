@@ -45,6 +45,7 @@ def test_service_routes_are_limited_and_docs_are_disabled() -> None:
         ("POST", "/v1/me/exports"),
         ("POST", "/v1/connectors/google_drive/connection"),
         ("POST", "/v1/connectors/notion/connection"),
+        ("POST", "/v1/connectors/github/connection"),
         ("GET", "/v1/connectors"),
         ("DELETE", "/v1/connectors/{connection_id}"),
         ("POST", "/v1/connectors/{connection_id}/sync"),

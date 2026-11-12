@@ -11,6 +11,7 @@ def test_connector_runtime_symbols_are_imported():
         "ConnectorUnavailable",
         "GoogleDriveSyncService",
         "NotionSyncService",
+        "GitHubAppSyncService",
         "ConnectorAuthUnavailable",
         "ConnectorSyncError",
         "NotionSyncError",
