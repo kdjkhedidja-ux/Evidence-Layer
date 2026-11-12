@@ -5,10 +5,6 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { createSupabaseBrowserClient } from "../lib/supabase/client";
 import { deletionRequestsEnabled as resolveDeletionRequestsEnabled } from "../lib/deletion-flag";
 import { accountExportEnabled as resolveAccountExportEnabled } from "../lib/export-flag";
-import {
-  googleDriveConnectorEnabled as resolveGoogleDriveConnectorEnabled,
-  notionConnectorEnabled as resolveNotionConnectorEnabled,
-} from "../lib/connector-flags";
 import type { DeletionRequestView } from "../lib/deletion-api";
 
 type Workspace = { id: string; name: string; role: "owner" | "admin" | "member" };
@@ -22,14 +18,6 @@ type OrganizationOverview = {
   workspaces: OrganizationWorkspace[];
 };
 type PanelState = "loading" | "ready" | "expired" | "unavailable";
-type ConnectorConnection = {
-  connection_id: string;
-  provider: string;
-  account_email: string | null;
-  status: string;
-  last_sync_at: string | null;
-  last_error_category: string | null;
-};
 
 const DELETION_STATUS_LABELS: Record<DeletionRequestView["status"], string> = {
   approval_pending: "Approval pending",
@@ -55,9 +43,6 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
   const [exportJob, setExportJob] = useState<{ export_id: string; expires_at: string | null; grant_token: string | null } | null>(null);
   const [exportPending, setExportPending] = useState(false);
   const [exportMessage, setExportMessage] = useState("");
-  const [connectors, setConnectors] = useState<ConnectorConnection[]>([]);
-  const [connectorPending, setConnectorPending] = useState(false);
-  const [connectorMessage, setConnectorMessage] = useState("");
   const [lookupId, setLookupId] = useState("");
   const [accountType, setAccountType] = useState<"individual" | "organization">("individual");
   const [organizationName, setOrganizationName] = useState<string | null>(null);
@@ -79,12 +64,6 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
   });
   const accountExportEnabled = resolveAccountExportEnabled({
     flag: process.env.NEXT_PUBLIC_ACCOUNT_EXPORT_ENABLED,
-  });
-  const googleDriveConnectorEnabled = resolveGoogleDriveConnectorEnabled({
-    flag: process.env.NEXT_PUBLIC_GOOGLE_DRIVE_CONNECTOR_ENABLED,
-  });
-  const notionConnectorEnabled = resolveNotionConnectorEnabled({
-    flag: process.env.NEXT_PUBLIC_NOTION_CONNECTOR_ENABLED,
   });
 
   const loadWorkspaces = useCallback(async (): Promise<Workspace[] | null> => {
@@ -528,65 +507,6 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
     }
   }, [exportJob]);
 
-  const loadConnectors = useCallback(async (): Promise<void> => {
-    try {
-      const response = await fetch("/api/evidence/connectors", { cache: "no-store" });
-      if (!response.ok) return;
-      const payload = (await response.json()) as ConnectorConnection[];
-      setConnectors(Array.isArray(payload) ? payload : []);
-    } catch {
-      // The connector panel is optional; leave the existing state intact.
-    }
-  }, []);
-
-  const syncConnector = useCallback(async (connectionId: string): Promise<void> => {
-    setConnectorPending(true);
-    setConnectorMessage("");
-    try {
-      const response = await fetch(
-        `/api/evidence/connectors/${encodeURIComponent(connectionId)}/sync`,
-        { method: "POST" },
-      );
-      if (!response.ok) {
-        setConnectorMessage("The connector sync could not be completed.");
-        return;
-      }
-      const payload = (await response.json()) as { ingested?: number; skipped?: number };
-      setConnectorMessage(`Sync complete: ${payload.ingested ?? 0} documents ingested, ${payload.skipped ?? 0} skipped.`);
-      await loadConnectors();
-    } catch {
-      setConnectorMessage("The connector service is unavailable.");
-    } finally {
-      setConnectorPending(false);
-    }
-  }, [loadConnectors]);
-
-  const disconnectConnector = useCallback(async (connectionId: string): Promise<void> => {
-    setConnectorPending(true);
-    setConnectorMessage("");
-    try {
-      const response = await fetch(
-        `/api/evidence/connectors/${encodeURIComponent(connectionId)}`,
-        { method: "DELETE" },
-      );
-      if (!response.ok) {
-        setConnectorMessage("The connector could not be disconnected.");
-        return;
-      }
-      setConnectorMessage("Connector disconnected and stored connector documents removed.");
-      await loadConnectors();
-    } catch {
-      setConnectorMessage("The connector service is unavailable.");
-    } finally {
-      setConnectorPending(false);
-    }
-  }, [loadConnectors]);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("connector")) void loadConnectors();
-  }, [loadConnectors]);
-
   const deletionStorageKey = `evidence-layer:deletion-request:${userId}`;
 
   useEffect(() => {
@@ -933,47 +853,6 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
         {exportMessage && <p className="account-message" role="status">{exportMessage}</p>}
       </section>
       ) : null}
-      <section className="account-deletion" aria-labelledby="connectors-title">
-        <h3 id="connectors-title">Connected sources</h3>
-        <p className="account-deletion-scope">
-          Connect a read-only Notion or Google Drive source, then run a bounded sync. Documents are
-          stored in your workspace connector store; no files are written back to the provider.
-        </p>
-        <div className="account-deletion-actions">
-          {googleDriveConnectorEnabled ? (
-            <a href="/api/connectors/google-drive/start">Connect Google Drive</a>
-          ) : (
-            <span>Google Drive · Coming soon</span>
-          )}
-          {notionConnectorEnabled ? (
-            <a href="/api/connectors/notion/start">Connect Notion</a>
-          ) : (
-            <span>Notion · Coming soon</span>
-          )}
-          <button type="button" disabled={connectorPending} onClick={() => void loadConnectors()}>
-            Refresh sources
-          </button>
-          {connectors.map((connection) => (
-            <span key={connection.connection_id}>
-              <button type="button" disabled={connectorPending} onClick={() => void syncConnector(connection.connection_id)}>
-                Sync {connection.provider === "google_drive" ? "Drive" : connection.provider}
-              </button>
-              <button type="button" disabled={connectorPending} onClick={() => void disconnectConnector(connection.connection_id)}>
-                Disconnect
-              </button>
-            </span>
-          ))}
-        </div>
-        {connectors.length === 0 && <p className="account-deletion-scope">No source is connected.</p>}
-        {connectors.map((connection) => (
-          <p key={`${connection.connection_id}-status`} className="account-deletion-scope">
-            {connection.provider}: {connection.status}
-            {connection.account_email ? ` (${connection.account_email})` : ""}
-            {connection.last_sync_at ? ` · last sync ${new Date(connection.last_sync_at).toLocaleString()}` : ""}
-          </p>
-        ))}
-        {connectorMessage && <p className="account-message" role="status">{connectorMessage}</p>}
-      </section>
       {deletionRequestsEnabled ? (
       <section className="account-deletion" aria-labelledby="account-deletion-title">
         <h3>Personal workspace deletion</h3>
