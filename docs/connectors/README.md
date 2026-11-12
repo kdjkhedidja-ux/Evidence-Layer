@@ -121,6 +121,27 @@ Google Cloud console: create a Web application OAuth client, add the exact callb
 - Personal-only UI: `NEXT_PUBLIC_NOTION_CONNECTOR_ENABLED` is enabled in production after the 2026-11-11 connector deployment; a live OAuth smoke remains pending. Google Drive remains gated off and shows “Coming soon”.
 - Migration 41 already supports the `notion` provider; no additional schema migration is required.
 
+## GitHub App vertical slice (local)
+
+- Auth: **GitHub App installation**, not a broad OAuth `repo` token. The installation token is minted server-side and never stored.
+- Required App permissions: **Contents: read**, **Metadata: read**. Installation scope can be all repositories or selected repositories.
+- Setup URL: `https://evidencelayer.dev/api/connectors/github/callback`.
+- Start URL: `/api/connectors/github/start` redirects to the App's installation page with a state cookie.
+- The service stores `provider_config={"installation_id": ...}`; no user access token is persisted.
+- Sync lists the installation's repositories and ingests bounded README/code files from selected repositories (up to 5 repositories, 25 documents, 2 MiB per file).
+- UI is gated by `NEXT_PUBLIC_GITHUB_CONNECTOR_ENABLED` and defaults off/Coming soon.
+
+Environment names only:
+
+```text
+GITHUB_APP_SLUG             # web; installation URL slug
+GITHUB_APP_ID               # service; App JWT issuer
+GITHUB_APP_PRIVATE_KEY      # service; PEM private key
+NEXT_PUBLIC_GITHUB_CONNECTOR_ENABLED
+```
+
+GitHub App setup: create a GitHub App, set the callback/setup URL, grant Contents: read + Metadata: read, install it on a test repository, then enable the UI flag after a live connect/sync/disconnect smoke. No Marketplace listing is required.
+
 ## Required next layer (not implemented)
 
 1. **OAuth applications + callback routes** for Dropbox, Atlassian, and GitHub; Google verification and Notion Marketplace listing are separate optional tracks.

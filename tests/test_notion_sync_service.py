@@ -28,6 +28,7 @@ class FakeRepository:
             last_sync_at=None,
             last_error_category=None,
             access_token_expires_at=None,
+            provider_config={},
             access_token_ciphertext=VAULT.encrypt("notion-token"),
             refresh_token_ciphertext=None,
         )

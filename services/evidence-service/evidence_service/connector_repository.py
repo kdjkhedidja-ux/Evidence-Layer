@@ -13,7 +13,8 @@ from evidence_service.config import SupabaseSettings
 
 CONNECTION_SELECT = (
     "connection_id,user_id,provider,account_email,scopes,status,"
-    "last_sync_at,last_error_category,access_token_expires_at,created_at,updated_at"
+    "last_sync_at,last_error_category,access_token_expires_at,provider_config,"
+    "created_at,updated_at"
 )
 CONNECTION_SECRET_SELECT = CONNECTION_SELECT + ",access_token_ciphertext,refresh_token_ciphertext"
 
@@ -45,6 +46,7 @@ class ConnectorConnection:
     last_sync_at: datetime | None
     last_error_category: str | None
     access_token_expires_at: datetime | None
+    provider_config: dict[str, Any]
     access_token_ciphertext: str | None = None
     refresh_token_ciphertext: str | None = None
 
@@ -119,9 +121,10 @@ class ConnectorRepository:
         provider: str,
         account_email: str | None,
         scopes: list[str],
-        access_token_ciphertext: str,
+        access_token_ciphertext: str | None,
         refresh_token_ciphertext: str | None,
         access_token_expires_at: datetime | None,
+        provider_config: dict[str, Any] | None = None,
     ) -> ConnectorConnection:
         body = {
             "user_id": str(user_id),
@@ -133,6 +136,7 @@ class ConnectorRepository:
             "access_token_expires_at": (
                 access_token_expires_at.isoformat() if access_token_expires_at else None
             ),
+            "provider_config": provider_config or {},
             "status": "connected",
             "last_error_category": None,
             "updated_at": datetime.now().astimezone().isoformat(),
@@ -287,6 +291,11 @@ class ConnectorRepository:
             last_sync_at=_parse_dt(row.get("last_sync_at")),
             last_error_category=row.get("last_error_category"),
             access_token_expires_at=_parse_dt(row.get("access_token_expires_at")),
+            provider_config=(
+                row.get("provider_config")
+                if isinstance(row.get("provider_config"), dict)
+                else {}
+            ),
             access_token_ciphertext=(
                 row.get("access_token_ciphertext") if include_secrets else None
             ),

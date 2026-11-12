@@ -48,6 +48,10 @@ from evidence_service.notion_sync_service import (
     NotionSyncError,
     NotionSyncService,
 )
+from evidence_service.github_app_sync_service import (
+    GitHubAppSyncError,
+    GitHubAppSyncService,
+)
 from evidence_service.export_repository import (
     ExportAccessDenied,
     ExportDataUnavailable,
@@ -207,6 +211,13 @@ class ConnectorConnectionRequest(BaseModel):
     expires_at: datetime | None = None
     scopes: list[str] = Field(default_factory=list)
     account_email: str | None = Field(default=None, max_length=320)
+
+
+
+class ConnectorGitHubConnectionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    installation_id: int = Field(gt=0)
 
 
 class ConnectorConnectionResponse(BaseModel):
@@ -822,6 +833,18 @@ def _connector_vault(request: Request) -> TokenVault:
 
 
 
+
+def _github_app_sync_service(request: Request) -> GitHubAppSyncService:
+    service = request.app.state.github_sync_service
+    if service is None:
+        service = GitHubAppSyncService(
+            _connector_repository(request),
+            app_id=os.environ.get("GITHUB_APP_ID", ""),
+            private_key=os.environ.get("GITHUB_APP_PRIVATE_KEY", ""),
+        )
+        request.app.state.github_sync_service = service
+    return service
+
 def _notion_sync_service(request: Request) -> NotionSyncService:
     service = request.app.state.notion_sync_service
     if service is None:
@@ -952,6 +975,7 @@ def create_app(
     connector_repository: ConnectorRepository | None = None,
     connector_sync_service: GoogleDriveSyncService | None = None,
     notion_sync_service: NotionSyncService | None = None,
+    github_sync_service: GitHubAppSyncService | None = None,
     connector_vault: TokenVault | None = None,
     organization_repository=None,
     source_read_path=None,
@@ -977,6 +1001,7 @@ def create_app(
     application.state.connector_repository = connector_repository
     application.state.connector_sync_service = connector_sync_service
     application.state.notion_sync_service = notion_sync_service
+    application.state.github_sync_service = github_sync_service
     application.state.connector_vault = connector_vault
     application.state.organization_repository = organization_repository
     application.state.trusted_source_context_issuer = None
@@ -1335,6 +1360,39 @@ def create_app(
         return _connector_connection_response(connection)
 
 
+
+    @application.post(
+        "/v1/connectors/github/connection",
+        response_model=ConnectorConnectionResponse,
+        status_code=201,
+    )
+    async def connect_github(
+        payload: ConnectorGitHubConnectionRequest,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> ConnectorConnectionResponse:
+        try:
+            connection = await _with_account_gate(
+                request,
+                auth,
+                lambda: _github_app_sync_service(request).connect(
+                    auth.access_token,
+                    user_id=auth.principal.subject,
+                    installation_id=payload.installation_id,
+                ),
+            )
+        except GitHubAppSyncError as exc:
+            raise HTTPException(
+                status_code=503, detail="GitHub connector is unavailable"
+            ) from exc
+        except ConnectorDenied as exc:
+            raise HTTPException(status_code=403, detail="Connector is not authorized") from exc
+        except ConnectorUnavailable as exc:
+            raise HTTPException(
+                status_code=503, detail="Connector service is unavailable"
+            ) from exc
+        return _connector_connection_response(connection)
+
     @application.post(
         "/v1/connectors/notion/connection",
         response_model=ConnectorConnectionResponse,
@@ -1422,6 +1480,14 @@ def create_app(
                         auth.access_token, connection_id
                     ),
                 )
+            elif connection.provider == "github":
+                await _with_account_gate(
+                    request,
+                    auth,
+                    lambda: _github_app_sync_service(request).disconnect(
+                        auth.access_token, connection_id
+                    ),
+                )
             else:
                 await _with_account_gate(
                     request,
@@ -1474,6 +1540,14 @@ def create_app(
                         auth.access_token, connection_id, limit=limit
                     ),
                 )
+            elif connection.provider == "github":
+                result = await _with_account_gate(
+                    request,
+                    auth,
+                    lambda: _github_app_sync_service(request).sync(
+                        auth.access_token, connection_id, limit=limit
+                    ),
+                )
             else:
                 raise HTTPException(status_code=400, detail="Unsupported connector provider")
         except TokenVaultUnavailable as exc:
@@ -1488,7 +1562,7 @@ def create_app(
             raise HTTPException(
                 status_code=409, detail="Connector authorization expired"
             ) from exc
-        except (ConnectorSyncError, NotionSyncError, ConnectorUnavailable) as exc:
+        except (ConnectorSyncError, NotionSyncError, GitHubAppSyncError, ConnectorUnavailable) as exc:
             raise HTTPException(
                 status_code=503, detail="Connector sync is unavailable"
             ) from exc

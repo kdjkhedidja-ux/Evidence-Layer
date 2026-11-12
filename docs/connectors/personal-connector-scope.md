@@ -12,7 +12,7 @@ Decision: **personal connector only** for the first production path.
 
 This is intentionally narrower than an enterprise connector. It does not claim shared-workspace evidence ingestion.
 
-Next connector: **Notion**, using a public OAuth connection and page picker. Each user authorizes their own workspace/pages; the app-level Notion client credentials are not user credentials.
+Next connectors: **Notion** (public OAuth/page picker) and **GitHub** (GitHub App installation with Contents: read). Each user authorizes their own workspace/repositories; app-level credentials are not user credentials.
 
 ## Current readiness
 

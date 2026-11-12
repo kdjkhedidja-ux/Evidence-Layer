@@ -156,7 +156,8 @@ source connector. The SDK adapters accept injected access tokens. Google Drive h
 encrypted token storage, manual bounded sync into owner-only
 `connector_documents`, and a minimal connect/sync UI; it remains Coming soon
 until Google OAuth verification. Notion has the same slice and is enabled for
-personal production use, with a live smoke pending. Background
+personal production use, with a live smoke pending. GitHub has an
+installation-based read-only App slice in code, gated off until configured. Background
 scheduling, ACL mapping, source-snapshot verification, deletion propagation,
 and production rollout remain planned.
 

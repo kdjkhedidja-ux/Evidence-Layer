@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import {
+  githubConnectorEnabled as resolveGitHubConnectorEnabled,
   googleDriveConnectorEnabled as resolveGoogleDriveConnectorEnabled,
   notionConnectorEnabled as resolveNotionConnectorEnabled,
 } from "../lib/connector-flags";
@@ -25,6 +26,9 @@ export default function ConnectorSources() {
   });
   const notionConnectorEnabled = resolveNotionConnectorEnabled({
     flag: process.env.NEXT_PUBLIC_NOTION_CONNECTOR_ENABLED,
+  });
+  const githubConnectorEnabled = resolveGitHubConnectorEnabled({
+    flag: process.env.NEXT_PUBLIC_GITHUB_CONNECTOR_ENABLED,
   });
 
   const loadConnectors = useCallback(async (): Promise<void> => {
@@ -114,6 +118,13 @@ export default function ConnectorSources() {
           </a>
         ) : (
           <button type="button" disabled>Notion · Coming soon</button>
+        )}
+        {githubConnectorEnabled ? (
+          <a className="workspace-secondary-action" href="/api/connectors/github/start">
+            Connect GitHub
+          </a>
+        ) : (
+          <button type="button" disabled>GitHub · Coming soon</button>
         )}
         <button type="button" disabled={pending} onClick={() => void loadConnectors()}>
           Refresh sources

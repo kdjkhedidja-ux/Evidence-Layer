@@ -248,6 +248,12 @@
       "version": "20261111190000",
       "sha256": "449edaee9443899e848b6b9cbd9b593ae8900231284c58c2a472acac8c8f43b6",
       "provenance": "Narrowed Google Drive connector connections and normalized connector documents with forced RLS and owner-only policies."
+    },
+    {
+      "file": "20261111200000_connector_github_app.sql",
+      "version": "20261111200000",
+      "sha256": "33165ed9a54c0dcf512134520dc5a029d0994dcf6b778b8691f9844d9666aa0e",
+      "provenance": "Add provider_config and nullable user-token storage for GitHub App installation-based connector connections."
     }
   ]
 }
