@@ -839,8 +839,11 @@ def _github_app_sync_service(request: Request) -> GitHubAppSyncService:
     if service is None:
         service = GitHubAppSyncService(
             _connector_repository(request),
-            app_id=os.environ.get("GITHUB_APP_ID", ""),
-            private_key=os.environ.get("GITHUB_APP_PRIVATE_KEY", ""),
+            app_id=os.environ.get("GITHUB_APP_ID") or os.environ.get("GIT_APP_ID", ""),
+            private_key=(
+                os.environ.get("GITHUB_APP_PRIVATE_KEY")
+                or os.environ.get("GIT_APP_PRIVATE_KEY", "")
+            ),
         )
         request.app.state.github_sync_service = service
     return service
