@@ -32,6 +32,22 @@ from evidence_service.auth import (
     VerifiedTokenVerifier,
 )
 from evidence_service.config import ConfigurationError, SupabaseSettings
+from evidence_service.connector_crypto import TokenVault, TokenVaultUnavailable
+from evidence_service.connector_repository import (
+    ConnectorDenied,
+    ConnectorNotFound,
+    ConnectorRepository,
+    ConnectorUnavailable,
+)
+from evidence_service.connector_sync_service import (
+    ConnectorAuthUnavailable,
+    ConnectorSyncError,
+    GoogleDriveSyncService,
+)
+from evidence_service.notion_sync_service import (
+    NotionSyncError,
+    NotionSyncService,
+)
 from evidence_service.export_repository import (
     ExportAccessDenied,
     ExportDataUnavailable,
