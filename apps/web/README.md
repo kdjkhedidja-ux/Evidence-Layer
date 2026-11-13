@@ -44,6 +44,8 @@ The web app uses the values in `.env.example`; copy them to an ignored local
 confirmation enabled in Supabase Auth. The app deliberately signs a user out
 if sign-up unexpectedly returns an active session, rather than bypassing email
 verification.
+Protected workspace pages and API operations fail closed if the user's MFA
+assurance level cannot be verified.
 
 ## Checks
 

@@ -27,7 +27,16 @@ const AUTHENTICATED = {
   kind: "authenticated",
   user: { id: USER_ID },
   accessToken: TOKEN,
-  client: {},
+  client: {
+    auth: {
+      mfa: {
+        getAuthenticatorAssuranceLevel: async () => ({
+          data: { currentLevel: "aal1", nextLevel: "aal1" },
+          error: null,
+        }),
+      },
+    },
+  },
 };
 const RECORD = {
   id: EVIDENCE_ID,

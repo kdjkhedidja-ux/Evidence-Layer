@@ -1,4 +1,5 @@
 import { getEvidenceServiceBaseUrl } from "./supabase/config";
+import { getMfaChallengeStatus } from "./supabase/mfa";
 import { getVerifiedAuthContext } from "./supabase/server";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -37,6 +38,23 @@ function sameOrigin(request: Request): boolean {
   } catch {
     return false;
   }
+}
+
+async function mfaGate(auth: Extract<Awaited<ReturnType<typeof getVerifiedAuthContext>>, { kind: "authenticated" }>): Promise<Response | null> {
+  const status = await getMfaChallengeStatus(auth.client);
+  if (status === "unavailable") {
+    return json(503, {
+      error: "Two-factor authentication status is unavailable.",
+      code: "mfa_unavailable",
+    });
+  }
+  if (status === "required") {
+    return json(403, {
+      error: "Complete two-factor authentication to continue.",
+      code: "mfa_required",
+    });
+  }
+  return null;
 }
 
 export function safeDeletionRequest(value: unknown, userId: string): DeletionRequestView | null {
@@ -90,6 +108,8 @@ export async function proxyDeletionRequest({
   if (auth.kind === "unavailable") {
     return json(503, { error: "Identity verification is unavailable." });
   }
+  const blocked = await mfaGate(auth);
+  if (blocked) return blocked;
 
   const serviceUrl = getEvidenceServiceBaseUrl();
   if (!serviceUrl) return json(503, { error: "Evidence service is unavailable." });
@@ -202,6 +222,8 @@ export async function proxyPersonalDeletion({
   if (auth.kind === "unavailable") {
     return json(503, { error: "Identity verification is unavailable." });
   }
+  const blocked = await mfaGate(auth);
+  if (blocked) return blocked;
 
   const serviceUrl = getEvidenceServiceBaseUrl();
   if (!serviceUrl) return json(503, { error: "Evidence service is unavailable." });

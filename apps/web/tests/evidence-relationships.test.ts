@@ -30,7 +30,16 @@ const AUTHENTICATED = {
   kind: "authenticated",
   user: { id: USER_ID },
   accessToken: "synthetic-session-token",
-  client: {},
+  client: {
+    auth: {
+      mfa: {
+        getAuthenticatorAssuranceLevel: async () => ({
+          data: { currentLevel: "aal1", nextLevel: "aal1" },
+          error: null,
+        }),
+      },
+    },
+  },
 };
 
 function request(path: string, method: string, body?: unknown): Request {
@@ -72,6 +81,34 @@ describe("workspace relationship API routes", () => {
       { params: Promise.resolve({ workspaceId: WORKSPACE_ID }) },
     );
     expect(response.status).toBe(401);
+    expect(vi.mocked(fetch)).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when the MFA assurance level is unavailable", async () => {
+    mocks.getAuth.mockResolvedValue({
+      ...AUTHENTICATED,
+      client: {
+        auth: {
+          mfa: {
+            getAuthenticatorAssuranceLevel: async () => ({
+              data: null,
+              error: { message: "private provider detail" },
+            }),
+          },
+        },
+      },
+    });
+
+    const response = await GET(
+      request(`/api/evidence/workspaces/${WORKSPACE_ID}/relationships`, "GET"),
+      { params: Promise.resolve({ workspaceId: WORKSPACE_ID }) },
+    );
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({
+      error: "Two-factor authentication status is unavailable.",
+      code: "mfa_unavailable",
+    });
     expect(vi.mocked(fetch)).not.toHaveBeenCalled();
   });
 

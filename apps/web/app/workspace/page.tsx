@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import WorkspaceConsole from "./workspace-console";
-import { mfaChallengeRequired } from "../../lib/supabase/mfa";
+import { getMfaChallengeStatus } from "../../lib/supabase/mfa";
 import { getVerifiedAuthContext } from "../../lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -30,8 +30,17 @@ export default async function WorkspacePage() {
       />
     );
   }
-  if (auth.kind === "authenticated" && await mfaChallengeRequired(auth.client)) {
-    redirect("/mfa?next=%2Fworkspace");
+  if (auth.kind === "authenticated") {
+    const mfaStatus = await getMfaChallengeStatus(auth.client);
+    if (mfaStatus === "unavailable") {
+      return (
+        <WorkspaceGate
+          title="Security check is unavailable"
+          description="Two-factor authentication could not be verified. No workspace data was loaded. Try again later."
+        />
+      );
+    }
+    if (mfaStatus === "required") redirect("/mfa?next=%2Fworkspace");
   }
   return (
     <WorkspaceConsole

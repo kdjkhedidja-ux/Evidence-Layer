@@ -1,5 +1,5 @@
 import { getEvidenceServiceBaseUrl } from "./supabase/config";
-import { mfaChallengeRequired } from "./supabase/mfa";
+import { getMfaChallengeStatus } from "./supabase/mfa";
 import { getVerifiedAuthContext } from "./supabase/server";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -133,7 +133,14 @@ async function mfaBlocked(
   auth: Awaited<ReturnType<typeof getVerifiedAuthContext>>,
 ): Promise<Response | null> {
   if (auth.kind !== "authenticated") return null;
-  if (await mfaChallengeRequired(auth.client)) {
+  const mfaStatus = await getMfaChallengeStatus(auth.client);
+  if (mfaStatus === "unavailable") {
+    return json(503, {
+      error: "Two-factor authentication status is unavailable.",
+      code: "mfa_unavailable",
+    });
+  }
+  if (mfaStatus === "required") {
     return json(403, {
       error: "Complete two-factor authentication to continue.",
       code: "mfa_required",

@@ -1,5 +1,5 @@
 import { getEvidenceServiceBaseUrl } from "./supabase/config";
-import { mfaChallengeRequired } from "./supabase/mfa";
+import { getMfaChallengeStatus } from "./supabase/mfa";
 import { getVerifiedAuthContext } from "./supabase/server";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -33,7 +33,17 @@ async function verifiedSession(): Promise<
   if (auth.kind === "unavailable") {
     return { kind: "response", response: json(503, { error: "Identity verification is unavailable." }) };
   }
-  if (await mfaChallengeRequired(auth.client)) {
+  const mfaStatus = await getMfaChallengeStatus(auth.client);
+  if (mfaStatus === "unavailable") {
+    return {
+      kind: "response",
+      response: json(503, {
+        error: "Two-factor authentication status is unavailable.",
+        code: "mfa_unavailable",
+      }),
+    };
+  }
+  if (mfaStatus === "required") {
     return {
       kind: "response",
       response: json(403, {

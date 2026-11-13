@@ -24,7 +24,16 @@ const AUTHENTICATED = {
   kind: "authenticated",
   user: { id: USER_ID },
   accessToken: "synthetic-test-access-token",
-  client: {},
+  client: {
+    auth: {
+      mfa: {
+        getAuthenticatorAssuranceLevel: async () => ({
+          data: { currentLevel: "aal1", nextLevel: "aal1" },
+          error: null,
+        }),
+      },
+    },
+  },
 };
 
 function request(path: string, init?: RequestInit): Request {
