@@ -4302,10 +4302,7 @@ select:focus-visible,
   }
 
   .workspace-header.mfa-header nav {
-    flex-direction: row;
-    flex-wrap: wrap;
-    width: 100%;
-    gap: 0.25rem 1rem;
+    display: none;
   }
 
   .workspace-header.mfa-header .workspace-user {

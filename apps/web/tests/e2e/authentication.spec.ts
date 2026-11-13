@@ -34,22 +34,29 @@ test("MFA account header stays readable on narrow mobile screens", async ({ page
   const layout = await page.evaluate(() => {
     const header = document.querySelector(".mfa-header");
     const brand = header?.querySelector(".workspace-brand")?.getBoundingClientRect();
-    const navigation = header?.querySelector("nav")?.getBoundingClientRect();
+    const navigation = header?.querySelector("nav");
+    const navigationBounds = navigation?.getBoundingClientRect();
     const account = header?.querySelector(".workspace-user")?.getBoundingClientRect();
     return {
       viewportWidth: window.innerWidth,
       documentWidth: document.documentElement.scrollWidth,
-      rowsOrdered: Boolean(
-        brand && navigation && account &&
-        brand.bottom <= navigation.top &&
-        navigation.bottom <= account.top,
-      ),
+      navigationHidden: navigation ? getComputedStyle(navigation).display === "none" : false,
+      accountUnderBrand: Boolean(brand && account && account.top >= brand.bottom),
       accountWithinViewport: Boolean(account && account.right <= window.innerWidth),
+      navigationHeight: navigationBounds?.height,
     };
   });
   expect(layout.documentWidth).toBeLessThanOrEqual(layout.viewportWidth);
-  expect(layout.rowsOrdered).toBe(true);
+  expect(layout.navigationHidden).toBe(true);
+  expect(layout.accountUnderBrand).toBe(true);
   expect(layout.accountWithinViewport).toBe(true);
+  expect(layout.navigationHeight).toBe(0);
+
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const desktopNavigation = page.getByRole("navigation", { name: "Account" });
+  await expect(desktopNavigation).toBeVisible();
+  await expect(desktopNavigation.getByRole("link", { name: "Workspace" })).toBeVisible();
+  await expect(desktopNavigation.getByRole("link", { name: "Explorer" })).toBeVisible();
 });
 
 test("browser session cookies reach the verified server-side workspace API", async ({ page }) => {
