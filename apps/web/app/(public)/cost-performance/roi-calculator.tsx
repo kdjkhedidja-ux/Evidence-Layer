@@ -10,6 +10,19 @@ import {
   type Scenario,
   type Scorer,
 } from "../../../lib/roi-calculator";
+import {
+  calculatePerformance,
+  DEFAULT_JEV_LATENCY_MS,
+  DEFAULT_NETWORK_OVERHEAD_MS,
+  DEFAULT_OUTPUT_TOKENS_PER_SECOND,
+  DEFAULT_REQUESTS_PER_MONTH,
+  DEFAULT_RETRIEVAL_CALLS,
+  DEFAULT_RETRIEVAL_P50_MS,
+  DEFAULT_RETRIEVAL_P95_MS,
+  DEFAULT_SUCCESS_RATE,
+  DEFAULT_TTFT_P50_MS,
+  DEFAULT_TTFT_P95_MS,
+} from "../../../lib/performance-calculator";
 
 type Mode = "projected" | "historical";
 
@@ -20,6 +33,7 @@ const usdFormat = new Intl.NumberFormat("en-US", {
   minimumFractionDigits: 2,
   maximumFractionDigits: 6,
 });
+const msFormat = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
 
 export default function RoiCalculator() {
   const [mode, setMode] = useState<Mode>("projected");
@@ -29,6 +43,16 @@ export default function RoiCalculator() {
   const [evidenceLayer, setEvidenceLayer] = useState(true);
   const [scorer, setScorer] = useState<Scorer>("lexical");
   const [jevIntensity, setJevIntensity] = useState(DEFAULT_JEV_INTENSITY);
+  const [requests, setRequests] = useState(DEFAULT_REQUESTS_PER_MONTH);
+  const [successRate, setSuccessRate] = useState(DEFAULT_SUCCESS_RATE * 100);
+  const [retrievalCalls, setRetrievalCalls] = useState(DEFAULT_RETRIEVAL_CALLS);
+  const [retrievalP50, setRetrievalP50] = useState(DEFAULT_RETRIEVAL_P50_MS);
+  const [retrievalP95, setRetrievalP95] = useState(DEFAULT_RETRIEVAL_P95_MS);
+  const [ttftP50, setTtftP50] = useState(DEFAULT_TTFT_P50_MS);
+  const [ttftP95, setTtftP95] = useState(DEFAULT_TTFT_P95_MS);
+  const [outputTokensPerSecond, setOutputTokensPerSecond] = useState(DEFAULT_OUTPUT_TOKENS_PER_SECOND);
+  const [networkOverhead, setNetworkOverhead] = useState(DEFAULT_NETWORK_OVERHEAD_MS);
+  const [jevLatency, setJevLatency] = useState(DEFAULT_JEV_LATENCY_MS);
 
   const result = useMemo(() => {
     try {
@@ -45,17 +69,40 @@ export default function RoiCalculator() {
     }
   }, [volume, modelId, scenario, evidenceLayer, scorer, jevIntensity]);
 
-  const model = MODELS[modelId];
-  const barBase = result ? Math.max(result.tokens.without, result.usd.llmWithout, 0.000001) : 1;
-  const tokenBar = result ? (result.tokens.with / barBase) * 100 : 0;
-  const usdBar = result ? (result.usd.systemWith / barBase) * 100 : 0;
+  const performance = useMemo(() => {
+    try {
+      return calculatePerformance({
+        requestsPerMonth: requests,
+        volumeTokens: Number.isFinite(volume) ? Math.max(0, volume) : 0,
+        modelId,
+        scenario,
+        evidenceLayer,
+        scorer,
+        retrievalCallsPerRequest: retrievalCalls,
+        retrievalP50Ms: retrievalP50,
+        retrievalP95Ms: retrievalP95,
+        ttftP50Ms: ttftP50,
+        ttftP95Ms: ttftP95,
+        outputTokensPerSecond,
+        networkOverheadMs: networkOverhead,
+        jevLatencyMs: jevLatency,
+        successRate: successRate / 100,
+        jevIntensity,
+      });
+    } catch {
+      return null;
+    }
+  }, [evidenceLayer, jevIntensity, jevLatency, modelId, networkOverhead, outputTokensPerSecond, requests, retrievalCalls, retrievalP50, retrievalP95, scenario, scorer, successRate, ttftP50, ttftP95, volume]);
+
+  const tokenBar = result ? (result.tokens.with / Math.max(result.tokens.without, 1)) * 100 : 0;
+  const usdBar = result ? (result.usd.systemWith / Math.max(result.usd.llmWithout, 0.000001)) * 100 : 0;
 
   return (
     <section className="public-section roi-calculator" aria-labelledby="roi-heading">
       <div className="benchmark-heading">
         <div>
           <p className="public-eyebrow">Estimate · projection</p>
-          <h2 id="roi-heading">Token and cost calculator</h2>
+          <h2 id="roi-heading">Token, API call, cost, and latency planner</h2>
         </div>
         <span className="benchmark-tag">Not an invoice</span>
       </div>
@@ -92,6 +139,58 @@ export default function RoiCalculator() {
             onChange={(event) => setVolume(Number(event.target.value))}
           />
         </label>
+
+        <label className="roi-field">
+          <span>Requests per month</span>
+          <input type="number" min={1} step={100} value={requests} onChange={(event) => setRequests(Number(event.target.value))} />
+        </label>
+
+        <label className="roi-field">
+          <span>Successful request rate (%)</span>
+          <input type="number" min={0} max={100} step={0.1} value={successRate} onChange={(event) => setSuccessRate(Number(event.target.value))} />
+        </label>
+
+        <label className="roi-field">
+          <span>Retrieval API calls per request</span>
+          <input type="number" min={0} step={1} value={retrievalCalls} onChange={(event) => setRetrievalCalls(Number(event.target.value))} />
+        </label>
+
+        <label className="roi-field">
+          <span>Retrieval p50 (ms)</span>
+          <input type="number" min={0} step={10} value={retrievalP50} onChange={(event) => setRetrievalP50(Number(event.target.value))} />
+        </label>
+
+        <label className="roi-field">
+          <span>Retrieval p95 (ms)</span>
+          <input type="number" min={0} step={10} value={retrievalP95} onChange={(event) => setRetrievalP95(Number(event.target.value))} />
+        </label>
+
+        <label className="roi-field">
+          <span>Model TTFT p50 (ms)</span>
+          <input type="number" min={0} step={50} value={ttftP50} onChange={(event) => setTtftP50(Number(event.target.value))} />
+        </label>
+
+        <label className="roi-field">
+          <span>Model TTFT p95 (ms)</span>
+          <input type="number" min={0} step={50} value={ttftP95} onChange={(event) => setTtftP95(Number(event.target.value))} />
+        </label>
+
+        <label className="roi-field">
+          <span>Output tokens per second</span>
+          <input type="number" min={1} step={5} value={outputTokensPerSecond} onChange={(event) => setOutputTokensPerSecond(Number(event.target.value))} />
+        </label>
+
+        <label className="roi-field">
+          <span>Network overhead (ms)</span>
+          <input type="number" min={0} step={10} value={networkOverhead} onChange={(event) => setNetworkOverhead(Number(event.target.value))} />
+        </label>
+
+        {evidenceLayer && scorer === "jev" ? (
+          <label className="roi-field">
+            <span>JEV scoring latency (ms)</span>
+            <input type="number" min={0} step={10} value={jevLatency} onChange={(event) => setJevLatency(Number(event.target.value))} />
+          </label>
+        ) : null}
 
         <label className="roi-field">
           <span>Reduction scenario</span>
@@ -172,13 +271,49 @@ export default function RoiCalculator() {
               <span>Estimated saving</span>
               <strong className={result.usd.saved >= 0 ? "ok" : "bad"}>{usdFormat.format(result.usd.saved)}</strong>
             </div>
+            {performance ? (
+              <>
+                <div className="roi-result">
+                  <span>Requests / month</span>
+                  <strong>{tokenFormat.format(performance.requests.total)} ({tokenFormat.format(performance.requests.successful)} successful)</strong>
+                </div>
+                <div className="roi-result">
+                  <span>Tokens / request</span>
+                  <strong>{tokenFormat.format(performance.tokens.perRequestWithout)} → {tokenFormat.format(performance.tokens.perRequestWith)}</strong>
+                </div>
+                <div className="roi-result">
+                  <span>API calls / request</span>
+                  <strong>{tokenFormat.format(performance.apiCalls.perRequestWithout)} → {tokenFormat.format(performance.apiCalls.perRequestWith)}</strong>
+                </div>
+                <div className="roi-result">
+                  <span>API calls / month</span>
+                  <strong>{tokenFormat.format(performance.apiCalls.monthlyWithout)} → {tokenFormat.format(performance.apiCalls.monthlyWith)}</strong>
+                </div>
+                <div className="roi-result">
+                  <span>Cost / 1K requests</span>
+                  <strong>{usdFormat.format(performance.cost.per1kWithout)} → {usdFormat.format(performance.cost.per1kWith)}</strong>
+                </div>
+                <div className="roi-result">
+                  <span>Cost / successful request</span>
+                  <strong>{usdFormat.format(performance.cost.perSuccessfulWithout)} → {usdFormat.format(performance.cost.perSuccessfulWith)}</strong>
+                </div>
+                <div className="roi-result">
+                  <span>Latency p50</span>
+                  <strong>{msFormat.format(performance.latency.baselineP50Ms)} → {msFormat.format(performance.latency.withP50Ms)} ms</strong>
+                </div>
+                <div className="roi-result">
+                  <span>Latency p95</span>
+                  <strong>{msFormat.format(performance.latency.baselineP95Ms)} → {msFormat.format(performance.latency.withP95Ms)} ms</strong>
+                </div>
+              </>
+            ) : null}
           </div>
 
           <div className="roi-chart" aria-hidden="true">
             <div className="roi-bar-row">
               <span>Tokens</span>
               <div className="roi-track"><div className="roi-bar" style={{ width: `${Math.min(100, tokenBar)}%` }} /></div>
-              <span>{result.tokens.reductionPct.toFixed(1)}% kept</span>
+              <span>{result.tokens.reductionPct.toFixed(1)}% saved</span>
             </div>
             <div className="roi-bar-row">
               <span>System $</span>
@@ -203,8 +338,11 @@ export default function RoiCalculator() {
       )}
 
       <p className="public-caveat">
-        Estimates, not invoices. Token counts are a projection from measured rates and will differ
-        with your prompt distribution. Quality is not guaranteed by these numbers.
+        API calls count one model call plus the configured retrieval calls and one JEV call when JEV
+        is selected. Latency sums retrieval, time to first token, output generation from the configured
+        tokens/second, and network overhead; p95 uses the p95 components and does not model generation
+        tail latency. Estimates, not invoices; token counts depend on your prompt distribution and
+        quality is not guaranteed by these numbers.
       </p>
       <p className="public-report-links">
         <a href="/evaluation/phase7-report.html">See the measurements</a>

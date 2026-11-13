@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 const PUBLIC_LINKS = [
   { href: "/workspace", label: "Workspace" },
   { href: "/documentation", label: "Documentation" },
+  { href: "/evaluation", label: "Evaluation · Benchmarks" },
   { href: "/cost-performance", label: "Cost & Performance" },
   { href: "/privacy", label: "Privacy Policy" },
   { href: "/terms", label: "Terms of Use" },
