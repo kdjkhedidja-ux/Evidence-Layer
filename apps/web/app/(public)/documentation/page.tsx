@@ -28,7 +28,7 @@ export default function DocumentationPage() {
       <section className="public-section" aria-labelledby="docs-flow">
         <h2 id="docs-flow">How the flow works</h2>
         <ol className="public-steps">
-          <li><strong>Receive a task and eligible candidates.</strong> A retrieval layer or caller supplies a query and candidate records. A production source connector and hosted retrieval API are not part of the current service.</li>
+          <li><strong>Receive a task and eligible candidates.</strong> A retrieval layer or caller supplies a query and candidate records. The hosted service provides read-only personal API-key retrieval and Remote MCP over workspace evidence; source ingestion remains connector-scoped.</li>
           <li><strong>Score the candidates.</strong> The Python evidence core includes deterministic lexical scoring and a JEV scorer behind provider-selection policy. JEV use requires explicit policy enablement and a separately trusted provider-transfer authorisation; supported package paths currently fail closed for live transfer.</li>
           <li><strong>Rank and select evidence.</strong> Results are sorted and a configured evidence budget can return a focused subset. When a JEV result cannot be safely used, the policy recomputes the entire candidate set lexically rather than mixing scores.</li>
           <li><strong>Return evidence with provenance.</strong> The schemas preserve candidate identifiers and source references so callers can trace selected material back to the supplied evidence.</li>
@@ -44,7 +44,7 @@ export default function DocumentationPage() {
             <ul>
               <li>Python schemas, a lexical scorer, ranking, and evaluation metrics.</li>
               <li>A JEV adapter and provider policy with whole-request lexical fallback behavior.</li>
-              <li>A local stdio MCP tool named <code>retrieve_evidence</code>.</li>
+              <li>A hosted Remote MCP endpoint with <code>retrieve_evidence</code> and <code>get_document</code>, plus an optional local stdio client and Python SDK.</li>
               <li>Real-World and synthetic evaluation data, frozen manifests, result hashes, and offline verification scripts.</li>
               <li>An authenticated Next.js workspace with Supabase Auth, personal and organization workspaces, evidence and relationship CRUD, verified source-catalogue reads, read-only personal API keys, account deletion, and public ROI/evaluation pages.</li>
             </ul>
@@ -54,14 +54,14 @@ export default function DocumentationPage() {
             <ul>
               <li>The standard local MCP path is lexical-only and the corpus source boundary denies reads by default unless a trusted source boundary is injected.</li>
               <li>Live JEV transfer is not enabled on the supported application package paths.</li>
-              <li>The hosted service stores workspace evidence metadata but exposes no retrieval/scoring endpoint or source ingestion/publish flow. A narrowed account/personal export is available with single-use, expiring download grants. Shared/group export and general download/CDN delivery are not available.</li>
+              <li>The hosted service exposes read-only personal API-key retrieve/get-document and Remote MCP over workspace evidence. It does not expose write scoring, source ingestion/publish, or provider source bytes. A narrowed account/personal export is available with single-use, expiring download grants; shared/group export and general download/CDN delivery are not available.</li>
               <li>The local deterministic source-routing library is not wired into a service.</li>
             </ul>
           </article>
           <article className="public-card public-card--muted">
             <h3>Planned or requiring a separate release</h3>
             <ul>
-              <li>Production source connectors beyond the Google Drive and Notion code slices (the connector SDK and Google Drive/Notion OAuth/manual-sync paths exist; background sync, ACL mapping, source verification, and production rollout are not available), hosted retrieval, and a customer-data service.</li>
+              <li>Production source connectors beyond the Google Drive and Notion code slices (the connector SDK and Google Drive/Notion OAuth/manual-sync paths exist; background sync, ACL mapping, source verification, and production rollout are not available), and a customer-data service.</li>
               <li>Provider transfer authorisation and live JEV use in an authorised service path.</li>
               <li>Integrated source routing, account usage reporting, billing, and a customer Comparison Lab.</li>
               <li>A supported final-answer generation integration; callers currently own that step.</li>

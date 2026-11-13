@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import os
 from collections.abc import Awaitable, Callable
+from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Literal, TypeVar
 from uuid import UUID
@@ -78,10 +79,16 @@ from evidence_service.personal_api_key_repository import (
     PersonalApiKeyAccessDenied,
     PersonalApiKeyDataUnavailable,
     PersonalApiKeyLimitReached,
+    PersonalApiKeyPage,
     PersonalApiKeyRateLimited,
     SupabasePersonalApiKeyRepository,
     decode_personal_api_key_cursor,
     parse_personal_api_key,
+)
+from evidence_service.remote_mcp import (
+    REMOTE_MCP_PATH,
+    RemoteMcpPrincipal,
+    create_remote_mcp_runtime,
 )
 from evidence_service.recovery_fence import (
     CloudflareRecoveryFenceReader,
@@ -1013,6 +1020,155 @@ def _source_read_error(exc) -> HTTPException:
     return HTTPException(status_code=403, detail="Source read is not authorized")
 
 
+def _personal_api_key_retrieve_response(
+    page: PersonalApiKeyPage,
+    workspace_id: UUID,
+    payload: PersonalApiKeyRetrieveRequest,
+) -> PersonalApiKeyRetrieveResponse:
+    records = [item for item in page.items if hasattr(item, "content")]
+    result: RetrievalSelection = select_evidence(
+        records,
+        query=payload.query,
+        top_k=payload.top_k,
+        max_tokens=payload.max_tokens,
+        max_chars=payload.max_chars,
+    )
+    return PersonalApiKeyRetrieveResponse(
+        status=result.status,
+        query=payload.query,
+        workspace_id=workspace_id,
+        top_k=payload.top_k,
+        max_tokens=payload.max_tokens,
+        max_chars=payload.max_chars,
+        candidate_count=result.candidate_count,
+        chunk_count=result.chunk_count,
+        matched_chunk_count=result.matched_chunk_count,
+        selected_count=len(result.selected),
+        used_tokens=result.used_tokens,
+        used_chars=result.used_chars,
+        token_estimator=result.token_estimator,
+        scoring_provider="lexical_stopword_filtered",
+        chunking=result.chunking,
+        evidence=[
+            PersonalApiKeyRetrievedItem(
+                evidence_id=item.record.id,
+                content=item.content,
+                source_label=item.record.source_label,
+                source_id=item.record.source_id,
+                source_version_id=item.record.source_version_id,
+                score=item.score,
+                token_count=item.token_count,
+                char_count=item.char_count,
+                chunk_id=item.chunk_id,
+                chunk_index=item.chunk_index,
+                chunk_start=item.chunk_start,
+                chunk_end=item.chunk_end,
+                path=item.path,
+                title=item.title,
+            )
+            for item in result.selected
+        ],
+    )
+
+
+class _AppStateRequest:
+    def __init__(self, application: FastAPI) -> None:
+        self.app = application
+
+
+def _remote_mcp_error(code: str, message: str) -> dict:
+    return {"error": {"code": code, "message": message}}
+
+
+class _HostedRemoteMcpBackend:
+    def __init__(self, application: FastAPI) -> None:
+        self._application = application
+        self._state_request = _AppStateRequest(application)
+
+    async def _guard(self) -> dict | None:
+        if not self._application.state.retrieval_enabled:
+            return _remote_mcp_error("unavailable", "Retrieval API is not enabled")
+        try:
+            await _require_recovery_fence_open(self._state_request)
+        except HTTPException:
+            return _remote_mcp_error("unavailable", "Service is unavailable")
+        return None
+
+    async def retrieve(
+        self,
+        principal: RemoteMcpPrincipal,
+        *,
+        query: str,
+        top_k: int,
+        max_tokens: int,
+        max_chars: int,
+    ) -> dict:
+        blocked = await self._guard()
+        if blocked is not None:
+            return blocked
+        try:
+            payload = PersonalApiKeyRetrieveRequest(
+                query=query,
+                top_k=top_k,
+                max_tokens=max_tokens,
+                max_chars=max_chars,
+            )
+        except ValueError:
+            return _remote_mcp_error("invalid_argument", "Invalid retrieve arguments")
+        try:
+            page = await _personal_api_key_repository(self._state_request).read_evidence(
+                key_id=principal.key_id,
+                key_hash=principal.key_hash,
+                workspace_id=principal.workspace_id,
+                limit=payload.candidate_limit,
+                cursor_created_at=None,
+                cursor_id=None,
+            )
+        except PersonalApiKeyAccessDenied:
+            return _remote_mcp_error("unauthorized", "Personal API key is invalid or revoked")
+        except PersonalApiKeyRateLimited:
+            return _remote_mcp_error("rate_limited", "Personal API key rate limit exceeded")
+        except PersonalApiKeyDataUnavailable:
+            return _remote_mcp_error("unavailable", "Personal API key service is unavailable")
+        except Exception:
+            return _remote_mcp_error("internal_error", "retrieve_evidence failed")
+        try:
+            return _personal_api_key_retrieve_response(
+                page, principal.workspace_id, payload
+            ).model_dump(mode="json")
+        except Exception:
+            return _remote_mcp_error("internal_error", "retrieve_evidence failed")
+
+    async def get_document(self, principal: RemoteMcpPrincipal, evidence_id: str) -> dict:
+        blocked = await self._guard()
+        if blocked is not None:
+            return blocked
+        try:
+            document_id = UUID(evidence_id)
+        except (TypeError, ValueError):
+            return _remote_mcp_error("invalid_argument", "evidence_id must be a UUID")
+        try:
+            record = await _personal_api_key_repository(
+                self._state_request
+            ).read_evidence_document(
+                key_id=principal.key_id,
+                key_hash=principal.key_hash,
+                workspace_id=principal.workspace_id,
+                evidence_id=document_id,
+            )
+        except PersonalApiKeyAccessDenied:
+            return _remote_mcp_error("unauthorized", "Personal API key is invalid or revoked")
+        except PersonalApiKeyRateLimited:
+            return _remote_mcp_error("rate_limited", "Personal API key rate limit exceeded")
+        except PersonalApiKeyDataUnavailable:
+            return _remote_mcp_error("unavailable", "Personal API key service is unavailable")
+        except Exception:
+            return _remote_mcp_error("internal_error", "get_document failed")
+        if record is None:
+            return _remote_mcp_error("not_found", "Evidence document not found")
+        return EvidenceResponse.model_validate(record).model_dump(mode="json")
+
+
 def create_app(
     settings: SupabaseSettings | None = None,
     *,
@@ -1034,6 +1190,7 @@ def create_app(
     organization_repository=None,
     source_read_path=None,
     source_catalog_factory=None,
+    remote_mcp_enabled: bool | None = None,
 ) -> FastAPI:
     """Create the service app; optional integrations are initialized on demand."""
     application = FastAPI(
@@ -1066,6 +1223,11 @@ def create_app(
     application.state.trusted_source_context_issuer = None
     application.state.source_read_path = source_read_path
     application.state.source_catalog_factory = source_catalog_factory
+    application.state.remote_mcp_enabled = (
+        remote_mcp_enabled
+        if remote_mcp_enabled is not None
+        else os.environ.get("EVIDENCE_REMOTE_MCP_ENABLED") == "true"
+    )
 
     @application.api_route(
         "/healthz", methods=["GET"], status_code=200, include_in_schema=False
@@ -1823,50 +1985,7 @@ def create_app(
         except PersonalApiKeyDataUnavailable as exc:
             raise HTTPException(status_code=503, detail="Personal API key service is unavailable") from exc
 
-        records = [item for item in page.items if hasattr(item, "content")]
-        result: RetrievalSelection = select_evidence(
-            records,
-            query=payload.query,
-            top_k=payload.top_k,
-            max_tokens=payload.max_tokens,
-            max_chars=payload.max_chars,
-        )
-        return PersonalApiKeyRetrieveResponse(
-            status=result.status,
-            query=payload.query,
-            workspace_id=workspace_id,
-            top_k=payload.top_k,
-            max_tokens=payload.max_tokens,
-            max_chars=payload.max_chars,
-            candidate_count=result.candidate_count,
-            chunk_count=result.chunk_count,
-            matched_chunk_count=result.matched_chunk_count,
-            selected_count=len(result.selected),
-            used_tokens=result.used_tokens,
-            used_chars=result.used_chars,
-            token_estimator=result.token_estimator,
-            scoring_provider="lexical_stopword_filtered",
-            chunking=result.chunking,
-            evidence=[
-                PersonalApiKeyRetrievedItem(
-                    evidence_id=item.record.id,
-                    content=item.content,
-                    source_label=item.record.source_label,
-                    source_id=item.record.source_id,
-                    source_version_id=item.record.source_version_id,
-                    score=item.score,
-                    token_count=item.token_count,
-                    char_count=item.char_count,
-                    chunk_id=item.chunk_id,
-                    chunk_index=item.chunk_index,
-                    chunk_start=item.chunk_start,
-                    chunk_end=item.chunk_end,
-                    path=item.path,
-                    title=item.title,
-                )
-                for item in result.selected
-            ],
-        )
+        return _personal_api_key_retrieve_response(page, workspace_id, payload)
 
     @application.get(
         "/v1/personal-api-keys/workspaces/{workspace_id}/evidence/{evidence_id}",
@@ -2533,6 +2652,20 @@ def create_app(
             media_type="application/octet-stream",
             headers={"Content-Digest": f"sha-256=:{snapshot.manifest.sha256}:"},
         )
+
+    if application.state.remote_mcp_enabled:
+        runtime = create_remote_mcp_runtime(_HostedRemoteMcpBackend(application), enabled=True)
+        application.state.remote_mcp = runtime
+        application.mount(REMOTE_MCP_PATH, runtime.app)
+        previous_lifespan = application.router.lifespan_context
+
+        @asynccontextmanager
+        async def lifespan(app: FastAPI):
+            async with runtime.server.session_manager.run():
+                async with previous_lifespan(app) as state:
+                    yield state
+
+        application.router.lifespan_context = lifespan
 
     return application
 

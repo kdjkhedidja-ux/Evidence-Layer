@@ -146,7 +146,7 @@ GitHub sync/bridge behavior: [`github-sync-and-retrieve.md`](github-sync-and-ret
 
 ## API-key retrieval and MCP
 
-See [`api-retrieval-mcp.md`](api-retrieval-mcp.md) for the enabled retrieve/get-document endpoints, MCP server, curl examples, and the token-reduction harness.
+See [`api-retrieval-mcp.md`](api-retrieval-mcp.md) for the enabled retrieve/get-document endpoints, hosted Remote MCP, the Python SDK, local stdio MCP, curl examples, and the token-reduction harness.
 
 ## Required next layer (not implemented)
 

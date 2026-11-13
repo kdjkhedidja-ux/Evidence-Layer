@@ -255,6 +255,12 @@ export const CAPABILITY_GROUPS: readonly CapabilityGroup[] = [
         detail: "Workspace-scoped read-only keys for evidence and relationships, with one-time display, 90-day maximum expiry, revocation, and 60 reads per minute. Source bytes and writes require a user session.",
         href: "/workspace#personal-api-keys",
       },
+      {
+        name: "Remote MCP",
+        status: "Partially available",
+        detail: "Hosted Streamable HTTP MCP endpoint for retrieve_evidence and get_document using a personal API key; enabled by its own flag, not a connector flag. A local Python server is optional.",
+        href: "/workspace#remote-mcp",
+      },
     ],
   },
 ];

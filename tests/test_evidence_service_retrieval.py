@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -52,7 +53,7 @@ class OpenFence:
         return True
 
 
-def make_client(enabled: bool = True, repository=None):
+def make_client(enabled: bool = True, repository=None, remote_mcp_enabled: bool = False):
     settings = SupabaseSettings(
         supabase_url="https://project.supabase.co",
         publishable_key="sb_publishable_test",
@@ -65,6 +66,7 @@ def make_client(enabled: bool = True, repository=None):
         recovery_fence_reader=OpenFence(),
         personal_api_key_repository=repository or FakeRepository(),
         retrieval_enabled=enabled,
+        remote_mcp_enabled=remote_mcp_enabled,
     )
     return TestClient(app)
 
@@ -130,3 +132,87 @@ def test_retrieval_is_disabled_by_default():
         json={"query": "lexical"},
     )
     assert response.status_code == 404
+
+
+def test_remote_mcp_exposes_retrieve_and_document_tools():
+    with make_client(remote_mcp_enabled=True) as client:
+        headers = {
+            "Authorization": f"Bearer {TOKEN}",
+            "Accept": "application/json, text/event-stream",
+        }
+        initialize = client.post(
+            f"/mcp/workspaces/{WORKSPACE}/",
+            headers=headers,
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2025-06-18",
+                    "capabilities": {},
+                    "clientInfo": {"name": "test", "version": "1"},
+                },
+            },
+        )
+        assert initialize.status_code == 200
+        assert initialize.json()["result"]["serverInfo"]["name"] == "Evidence Layer Remote MCP"
+
+        listed = client.post(
+            f"/mcp/workspaces/{WORKSPACE}/",
+            headers=headers,
+            json={"jsonrpc": "2.0", "id": 2, "method": "tools/list"},
+        )
+        assert listed.status_code == 200
+        names = {tool["name"] for tool in listed.json()["result"]["tools"]}
+        assert names == {"retrieve_evidence", "get_document"}
+
+        retrieved = client.post(
+            f"/mcp/workspaces/{WORKSPACE}/",
+            headers=headers,
+            json={
+                "jsonrpc": "2.0",
+                "id": 3,
+                "method": "tools/call",
+                "params": {
+                    "name": "retrieve_evidence",
+                    "arguments": {"query": "lexical retrieval", "top_k": 1},
+                },
+            },
+        )
+        assert retrieved.status_code == 200
+        payload = json.loads(retrieved.json()["result"]["content"][0]["text"])
+        assert payload["status"] == "ok"
+        assert payload["chunking"] == "retrieve_time_v1"
+        assert payload["evidence"][0]["evidence_id"] == str(RECORD_ID)
+
+        document = client.post(
+            f"/mcp/workspaces/{WORKSPACE}/",
+            headers=headers,
+            json={
+                "jsonrpc": "2.0",
+                "id": 4,
+                "method": "tools/call",
+                "params": {"name": "get_document", "arguments": {"evidence_id": str(RECORD_ID)}},
+            },
+        )
+        assert document.status_code == 200
+        document_payload = json.loads(document.json()["result"]["content"][0]["text"])
+        assert document_payload["id"] == str(RECORD_ID)
+
+
+def test_remote_mcp_requires_a_personal_key_and_feature_flag():
+    with make_client(remote_mcp_enabled=True) as client:
+        response = client.post(
+            f"/mcp/workspaces/{WORKSPACE}/",
+            headers={"Accept": "application/json, text/event-stream"},
+            json={"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+        )
+        assert response.status_code == 401
+        assert response.headers["www-authenticate"] == "Bearer"
+    with make_client(remote_mcp_enabled=False) as client:
+        response = client.post(
+            f"/mcp/workspaces/{WORKSPACE}/",
+            headers={"Authorization": f"Bearer {TOKEN}", "Accept": "application/json, text/event-stream"},
+            json={"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+        )
+        assert response.status_code == 404
