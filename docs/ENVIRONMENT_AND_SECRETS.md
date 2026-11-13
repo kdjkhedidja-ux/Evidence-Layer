@@ -30,6 +30,7 @@
 | Notion connector web OAuth | Server-only Notion OAuth callback credentials | `NOTION_OAUTH_CLIENT_ID`, `NOTION_OAUTH_CLIENT_SECRET`, `NOTION_REDIRECT_URI`, `NEXT_PUBLIC_NOTION_CONNECTOR_ENABLED` |
 | GitHub connector | Server-only GitHub App credentials; installation tokens are minted on demand and not stored | Preferred: `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_SLUG`. Accepted aliases: `GIT_APP_ID`, `GIT_APP_PRIVATE_KEY`, `GIT_APP_SLUG`. Also `NEXT_PUBLIC_GITHUB_CONNECTOR_ENABLED` |
 | API-key retrieval service | Server-only feature flag for the retrieve/get-document API | `EVIDENCE_RETRIEVE_API_ENABLED` (currently `true` in production); API keys are workspace-scoped and require `evidence:read` |
+| Remote MCP service | Server-only feature flag for the hosted Streamable HTTP MCP endpoint | `EVIDENCE_REMOTE_MCP_ENABLED` (default false; independent of connector flags) |
 | GitHub Codespaces | Encrypted Codespaces secrets | provider keys used for local work |
 
 Supabase secret and service-role keys must never reach the frontend, a
@@ -106,6 +107,8 @@ local Mailpit results do not establish hosted SMTP delivery.
 | `NEXT_PUBLIC_ACCOUNT_EXPORT_ENABLED` | Public | Enables the account/personal export UI. Defaults to disabled. Production is `true` after the 2026-11-11 export/download/revoke smoke; set it to exactly `true` only after migration `20261111180000`, Evidence Service export routes, BFF routes, and that smoke are in place. |
 | `NEXT_PUBLIC_GOOGLE_DRIVE_CONNECTOR_ENABLED` | Public | Enables the Google Drive Connect UI. Defaults to disabled and displays “Coming soon”. Google Drive remains off until Google OAuth verification, deployment, and a live smoke pass. |
 | `NEXT_PUBLIC_NOTION_CONNECTOR_ENABLED` | Public | Enables the Notion Connect UI. Production is `true` after the 2026-11-11 Notion connector deployment; a live connect/sync/disconnect smoke is still required. |
+| `NEXT_PUBLIC_REMOTE_MCP_ENABLED` | Public | Enables the workspace **Remote MCP** panel. Defaults to disabled and is independent of all connector flags. |
+| `NEXT_PUBLIC_REMOTE_MCP_URL` | Public | Hosted MCP base URL, for example `https://<evidence-service>/mcp`; the UI appends `/workspaces/<workspace_id>/`. |
 
 Copy placeholders from `apps/web/.env.example`. The Resend SMTP password is
 not an application variable. The service keeps its separate required JWT and

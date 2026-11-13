@@ -133,9 +133,84 @@ quality.
 Chunking is retrieve-time only. A normal deploy is sufficient; do **not** force
 a GitHub re-sync just to get chunking.
 
-## MCP server
+## Remote MCP (hosted, no local Python)
 
-A stdio MCP server calls the endpoints above and exposes:
+The hosted endpoint is a Streamable HTTP MCP server in the Evidence Service. It uses the same
+personal API-key retrieve path and exposes the same two tools:
+
+- `retrieve_evidence(query, top_k, max_tokens, max_chars)`
+- `get_document(evidence_id)`
+
+Endpoint:
+
+```text
+POST https://<evidence-service>/mcp/workspaces/<workspace_id>/
+Authorization: Bearer <personal API key>
+Accept: application/json, text/event-stream
+```
+
+Use a workspace-scoped personal API key. The key is read-only, rate-limited, and validated against
+the workspace in the URL. Source bytes, account operations, and writes are not exposed. The endpoint
+is stateless and returns JSON responses; it is not an SSE-only local server.
+
+MCP client configuration:
+
+```json
+{
+  "mcpServers": {
+    "evidence-layer": {
+      "type": "http",
+      "url": "https://<evidence-service>/mcp/workspaces/<workspace_id>/",
+      "headers": {
+        "Authorization": "Bearer <YOUR_PERSONAL_API_KEY>"
+      }
+    }
+  }
+}
+```
+
+Server and web flags are independent of the GitHub, Notion, and Google Drive connector flags:
+
+| Surface | Variable | Default |
+|---|---|---|
+| Evidence Service | `EVIDENCE_REMOTE_MCP_ENABLED=true` | off |
+| Web workspace | `NEXT_PUBLIC_REMOTE_MCP_ENABLED=true` | off |
+| Web workspace URL | `NEXT_PUBLIC_REMOTE_MCP_URL=https://<evidence-service>/mcp` | unset |
+
+When enabled, the workspace page shows **Remote MCP** above **Connected sources**, with the
+workspace-scoped URL and a copyable client configuration. No local package installation is needed.
+When disabled, the endpoint is not mounted and returns 404; the workspace page shows the capability
+as not enabled.
+
+## Python SDK
+
+The same retrieve API has a small Python SDK for agents and backend jobs:
+
+```python
+from evidence_layer.sdk import EvidenceLayerClient, EvidenceApiError
+
+client = EvidenceLayerClient(
+    "https://evidence-layer.example",
+    "evl_pk_…",
+    "00000000-0000-4000-8000-000000000000",
+)
+context = client.retrieve(
+    "What is the product?",
+    top_k=5,
+    max_tokens=1200,
+    max_chars=6000,
+    candidate_limit=50,
+)
+document = client.get_document(context["evidence"][0]["evidence_id"])
+```
+
+`retrieve` returns the chunk/path metadata documented above. `get_document` returns the full parent
+document. Both methods raise `EvidenceApiError` on transport or non-2xx responses; API keys and
+document content are never logged.
+
+## Local stdio MCP server
+
+A local stdio MCP server calls the endpoints above and exposes:
 
 - `retrieve_evidence(query, top_k, max_tokens, max_chars)`
 - `get_document(evidence_id)`
@@ -196,7 +271,8 @@ A/B token reports: [`first run`](../operations/el-vs-baseline-deepseek-tokens-20
 
 ## Enablement/config notes
 
-- Service flag: `EVIDENCE_RETRIEVE_API_ENABLED=true` (default false; endpoint returns 404 while disabled).
+- Service flags: `EVIDENCE_RETRIEVE_API_ENABLED=true` for retrieve/get-document, and `EVIDENCE_REMOTE_MCP_ENABLED=true` for the hosted MCP mount. Both default false and return 404 while disabled.
+- Web flags: `NEXT_PUBLIC_REMOTE_MCP_ENABLED=true` and `NEXT_PUBLIC_REMOTE_MCP_URL=https://<service>/mcp`; these are separate from connector flags.
 - Deploy migration `20261112120000_personal_api_key_evidence_document.sql` for `get_document`.
 - API key scope: `evidence:read`; workspace membership and lifecycle are enforced by the existing key RPC.
 - No JEV, no Google Drive, no Marketplace work.
