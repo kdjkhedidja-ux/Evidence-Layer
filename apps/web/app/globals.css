@@ -2722,6 +2722,13 @@ select:focus-visible,
   display: grid;
   gap: 0.8rem;
   min-width: 0;
+  max-height: min(72vh, 48rem);
+  overflow-y: auto;
+  padding-right: 0.35rem;
+  scrollbar-color: var(--border-control-color) var(--bg-secondary);
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  overscroll-behavior: contain;
 }
 
 .workspace-record,
@@ -2752,6 +2759,16 @@ select:focus-visible,
   overflow-wrap: anywhere;
   white-space: pre-wrap;
   line-height: 1.6;
+}
+
+.workspace-record-content {
+  max-height: min(38vh, 24rem);
+  overflow-y: auto;
+  padding-right: 0.35rem;
+  scrollbar-color: var(--border-control-color) var(--bg-secondary);
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  overscroll-behavior: contain;
 }
 
 .workspace-record-actions {
@@ -3052,6 +3069,14 @@ select:focus-visible,
 @media (max-width: 600px) {
   .workspace-header {
     gap: 0.8rem;
+  }
+
+  .workspace-record-list {
+    max-height: 40vh;
+  }
+
+  .workspace-record-content {
+    max-height: 46vh;
   }
 
   .workspace-user span {

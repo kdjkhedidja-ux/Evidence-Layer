@@ -618,7 +618,7 @@ export default function WorkspaceConsole({
                         <span>{record.source_label || "No source label"}</span>
                         <time dateTime={record.updated_at}>Updated {dateLabel(record.updated_at)}</time>
                       </div>
-                      <p>{record.content}</p>
+                      <p className="workspace-record-content">{record.content}</p>
                       {record.source_id && record.source_version_id && (
                         <p className="workspace-record-link">
                           Linked to source {record.source_id.slice(0, 8)}… version{" "}
