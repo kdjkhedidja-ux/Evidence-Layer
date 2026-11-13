@@ -18,6 +18,7 @@ Current caps:
 | Documents per sync | 100 |
 | Bytes per document | 2 MiB |
 | Total content bytes per sync | 12 MiB |
+| Bridged evidence per document | 65,536 characters |
 
 Priority order:
 

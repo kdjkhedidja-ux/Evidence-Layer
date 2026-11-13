@@ -25,6 +25,7 @@ MAX_DOCUMENT_BYTES = 2 * 1024 * 1024
 MAX_SYNC_ITEMS = 100
 MAX_REPOSITORIES = 5
 MAX_TOTAL_BYTES = 12 * 1024 * 1024
+MAX_EVIDENCE_CHARS = 65_536
 
 
 class GitHubAppSyncError(Exception):
@@ -231,6 +232,12 @@ class GitHubAppSyncService:
                     else:
                         content_text = None
                         content_base64 = base64.b64encode(document.content).decode("ascii")
+                    if (
+                        content_text is not None
+                        and len(content_text) > MAX_EVIDENCE_CHARS
+                    ):
+                        skipped += 1
+                        continue
                     revision = document.revision or item.revision or document.sha256
                     documents.append({
                         "user_id": str(connection.user_id),
