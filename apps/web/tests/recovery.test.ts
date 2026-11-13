@@ -24,18 +24,18 @@ function request(password = "new-synthetic-password", origin = "https://app.exam
 }
 
 describe("guarded password recovery", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     mocks.context.mockResolvedValue({
       kind: "authenticated", accessToken: "synthetic-token-a",
       client: { auth: { updateUser: mocks.updateUser, signOut: mocks.signOut } },
     });
-    mocks.getCookie.mockReturnValue({ value: recoveryProof("synthetic-token-a") });
+    mocks.getCookie.mockReturnValue({ value: await recoveryProof("synthetic-token-a") });
     mocks.updateUser.mockResolvedValue({ error: null });
     mocks.signOut.mockResolvedValue({ error: null });
   });
 
   it("binds recovery to the current session, then clears it and signs out", async () => {
-    expect(hasRecoveryProof(recoveryProof("synthetic-token-a"), "synthetic-token-b")).toBe(false);
+    expect(await hasRecoveryProof(await recoveryProof("synthetic-token-a"), "synthetic-token-b")).toBe(false);
     const response = await POST(request());
     expect(response.status).toBe(200);
     expect(mocks.updateUser).toHaveBeenCalledWith({ password: "new-synthetic-password" });
@@ -46,7 +46,7 @@ describe("guarded password recovery", () => {
   it("rejects reused, switched-account, and missing recovery state", async () => {
     mocks.getCookie.mockReturnValueOnce(undefined);
     expect((await POST(request())).status).toBe(403);
-    mocks.getCookie.mockReturnValueOnce({ value: recoveryProof("synthetic-token-b") });
+    mocks.getCookie.mockReturnValueOnce({ value: await recoveryProof("synthetic-token-b") });
     expect((await POST(request())).status).toBe(403);
     mocks.context.mockResolvedValueOnce({ kind: "unauthenticated" });
     expect((await POST(request())).status).toBe(401);

@@ -18,7 +18,7 @@ export async function POST(request: Request): Promise<Response> {
   const auth = await getVerifiedAuthContext();
   if (auth.kind !== "authenticated") return result(401, "The recovery link is invalid or expired.");
   const cookieStore = await cookies();
-  if (!hasRecoveryProof(cookieStore.get(RECOVERY_COOKIE)?.value, auth.accessToken)) {
+  if (!(await hasRecoveryProof(cookieStore.get(RECOVERY_COOKIE)?.value, auth.accessToken))) {
     return result(403, "The recovery link is invalid or expired.");
   }
 

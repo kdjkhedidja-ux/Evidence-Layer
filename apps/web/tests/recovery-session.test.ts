@@ -4,6 +4,7 @@ import { hasRecoveryProof } from "../lib/supabase/recovery";
 
 const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
+  getClaims: vi.fn(),
   setSession: vi.fn(),
   getUser: vi.fn(),
   getSession: vi.fn(),
@@ -26,6 +27,10 @@ function request(origin = "https://app.example", body: unknown = {
 
 describe("implicit recovery session handoff", () => {
   beforeEach(() => {
+    mocks.getClaims.mockResolvedValue({
+      data: { claims: { sub: "synthetic-user", amr: [{ method: "recovery" }] } },
+      error: null,
+    });
     mocks.setSession.mockResolvedValue({
       data: { session: { access_token: "synthetic-access-token" }, user: { id: "synthetic-user" } },
       error: null,
@@ -36,6 +41,7 @@ describe("implicit recovery session handoff", () => {
       error: null,
     });
     mocks.createClient.mockResolvedValue({ auth: {
+      getClaims: mocks.getClaims,
       setSession: mocks.setSession,
       getUser: mocks.getUser,
       getSession: mocks.getSession,
@@ -49,10 +55,11 @@ describe("implicit recovery session handoff", () => {
       access_token: "synthetic-access-token",
       refresh_token: "synthetic-refresh-token",
     });
+    expect(mocks.getClaims).toHaveBeenCalledWith("synthetic-access-token");
     expect(mocks.getUser).toHaveBeenCalledOnce();
     const proof = response.cookies.get("evidence-layer-recovery");
     expect(proof?.httpOnly).toBe(true);
-    expect(hasRecoveryProof(proof?.value, "synthetic-access-token")).toBe(true);
+    expect(await hasRecoveryProof(proof?.value, "synthetic-access-token")).toBe(true);
     expect(response.headers.get("cache-control")).toBe("no-store");
   });
 
@@ -64,5 +71,43 @@ describe("implicit recovery session handoff", () => {
     const response = await POST(request());
     expect(response.status).toBe(401);
     expect(response.cookies.get("evidence-layer-recovery")).toBeUndefined();
+  });
+
+  it("does not grant recovery state to a regular authenticated session", async () => {
+    mocks.getClaims.mockResolvedValueOnce({
+      data: { claims: { sub: "synthetic-user", amr: [{ method: "password" }] } },
+      error: null,
+    });
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(401);
+    expect(mocks.setSession).not.toHaveBeenCalled();
+    expect(response.cookies.get("evidence-layer-recovery")).toBeUndefined();
+  });
+
+  it("rejects a token whose claims cannot be verified", async () => {
+    mocks.getClaims.mockResolvedValueOnce({
+      data: null,
+      error: { message: "private token verification detail" },
+    });
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(401);
+    expect(await response.text()).not.toContain("private token verification detail");
+    expect(mocks.setSession).not.toHaveBeenCalled();
+    expect(response.cookies.get("evidence-layer-recovery")).toBeUndefined();
+  });
+
+  it("accepts Supabase's string-format recovery AMR claim", async () => {
+    mocks.getClaims.mockResolvedValueOnce({
+      data: { claims: { sub: "synthetic-user", amr: ["recovery"] } },
+      error: null,
+    });
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(200);
   });
 });
