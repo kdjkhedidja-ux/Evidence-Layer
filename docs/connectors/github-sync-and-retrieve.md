@@ -1,6 +1,6 @@
 # GitHub sync and retrieve bridge
 
-Status: implemented for the personal connector path. Migration `20261112140000` adds the personal-workspace bridge.
+Status: implemented for the personal connector path. Migration `20261112140000` adds the personal-workspace bridge; migration `20261112160000` adds the scoped evidence upsert RPC.
 
 ## Scope
 
@@ -62,6 +62,10 @@ Evidence writes use the authenticated user and existing evidence RLS; no service
 3. In workspace Connected sources, click **Sync** again. Existing GitHub connections are backfilled to the user's personal workspace; a sync rebuilds text and evidence.
 4. Use the **personal workspace ID** shown in Authorized workspace for the API key/retrieve/MCP configuration. The group workspace may still show zero evidence because the bridge is personal-only.
 5. Confirm retrieve returns documents for the personal workspace.
+
+## Verification
+
+A synthetic installation sync on 2026-11-13 listed 50 documents and ingested 49 (one skipped), then `POST /v1/personal-api-keys/workspaces/{id}/retrieve` returned evidence from the bridged personal workspace. The test account was purged afterward.
 
 ## Limits
 
