@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { POST as createDeletion } from "../app/api/evidence/deletion-requests/route";
 import { GET as getDeletion } from "../app/api/evidence/deletion-requests/[requestId]/route";
 import { POST as acceptDeletion } from "../app/api/evidence/deletion-requests/[requestId]/accept/route";
+import { POST as createPersonalDeletion } from "../app/api/evidence/me/data-deletions/route";
 
 const mocks = vi.hoisted(() => ({ getAuth: vi.fn(), serviceUrl: vi.fn() }));
 
@@ -11,7 +12,21 @@ vi.mock("../lib/supabase/config", () => ({ getEvidenceServiceBaseUrl: () => mock
 const USER_ID = "10000000-0000-4000-8000-000000000001";
 const REQUEST_ID = "72000000-0000-4000-8000-000000000001";
 const TOKEN = "synthetic-user-access-token";
-const AUTHENTICATED = { kind: "authenticated", user: { id: USER_ID }, accessToken: TOKEN, client: {} };
+const AUTHENTICATED = {
+  kind: "authenticated",
+  user: { id: USER_ID },
+  accessToken: TOKEN,
+  client: {
+    auth: {
+      mfa: {
+        getAuthenticatorAssuranceLevel: async () => ({
+          data: { currentLevel: "aal1", nextLevel: "aal1" },
+          error: null,
+        }),
+      },
+    },
+  },
+};
 const VIEW = {
   request_id: REQUEST_ID,
   requester_user_id: USER_ID,
@@ -58,6 +73,54 @@ describe("deletion request Next.js boundary", () => {
       method: "POST", headers: sameOrigin, body: JSON.stringify({ idempotency_key: "  " }),
     }));
     expect(invalid.status).toBe(400);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("requires MFA for deletion actions and fails closed when its status is unavailable", async () => {
+    mocks.getAuth.mockResolvedValue({
+      ...AUTHENTICATED,
+      client: {
+        auth: {
+          mfa: {
+            getAuthenticatorAssuranceLevel: async () => ({
+              data: { currentLevel: "aal1", nextLevel: "aal2" },
+              error: null,
+            }),
+          },
+        },
+      },
+    });
+    const challengeRequired = await createDeletion(request("/api/evidence/deletion-requests", {
+      method: "POST",
+      headers: sameOrigin,
+      body: JSON.stringify({ idempotency_key: "key-1" }),
+    }));
+    expect(challengeRequired.status).toBe(403);
+    expect(await challengeRequired.json()).toMatchObject({ code: "mfa_required" });
+    expect(fetch).not.toHaveBeenCalled();
+
+    mocks.getAuth.mockResolvedValue({
+      ...AUTHENTICATED,
+      client: {
+        auth: {
+          mfa: {
+            getAuthenticatorAssuranceLevel: async () => ({
+              data: null,
+              error: { message: "private provider detail" },
+            }),
+          },
+        },
+      },
+    });
+    const unavailable = await createPersonalDeletion(request("/api/evidence/me/data-deletions", {
+      method: "POST",
+      headers: sameOrigin,
+    }));
+    expect(unavailable.status).toBe(503);
+    expect(await unavailable.json()).toEqual({
+      error: "Two-factor authentication status is unavailable.",
+      code: "mfa_unavailable",
+    });
     expect(fetch).not.toHaveBeenCalled();
   });
 
