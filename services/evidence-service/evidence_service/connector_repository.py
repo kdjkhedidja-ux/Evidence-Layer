@@ -359,7 +359,7 @@ class ConnectorRepository:
             access_token,
             "connector_documents",
             params={
-                "on_conflict": "connection_id,external_id,revision",
+                "on_conflict": "connection_id,external_id",
                 "select": "document_id",
             },
             body=documents,

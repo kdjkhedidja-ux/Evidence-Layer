@@ -4504,6 +4504,13 @@
       "line": 38,
       "verb": "alter table",
       "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "f2f8d19146a41be3",
+      "file": "20261112150000_evidence_bridge_update_grant.sql",
+      "line": 3,
+      "verb": "grant update",
+      "rationale_ref": "privilege-grant"
     }
   ]
 }

@@ -266,6 +266,12 @@
       "version": "20261112140000",
       "sha256": "f814825b2c1d606d445230f225667d126c15a66bccac5bb011c1c741636f6651",
       "provenance": "Bridge connector documents into owner personal-workspace evidence; one document row per external id; connection-bound cascade."
+    },
+    {
+      "file": "20261112150000_evidence_bridge_update_grant.sql",
+      "version": "20261112150000",
+      "sha256": "d010050d3e5c68e842a7c1af16fcc14bfd37c23c6ec02b759f75243c970cae65",
+      "provenance": "Grant column-level UPDATE on evidence workspace_id required by PostgREST connector evidence upsert."
     }
   ]
 }
