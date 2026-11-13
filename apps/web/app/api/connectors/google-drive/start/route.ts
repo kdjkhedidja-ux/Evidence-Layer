@@ -2,6 +2,10 @@ import { randomBytes } from "node:crypto";
 
 import { NextResponse } from "next/server";
 
+import {
+  connectorMfaRedirectPath,
+  connectorMfaStatus,
+} from "../../../../../lib/connector-api";
 import { getVerifiedAuthContext } from "../../../../../lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +33,10 @@ export async function GET(request: Request): Promise<NextResponse> {
   const redirectUri =
     process.env.GOOGLE_OAUTH_REDIRECT_URI ??
     new URL("/api/connectors/google-drive/callback", request.url).toString();
+  const mfaStatus = await connectorMfaStatus(auth);
+  if (mfaStatus !== "not-required") {
+    return redirect(request, connectorMfaRedirectPath("google_drive", mfaStatus));
+  }
   const state = randomBytes(32).toString("base64url");
   const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
   url.searchParams.set("client_id", clientId);

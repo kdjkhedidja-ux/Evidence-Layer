@@ -45,7 +45,10 @@ confirmation enabled in Supabase Auth. The app deliberately signs a user out
 if sign-up unexpectedly returns an active session, rather than bypassing email
 verification.
 Protected workspace pages and API operations fail closed if the user's MFA
-assurance level cannot be verified.
+assurance level cannot be verified. Connector OAuth start/callback routes and
+the shared connection-storage boundary also require a verified MFA state.
+Signing out everywhere revokes refresh sessions, but already-issued access
+tokens may remain valid until they expire.
 
 ## Checks
 
