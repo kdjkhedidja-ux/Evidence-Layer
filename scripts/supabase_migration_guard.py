@@ -80,6 +80,7 @@ V_IDEMPOTENT_PREPARE = "20261111150000"
 V_PHASE8_EXPORT = "20261111180000"
 V_CONNECTORS = "20261111190000"
 V_API_KEY_DOCUMENT = "20261112120000"
+V_CONNECTOR_BRIDGE = "20261112140000"
 
 VERSION_RE = re.compile(r"^[0-9]{14}_[a-z0-9_]+\.sql$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -582,6 +583,7 @@ def expected_catalog(versions: list[str]) -> dict:
     phase8_export = V_PHASE8_EXPORT in present
     connectors = V_CONNECTORS in present
     api_key_document = V_API_KEY_DOCUMENT in present
+    connector_bridge = V_CONNECTOR_BRIDGE in present
     source = V_SOURCE_CATALOG in present
     storage = V_SNAPSHOT_STORAGE in present
     verifier = V_VERIFIER_IDENTITY in present
@@ -1142,11 +1144,14 @@ def expected_catalog(versions: list[str]) -> dict:
         })
     if connectors:
         foreign_keys.update({
-            ("connector_connections_workspace_id_fkey", "public.connector_connections", "public.workspaces", "c"),
-            ("evidence_records_connector_connection_id_fkey", "public.evidence_records", "public.connector_connections", "c"),
             ("connector_connections_user_id_fkey", "public.connector_connections", "auth.users", "c"),
             ("connector_documents_user_id_fkey", "public.connector_documents", "auth.users", "c"),
             ("connector_documents_connection_id_fkey", "public.connector_documents", "public.connector_connections", "c"),
+        })
+    if connector_bridge:
+        foreign_keys.update({
+            ("connector_connections_workspace_id_fkey", "public.connector_connections", "public.workspaces", "c"),
+            ("evidence_records_connector_connection_id_fkey", "public.evidence_records", "public.connector_connections", "c"),
         })
     if api_keys:
         foreign_keys.update({
