@@ -64,10 +64,10 @@ class ConnectorRepositoryTests(unittest.IsolatedAsyncioTestCase):
                     "status": "active",
                     "workspaces": {"id": str(WORKSPACE), "name": "Personal", "created_at": "2026-11-11T00:00:00Z"},
                 }])
-            if request.method == "POST" and request.url.path.endswith("/evidence_records"):
+            if request.method == "POST" and request.url.path.endswith("/rpc/upsert_connector_evidence"):
                 body = json.loads(request.content)
-                assert body[0]["connector_external_id"] == "file-1"
-                return httpx.Response(201)
+                assert body["p_documents"][0]["connector_external_id"] == "file-1"
+                return httpx.Response(200, json=1)
             if request.method == "POST" and request.url.path.endswith("/connector_documents"):
                 body = json.loads(request.content)
                 assert body[0]["content_text"] == "hello"
@@ -94,14 +94,17 @@ class ConnectorRepositoryTests(unittest.IsolatedAsyncioTestCase):
         assert by_provider is not None
         self.assertEqual(by_provider.refresh_token_ciphertext, "v1.refresh")
         self.assertEqual(await repository.personal_workspace_id("token", USER), WORKSPACE)
-        await repository.upsert_evidence_documents("token", [{
-            "workspace_id": str(WORKSPACE),
-            "content": "hello",
-            "source_label": "GitHub: file-1",
-            "connector_connection_id": str(CONNECTION),
-            "connector_external_id": "file-1",
-            "connector_revision": "rev",
-        }])
+        await repository.upsert_evidence_documents(
+            "token",
+            workspace_id=WORKSPACE,
+            connection_id=CONNECTION,
+            documents=[{
+                "content": "hello",
+                "source_label": "GitHub: file-1",
+                "connector_external_id": "file-1",
+                "connector_revision": "rev",
+            }],
+        )
         await repository.upsert_documents("token", [{
             "user_id": str(USER),
             "connection_id": str(CONNECTION),

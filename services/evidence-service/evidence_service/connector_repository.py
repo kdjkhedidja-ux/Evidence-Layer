@@ -302,20 +302,24 @@ class ConnectorRepository:
         )
 
     async def upsert_evidence_documents(
-        self, access_token: str, documents: list[dict[str, Any]]
+        self,
+        access_token: str,
+        *,
+        workspace_id: UUID,
+        connection_id: UUID,
+        documents: list[dict[str, Any]],
     ) -> None:
         if not documents:
             return
         await self._request(
             "POST",
             access_token,
-            "evidence_records",
-            params={
-                "on_conflict": "connector_connection_id,connector_external_id",
-                "select": "id",
+            "rpc/upsert_connector_evidence",
+            body={
+                "p_workspace_id": str(workspace_id),
+                "p_connection_id": str(connection_id),
+                "p_documents": documents,
             },
-            body=documents,
-            prefer="resolution=merge-duplicates,return=minimal",
         )
 
     async def delete_stale_connector_evidence(
@@ -359,7 +363,7 @@ class ConnectorRepository:
             access_token,
             "connector_documents",
             params={
-                "on_conflict": "connection_id,external_id,revision",
+                "on_conflict": "connection_id,external_id",
                 "select": "document_id",
             },
             body=documents,

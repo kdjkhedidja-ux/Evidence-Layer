@@ -51,7 +51,7 @@ class FakeRepository:
     async def set_connection_workspace(self, access_token, connection_id, workspace_id):
         return None
 
-    async def upsert_evidence_documents(self, access_token, documents):
+    async def upsert_evidence_documents(self, access_token, *, workspace_id, connection_id, documents):
         self.evidence_documents = documents
 
     async def delete_stale_connector_evidence(self, access_token, connection_id, external_ids):
@@ -94,7 +94,7 @@ class GitHubAppSyncTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(repository.documents[0]["content_text"], "hello")
         assert repository.evidence_documents is not None
         self.assertEqual(repository.evidence_documents[0]["content"], "hello")
-        self.assertEqual(repository.evidence_documents[0]["workspace_id"], str(WORKSPACE))
+        self.assertEqual(repository.evidence_documents[0]["connector_external_id"], "acme/docs/README.md")
 
     async def test_sync_skips_empty_repository(self):
         def handler(request: httpx.Request) -> httpx.Response:
