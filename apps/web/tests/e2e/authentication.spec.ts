@@ -19,6 +19,39 @@ test("login authenticates with the local fixture and opens Workspace", async ({ 
   await expect(page.getByRole("heading", { name: "Evidence workspace" })).toBeVisible();
 });
 
+test("MFA account header stays readable on narrow mobile screens", async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 780 });
+  await page.goto("/login");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill(password);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page).toHaveURL("/workspace");
+
+  await page.goto("/mfa");
+  await expect(page.getByRole("heading", { name: "Two-factor authentication" })).toBeVisible();
+  await expect(page.locator(".mfa-header .workspace-user")).toContainText(email);
+
+  const layout = await page.evaluate(() => {
+    const header = document.querySelector(".mfa-header");
+    const brand = header?.querySelector(".workspace-brand")?.getBoundingClientRect();
+    const navigation = header?.querySelector("nav")?.getBoundingClientRect();
+    const account = header?.querySelector(".workspace-user")?.getBoundingClientRect();
+    return {
+      viewportWidth: window.innerWidth,
+      documentWidth: document.documentElement.scrollWidth,
+      rowsOrdered: Boolean(
+        brand && navigation && account &&
+        brand.bottom <= navigation.top &&
+        navigation.bottom <= account.top,
+      ),
+      accountWithinViewport: Boolean(account && account.right <= window.innerWidth),
+    };
+  });
+  expect(layout.documentWidth).toBeLessThanOrEqual(layout.viewportWidth);
+  expect(layout.rowsOrdered).toBe(true);
+  expect(layout.accountWithinViewport).toBe(true);
+});
+
 test("browser session cookies reach the verified server-side workspace API", async ({ page }) => {
   await page.goto("/login");
   await page.getByLabel("Email").fill(email);

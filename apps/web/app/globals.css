@@ -4293,6 +4293,33 @@ select:focus-visible,
     padding-inline: 1rem;
   }
 
+  .workspace-header.mfa-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    justify-content: stretch;
+    justify-items: start;
+    gap: 0.65rem;
+  }
+
+  .workspace-header.mfa-header nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+    width: 100%;
+    gap: 0.25rem 1rem;
+  }
+
+  .workspace-header.mfa-header .workspace-user {
+    width: 100%;
+    min-width: 0;
+    justify-content: flex-start;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border-color);
+  }
+
+  .workspace-header.mfa-header .workspace-user span {
+    max-width: 100%;
+  }
+
   .workspace-menu {
     padding-inline: 1rem;
   }

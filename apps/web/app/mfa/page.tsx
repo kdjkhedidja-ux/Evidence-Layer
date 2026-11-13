@@ -19,7 +19,7 @@ export default async function MfaPage({
   if (auth.kind === "unavailable") {
     return (
       <main className="workspace-page workspace-page--gate">
-        <header className="workspace-header">
+        <header className="workspace-header mfa-header">
           <Link className="workspace-brand" href="/">evidence<span>layer</span></Link>
           <Link href="/">Open Explorer</Link>
         </header>
@@ -40,7 +40,7 @@ export default async function MfaPage({
 
   return (
     <main className="workspace-page">
-      <header className="workspace-header">
+      <header className="workspace-header mfa-header">
         <Link className="workspace-brand" href="/">evidence<span>layer</span></Link>
         <nav aria-label="Account">
           <Link href="/workspace">Workspace</Link>
