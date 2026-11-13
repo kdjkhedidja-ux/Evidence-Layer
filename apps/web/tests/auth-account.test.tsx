@@ -133,7 +133,7 @@ describe("authenticated workspace controls", () => {
     render(<AuthAccount userId="user-a" email="a@example.test" />);
     await waitFor(() => expect(screen.getByRole("button", { name: "Sign out" })).toBeEnabled());
     await user.click(screen.getByRole("button", { name: "Sign out" }));
-    await waitFor(() => expect(mocks.signOut).toHaveBeenCalledOnce());
+    await waitFor(() => expect(mocks.signOut).toHaveBeenCalledWith({ scope: "local" }));
     expect(mocks.replace).toHaveBeenCalledWith("/login?reason=signed-out");
   });
 

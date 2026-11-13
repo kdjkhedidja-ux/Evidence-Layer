@@ -367,7 +367,7 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
     setPending(true);
     setMessage("");
     try {
-      const { error } = await createSupabaseBrowserClient().auth.signOut();
+      const { error } = await createSupabaseBrowserClient().auth.signOut({ scope: "local" });
       if (error) {
         setMessage("Sign out could not be confirmed. Try again.");
         return;

@@ -24,6 +24,7 @@ vi.mock("../lib/supabase/client", () => ({
       onAuthStateChange: () => ({
         data: { subscription: { unsubscribe: mocks.unsubscribe } },
       }),
+      getSession: async () => ({ data: { session: null }, error: null }),
       signOut: mocks.signOut,
     },
   }),
@@ -113,6 +114,17 @@ describe("workspace product console", () => {
     expect(screen.getByRole("heading", { name: "Capability Catalog" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Evidence Relationships" })).toBeInTheDocument();
     expect(screen.queryByText("Demo only")).not.toBeInTheDocument();
+  });
+
+  it("offers navigation and a local sign out from the header menu", async () => {
+    mocks.signOut.mockResolvedValue({ error: null });
+    render(<WorkspaceConsole userId={USER_ID} email="reader@example.test" />);
+    const toggle = screen.getByRole("button", { name: "Menu" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(toggle);
+    expect(screen.getByRole("button", { name: "Close" })).toHaveAttribute("aria-expanded", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+    await waitFor(() => expect(mocks.signOut).toHaveBeenCalledWith({ scope: "local" }));
   });
 
   it("shows contract-based feature states and links only to existing destinations", async () => {
