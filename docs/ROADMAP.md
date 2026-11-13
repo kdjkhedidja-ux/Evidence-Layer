@@ -21,7 +21,7 @@ MCP responses, logs, or browser storage.
 User-provided keys are a later Pro Plus and Enterprise capability, with strict
 encryption, isolation, rotation, and audit requirements.
 
-## 2.1 Current implementation status (2026-11-11)
+## 2.1 Current implementation status (2026-11-13)
 
 The authenticated SaaS foundation is implemented: Supabase Auth with email
 confirmation/recovery/TOTP MFA, personal and organization workspaces, evidence
@@ -39,6 +39,20 @@ unavailable. Phase 8 is not
 closed. Phase B decisions are recorded in
 [`PHASE8-SCOPE-DECISIONS-2026-11-11.md`](PHASE8-SCOPE-DECISIONS-2026-11-11.md):
 C4/C6 are in Phase C, while C1/C3/full C5/C7 are deferred with residual risk.
+
+Auth recovery and protected web operations now fail closed when recovery or
+MFA verification is incomplete or unavailable. MFA is also checked before and
+after connector OAuth and at the shared connection-storage boundary. The
+2026-11-13 auth hardening release passed post-merge CI and Vercel deployment.
+
+The Phase 1 benchmark has a reproducible 40-task Real-World v1 dataset and
+historical lexical and end-to-end comparisons. Its relevance judgments remain
+developer-authored, however, and its held-out split is exposed. Phase 1 is
+therefore not independently validated; follow the blind review protocol in
+[`phase6_real_world_review_protocol.md`](phase6_real_world_review_protocol.md)
+before making confirmatory quality claims. Provider/JEV evaluation remains
+closed pending the approvals in
+[`phase6-readiness-gate.md`](phase6-readiness-gate.md).
 
 ## 3. Intelligence architecture
 
