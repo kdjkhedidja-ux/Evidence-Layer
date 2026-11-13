@@ -495,9 +495,9 @@ export default function WorkspaceConsole({
         <div className={`workspace-menu${menuOpen ? " workspace-menu--open" : ""}`} id="workspace-menu">
           <nav aria-label="Workspace navigation">
             <Link aria-current="page" href="/workspace" onClick={() => setMenuOpen(false)}>Workspace</Link>
-            <Link href="/" onClick={() => setMenuOpen(false)}>Evidence Explorer</Link>
+            <Link href="/#explorer" onClick={() => setMenuOpen(false)}>Evidence</Link>
             <Link href="/relationships" onClick={() => setMenuOpen(false)}>Relationships</Link>
-            <Link href="/documentation" onClick={() => setMenuOpen(false)}>Documentation</Link>
+            <Link href="/workspace#agent-connection" onClick={() => setMenuOpen(false)}>Connect an agent</Link>
           </nav>
           <div className="workspace-user" id="workspace-session">
             <span>{email}</span>
@@ -512,7 +512,7 @@ export default function WorkspaceConsole({
             <p className="eyebrow">Authenticated product workspace</p>
             <h1>Evidence workspace</h1>
             <p className="workspace-lede">
-              Workspace membership and evidence records are loaded through the server API and the existing Evidence Service.
+              Connect sources, prepare evidence, then give your agent bounded context through API or MCP.
             </p>
           </div>
           <span className="workspace-live-badge"><span aria-hidden="true" /> Live service data</span>
@@ -593,12 +593,26 @@ export default function WorkspaceConsole({
           )}
         </section>
 
+        {selectedWorkspace && (
+          <section className="workspace-panel" aria-labelledby="workflow-heading">
+            <div className="workspace-section-heading">
+              <div>
+                <p className="eyebrow">The product workflow</p>
+                <h2 id="workflow-heading">From source to agent task</h2>
+              </div>
+            </div>
+            <ol className="workspace-workflow">
+              <li><a href="#connected-sources"><strong>1. Connect and sync sources</strong><span>Connector sync currently imports into your personal workspace.</span></a></li>
+              <li><a href="#records-heading"><strong>2. Review evidence</strong><span>Inspect records and source labels in the selected workspace.</span></a></li>
+              <li><a href="#agent-connection"><strong>3. Connect your agent</strong><span>Use a read-only API key or Remote MCP.</span></a></li>
+              <li><a href="#task-measurement"><strong>4. Measure outcomes</strong><span>Task-level tracking is not connected yet.</span></a></li>
+            </ol>
+          </section>
+        )}
 
-        <PersonalApiKeys workspaces={workspaces} />
-
-        <RemoteMcp workspace={selectedWorkspace ? { id: selectedWorkspace.id, name: selectedWorkspace.name } : null} />
-
-        <ConnectorSources />
+        <div id="connected-sources">
+          <ConnectorSources />
+        </div>
 
         {selectedWorkspace && (
           <section className="workspace-panel" aria-labelledby="records-heading">
@@ -618,7 +632,9 @@ export default function WorkspaceConsole({
               </span>
             </div>
             <p className="workspace-note">
-              These are stored workspace evidence records and their labels. Snapshot source content is read separately through the verified source boundary below; a signed-in session by itself does not grant source access.
+              In your personal workspace, synced connector documents appear as evidence records
+              with a source label or path. That label is distinct from an exact, verified source
+              snapshot link.
             </p>
             {recordsState === "loading" && <p role="status">Loading authorized evidence records…</p>}
             {recordsState === "expired" && <p role="alert">Your session needs to be verified again.</p>}
@@ -770,14 +786,15 @@ export default function WorkspaceConsole({
           <section className="workspace-panel" aria-labelledby="source-read-heading">
             <div className="workspace-section-heading">
               <div>
-                <p className="eyebrow">Read-time checks</p>
-                <h2 id="source-read-heading">Workspace sources</h2>
+                <p className="eyebrow">Advanced provenance</p>
+                <h2 id="source-read-heading">Verified source snapshots</h2>
               </div>
               <span className="workspace-role">Access checked by service</span>
             </div>
             <p className="workspace-note">
-              This index lists the source versions your account may see in this workspace.
-              Reading a version re-checks active membership, the exact version, and the
+              These integrity-verified snapshots are separate from connector sync. This index
+              lists the versions your account may see in this workspace. Reading a version
+              re-checks active membership, the exact version, and the
               current source grant before opening content and again before delivery.
               Denials and service failures return no source content.
             </p>
@@ -832,6 +849,42 @@ export default function WorkspaceConsole({
           </section>
         )}
 
+        <section id="agent-connection" className="workspace-agent-access" aria-labelledby="agent-connection-heading">
+          <div className="workspace-section-heading">
+            <div>
+              <p className="eyebrow">Agent access</p>
+              <h2 id="agent-connection-heading">Connect your agent</h2>
+            </div>
+          </div>
+          <p className="workspace-note">
+            Evidence Layer returns selected evidence; your agent or model performs the task and
+            writes the answer.
+          </p>
+          <PersonalApiKeys workspaces={workspaces} />
+          <RemoteMcp workspace={selectedWorkspace ? { id: selectedWorkspace.id, name: selectedWorkspace.name } : null} />
+        </section>
+
+        <section id="task-measurement" className="workspace-panel" aria-labelledby="task-measurement-heading">
+          <div className="workspace-section-heading">
+            <div>
+              <p className="eyebrow">Not connected yet</p>
+              <h2 id="task-measurement-heading">Task outcomes and usage</h2>
+            </div>
+            <span className="workspace-role">No live measurements</span>
+          </div>
+          <p className="workspace-note">
+            When enabled, API and MCP can retrieve bounded context, but this workspace does not yet run agent
+            tasks or collect the model's token usage, cost, latency, or task success. Existing
+            reports are historical experiments, not measurements for this workspace.
+          </p>
+          <div className="workspace-form-actions">
+            <Link href="/evaluation">Historical evaluation reports</Link>
+            <Link href="/cost-performance">Planning estimates</Link>
+          </div>
+        </section>
+
+        <details className="workspace-advanced">
+          <summary>Full capability reference (advanced)</summary>
         <section aria-labelledby="capabilities-heading" className="workspace-panel workspace-capability-catalog">
           <div className="workspace-section-heading">
             <div>
@@ -898,10 +951,11 @@ export default function WorkspaceConsole({
             })}
           </div>
         </section>
+        </details>
 
         <footer className="workspace-footer">
-          <span>Live workspace data comes from the verified Evidence Service.</span>
-          <Link href="/evaluation">View benchmark reports and their limits</Link>
+          <span>Workspace data is scoped to verified membership and service permissions.</span>
+          <Link href="/documentation">Developer documentation</Link>
         </footer>
       </div>
     </main>

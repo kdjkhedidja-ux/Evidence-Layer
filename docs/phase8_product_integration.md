@@ -8,6 +8,12 @@ records when a service is unavailable or a workspace is empty. The old
 synthetic component is not routed from the product navigation. /workspace
 remains the source/evidence management screen.
 
+The primary workspace UI is organized around connecting and syncing sources,
+reviewing evidence, connecting an agent over API/MCP, and reviewing recorded
+relationships. Historical benchmark and planning pages remain available as
+secondary references. The UI explicitly reports that task execution, live
+model usage/cost, and task-quality tracking are not connected to a workspace.
+
 ## Connected paths
 
 | UI capability | Existing service contract | Current behavior |
@@ -21,7 +27,7 @@ remains the source/evidence management screen.
 | Workspace source index | GET /v1/workspaces/{workspace_id}/sources | The service lists the snapshot versions visible to the caller under RLS (published versions of granted sources plus the caller's own staged rows) without exposing object keys. The UI groups versions by source and reads published versions from the list; no manually typed UUIDs are needed. |
 | Evidence provenance links | source_id + source_version_id on the evidence routes | An evidence record may pin the exact published source version it was derived from. The service accepts a link only after the caller's own token resolves that version through the RLS-protected catalog; the database enforces the all-or-nothing pair and the same-workspace foreign key. |
 | Evidence relationships | GET/POST/PATCH/DELETE /v1/workspaces/{workspace_id}/relationships | An additive RLS-protected table links two evidence records in the same workspace and records type, rationale, provenance note, creator, and last updater. Members read; active owners mutate. |
-| Reading guide | Live stored evidence and source links | The guide describes how to inspect stored text and source provenance; it does not manufacture interpretations or unresolved facts. |
+| Evidence provenance | Stored evidence labels and optional source/version links | The Explorer distinguishes a connector source label (such as a GitHub path) from an exact verified snapshot link. It does not manufacture interpretations or unresolved facts. |
 | Verification state | Published/staged source catalog state and verified source reader | Published rows are constrained to successful integrity verification. A separate attempt-by-attempt verification history is not available. |
 
 The API routes are a same-origin browser boundary around existing endpoints;

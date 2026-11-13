@@ -51,7 +51,6 @@ describe("live Evidence Explorer", () => {
         return Response.json({ user_id: USER_ID, workspaces: [WORKSPACE] });
       }
       if (url.endsWith("/evidence")) return Response.json([RECORD_A, RECORD_B]);
-      if (url.endsWith("/sources")) return Response.json([]);
       if (url.endsWith("/relationships")) return Response.json([]);
       return Response.json({ error: "missing test response" }, { status: 404 });
     }));
@@ -59,16 +58,18 @@ describe("live Evidence Explorer", () => {
 
   it("uses only authenticated workspace records and filters their actual contents", async () => {
     render(<LiveEvidenceExplorer account={{ id: USER_ID, email: "reader@example.test" }} />);
-    expect(await screen.findAllByText("Stored source claim alpha.")).toHaveLength(3);
+    expect(await screen.findAllByText("Stored source claim alpha.")).toHaveLength(2);
     expect(screen.getByText("Stored source claim beta.")).toBeInTheDocument();
     expect(screen.queryByText(/Cedar pilot|EV-SYN|Synthetic sample/i)).not.toBeInTheDocument();
-    expect(screen.getByText(/Interpretation and unresolved questions are not generated/)).toBeInTheDocument();
+    expect(screen.getByText(/does not run the agent/)).toBeInTheDocument();
+    expect(screen.getByText("Source label")).toBeInTheDocument();
+    expect(screen.getByText("No exact verified snapshot linked")).toBeInTheDocument();
 
     fireEvent.change(screen.getByRole("searchbox", { name: "Search actual evidence records" }), {
       target: { value: "beta" },
     });
     expect(screen.queryByText("Stored source claim alpha.")).not.toBeInTheDocument();
-    expect(screen.getAllByText("Stored source claim beta.")).toHaveLength(3);
+    expect(screen.getAllByText("Stored source claim beta.")).toHaveLength(2);
   });
 
   it("keeps one primary navigation destination for every existing product page and section", async () => {
@@ -81,26 +82,18 @@ describe("live Evidence Explorer", () => {
     const destinations = links.map((link) => link.getAttribute("href"));
     expect(new Set(destinations).size).toBe(destinations.length);
     expect(links.map((link) => link.querySelector("span")?.textContent)).toEqual([
-      "Workspace",
-      "Evidence Explorer",
+      "Prepare evidence",
+      "Evidence",
       "Relationships",
-      "Reading Guide",
-      "Verification",
-      "Evaluation · Benchmarks",
-      "Cost & Performance",
-      "Settings & Access",
-      "Documentation",
+      "Connect an agent",
+      "Task outcomes",
     ]);
     expect(destinations).toEqual([
       "/workspace",
       "#explorer",
       "/relationships",
-      "#reading-guide",
-      "#verification",
-      "/evaluation",
-      "/cost-performance",
-      "#settings-access",
-      "/documentation",
+      "/workspace#agent-connection",
+      "/workspace#task-measurement",
     ]);
     for (const destination of destinations) {
       if (destination?.startsWith("#")) {
@@ -109,12 +102,13 @@ describe("live Evidence Explorer", () => {
     }
     const validStatuses = new Set([
       "Connected",
-      "Partially available",
-      "Evidence-grounded",
-      "Historical",
+      "Workspace ready",
+      "2 records",
+      "0 links",
+      "API / MCP",
+      "Not connected",
       "Pending",
       "Unavailable",
-      "Limited / Read only",
     ]);
     for (const status of navigationRoot.querySelectorAll("small")) {
       expect(validStatuses.has(status.textContent ?? "")).toBe(true);
@@ -138,19 +132,15 @@ describe("live Evidence Explorer", () => {
       "/workspace",
       "/",
       "#relationships",
-      "/#reading-guide",
-      "/#verification",
-      "/evaluation",
-      "/cost-performance",
-      "/#settings-access",
-      "/documentation",
+      "/workspace#agent-connection",
+      "/workspace#task-measurement",
     ]);
   });
 
-  it("points users to the implemented API key controls", async () => {
+  it("points users to the agent connection workflow", async () => {
     render(<LiveEvidenceExplorer account={{ id: USER_ID, email: "reader@example.test" }} />);
-    const keyLink = await screen.findByRole("link", { name: "Workspace access" });
-    expect(keyLink).toHaveAttribute("href", "/workspace#personal-api-keys");
+    const agentLink = await screen.findByRole("link", { name: "Connect an agent" });
+    expect(agentLink).toHaveAttribute("href", "/workspace#agent-connection");
     expect(screen.queryByText(/API Keys are planned/i)).not.toBeInTheDocument();
   });
 
@@ -173,7 +163,6 @@ describe("live Evidence Explorer", () => {
       const url = String(input);
       if (url === "/api/evidence/me") return Response.json({ user_id: USER_ID, workspaces: [WORKSPACE] });
       if (url.endsWith("/evidence")) return Response.json({ error: "private details" }, { status: 503 });
-      if (url.endsWith("/sources")) return Response.json([]);
       if (url.endsWith("/relationships")) return Response.json([]);
       return Response.json({}, { status: 404 });
     });
@@ -187,7 +176,6 @@ describe("live Evidence Explorer", () => {
       const url = String(input);
       if (url === "/api/evidence/me") return Response.json({ user_id: USER_ID, workspaces: [WORKSPACE] });
       if (url.endsWith("/evidence")) return Response.json([]);
-      if (url.endsWith("/sources")) return Response.json([]);
       if (url.endsWith("/relationships")) return Response.json([]);
       return Response.json({}, { status: 404 });
     });

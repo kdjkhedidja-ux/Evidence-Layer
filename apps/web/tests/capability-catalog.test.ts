@@ -55,13 +55,12 @@ describe("workspace capability catalog contract", () => {
       "/?account=1#account-organization-title",
       "/#explorer",
       "/workspace#records-heading",
-      "/#reading-guide",
       "/workspace#source-read-heading",
       "/relationships",
-      "/#verification",
       "/evaluation",
       "/cost-performance",
-      "/#settings-access",
+      "/workspace#agent-connection",
+      "/workspace#task-measurement",
     ]);
     const features = CAPABILITY_GROUPS.flatMap((group) => group.features);
     for (const feature of features) {

@@ -107,21 +107,27 @@ describe("workspace product console", () => {
     expect(screen.getByRole("combobox", { name: "Authorized workspace" })).toHaveValue(WORKSPACE_ID);
     expect(screen.getByText("Not exposed by the membership API")).toBeInTheDocument();
     expect(screen.getByText("Owner", { exact: true })).toBeInTheDocument();
-    expect(screen.getByText(/These are stored workspace evidence records/)).toBeInTheDocument();
+    expect(screen.getByText(/Connector sync currently imports into your personal workspace/)).toBeInTheDocument();
     expect(screen.getByText("1 record")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Evidence Explorer" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "Evidence" })).toHaveAttribute("href", "/#explorer");
     expect(screen.getByRole("link", { name: "Relationships" })).toHaveAttribute("href", "/relationships");
-    expect(screen.getByRole("heading", { name: "Capability Catalog" })).toBeInTheDocument();
+    expect(screen.getByText("Full capability reference (advanced)")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Task outcomes and usage" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Evidence Relationships" })).toBeInTheDocument();
     expect(screen.queryByText("Demo only")).not.toBeInTheDocument();
   });
 
-  it("places Remote MCP above Connected sources", async () => {
+  it("puts source sync before agent setup", async () => {
     render(<WorkspaceConsole userId={USER_ID} email="reader@example.test" />);
     expect(await screen.findByRole("heading", { name: "Remote MCP" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Connected sources" })).toBeInTheDocument();
     const headings = screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent);
-    expect(headings.indexOf("Remote MCP")).toBeLessThan(headings.indexOf("Connected sources"));
+    expect(headings.indexOf("Connected sources")).toBeLessThan(headings.indexOf("Remote MCP"));
+    expect(screen.getByRole("link", { name: "Connect an agent" })).toHaveAttribute(
+      "href",
+      "/workspace#agent-connection",
+    );
+    expect(screen.getByText(/does not yet run agent tasks or collect the model's token usage/i)).toBeInTheDocument();
   });
 
   it("offers navigation and a local sign out from the header menu", async () => {
@@ -143,6 +149,7 @@ describe("workspace product console", () => {
   it("shows contract-based feature states and links only to existing destinations", async () => {
     render(<WorkspaceConsole userId={USER_ID} email="reader@example.test" />);
     await screen.findByText("Current workspace evidence");
+    fireEvent.click(screen.getByText("Full capability reference (advanced)"));
 
     const catalog = screen.getByRole("region", { name: "Capability Catalog" });
     const links = within(catalog).getAllByRole("link");
@@ -155,13 +162,11 @@ describe("workspace product console", () => {
       "/?account=1#account-organization-title",
       "/#explorer",
       "/workspace#records-heading",
-      "/#reading-guide",
       "/workspace#source-read-heading",
       "/relationships",
-      "/#verification",
       "/evaluation",
       "/cost-performance",
-      "/#settings-access",
+      "/workspace#membership-heading",
     ]);
     expect(links.length).toBeGreaterThan(0);
     for (const link of links) {

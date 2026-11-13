@@ -2617,6 +2617,60 @@ select:focus-visible,
   background: var(--bg-secondary);
 }
 
+.workspace-workflow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.workspace-workflow a {
+  display: grid;
+  height: 100%;
+  gap: 0.45rem;
+  padding: 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-strong);
+  text-decoration: none;
+}
+
+.workspace-workflow a:hover,
+.workspace-workflow a:focus-visible {
+  border-color: var(--accent-color);
+}
+
+.workspace-workflow span {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.workspace-advanced {
+  margin-top: 1.25rem;
+}
+
+.workspace-advanced > summary {
+  width: fit-content;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
+.workspace-advanced[open] > summary {
+  margin-bottom: 0.75rem;
+}
+
+.workspace-agent-access {
+  margin-top: 1.25rem;
+}
+
+.workspace-agent-access > .workspace-section-heading {
+  margin-bottom: 0.25rem;
+}
+
 .mfa-panel {
   max-width: 42rem;
   margin: 2rem auto;

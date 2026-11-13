@@ -1,9 +1,13 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-const PUBLIC_LINKS = [
+const PRIMARY_PUBLIC_LINKS = [
   { href: "/workspace", label: "Workspace" },
   { href: "/documentation", label: "Documentation" },
+] as const;
+
+const PUBLIC_LINKS = [
+  ...PRIMARY_PUBLIC_LINKS,
   { href: "/evaluation", label: "Evaluation · Benchmarks" },
   { href: "/cost-performance", label: "Cost & Performance" },
   { href: "/privacy", label: "Privacy Policy" },
@@ -32,7 +36,7 @@ export function PublicSiteShell({
           evidence<span>layer</span>
         </Link>
         <nav aria-label="Main navigation" className="public-navigation">
-          {PUBLIC_LINKS.map((item) => (
+          {PRIMARY_PUBLIC_LINKS.map((item) => (
             <Link
               aria-current={currentPath === item.href ? "page" : undefined}
               href={item.href}
@@ -57,7 +61,13 @@ export function PublicSiteShell({
         <p>Evidence Layer · Evidence selection with traceable sources.</p>
         <nav aria-label="Legal and product information">
           {PUBLIC_LINKS.map((item) => (
-            <Link href={item.href} key={item.href}>{item.label}</Link>
+            <Link
+              aria-current={currentPath === item.href ? "page" : undefined}
+              href={item.href}
+              key={item.href}
+            >
+              {item.label}
+            </Link>
           ))}
         </nav>
       </footer>

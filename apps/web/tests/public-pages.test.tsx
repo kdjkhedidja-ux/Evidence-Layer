@@ -38,9 +38,14 @@ describe("public information pages", () => {
     expect(screen.getByRole("heading", { level: 1, name })).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Main navigation" })).toBeInTheDocument();
 
-    const headerNav = screen.getByRole("navigation", { name: "Main navigation" });
-    const currentPageLink = within(headerNav).getByRole("link", { name, current: "page" });
+    const footerNav = screen.getByRole("navigation", { name: "Legal and product information" });
+    const currentPageLink = within(footerNav).getByRole("link", { name, current: "page" });
     expect(currentPageLink).toHaveAttribute("href", path);
+    const headerNav = within(screen.getByRole("navigation", { name: "Main navigation" }));
+    expect(headerNav.getAllByRole("link").map((link) => link.textContent)).toEqual([
+      "Workspace",
+      "Documentation",
+    ]);
 
     for (const route of routes) {
       const matchingLinks = screen.getAllByRole("link", { name: route.name });
@@ -60,7 +65,7 @@ describe("public information pages", () => {
     render(<DocumentationPage />);
     expect(screen.getByRole("heading", { name: /selects and traces evidence; it does not write the final answer/i })).toBeInTheDocument();
     expect(screen.getByText(/caller.s chosen LLM consumes the selected context and writes the final answer/i)).toBeInTheDocument();
-    const navigation = within(screen.getByRole("navigation", { name: "Main navigation" }));
+    const navigation = within(screen.getByRole("navigation", { name: "Legal and product information" }));
     expect(navigation.getByRole("link", { name: "Evaluation · Benchmarks" })).toHaveAttribute("href", "/evaluation");
   });
 
@@ -128,7 +133,7 @@ describe("public information pages", () => {
     expect(screen.getByRole("heading", { name: "Metrics worth tracking in production" })).toBeInTheDocument();
     expect(screen.getByText("Cost per successful request")).toBeInTheDocument();
     expect(screen.getByText("End-to-end p50 / p95")).toBeInTheDocument();
-    const navigation = within(screen.getByRole("navigation", { name: "Main navigation" }));
+    const navigation = within(screen.getByRole("navigation", { name: "Legal and product information" }));
     expect(navigation.getByRole("link", { name: "Evaluation · Benchmarks" })).toHaveAttribute("href", "/evaluation");
   });
 
