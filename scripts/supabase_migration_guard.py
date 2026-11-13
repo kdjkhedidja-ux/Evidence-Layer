@@ -679,11 +679,12 @@ def expected_catalog(versions: list[str]) -> dict:
         })
     if connectors:
         indexes.update({
+            "public.evidence_records_connector_external_key",
             "public.connector_connections_pkey",
             "public.connector_connections_user_provider_key",
             "public.connector_connections_user_idx",
             "public.connector_documents_pkey",
-            "public.connector_documents_revision_key",
+            "public.connector_documents_external_id_key",
             "public.connector_documents_connection_idx",
             "public.connector_documents_user_idx",
         })
@@ -1141,6 +1142,8 @@ def expected_catalog(versions: list[str]) -> dict:
         })
     if connectors:
         foreign_keys.update({
+            ("connector_connections_workspace_id_fkey", "public.connector_connections", "public.workspaces", "c"),
+            ("evidence_records_connector_connection_id_fkey", "public.evidence_records", "public.connector_connections", "c"),
             ("connector_connections_user_id_fkey", "public.connector_connections", "auth.users", "c"),
             ("connector_documents_user_id_fkey", "public.connector_documents", "auth.users", "c"),
             ("connector_documents_connection_id_fkey", "public.connector_documents", "public.connector_connections", "c"),

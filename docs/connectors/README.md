@@ -142,6 +142,8 @@ NEXT_PUBLIC_GITHUB_CONNECTOR_ENABLED
 
 GitHub App setup is complete for the current production App. Empty repositories are skipped; install on a non-empty repository to ingest README/code documents. No Marketplace listing is required.
 
+GitHub sync/bridge behavior: [`github-sync-and-retrieve.md`](github-sync-and-retrieve.md).
+
 ## API-key retrieval and MCP
 
 See [`api-retrieval-mcp.md`](api-retrieval-mcp.md) for the enabled retrieve/get-document endpoints, MCP server, curl examples, and the token-reduction harness.

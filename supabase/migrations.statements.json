@@ -21,7 +21,8 @@
     "lifecycle-table-definition": "Defines the authoritative account lifecycle relation with constrained states, trusted transition metadata, request references, and a monotonic row version. RLS, forced RLS, grants, policies, and privilege assertions in the same migration bound access.",
     "lifecycle-comment": "Documents the lifecycle relation and server-managed fields so the fail-closed state contract and retention boundary remain explicit without changing runtime privileges.",
     "personal-api-key-function-ownership": "Transfers the personal API key management and read RPCs to dedicated NOLOGIN, NOINHERIT, NOBYPASSRLS roles created in the same file. The temporary SET grants used only for ownership transfer are revoked before commit; the reader RPCs additionally require a one-use HMAC gateway proof and remain subject to forced RLS.",
-    "personal-api-key-schema-ddl-window": "Temporary CREATE on schema public/private granted to the personal API key manager and reader so the same migration can transfer function ownership. The window is revoked in the same file; those roles never create tables or policies at runtime."
+    "personal-api-key-schema-ddl-window": "Temporary CREATE on schema public/private granted to the personal API key manager and reader so the same migration can transfer function ownership. The window is revoked in the same file; those roles never create tables or policies at runtime.",
+    "connector-workspace-backfill": "Backfill existing connector connections to a personal workspace selected from active owner memberships; no user input and no cross-tenant access."
   },
   "entries": [
     {
@@ -4454,6 +4455,55 @@
       "line": 38,
       "verb": "grant execute",
       "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "e23c14e5ff7fa779",
+      "file": "20261112140000_connector_evidence_bridge.sql",
+      "line": 3,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "17cc4738d683dd7a",
+      "file": "20261112140000_connector_evidence_bridge.sql",
+      "line": 7,
+      "verb": "update public",
+      "rationale_ref": "connector-workspace-backfill"
+    },
+    {
+      "id": "092aab1ddfc7aacb",
+      "file": "20261112140000_connector_evidence_bridge.sql",
+      "line": 21,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "36d11b6ecccb6601",
+      "file": "20261112140000_connector_evidence_bridge.sql",
+      "line": 29,
+      "verb": "grant insert",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "2accef332aaddf93",
+      "file": "20261112140000_connector_evidence_bridge.sql",
+      "line": 32,
+      "verb": "grant update",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "95435f92c78c2e89",
+      "file": "20261112140000_connector_evidence_bridge.sql",
+      "line": 36,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "36ce55098c108888",
+      "file": "20261112140000_connector_evidence_bridge.sql",
+      "line": 38,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
     }
   ]
 }

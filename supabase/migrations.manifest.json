@@ -260,6 +260,12 @@
       "version": "20261112120000",
       "sha256": "20e9d241ec2fd350273d99727e6281830aac3e73ea6563f5b6742ea5eb69189b",
       "provenance": "Add a workspace/lifecycle-scoped API-key RPC for single evidence document reads used by MCP get_document."
+    },
+    {
+      "file": "20261112140000_connector_evidence_bridge.sql",
+      "version": "20261112140000",
+      "sha256": "f814825b2c1d606d445230f225667d126c15a66bccac5bb011c1c741636f6651",
+      "provenance": "Bridge connector documents into owner personal-workspace evidence; one document row per external id; connection-bound cascade."
     }
   ]
 }
