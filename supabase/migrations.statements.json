@@ -4504,6 +4504,34 @@
       "line": 38,
       "verb": "alter table",
       "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "56a989e7f6f05ac3",
+      "file": "20261112160000_connector_evidence_upsert_rpc.sql",
+      "line": 3,
+      "verb": "revoke update",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "1f9307ca4d276141",
+      "file": "20261112160000_connector_evidence_upsert_rpc.sql",
+      "line": 5,
+      "verb": "create function",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "f3ca2ac84e59c000",
+      "file": "20261112160000_connector_evidence_upsert_rpc.sql",
+      "line": 81,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "b8c7053d449e3785",
+      "file": "20261112160000_connector_evidence_upsert_rpc.sql",
+      "line": 83,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
     }
   ]
 }

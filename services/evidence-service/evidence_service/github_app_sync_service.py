@@ -276,10 +276,8 @@ class GitHubAppSyncService:
                 )
             evidence_documents = [
                 {
-                    "workspace_id": str(connection.workspace_id),
                     "content": doc["content_text"],
                     "source_label": f"GitHub: {doc['external_id']}"[:512],
-                    "connector_connection_id": str(connection.connection_id),
                     "connector_external_id": doc["external_id"],
                     "connector_revision": doc["revision"],
                 }
@@ -287,7 +285,10 @@ class GitHubAppSyncService:
                 if doc.get("content_text")
             ]
             await self._repository.upsert_evidence_documents(
-                access_token, evidence_documents
+                access_token,
+                workspace_id=connection.workspace_id,
+                connection_id=connection.connection_id,
+                documents=evidence_documents,
             )
             if not had_errors:
                 await self._repository.delete_stale_connector_evidence(

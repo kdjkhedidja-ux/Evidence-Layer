@@ -81,6 +81,7 @@ V_PHASE8_EXPORT = "20261111180000"
 V_CONNECTORS = "20261111190000"
 V_API_KEY_DOCUMENT = "20261112120000"
 V_CONNECTOR_BRIDGE = "20261112140000"
+V_CONNECTOR_EVIDENCE_RPC = "20261112160000"
 
 VERSION_RE = re.compile(r"^[0-9]{14}_[a-z0-9_]+\.sql$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -584,6 +585,7 @@ def expected_catalog(versions: list[str]) -> dict:
     connectors = V_CONNECTORS in present
     api_key_document = V_API_KEY_DOCUMENT in present
     connector_bridge = V_CONNECTOR_BRIDGE in present
+    connector_evidence_rpc = V_CONNECTOR_EVIDENCE_RPC in present
     source = V_SOURCE_CATALOG in present
     storage = V_SNAPSHOT_STORAGE in present
     verifier = V_VERIFIER_IDENTITY in present
@@ -1081,6 +1083,8 @@ def expected_catalog(versions: list[str]) -> dict:
         })
     if api_key_document:
         functions.add("public.read_personal_api_key_evidence_document")
+    if connector_evidence_rpc:
+        functions.add("public.upsert_connector_evidence")
     if api_keys:
         functions.update({
             "public.create_personal_api_key",
