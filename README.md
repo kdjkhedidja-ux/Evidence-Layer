@@ -537,4 +537,12 @@ and its offline verifier are documented in
 [`docs/phase6_real_world_jev_report.md`](docs/phase6_real_world_jev_report.md).
 That evaluation is exploratory: the judgments were developer-authored and the
 exposed held-out split is not blind. It does not change the production
-provider-selection policy, `/retrieve`, Egress, Supabase, or Railway.
+provider-selection policy module, Egress, Supabase, or Railway.
+
+Hosted evidence retrieval has a separate JEV opt-in path: a caller must set
+`use_jev: true` for that request and the service operator must set
+`EVIDENCE_JEV_ENABLED=true`. Both gates default off for provider scoring.
+Only the bounded candidate snippets and query for that request are sent;
+provider failure discards the complete JEV score set and reruns lexical
+selection. This path does not yet persist task-level model usage, cost, or
+quality measurements.

@@ -9,7 +9,7 @@ WORKDIR /app
 COPY pyproject.toml README.md ./
 COPY src ./src
 COPY services/evidence-service/evidence_service ./evidence_service
-RUN python -m pip install --no-cache-dir '.[service]'
+RUN python -m pip install --no-cache-dir '.[service,jev]'
 
 USER 10001:10001
 

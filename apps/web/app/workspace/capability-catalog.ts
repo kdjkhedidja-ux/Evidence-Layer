@@ -148,13 +148,13 @@ export const CAPABILITY_GROUPS: readonly CapabilityGroup[] = [
       {
         name: "Task-focused retrieval",
         status: "Partially available",
-        detail: "Combines the task, expected outcome, and context requirements to prepare bounded lexical evidence; it does not execute the agent task.",
+        detail: "Combines the task, expected outcome, and context requirements to prepare bounded evidence; lexical ranking is default, and JEV scoring requires explicit request consent plus a server gate. EL does not execute the agent task.",
         href: "/workspace#task-context",
       },
       {
         name: "Relationship-aware selection",
         status: "Partially available",
-        detail: "Prioritizes up to three explicitly linked records for retrieved seed evidence and returns links only when both records are selected. JEV and semantic ranking are not connected.",
+        detail: "Expands one hop to at most three explicitly linked records, even without a lexical match; all records stay within the context budget. Opt-in JEV scores a bounded candidate batch; any failure triggers whole-set lexical fallback.",
         href: "/workspace#task-context",
       },
     ],

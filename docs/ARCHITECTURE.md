@@ -78,8 +78,12 @@ document data or scorer behavior.
   not currently return corpus evidence without a future trusted source boundary.
 - The FastAPI identity/data service at `services/evidence-service/` exposes
   lifecycle-gated `/v1` account, workspace, evidence, relationship, source, and
-  deletion routes backed by Supabase Auth and RLS. It is deployed on Railway and
-  has no retrieval or scoring endpoint.
+  deletion routes backed by Supabase Auth and RLS. Workspace task-context,
+  personal API-key retrieval, and hosted Remote MCP share bounded,
+  relationship-aware retrieval. Lexical scoring is the default; optional JEV
+  scoring requires both per-request consent and the server-side
+  `EVIDENCE_JEV_ENABLED` flag, which defaults off. The local stdio MCP policy
+  remains unchanged.
 - A persistent Railway HTTP MCP/retrieval service is planned; it will host the
   `retrieve_evidence` tool behind authenticated tenant context.
 - The future customer-facing service must authenticate/authorize the caller

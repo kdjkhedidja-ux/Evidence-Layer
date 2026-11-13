@@ -84,6 +84,8 @@ describe("same-origin Evidence Service proxy", () => {
         used_tokens: 8,
         used_chars: 32,
         token_estimator: "chars_div_4",
+        scoring_provider: "lexical_stopword_filtered",
+        scoring_fallback_reason: null,
         evidence: [{
           evidence_id: "10000000-0000-4000-8000-000000000003",
           content: "Rollback plan.",
@@ -108,6 +110,7 @@ describe("same-origin Evidence Service proxy", () => {
       top_k: 5,
       max_tokens: 1200,
       max_chars: 6000,
+      use_jev: false,
     };
     const response = await prepareTaskContext(
       request(`/api/evidence/workspaces/${WORKSPACE_ID}/task-context`, {

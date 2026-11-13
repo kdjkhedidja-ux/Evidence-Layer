@@ -108,6 +108,7 @@ export default function WorkspaceConsole({
   const [expectedOutcome, setExpectedOutcome] = useState("");
   const [contextRequirements, setContextRequirements] = useState("");
   const [contextBudget, setContextBudget] = useState(1200);
+  const [useJev, setUseJev] = useState(false);
   const [taskContextResult, setTaskContextResult] = useState<WorkspaceTaskContextResult | null>(null);
   const [taskContextPending, setTaskContextPending] = useState(false);
   const [taskContextMessage, setTaskContextMessage] = useState("");
@@ -483,6 +484,7 @@ export default function WorkspaceConsole({
             top_k: 5,
             max_tokens: contextBudget,
             max_chars: contextBudget * 5,
+            use_jev: useJev,
           }),
         },
       );
@@ -1020,6 +1022,22 @@ export default function WorkspaceConsole({
                 }}
                 placeholder="Name relevant systems, time periods, source paths, or constraints"
               />
+              <label className="workspace-checkbox">
+                <input
+                  type="checkbox"
+                  checked={useJev}
+                  onChange={(event) => {
+                    setUseJev(event.target.checked);
+                    invalidateTaskContext();
+                  }}
+                />
+                Score with JEV for this request (up to 50 candidates)
+              </label>
+              <p className="workspace-note">
+                If selected, the task query and candidate evidence snippets are sent to JEV for
+                scoring. The server may disable this option; any scoring failure falls back to
+                lexical retrieval. JEV provider token usage and cost are not reported yet.
+              </p>
               <label htmlFor="task-context-budget">Maximum evidence context</label>
               <select
                 id="task-context-budget"
@@ -1053,6 +1071,12 @@ export default function WorkspaceConsole({
                       {taskContextResult.retrieval.used_tokens} estimated evidence tokens (task brief excluded) ·{" "}
                       {taskContextResult.retrieval.used_chars} characters ·{" "}
                       {taskContextResult.retrieval.token_estimator}
+                    </p>
+                    <p className="workspace-note">
+                      Ranking: {taskContextResult.retrieval.scoring_provider}
+                      {taskContextResult.retrieval.scoring_fallback_reason
+                        ? ` (fallback: ${taskContextResult.retrieval.scoring_fallback_reason})`
+                        : ""}
                     </p>
                   </div>
                   <button type="button" onClick={() => void copyTaskContext()}>

@@ -56,3 +56,42 @@ class RetrievalSelectionTests(unittest.TestCase):
             max_chars=10,
         )
         self.assertEqual(result.status, "no_results")
+
+    def test_explicit_related_record_can_be_selected_without_lexical_match(self):
+        seed_id = UUID("11111111-1111-4111-8111-111111111111")
+        related_id = UUID("22222222-2222-4222-8222-222222222222")
+        unrelated_id = UUID("33333333-3333-4333-8333-333333333333")
+        result = select_evidence(
+            [
+                record("release deployment review", str(seed_id)),
+                record("emergency recovery procedure", str(related_id)),
+                record("unrelated cooking notes", str(unrelated_id)),
+            ],
+            query="release review",
+            top_k=2,
+            max_tokens=100,
+            max_chars=1000,
+            seed_record_ids={seed_id},
+            related_record_scores={related_id: 0.2},
+        )
+        self.assertEqual([item.record.id for item in result.selected], [seed_id, related_id])
+        self.assertEqual(result.matched_chunk_count, 1)
+
+    def test_related_selection_stays_within_context_budgets(self):
+        seed_id = UUID("11111111-1111-4111-8111-111111111111")
+        related_id = UUID("22222222-2222-4222-8222-222222222222")
+        result = select_evidence(
+            [
+                record("release", str(seed_id)),
+                record("recovery " * 20, str(related_id)),
+            ],
+            query="release",
+            top_k=2,
+            max_tokens=100,
+            max_chars=10,
+            seed_record_ids={seed_id},
+            related_record_scores={related_id: 0.2},
+        )
+        self.assertEqual([item.record.id for item in result.selected], [seed_id])
+        self.assertLessEqual(result.used_chars, 10)
+        self.assertEqual(result.status, "budget_exhausted")

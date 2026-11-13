@@ -92,29 +92,45 @@ def select_evidence(
     top_k: int,
     max_tokens: int,
     max_chars: int,
-    preferred_record_ids: set[UUID] | None = None,
+    seed_record_ids: set[UUID] | None = None,
+    related_record_scores: dict[UUID, float] | None = None,
+    score_overrides: dict[str, float] | None = None,
 ) -> RetrievalSelection:
     scorer = LexicalScorer()
     query_terms = set(scorer.normalize(query))
     counter, estimator = token_counter()
     candidates: list[_ChunkCandidate] = []
     chunk_count = 0
+    matched_chunk_count = 0
     for record in records:
         path = source_path(record.source_label)
         title = document_title(record.content or "", path)
         for chunk in chunk_text(record.content or ""):
             chunk_count += 1
             raw_score = scorer.score(query, chunk.content)
-            if raw_score <= 0:
-                continue
-            score = adjusted_score(
-                raw_score,
-                path=path,
-                title=title,
-                query_terms=query_terms,
+            related_score = (related_record_scores or {}).get(record.id, 0)
+            lexical_score = (
+                adjusted_score(
+                    raw_score,
+                    path=path,
+                    title=title,
+                    query_terms=query_terms,
+                )
+                if raw_score > 0 else 0
             )
-            if score <= 0:
-                continue
+            if lexical_score > 0:
+                matched_chunk_count += 1
+            chunk_key = f"{record.id}:{chunk.start}:{chunk.end}"
+            if score_overrides is not None:
+                score = score_overrides.get(chunk_key, 0)
+                if score <= 0:
+                    continue
+            else:
+                if raw_score <= 0 and related_score <= 0:
+                    continue
+                score = max(lexical_score, related_score)
+                if score <= 0:
+                    continue
             candidates.append(
                 _ChunkCandidate(
                     record=record,
@@ -128,7 +144,8 @@ def select_evidence(
             )
     candidates.sort(
         key=lambda item: (
-            0 if preferred_record_ids and item.record.id in preferred_record_ids else 1,
+            0 if seed_record_ids and item.record.id in seed_record_ids else
+            1 if related_record_scores and item.record.id in related_record_scores else 2,
             -item.score,
             item.path or "",
             str(item.record.id),
@@ -189,7 +206,7 @@ def select_evidence(
         selected=selected,
         candidate_count=len(records),
         chunk_count=chunk_count,
-        matched_chunk_count=len(candidates),
+        matched_chunk_count=matched_chunk_count,
         used_tokens=used_tokens,
         used_chars=used_chars,
         token_estimator=estimator,

@@ -24,6 +24,11 @@ from evidence_layer.scoring.jev import (
     write_benchmark_csv,
 )
 from evidence_layer.scoring import jev as jev_module
+from evidence_layer.scoring.jev_request import (
+    JevRequestCandidate,
+    JevRequestScorer,
+    _issue_jev_request_transfer_permit,
+)
 
 
 class FakeClient:
@@ -137,6 +142,146 @@ def test_direct_scorer_denies_before_using_credentials_sdk_or_injected_client(
         assert sensitive not in str(error.value)
         assert sensitive not in serialized
     assert client.calls == []
+
+
+def test_request_scorer_requires_both_server_gate_and_explicit_request_consent():
+    candidates = [JevRequestCandidate("record:0:10", "source-1", "candidate text")]
+    for server_enabled, permitted_by_request in (
+        (False, True),
+        (True, False),
+        (False, False),
+    ):
+        with pytest.raises(JevTransferDeniedError):
+            _issue_jev_request_transfer_permit(
+                request_id="request-1",
+                principal_id="principal-1",
+                tenant_id="tenant-1",
+                query="query",
+                candidates=candidates,
+                server_enabled=server_enabled,
+                permitted_by_request=permitted_by_request,
+            )
+
+
+def test_request_scorer_uses_exact_one_use_batch_with_sdk_retries_disabled():
+    query = "task query"
+    candidates = [
+        JevRequestCandidate("record:0:10", "source-1", "first candidate"),
+        JevRequestCandidate("record:10:20", "source-2", "second candidate"),
+    ]
+    permit = _issue_jev_request_transfer_permit(
+        request_id="request-1",
+        principal_id="principal-1",
+        tenant_id="tenant-1",
+        query=query,
+        candidates=candidates,
+        server_enabled=True,
+        permitted_by_request=True,
+    )
+    client = FakeClient(SimpleNamespace(
+        nouls={
+            item.candidate_id: SimpleNamespace(noul=0.625)
+            for item in candidates
+        },
+        model="jev-latest",
+        usage=SimpleNamespace(input_tokens=22, output_tokens=8),
+    ))
+    scorer = JevRequestScorer(
+        client=client,
+        noul_factory=lambda instructions: object(),
+        sdk_retry_policy=SimpleNamespace(max_retries=0),
+    )
+
+    scores = scorer.score_candidates(query, candidates, transfer_permit=permit)
+
+    assert scores == (0.625, 0.625)
+    assert len(client.calls) == 1
+    assert client.calls[0][0]["candidates"] == {
+        item.candidate_id: item.text for item in candidates
+    }
+    assert set(client.calls[0][1]) == {item.candidate_id for item in candidates}
+    assert client.calls[0][2]["retry"].max_retries == 0
+    with pytest.raises(JevTransferDeniedError):
+        scorer.score_candidates(query, candidates, transfer_permit=permit)
+
+
+def test_request_permit_rejects_changed_query_or_candidate_before_provider_call():
+    query = "task query"
+    candidates = [JevRequestCandidate("record:0:10", "source-1", "candidate text")]
+    permit = _issue_jev_request_transfer_permit(
+        request_id="request-1",
+        principal_id="principal-1",
+        tenant_id="tenant-1",
+        query=query,
+        candidates=candidates,
+        server_enabled=True,
+        permitted_by_request=True,
+    )
+    client = FakeClient()
+    scorer = JevRequestScorer(
+        client=client,
+        noul_factory=lambda instructions: object(),
+        sdk_retry_policy=SimpleNamespace(max_retries=0),
+    )
+
+    with pytest.raises(JevTransferDeniedError):
+        scorer.score_candidates(
+            query + " changed", candidates, transfer_permit=permit
+        )
+    changed_candidate = [
+        JevRequestCandidate("record:0:10", "source-1", "changed candidate text")
+    ]
+    with pytest.raises(JevTransferDeniedError):
+        scorer.score_candidates(
+            query, changed_candidate, transfer_permit=permit
+        )
+    assert client.calls == []
+
+
+def test_request_scorer_rejects_incomplete_candidate_score_batch():
+    query = "task query"
+    candidates = [
+        JevRequestCandidate("record:0:10", "source-1", "first candidate"),
+        JevRequestCandidate("record:10:20", "source-2", "second candidate"),
+    ]
+    permit = _issue_jev_request_transfer_permit(
+        request_id="request-1",
+        principal_id="principal-1",
+        tenant_id="tenant-1",
+        query=query,
+        candidates=candidates,
+        server_enabled=True,
+        permitted_by_request=True,
+    )
+    client = FakeClient(
+        SimpleNamespace(nouls={"record:0:10": SimpleNamespace(noul=0.75)})
+    )
+    scorer = JevRequestScorer(
+        client=client,
+        noul_factory=lambda instructions: object(),
+        sdk_retry_policy=SimpleNamespace(max_retries=0),
+    )
+
+    with pytest.raises(JevResponseError):
+        scorer.score_candidates(query, candidates, transfer_permit=permit)
+    assert len(client.calls) == 1
+
+
+def test_request_transfer_permit_caps_each_batch_at_fifty_candidates():
+    candidates = [
+        JevRequestCandidate(f"record-{index}", "source-1", f"candidate {index}")
+        for index in range(51)
+    ]
+    with pytest.raises(JevTransferDeniedError):
+        _issue_jev_request_transfer_permit(
+            request_id="request-1",
+            principal_id="principal-1",
+            tenant_id="tenant-1",
+            query="query",
+            candidates=candidates,
+            server_enabled=True,
+            permitted_by_request=True,
+        )
 
 
 def test_default_scorer_denies_without_reading_environment_or_importing_sdk(
