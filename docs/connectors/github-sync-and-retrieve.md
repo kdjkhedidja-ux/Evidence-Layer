@@ -74,7 +74,7 @@ Retrieval-only validation of the chunk/path selector against the same 49-documen
 - 11 questions hit `budget_exhausted` after 7 chunks and 4 returned `ok` with 8 chunks; no question exceeded the budget;
 - product, architecture, deletion/worker, API/MCP, and Phase 8 questions selected the expected README/architecture/deletion/API/Phase 8 paths.
 
-This was a retrieval-only check (no DeepSeek call, no JEV). Re-run the same protocol with `scripts/measure_retrieval_reduction.py` and `tests/fixtures/retrieval_harness/ab_questions.jsonl`.
+This was a retrieval-only check (no DeepSeek call, no JEV). Re-run the same protocol with `scripts/measure_retrieval_reduction.py` and `tests/fixtures/retrieval_harness/ab_questions.jsonl`. The post-deploy DeepSeek A/B is recorded in [`el-vs-baseline-deepseek-chunked-2026-11-13.md`](../operations/el-vs-baseline-deepseek-chunked-2026-11-13.md).
 
 ## Retrieve chunking and priority
 
