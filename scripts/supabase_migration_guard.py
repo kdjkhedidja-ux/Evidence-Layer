@@ -681,14 +681,19 @@ def expected_catalog(versions: list[str]) -> dict:
         })
     if connectors:
         indexes.update({
-            "public.evidence_records_connector_external_key",
             "public.connector_connections_pkey",
             "public.connector_connections_user_provider_key",
             "public.connector_connections_user_idx",
             "public.connector_documents_pkey",
-            "public.connector_documents_external_id_key",
+            "public.connector_documents_revision_key",
             "public.connector_documents_connection_idx",
             "public.connector_documents_user_idx",
+        })
+    if connector_bridge:
+        indexes.discard("public.connector_documents_revision_key")
+        indexes.update({
+            "public.connector_documents_external_id_key",
+            "public.evidence_records_connector_external_key",
         })
     if phase8_export:
         indexes.update({
