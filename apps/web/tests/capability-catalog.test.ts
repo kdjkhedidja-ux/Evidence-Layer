@@ -11,6 +11,7 @@ const REQUIRED_FEATURES: Record<string, string[]> = {
     "Rationale",
     "Review basis",
   ],
+  "Task Context": ["Task-focused retrieval", "Relationship-aware selection"],
   "Reading Guide": ["Reading instructions", "Source inspection", "Provenance guidance"],
   Verification: ["Snapshot integrity", "Hash verification"],
   Evaluation: ["Historical reports", "Comparisons"],
@@ -60,6 +61,7 @@ describe("workspace capability catalog contract", () => {
       "/evaluation",
       "/cost-performance",
       "/workspace#agent-connection",
+      "/workspace#task-context",
       "/workspace#task-measurement",
     ]);
     const features = CAPABILITY_GROUPS.flatMap((group) => group.features);

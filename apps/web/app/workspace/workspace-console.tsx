@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createSupabaseBrowserClient } from "../../lib/supabase/client";
+import type { WorkspaceTaskContextResult } from "../../lib/evidence-api";
 import ConnectorSources from "../../components/connector-sources";
 import RemoteMcp from "../../components/remote-mcp";
 import PersonalApiKeys from "./personal-api-keys";
@@ -88,6 +89,7 @@ export default function WorkspaceConsole({
     const editor = document.getElementById("evidence-editor");
     editor?.scrollIntoView?.({ behavior: "smooth", block: "start" });
   }, [editingId]);
+  useEffect(() => () => taskContextAbortRef.current?.abort(), []);
   useEffect(() => {
     if (!menuOpen) return;
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -102,6 +104,14 @@ export default function WorkspaceConsole({
   const [sourceDigest, setSourceDigest] = useState("");
   const [sourceMessage, setSourceMessage] = useState("");
   const [sourcePending, setSourcePending] = useState(false);
+  const [task, setTask] = useState("");
+  const [expectedOutcome, setExpectedOutcome] = useState("");
+  const [contextRequirements, setContextRequirements] = useState("");
+  const [contextBudget, setContextBudget] = useState(1200);
+  const [taskContextResult, setTaskContextResult] = useState<WorkspaceTaskContextResult | null>(null);
+  const [taskContextPending, setTaskContextPending] = useState(false);
+  const [taskContextMessage, setTaskContextMessage] = useState("");
+  const taskContextAbortRef = useRef<AbortController | null>(null);
   const [label, setLabel] = useState("");
   const [content, setContent] = useState("");
   const [linkKey, setLinkKey] = useState("");
@@ -449,6 +459,112 @@ export default function WorkspaceConsole({
     }
   }
 
+  async function prepareTaskContext(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!workspaceId || !task.trim() || !expectedOutcome.trim()) return;
+    taskContextAbortRef.current?.abort();
+    const controller = new AbortController();
+    taskContextAbortRef.current = controller;
+    setTaskContextPending(true);
+    setTaskContextMessage("");
+    setTaskContextResult(null);
+    try {
+      const response = await fetch(
+        `/api/evidence/workspaces/${encodeURIComponent(workspaceId)}/task-context`,
+        {
+          method: "POST",
+          cache: "no-store",
+          signal: controller.signal,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            task: task.trim(),
+            expected_outcome: expectedOutcome.trim(),
+            context_requirements: contextRequirements.trim(),
+            top_k: 5,
+            max_tokens: contextBudget,
+            max_chars: contextBudget * 5,
+          }),
+        },
+      );
+      if (taskContextAbortRef.current !== controller) return;
+      if (!response.ok) {
+        setTaskContextMessage(
+          await readError(response, "Evidence context could not be prepared."),
+        );
+        return;
+      }
+      const result = (await response.json()) as WorkspaceTaskContextResult;
+      if (taskContextAbortRef.current !== controller) return;
+      if (
+        result.retrieval?.workspace_id !== workspaceId ||
+        !Array.isArray(result.retrieval.evidence) ||
+        !Array.isArray(result.relationships)
+      ) {
+        setTaskContextMessage("The evidence service returned an invalid task context.");
+        return;
+      }
+      setTaskContextResult(result);
+      setTaskContextMessage(
+        result.retrieval.selected_count > 0
+          ? "Evidence context is ready to review."
+          : "No matching evidence was found. Adjust the task or context requirements.",
+      );
+    } catch {
+      if (!controller.signal.aborted) {
+        setTaskContextMessage("Evidence service is unavailable.");
+      }
+    } finally {
+      if (taskContextAbortRef.current === controller) {
+        taskContextAbortRef.current = null;
+        setTaskContextPending(false);
+      }
+    }
+  }
+
+  function invalidateTaskContext() {
+    taskContextAbortRef.current?.abort();
+    taskContextAbortRef.current = null;
+    setTaskContextPending(false);
+    setTaskContextResult(null);
+    setTaskContextMessage("");
+  }
+
+  async function copyTaskContext() {
+    if (!taskContextResult) return;
+    const { retrieval, relationships } = taskContextResult;
+    const evidenceText = retrieval.evidence.map((item, index) =>
+      [
+        `Evidence ${index + 1} — ${item.source_label || item.title || item.evidence_id}`,
+        `ID: ${item.evidence_id}`,
+        item.source_id && item.source_version_id
+          ? `Verified source version: ${item.source_id}@${item.source_version_id}`
+          : "No exact verified source version is linked.",
+        item.content,
+      ].join("\n"),
+    );
+    const relationshipText = relationships.map((item) =>
+      `${item.relation_type} (evidence ${item.evidence_id_a} linked to ${item.evidence_id_b}): ${item.rationale}\nBasis: ${item.provenance_note}`,
+    );
+    const text = [
+      `Task:\n${taskContextResult.task}`,
+      `Expected outcome:\n${taskContextResult.expected_outcome}`,
+      taskContextResult.context_requirements
+        ? `Context requirements:\n${taskContextResult.context_requirements}`
+        : "",
+      "Selected evidence:",
+      ...evidenceText,
+      relationshipText.length ? `Documented relationships:\n${relationshipText.join("\n\n")}` : "",
+      `Evidence snippets only: ${retrieval.used_tokens} estimated tokens (${retrieval.token_estimator}); excludes the task brief and downstream model prompt.`,
+      "Use only the supplied evidence for factual claims; identify gaps instead of inventing details.",
+    ].filter(Boolean).join("\n\n");
+    try {
+      await navigator.clipboard.writeText(text);
+      setTaskContextMessage("Task and evidence context copied for your agent.");
+    } catch {
+      setTaskContextMessage("The task context could not be copied. Select and copy the evidence manually.");
+    }
+  }
+
   async function copyWorkspaceId() {
     if (!selectedWorkspace) return;
     try {
@@ -539,7 +655,10 @@ export default function WorkspaceConsole({
               <select
                 id="workspace-select"
                 value={workspaceId}
-                onChange={(event) => setWorkspaceId(event.target.value)}
+                onChange={(event) => {
+                  setWorkspaceId(event.target.value);
+                  invalidateTaskContext();
+                }}
               >
                 {workspaces.map((workspace) => (
                   <option key={workspace.id} value={workspace.id}>
@@ -604,8 +723,9 @@ export default function WorkspaceConsole({
             <ol className="workspace-workflow">
               <li><a href="#connected-sources"><strong>1. Connect and sync sources</strong><span>Connector sync currently imports into your personal workspace.</span></a></li>
               <li><a href="#records-heading"><strong>2. Review evidence</strong><span>Inspect records and source labels in the selected workspace.</span></a></li>
-              <li><a href="#agent-connection"><strong>3. Connect your agent</strong><span>Use a read-only API key or Remote MCP.</span></a></li>
-              <li><a href="#task-measurement"><strong>4. Measure outcomes</strong><span>Task-level tracking is not connected yet.</span></a></li>
+              <li><a href="#task-context"><strong>3. Define a task and prepare context</strong><span>EL selects bounded evidence and explicit links.</span></a></li>
+              <li><a href="#agent-connection"><strong>4. Connect your agent</strong><span>The agent uses the task brief and evidence bundle.</span></a></li>
+              <li><a href="#task-measurement"><strong>5. Measure outcomes</strong><span>Task-level usage and quality tracking is not connected yet.</span></a></li>
             </ol>
           </section>
         )}
@@ -844,6 +964,144 @@ export default function WorkspaceConsole({
               <div className="workspace-source-result">
                 <p><strong>Verified content digest:</strong> <code>{sourceDigest}</code></p>
                 <pre>{sourceContent}</pre>
+              </div>
+            )}
+          </section>
+        )}
+
+        {selectedWorkspace && (
+          <section id="task-context" className="workspace-panel" aria-labelledby="task-context-heading">
+            <div className="workspace-section-heading">
+              <div>
+                <p className="eyebrow">Task-focused retrieval</p>
+                <h2 id="task-context-heading">Define a task and prepare its evidence context</h2>
+              </div>
+              <span className="workspace-role">Read-only · bounded context</span>
+            </div>
+            <p className="workspace-note">
+              Describe the job, what a successful result should contain, and any source or detail
+              to prioritize. EL uses all three as lexical search input and favors directly linked
+              records that also match. No external model is called for retrieval; your agent still
+              performs the task.
+            </p>
+            <form className="workspace-form" onSubmit={(event) => void prepareTaskContext(event)}>
+              <label htmlFor="task-description">What should the agent do?</label>
+              <textarea
+                id="task-description"
+                required
+                maxLength={2000}
+                value={task}
+                onChange={(event) => {
+                  setTask(event.target.value);
+                  invalidateTaskContext();
+                }}
+                placeholder="For example: assess the rollout plan for operational risks"
+              />
+              <label htmlFor="task-expected-outcome">What should a successful result include?</label>
+              <textarea
+                id="task-expected-outcome"
+                required
+                maxLength={2000}
+                value={expectedOutcome}
+                onChange={(event) => {
+                  setExpectedOutcome(event.target.value);
+                  invalidateTaskContext();
+                }}
+                placeholder="For example: list evidence-backed risks, mitigations, and unresolved questions"
+              />
+              <label htmlFor="task-context-requirements">What context should EL prioritize? (optional)</label>
+              <textarea
+                id="task-context-requirements"
+                maxLength={2000}
+                value={contextRequirements}
+                onChange={(event) => {
+                  setContextRequirements(event.target.value);
+                  invalidateTaskContext();
+                }}
+                placeholder="Name relevant systems, time periods, source paths, or constraints"
+              />
+              <label htmlFor="task-context-budget">Maximum evidence context</label>
+              <select
+                id="task-context-budget"
+                value={contextBudget}
+                onChange={(event) => {
+                  setContextBudget(Number(event.target.value));
+                  invalidateTaskContext();
+                }}
+              >
+                <option value={800}>800 tokens</option>
+                <option value={1200}>1,200 tokens</option>
+                <option value={2000}>2,000 tokens</option>
+                <option value={4000}>4,000 tokens</option>
+              </select>
+              <div className="workspace-form-actions">
+                <button type="submit" disabled={taskContextPending || recordsState !== "ready"}>
+                  {taskContextPending ? "Preparing evidence context…" : "Prepare evidence context"}
+                </button>
+              </div>
+            </form>
+            {taskContextMessage && (
+              <p className="workspace-message" role="status">{taskContextMessage}</p>
+            )}
+            {taskContextResult && (
+              <div className="task-context-result" aria-live="polite">
+                <div className="workspace-section-heading">
+                  <div>
+                    <h3>Prepared context</h3>
+                    <p className="workspace-note">
+                      {taskContextResult.retrieval.selected_count} evidence snippets ·{" "}
+                      {taskContextResult.retrieval.used_tokens} estimated evidence tokens (task brief excluded) ·{" "}
+                      {taskContextResult.retrieval.used_chars} characters ·{" "}
+                      {taskContextResult.retrieval.token_estimator}
+                    </p>
+                  </div>
+                  <button type="button" onClick={() => void copyTaskContext()}>
+                    Copy task and evidence for agent
+                  </button>
+                </div>
+                {taskContextResult.retrieval.evidence.length === 0 ? (
+                  <p>No evidence was selected. No conclusions are inferred from an empty context.</p>
+                ) : (
+                  <ol className="task-context-evidence">
+                    {taskContextResult.retrieval.evidence.map((item) => (
+                      <li key={item.chunk_id}>
+                        <div>
+                          <strong>{item.source_label || item.title || "Evidence record"}</strong>
+                          <span>{item.token_count} tokens · score {item.score.toFixed(3)}</span>
+                        </div>
+                        <p>{item.content}</p>
+                        <code>Evidence ID: {item.evidence_id}</code>
+                        <small>
+                          {item.source_id && item.source_version_id
+                            ? `Verified source version ${item.source_id.slice(0, 8)}… / ${item.source_version_id.slice(0, 8)}…`
+                            : "No exact verified source version is linked"}
+                        </small>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+                {taskContextResult.relationships.length > 0 && (
+                  <section aria-labelledby="task-context-relationships-heading">
+                    <h4 id="task-context-relationships-heading">Explicit links in this context</h4>
+                    <ul className="task-context-relationships">
+                      {taskContextResult.relationships.map((relationship) => (
+                        <li key={relationship.id}>
+                          <strong>
+                            {relationship.relation_type.replace("_", " ")} · evidence{" "}
+                            {relationship.evidence_id_a.slice(0, 8)} links to{" "}
+                            {relationship.evidence_id_b.slice(0, 8)}
+                          </strong>
+                          <span>{relationship.rationale}</span>
+                          <small>Basis: {relationship.provenance_note}</small>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
+                <details>
+                  <summary>Show the retrieval query</summary>
+                  <pre>{taskContextResult.retrieval.query}</pre>
+                </details>
               </div>
             )}
           </section>

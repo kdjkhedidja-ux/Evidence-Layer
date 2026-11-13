@@ -48,6 +48,51 @@ export type WorkspaceEvidenceRelationship = {
   updated_at: string;
 };
 
+export type WorkspaceTaskContextResult = {
+  task: string;
+  expected_outcome: string;
+  context_requirements: string;
+  retrieval: {
+    status: string;
+    query: string;
+    workspace_id: string;
+    selected_count: number;
+    used_tokens: number;
+    used_chars: number;
+    token_estimator: string;
+    evidence: Array<{
+      evidence_id: string;
+      content: string;
+      source_label: string | null;
+      source_id: string | null;
+      source_version_id: string | null;
+      score: number;
+      chunk_id: string;
+      token_count: number;
+      char_count: number;
+      path: string | null;
+      title: string | null;
+    }>;
+  };
+  relationships: Array<{
+    id: string;
+    evidence_id_a: string;
+    evidence_id_b: string;
+    relation_type: "supports" | "contradicts" | "contextualizes" | "derived_from";
+    rationale: string;
+    provenance_note: string;
+  }>;
+};
+
+export type WorkspaceTaskContextInput = {
+  task: string;
+  expected_outcome: string;
+  context_requirements: string;
+  top_k: number;
+  max_tokens: number;
+  max_chars: number;
+};
+
 export type PersonalApiKeySummary = {
   id: string;
   workspace_id: string;
@@ -1032,6 +1077,194 @@ function safeRelationship(
     String(candidate.evidence_id_a) >= String(candidate.evidence_id_b)
   ) return null;
   return candidate as WorkspaceEvidenceRelationship;
+}
+
+export async function parseWorkspaceTaskContextInput(
+  request: Request,
+): Promise<{ ok: true; value: WorkspaceTaskContextInput } | { ok: false }> {
+  const length = Number(request.headers.get("content-length"));
+  if (Number.isFinite(length) && length > 16_384) return { ok: false };
+  let payload: unknown;
+  try {
+    payload = await request.json();
+  } catch {
+    return { ok: false };
+  }
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return { ok: false };
+  }
+  const candidate = payload as Record<string, unknown>;
+  const task = typeof candidate.task === "string" ? candidate.task.trim() : "";
+  const expectedOutcome =
+    typeof candidate.expected_outcome === "string" ? candidate.expected_outcome.trim() : "";
+  const contextRequirements =
+    typeof candidate.context_requirements === "string"
+      ? candidate.context_requirements.trim()
+      : "";
+  const topK = candidate.top_k ?? 5;
+  const maxTokens = candidate.max_tokens ?? 1200;
+  const maxChars = candidate.max_chars ?? 6000;
+  const allowedFields = new Set([
+    "task",
+    "expected_outcome",
+    "context_requirements",
+    "top_k",
+    "max_tokens",
+    "max_chars",
+  ]);
+  if (
+    Object.keys(candidate).some((key) => !allowedFields.has(key)) ||
+    task.length < 1 ||
+    task.length > 2000 ||
+    expectedOutcome.length < 1 ||
+    expectedOutcome.length > 2000 ||
+    contextRequirements.length > 2000 ||
+    !Number.isInteger(topK) ||
+    Number(topK) < 1 ||
+    Number(topK) > 20 ||
+    !Number.isInteger(maxTokens) ||
+    Number(maxTokens) < 1 ||
+    Number(maxTokens) > 8000 ||
+    !Number.isInteger(maxChars) ||
+    Number(maxChars) < 1 ||
+    Number(maxChars) > 40_000
+  ) {
+    return { ok: false };
+  }
+  return {
+    ok: true,
+    value: {
+      task,
+      expected_outcome: expectedOutcome,
+      context_requirements: contextRequirements,
+      top_k: Number(topK),
+      max_tokens: Number(maxTokens),
+      max_chars: Number(maxChars),
+    },
+  };
+}
+
+function safeTaskContextResult(
+  value: unknown,
+  workspaceId: string,
+): WorkspaceTaskContextResult | null {
+  if (!value || typeof value !== "object") return null;
+  const candidate = value as Record<string, unknown>;
+  const retrieval = candidate.retrieval;
+  if (!retrieval || typeof retrieval !== "object") return null;
+  const selected = retrieval as Record<string, unknown>;
+  const validEvidence = (item: unknown): boolean => {
+    if (!item || typeof item !== "object") return false;
+    const evidence = item as Record<string, unknown>;
+    return (
+      typeof evidence.evidence_id === "string" &&
+      UUID_PATTERN.test(evidence.evidence_id) &&
+      typeof evidence.content === "string" &&
+      (typeof evidence.source_label === "string" || evidence.source_label === null) &&
+      (typeof evidence.source_id === "string" && UUID_PATTERN.test(evidence.source_id) ||
+        evidence.source_id === null) &&
+      (typeof evidence.source_version_id === "string" &&
+        UUID_PATTERN.test(evidence.source_version_id) || evidence.source_version_id === null) &&
+      typeof evidence.score === "number" &&
+      Number.isFinite(evidence.score) &&
+      typeof evidence.chunk_id === "string" &&
+      Number.isSafeInteger(evidence.token_count) &&
+      Number.isSafeInteger(evidence.char_count) &&
+      (typeof evidence.path === "string" || evidence.path === null) &&
+      (typeof evidence.title === "string" || evidence.title === null)
+    );
+  };
+  const validRelationship = (item: unknown): boolean => {
+    if (!item || typeof item !== "object") return false;
+    const relationship = item as Record<string, unknown>;
+    return (
+      typeof relationship.id === "string" &&
+      UUID_PATTERN.test(relationship.id) &&
+      typeof relationship.evidence_id_a === "string" &&
+      UUID_PATTERN.test(relationship.evidence_id_a) &&
+      typeof relationship.evidence_id_b === "string" &&
+      UUID_PATTERN.test(relationship.evidence_id_b) &&
+      ["supports", "contradicts", "contextualizes", "derived_from"].includes(
+        String(relationship.relation_type),
+      ) &&
+      typeof relationship.rationale === "string" &&
+      typeof relationship.provenance_note === "string"
+    );
+  };
+  if (
+    typeof candidate.task !== "string" ||
+    typeof candidate.expected_outcome !== "string" ||
+    typeof candidate.context_requirements !== "string" ||
+    typeof selected.status !== "string" ||
+    typeof selected.query !== "string" ||
+    selected.workspace_id !== workspaceId ||
+    !Number.isSafeInteger(selected.selected_count) ||
+    !Number.isSafeInteger(selected.used_tokens) ||
+    !Number.isSafeInteger(selected.used_chars) ||
+    typeof selected.token_estimator !== "string" ||
+    !Array.isArray(selected.evidence) ||
+    selected.evidence.some((item) => !validEvidence(item)) ||
+    !Array.isArray(candidate.relationships) ||
+    candidate.relationships.some((item) => !validRelationship(item))
+  ) return null;
+  return candidate as WorkspaceTaskContextResult;
+}
+
+export async function proxyWorkspaceTaskContextRequest({
+  request,
+  workspaceId,
+  body,
+}: {
+  request: Request;
+  workspaceId: string;
+  body: WorkspaceTaskContextInput;
+}): Promise<Response> {
+  if (!isUuid(workspaceId)) return json(404, { error: "Workspace not found." });
+  if (!sameOrigin(request)) return json(403, { error: "Request origin was not accepted." });
+  const auth = await getVerifiedAuthContext();
+  if (auth.kind === "unauthenticated") return json(401, { error: "Authentication is required." });
+  if (auth.kind === "unavailable") return json(503, { error: "Identity verification is unavailable." });
+  const blocked = await mfaBlocked(auth);
+  if (blocked) return blocked;
+  const serviceUrl = getEvidenceServiceBaseUrl();
+  if (!serviceUrl) return json(503, { error: "Evidence service is unavailable." });
+
+  let upstream: Response;
+  try {
+    upstream = await fetch(`${serviceUrl}/v1/workspaces/${workspaceId}/task-context`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${auth.accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+      cache: "no-store",
+      redirect: "manual",
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch {
+    return json(503, { error: "Evidence service is unavailable." });
+  }
+  if (upstream.status === 401) return json(401, { error: "Your session is no longer valid." });
+  if (upstream.status === 403) return json(403, { error: "This action is not available for this account." });
+  if (upstream.status === 404) return json(404, { error: "Workspace or retrieval service not found." });
+  if (upstream.status === 422) return json(400, { error: "Task context input was not accepted." });
+  if (upstream.status >= 500 || upstream.status >= 300) {
+    return json(503, { error: "Evidence service is unavailable." });
+  }
+  if (upstream.status !== 200) return json(502, { error: "Evidence service returned an invalid response." });
+
+  let payload: unknown;
+  try {
+    payload = await upstream.json();
+  } catch {
+    return json(502, { error: "Evidence service returned an invalid response." });
+  }
+  const result = safeTaskContextResult(payload, workspaceId);
+  return result
+    ? json(200, result)
+    : json(502, { error: "Evidence service returned an invalid response." });
 }
 
 export async function proxyWorkspaceRelationshipsRequest({

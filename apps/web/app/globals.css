@@ -2647,6 +2647,100 @@ select:focus-visible,
   font-size: 0.85rem;
 }
 
+#task-context .workspace-form textarea {
+  min-height: 7rem;
+}
+
+.task-context-result {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.task-context-result .workspace-section-heading {
+  align-items: center;
+}
+
+.task-context-result .workspace-section-heading h3,
+.task-context-result h4 {
+  margin: 0;
+  color: var(--text-strong);
+}
+
+.task-context-result .workspace-section-heading button {
+  min-height: 42px;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid var(--border-control-color);
+  border-radius: var(--radius-control);
+  background: var(--bg-primary);
+  color: var(--text-strong);
+  cursor: pointer;
+}
+
+.task-context-evidence,
+.task-context-relationships {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding-left: 1.4rem;
+}
+
+.task-context-evidence li,
+.task-context-relationships li {
+  min-width: 0;
+  padding: 0.8rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-primary);
+}
+
+.task-context-evidence li > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.4rem 1rem;
+}
+
+.task-context-evidence li > div span,
+.task-context-relationships small {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.task-context-evidence li p {
+  margin: 0.65rem 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.task-context-evidence code {
+  overflow-wrap: anywhere;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.task-context-evidence small {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--text-muted);
+}
+
+.task-context-relationships li {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.task-context-result details pre {
+  max-height: 15rem;
+  overflow: auto;
+  padding: 0.8rem;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  white-space: pre-wrap;
+}
+
 .workspace-advanced {
   margin-top: 1.25rem;
 }

@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from math import ceil
 from typing import Callable
+from uuid import UUID
 
 from evidence_layer.scoring.lexical import LexicalScorer
 from evidence_layer.tokenization import shared_visible_counter
@@ -91,6 +92,7 @@ def select_evidence(
     top_k: int,
     max_tokens: int,
     max_chars: int,
+    preferred_record_ids: set[UUID] | None = None,
 ) -> RetrievalSelection:
     scorer = LexicalScorer()
     query_terms = set(scorer.normalize(query))
@@ -126,6 +128,7 @@ def select_evidence(
             )
     candidates.sort(
         key=lambda item: (
+            0 if preferred_record_ids and item.record.id in preferred_record_ids else 1,
             -item.score,
             item.path or "",
             str(item.record.id),

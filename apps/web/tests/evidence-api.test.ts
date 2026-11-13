@@ -4,6 +4,7 @@ import { DELETE as deleteApiKey } from "../app/api/evidence/me/api-keys/[keyId]/
 import { GET as getMe } from "../app/api/evidence/me/route";
 import { PUT as putPersonalWorkspace } from "../app/api/evidence/personal-workspace/route";
 import { GET as getWorkspace } from "../app/api/evidence/workspaces/[workspaceId]/route";
+import { POST as prepareTaskContext } from "../app/api/evidence/workspaces/[workspaceId]/task-context/route";
 import { provisionPersonalWorkspaceForSession } from "../lib/evidence-api";
 
 const mocks = vi.hoisted(() => ({
@@ -68,6 +69,77 @@ describe("same-origin Evidence Service proxy", () => {
       body: JSON.stringify({}),
     }));
     expect(rejected.status).toBe(403);
+  });
+
+  it("prepares task context only through the verified same-origin workspace boundary", async () => {
+    const payload = {
+      task: "Review the release",
+      expected_outcome: "Identify risks",
+      context_requirements: "Focus on rollback",
+      retrieval: {
+        status: "ok",
+        query: "Review the release\nIdentify risks\nFocus on rollback",
+        workspace_id: WORKSPACE_ID,
+        selected_count: 1,
+        used_tokens: 8,
+        used_chars: 32,
+        token_estimator: "chars_div_4",
+        evidence: [{
+          evidence_id: "10000000-0000-4000-8000-000000000003",
+          content: "Rollback plan.",
+          source_label: "runbook.md",
+          source_id: null,
+          source_version_id: null,
+          score: 0.5,
+          chunk_id: "10000000-0000-4000-8000-000000000003:0:16",
+          token_count: 4,
+          char_count: 16,
+          path: "runbook.md",
+          title: "Runbook",
+        }],
+      },
+      relationships: [],
+    };
+    const fetchMock = vi.mocked(fetch).mockResolvedValue(Response.json(payload));
+    const requestBody = {
+      task: "Review the release",
+      expected_outcome: "Identify risks",
+      context_requirements: "Focus on rollback",
+      top_k: 5,
+      max_tokens: 1200,
+      max_chars: 6000,
+    };
+    const response = await prepareTaskContext(
+      request(`/api/evidence/workspaces/${WORKSPACE_ID}/task-context`, {
+        method: "POST",
+        headers: { Origin: "https://app.example", "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
+      }),
+      { params: Promise.resolve({ workspaceId: WORKSPACE_ID }) },
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(payload);
+    expect(fetchMock).toHaveBeenCalledWith(
+      `https://evidence.example/v1/workspaces/${WORKSPACE_ID}/task-context`,
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          Authorization: "Bearer synthetic-test-access-token",
+        }),
+        body: JSON.stringify(requestBody),
+      }),
+    );
+
+    const rejected = await prepareTaskContext(
+      request(`/api/evidence/workspaces/${WORKSPACE_ID}/task-context`, {
+        method: "POST",
+        headers: { Origin: "https://attacker.example", "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
+      }),
+      { params: Promise.resolve({ workspaceId: WORKSPACE_ID }) },
+    );
+    expect(rejected.status).toBe(403);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("creates a personal API key and rejects malformed input", async () => {

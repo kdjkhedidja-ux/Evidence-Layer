@@ -453,6 +453,41 @@ class PersonalApiKeyRetrieveResponse(BaseModel):
     evidence: list[PersonalApiKeyRetrievedItem]
 
 
+class WorkspaceTaskContextRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    task: str = Field(min_length=1, max_length=2000)
+    expected_outcome: str = Field(min_length=1, max_length=2000)
+    context_requirements: str = Field(default="", max_length=2000)
+    top_k: int = Field(default=5, ge=1, le=20)
+    max_tokens: int = Field(default=1200, ge=1, le=8000)
+    max_chars: int = Field(default=6000, ge=1, le=40000)
+
+    def retrieval_query(self) -> str:
+        return "\n".join(
+            value
+            for value in (self.task, self.expected_outcome, self.context_requirements)
+            if value
+        )
+
+
+class TaskContextRelationship(BaseModel):
+    id: UUID
+    evidence_id_a: UUID
+    evidence_id_b: UUID
+    relation_type: Literal["supports", "contradicts", "contextualizes", "derived_from"]
+    rationale: str
+    provenance_note: str
+
+
+class WorkspaceTaskContextResponse(BaseModel):
+    task: str
+    expected_outcome: str
+    context_requirements: str
+    retrieval: PersonalApiKeyRetrieveResponse
+    relationships: list[TaskContextRelationship]
+
+
 class PersonalApiKeyEvidencePage(BaseModel):
     items: list[EvidenceResponse]
     next_cursor: str | None
@@ -1064,22 +1099,30 @@ def _source_read_error(exc) -> HTTPException:
     return HTTPException(status_code=403, detail="Source read is not authorized")
 
 
-def _personal_api_key_retrieve_response(
+def _retrieval_response(
     page: PersonalApiKeyPage,
     workspace_id: UUID,
-    payload: PersonalApiKeyRetrieveRequest,
+    payload: PersonalApiKeyRetrieveRequest | WorkspaceTaskContextRequest,
+    *,
+    preferred_record_ids: set[UUID] | None = None,
 ) -> PersonalApiKeyRetrieveResponse:
     records = [item for item in page.items if hasattr(item, "content")]
+    query = (
+        payload.query
+        if isinstance(payload, PersonalApiKeyRetrieveRequest)
+        else payload.retrieval_query()
+    )
     result: RetrievalSelection = select_evidence(
         records,
-        query=payload.query,
+        query=query,
         top_k=payload.top_k,
         max_tokens=payload.max_tokens,
         max_chars=payload.max_chars,
+        preferred_record_ids=preferred_record_ids,
     )
     return PersonalApiKeyRetrieveResponse(
         status=result.status,
-        query=payload.query,
+        query=query,
         workspace_id=workspace_id,
         top_k=payload.top_k,
         max_tokens=payload.max_tokens,
@@ -1112,6 +1155,59 @@ def _personal_api_key_retrieve_response(
             )
             for item in result.selected
         ],
+    )
+
+
+def _workspace_task_context_response(
+    records: list[EvidenceRecord],
+    relationships: list[EvidenceRelationship],
+    workspace_id: UUID,
+    payload: WorkspaceTaskContextRequest,
+) -> WorkspaceTaskContextResponse:
+    query = payload.retrieval_query()
+    seed = select_evidence(
+        records,
+        query=query,
+        top_k=max(1, payload.top_k - 1),
+        max_tokens=payload.max_tokens,
+        max_chars=payload.max_chars,
+    )
+    seed_ids = {item.record.id for item in seed.selected}
+    related_ids: set[UUID] = set()
+    if seed_ids and payload.top_k > 1:
+        for relationship in relationships:
+            if relationship.evidence_id_a in seed_ids:
+                related_ids.add(relationship.evidence_id_b)
+            elif relationship.evidence_id_b in seed_ids:
+                related_ids.add(relationship.evidence_id_a)
+        related_ids = set(sorted(related_ids, key=str)[: min(3, payload.top_k - 1)])
+
+    retrieval = _retrieval_response(
+        PersonalApiKeyPage(items=records, next_cursor=None),
+        workspace_id,
+        payload,
+        preferred_record_ids=related_ids,
+    )
+    selected_ids = {item.evidence_id for item in retrieval.evidence}
+    selected_relationships = [
+        TaskContextRelationship(
+            id=relationship.id,
+            evidence_id_a=relationship.evidence_id_a,
+            evidence_id_b=relationship.evidence_id_b,
+            relation_type=relationship.relation_type,
+            rationale=relationship.rationale,
+            provenance_note=relationship.provenance_note,
+        )
+        for relationship in relationships
+        if relationship.evidence_id_a in selected_ids
+        and relationship.evidence_id_b in selected_ids
+    ]
+    return WorkspaceTaskContextResponse(
+        task=payload.task,
+        expected_outcome=payload.expected_outcome,
+        context_requirements=payload.context_requirements,
+        retrieval=retrieval,
+        relationships=selected_relationships,
     )
 
 
@@ -1177,7 +1273,7 @@ class _HostedRemoteMcpBackend:
         except Exception:
             return _remote_mcp_error("internal_error", "retrieve_evidence failed")
         try:
-            return _personal_api_key_retrieve_response(
+            return _retrieval_response(
                 page, principal.workspace_id, payload
             ).model_dump(mode="json")
         except Exception:
@@ -2031,7 +2127,7 @@ def create_app(
         except PersonalApiKeyDataUnavailable as exc:
             raise HTTPException(status_code=503, detail="Personal API key service is unavailable") from exc
 
-        return _personal_api_key_retrieve_response(page, workspace_id, payload)
+        return _retrieval_response(page, workspace_id, payload)
 
     @application.get(
         "/v1/personal-api-keys/workspaces/{workspace_id}/evidence/{evidence_id}",
@@ -2401,6 +2497,47 @@ def create_app(
             raise _evidence_access_error(exc) from exc
         except EvidenceDataUnavailable as exc:
             raise _evidence_data_error(exc) from exc
+
+    @application.post(
+        "/v1/workspaces/{workspace_id}/task-context",
+        response_model=WorkspaceTaskContextResponse,
+    )
+    async def prepare_workspace_task_context(
+        workspace_id: UUID,
+        payload: WorkspaceTaskContextRequest,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> WorkspaceTaskContextResponse:
+        if not request.app.state.retrieval_enabled:
+            raise HTTPException(status_code=404, detail="Retrieval API is not enabled")
+        await _require_recovery_fence_open(request)
+        context = await _resolve_workspace_or_404(request, auth, workspace_id)
+        try:
+            records = await _with_account_gate(
+                request,
+                auth,
+                lambda: _evidence_repository(request).list_records(
+                    auth.access_token, context.workspace_id
+                ),
+            )
+            relationships = await _with_account_gate(
+                request,
+                auth,
+                lambda: _relationship_repository(request).list_relationships(
+                    auth.access_token, context.workspace_id
+                ),
+            )
+        except EvidenceAccessDenied as exc:
+            raise _evidence_access_error(exc) from exc
+        except EvidenceDataUnavailable as exc:
+            raise _evidence_data_error(exc) from exc
+        except RelationshipAccessDenied as exc:
+            raise HTTPException(status_code=404, detail="Workspace not found") from exc
+        except RelationshipDataUnavailable as exc:
+            raise _relationship_data_error(exc) from exc
+        return _workspace_task_context_response(
+            records, relationships, context.workspace_id, payload
+        )
 
     @application.post(
         "/v1/workspaces/{workspace_id}/evidence",

@@ -143,6 +143,23 @@ export const CAPABILITY_GROUPS: readonly CapabilityGroup[] = [
     ],
   },
   {
+    name: "Task Context",
+    features: [
+      {
+        name: "Task-focused retrieval",
+        status: "Partially available",
+        detail: "Combines the task, expected outcome, and context requirements to prepare bounded lexical evidence; it does not execute the agent task.",
+        href: "/workspace#task-context",
+      },
+      {
+        name: "Relationship-aware selection",
+        status: "Partially available",
+        detail: "Prioritizes up to three explicitly linked records for retrieved seed evidence and returns links only when both records are selected. JEV and semantic ranking are not connected.",
+        href: "/workspace#task-context",
+      },
+    ],
+  },
+  {
     name: "Reading Guide",
     features: [
       {

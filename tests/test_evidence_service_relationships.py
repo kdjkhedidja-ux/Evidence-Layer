@@ -15,6 +15,7 @@ from account_lifecycle_test_support import (
 from evidence_service.app import create_app
 from evidence_service.auth import AuthenticationRejected, Principal
 from evidence_service.config import SupabaseSettings
+from evidence_service.evidence_repository import EvidenceRecord
 from evidence_service.relationship_repository import EvidenceRelationship
 from evidence_service.tenant_context import WorkspaceMembership
 
@@ -116,7 +117,40 @@ class RelationshipRepositorySpy:
         return relationship_id == RELATION_ID
 
 
-def make_client(directory: MembershipDirectory, repository: RelationshipRepositorySpy):
+class TaskContextEvidenceRepository:
+    def __init__(self) -> None:
+        now = datetime(2026, 11, 2, tzinfo=UTC)
+        self.records = [
+            EvidenceRecord(
+                id=EVIDENCE_A,
+                workspace_id=WORKSPACE_A,
+                content="Evidence Layer release process and deployment checks.",
+                source_label="release.md",
+                created_at=now,
+                updated_at=now,
+            ),
+            EvidenceRecord(
+                id=EVIDENCE_B,
+                workspace_id=WORKSPACE_A,
+                content="Evidence Layer emergency rollback procedure.",
+                source_label="rollback.md",
+                created_at=now,
+                updated_at=now,
+            ),
+        ]
+
+    async def list_records(self, access_token: str, workspace_id: UUID):
+        assert access_token == TOKEN
+        return [record for record in self.records if record.workspace_id == workspace_id]
+
+
+def make_client(
+    directory: MembershipDirectory,
+    repository: RelationshipRepositorySpy,
+    *,
+    evidence_repository=None,
+    retrieval_enabled: bool = False,
+):
     app = create_app(
         settings(),
         token_verifier=StaticVerifier(),
@@ -124,6 +158,8 @@ def make_client(directory: MembershipDirectory, repository: RelationshipReposito
         recovery_fence_reader=OpenRecoveryFenceReader(),
         workspace_directory=directory,
         relationship_repository=repository,
+        evidence_repository=evidence_repository,
+        retrieval_enabled=retrieval_enabled,
     )
     return httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
@@ -162,6 +198,49 @@ def test_owner_can_create_update_and_delete_explicit_relationship() -> None:
         assert repository.calls[0][0] == "create"
         assert repository.calls[0][3:5] == (EVIDENCE_A, EVIDENCE_B)
         assert [call[0] for call in repository.calls] == ["create", "update", "delete"]
+
+    asyncio.run(run())
+
+
+def test_task_context_retrieval_uses_expected_outcome_and_explicit_links() -> None:
+    async def run() -> None:
+        relationship_repository = RelationshipRepositorySpy()
+        evidence_repository = TaskContextEvidenceRepository()
+        async with make_client(
+            MembershipDirectory(),
+            relationship_repository,
+            evidence_repository=evidence_repository,
+            retrieval_enabled=True,
+        ) as client:
+            response = await client.post(
+                f"/v1/workspaces/{WORKSPACE_A}/task-context",
+                headers={"Authorization": f"Bearer {TOKEN}"},
+                json={
+                    "task": "review Evidence Layer release",
+                    "expected_outcome": "identify emergency rollback procedure",
+                    "context_requirements": "focus on release rollback controls",
+                    "top_k": 2,
+                    "max_tokens": 400,
+                    "max_chars": 1600,
+                },
+            )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["task"] == "review Evidence Layer release"
+        assert body["expected_outcome"] == "identify emergency rollback procedure"
+        assert "focus on release rollback controls" in body["retrieval"]["query"]
+        selected_ids = {item["evidence_id"] for item in body["retrieval"]["evidence"]}
+        assert selected_ids == {str(EVIDENCE_A), str(EVIDENCE_B)}
+        assert body["relationships"] == [
+            {
+                "id": str(RELATION_ID),
+                "evidence_id_a": str(EVIDENCE_A),
+                "evidence_id_b": str(EVIDENCE_B),
+                "relation_type": "contextualizes",
+                "rationale": "The first record gives context to the second.",
+                "provenance_note": "Manual comparison of both original records.",
+            }
+        ]
 
     asyncio.run(run())
 
