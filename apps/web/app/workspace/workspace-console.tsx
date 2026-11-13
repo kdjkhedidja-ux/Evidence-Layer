@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { createSupabaseBrowserClient } from "../../lib/supabase/client";
 import ConnectorSources from "../../components/connector-sources";
+import RemoteMcp from "../../components/remote-mcp";
 import PersonalApiKeys from "./personal-api-keys";
 import { CAPABILITY_GROUPS } from "./capability-catalog";
 
@@ -582,6 +583,8 @@ export default function WorkspaceConsole({
 
 
         <PersonalApiKeys workspaces={workspaces} />
+
+        <RemoteMcp workspace={selectedWorkspace ? { id: selectedWorkspace.id, name: selectedWorkspace.name } : null} />
 
         <ConnectorSources />
 

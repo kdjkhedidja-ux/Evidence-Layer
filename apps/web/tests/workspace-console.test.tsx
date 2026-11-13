@@ -116,6 +116,14 @@ describe("workspace product console", () => {
     expect(screen.queryByText("Demo only")).not.toBeInTheDocument();
   });
 
+  it("places Remote MCP above Connected sources", async () => {
+    render(<WorkspaceConsole userId={USER_ID} email="reader@example.test" />);
+    expect(await screen.findByRole("heading", { name: "Remote MCP" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Connected sources" })).toBeInTheDocument();
+    const headings = screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent);
+    expect(headings.indexOf("Remote MCP")).toBeLessThan(headings.indexOf("Connected sources"));
+  });
+
   it("offers navigation and a local sign out from the header menu", async () => {
     mocks.signOut.mockResolvedValue({ error: null });
     render(<WorkspaceConsole userId={USER_ID} email="reader@example.test" />);
