@@ -73,6 +73,7 @@ export default function WorkspaceConsole({
   const [recordsState, setRecordsState] = useState<LoadState>("ready");
   const [message, setMessage] = useState("");
   const [pending, setPending] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteConfirmationId, setDeleteConfirmationId] = useState<string | null>(null);
   const [sources, setSources] = useState<SourceVersion[]>([]);
@@ -116,6 +117,7 @@ export default function WorkspaceConsole({
   const loadWorkspaces = useCallback(async (): Promise<Workspace[] | null> => {
     setLoadState("loading");
     try {
+      await createSupabaseBrowserClient().auth.getSession();
       const response = await fetch("/api/evidence/me", { cache: "no-store" });
       if (response.status === 401) {
         setLoadState("expired");
@@ -168,6 +170,7 @@ export default function WorkspaceConsole({
     }
     setRecordsState("loading");
     try {
+      await createSupabaseBrowserClient().auth.getSession();
       const response = await fetch(
         `/api/evidence/workspaces/${encodeURIComponent(selectedId)}/evidence`,
         { cache: "no-store" },
@@ -221,6 +224,7 @@ export default function WorkspaceConsole({
     }
     setSourcesState("loading");
     try {
+      await createSupabaseBrowserClient().auth.getSession();
       const response = await fetch(
         `/api/evidence/workspaces/${encodeURIComponent(selectedId)}/sources`,
         { cache: "no-store" },
@@ -446,7 +450,7 @@ export default function WorkspaceConsole({
   async function signOut() {
     setPending(true);
     try {
-      const { error } = await createSupabaseBrowserClient().auth.signOut();
+      const { error } = await createSupabaseBrowserClient().auth.signOut({ scope: "local" });
       if (error) {
         setMessage("Sign out could not be confirmed. Try again.");
         return;
@@ -466,15 +470,26 @@ export default function WorkspaceConsole({
     <main className="workspace-page">
       <header className="workspace-header">
         <Link className="workspace-brand" href="/">evidence<span>layer</span></Link>
-        <nav aria-label="Workspace navigation">
-          <Link aria-current="page" href="/workspace">Workspace</Link>
-          <Link href="/">Evidence Explorer</Link>
-          <Link href="/relationships">Relationships</Link>
-          <Link href="/documentation">Documentation</Link>
-        </nav>
-        <div className="workspace-user" id="workspace-session">
-          <span>{email}</span>
-          <button type="button" onClick={signOut} disabled={pending}>Sign out</button>
+        <button
+          type="button"
+          className="workspace-menu-toggle"
+          aria-expanded={menuOpen}
+          aria-controls="workspace-menu"
+          onClick={() => setMenuOpen((value) => !value)}
+        >
+          {menuOpen ? "Close" : "Menu"}
+        </button>
+        <div className={`workspace-menu${menuOpen ? " workspace-menu--open" : ""}`} id="workspace-menu">
+          <nav aria-label="Workspace navigation">
+            <Link aria-current="page" href="/workspace" onClick={() => setMenuOpen(false)}>Workspace</Link>
+            <Link href="/" onClick={() => setMenuOpen(false)}>Evidence Explorer</Link>
+            <Link href="/relationships" onClick={() => setMenuOpen(false)}>Relationships</Link>
+            <Link href="/documentation" onClick={() => setMenuOpen(false)}>Documentation</Link>
+          </nav>
+          <div className="workspace-user" id="workspace-session">
+            <span>{email}</span>
+            <button type="button" onClick={signOut} disabled={pending}>Sign out</button>
+          </div>
         </div>
       </header>
 

@@ -2420,9 +2420,20 @@ select:focus-visible,
   gap: clamp(0.65rem, 2vw, 1.5rem);
 }
 
+.workspace-menu {
+  display: contents;
+}
+
+.workspace-menu-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
 .workspace-header nav a,
 .workspace-header > a:not(.workspace-brand),
 .workspace-user button,
+.workspace-menu-toggle,
 .workspace-gate a {
   color: var(--text-main);
   font-size: 0.875rem;
@@ -2441,6 +2452,7 @@ select:focus-visible,
 }
 
 .workspace-user button,
+.workspace-menu-toggle,
 .workspace-empty button,
 .workspace-form button,
 .workspace-source-form button,
@@ -2978,16 +2990,54 @@ select:focus-visible,
 
 @media (max-width: 900px) {
   .workspace-header {
-    position: static;
-    flex-wrap: wrap;
-    padding-block: 1rem;
+    position: relative;
+    flex-wrap: nowrap;
+    padding-block: 0.75rem;
+  }
+
+  .workspace-menu-toggle {
+    display: inline-flex;
+    margin-left: auto;
+  }
+
+  .workspace-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    left: 0;
+    z-index: 30;
+    display: none;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+    padding: 1rem clamp(1rem, 4vw, 3rem) 1.25rem;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    box-shadow: 0 12px 24px rgb(0 0 0 / 0.12);
+  }
+
+  .workspace-menu--open {
+    display: flex;
   }
 
   .workspace-header nav {
-    order: 3;
-    width: 100%;
-    overflow-x: auto;
-    padding: 0.2rem 0;
+    flex-direction: column;
+    align-items: stretch;
+    width: auto;
+    overflow: visible;
+    gap: 0.15rem;
+    padding: 0;
+  }
+
+  .workspace-header nav a {
+    padding: 0.6rem 0.35rem;
+  }
+
+  .workspace-user {
+    justify-content: space-between;
+    gap: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border-color);
   }
 
   .workspace-record-layout {
@@ -3005,7 +3055,7 @@ select:focus-visible,
   }
 
   .workspace-user span {
-    display: none;
+    max-width: 60vw;
   }
 
   .workspace-main {
@@ -3893,15 +3943,38 @@ select:focus-visible,
   .live-section-heading h2, .live-capability h2 { margin: 0; font-size: 1.55rem; letter-spacing: -0.035em; }
   .live-section-heading > span { color: var(--text-muted); font-size: 0.75rem; }
   .live-search { display: grid; max-width: 520px; gap: 0.3rem; margin-bottom: 1rem; color: var(--text-muted); font-size: 0.72rem; }
-  .live-evidence-grid { display: grid; grid-template-columns: minmax(260px, 0.8fr) minmax(0, 1.4fr); gap: 1rem; }
-  .live-record-list { display: grid; align-content: start; gap: 0.45rem; }
+  .live-evidence-grid { display: grid; grid-template-columns: minmax(260px, 0.8fr) minmax(0, 1.4fr); align-items: start; gap: 1rem; }
+  .live-record-list {
+    display: grid;
+    align-content: start;
+    gap: 0.45rem;
+    max-height: min(72vh, 48rem);
+    overflow-y: auto;
+    padding-right: 0.35rem;
+    scrollbar-color: var(--border-control-color) var(--bg-secondary);
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+    overscroll-behavior: contain;
+  }
   .live-record { display: grid; gap: 0.4rem; border: 1px solid var(--border-color); border-radius: 0.4rem; background: var(--bg-secondary); color: var(--text-main); padding: 0.85rem; text-align: left; cursor: pointer; }
   .live-record:hover, .live-record.is-selected { border-color: var(--accent-color); background: var(--bg-selected); }
   .live-record > span, .live-record small { color: var(--text-muted); font-size: 0.68rem; }
   .live-record strong { font-size: 0.84rem; font-weight: 550; line-height: 1.45; }
   .live-record-detail, .live-empty, .live-notice, .live-capability { border: 1px solid var(--border-color); border-radius: 0.45rem; background: var(--bg-secondary); padding: 1.2rem; }
   .live-record-detail h3, .live-empty h3, .live-relationship-form h3 { margin: 0.1rem 0 0.7rem; }
-  .live-record-detail blockquote { margin: 0.6rem 0 1rem; border-left: 3px solid var(--accent-color); padding: 0.4rem 0 0.4rem 1rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .live-record-detail blockquote {
+    max-height: min(38vh, 24rem);
+    overflow-y: auto;
+    margin: 0.6rem 0 1rem;
+    border-left: 3px solid var(--accent-color);
+    padding: 0.4rem 0.6rem 0.4rem 1rem;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    scrollbar-color: var(--border-control-color) var(--bg-secondary);
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+    overscroll-behavior: contain;
+  }
   .live-provenance { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8rem; margin: 1rem 0; }
   .live-provenance div { min-width: 0; }
   .live-provenance dt { color: var(--text-muted); font-size: 0.68rem; }
@@ -3963,49 +4036,26 @@ select:focus-visible,
     .live-intro { grid-template-columns: 1fr; align-items: start; padding-top: 0.8rem; }
     .live-workspace-picker { max-width: 100%; }
     .live-evidence-grid { grid-template-columns: 1fr; }
+    .live-record-list { max-height: 40vh; }
+    .live-record-detail blockquote { max-height: 46vh; }
     .live-provenance, .live-form-pair { grid-template-columns: 1fr; }
     .live-section-heading { align-items: start; }
     .live-footer { flex-direction: column; }
   }
 
-/* Workspace header: on mobile only, keep every item visible and swipeable. */
+/* Workspace header: the mobile menu keeps navigation and account actions in one panel. */
 @media (max-width: 640px) {
   .workspace-header {
-    gap: 1rem;
-    justify-content: flex-start;
-    overflow-x: auto;
-    overflow-y: hidden;
-    padding: 0 1rem;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    overscroll-behavior-x: contain;
+    gap: 0.75rem;
+    padding-inline: 1rem;
   }
 
-  .workspace-header::-webkit-scrollbar {
-    display: none;
-  }
-
-  .workspace-brand,
-  .workspace-header nav,
-  .workspace-user {
-    flex: 0 0 auto;
-  }
-
-  .workspace-header nav {
-    gap: 0.9rem;
-  }
-
-  .workspace-header nav a,
-  .workspace-user button {
-    white-space: nowrap;
+  .workspace-menu {
+    padding-inline: 1rem;
   }
 
   .workspace-user {
-    margin-left: auto;
-  }
-
-  .workspace-user span {
-    max-width: 45vw;
+    flex-wrap: wrap;
   }
 }
 

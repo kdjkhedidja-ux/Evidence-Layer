@@ -10,7 +10,7 @@ export function createSupabaseBrowserClient(): SupabaseClient {
   if (!config) throw new SupabaseConfigurationError();
 
   browserClient = createBrowserClient(config.url, config.publishableKey, {
-    auth: { flowType: "pkce", autoRefreshToken: true, persistSession: true },
+    auth: { flowType: "pkce", autoRefreshToken: false, persistSession: true },
     cookieOptions: {
       path: "/",
       sameSite: "lax",
