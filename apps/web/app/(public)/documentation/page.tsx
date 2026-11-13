@@ -101,7 +101,7 @@ export default function DocumentationPage() {
           local ranking consumes CPU time. Total cost should include retrieval, scoring, retries,
           answer generation, and operations. Token savings alone do not establish lower system cost,
           and shorter context does not prove equal or better evidence coverage. See the separate
-          <Link href="/cost-performance">Cost &amp; Performance report</Link> for results by experiment.
+          <Link href="/evaluation">Evaluation · Benchmarks</Link> for results by experiment.
         </p>
       </section>
 

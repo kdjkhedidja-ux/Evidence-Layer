@@ -4,6 +4,7 @@ import { render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import CostPerformancePage, { metadata as costMetadata } from "../app/(public)/cost-performance/page";
+import EvaluationBenchmarksPage, { metadata as evaluationMetadata } from "../app/(public)/evaluation/page";
 import DocumentationPage, { metadata as documentationMetadata } from "../app/(public)/documentation/page";
 import PrivacyPage, { metadata as privacyMetadata } from "../app/(public)/privacy/page";
 import TermsPage, { metadata as termsMetadata } from "../app/(public)/terms/page";
@@ -18,6 +19,7 @@ vi.mock("next/link", () => ({
 
 const routes = [
   { path: "/documentation", name: "Documentation", Page: DocumentationPage, metadata: documentationMetadata },
+  { path: "/evaluation", name: "Evaluation · Benchmarks", Page: EvaluationBenchmarksPage, metadata: evaluationMetadata },
   { path: "/cost-performance", name: "Cost & Performance", Page: CostPerformancePage, metadata: costMetadata },
   { path: "/privacy", name: "Privacy Policy", Page: PrivacyPage, metadata: privacyMetadata },
   { path: "/terms", name: "Terms of Use", Page: TermsPage, metadata: termsMetadata },
@@ -58,11 +60,12 @@ describe("public information pages", () => {
     render(<DocumentationPage />);
     expect(screen.getByRole("heading", { name: /selects and traces evidence; it does not write the final answer/i })).toBeInTheDocument();
     expect(screen.getByText(/caller.s chosen LLM consumes the selected context and writes the final answer/i)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Cost & Performance report" })).toHaveAttribute("href", "/cost-performance");
+    const navigation = within(screen.getByRole("navigation", { name: "Main navigation" }));
+    expect(navigation.getByRole("link", { name: "Evaluation · Benchmarks" })).toHaveAttribute("href", "/evaluation");
   });
 
   it("keeps Phase 6, Phase 7, and Phase 7B findings distinct and reports the required caveats", () => {
-    render(<CostPerformancePage />);
+    render(<EvaluationBenchmarksPage />);
     expect(screen.getByRole("heading", { name: "Real-World Benchmark" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "End-to-End RAG Benchmark" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Fresh JEV in the end-to-end path" })).toBeInTheDocument();
@@ -108,7 +111,7 @@ describe("public information pages", () => {
   });
 
   it("makes wide benchmark tables keyboard-scrollable and constrains public layouts on mobile", () => {
-    render(<CostPerformancePage />);
+    render(<EvaluationBenchmarksPage />);
     const resultsRegion = screen.getByRole("region", { name: "Phase 7B live cost validation by provider" });
     expect(resultsRegion).toHaveAttribute("tabindex", "0");
     resultsRegion.focus();
@@ -116,6 +119,17 @@ describe("public information pages", () => {
     expect(styles).toMatch(/\.public-table-scroll\s*\{[^}]*overflow-x:\s*auto;/);
     expect(styles).toMatch(/@media\s*\(max-width:\s*800px\)/);
     expect(styles).toMatch(/@media\s*\(max-width:\s*560px\)/);
+  });
+
+  it("renders the planning calculator and recommended operating metrics on Cost & Performance", () => {
+    render(<CostPerformancePage />);
+    expect(screen.getByRole("heading", { name: "Cost & Performance" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Token, API call, cost, and latency planner" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Metrics worth tracking in production" })).toBeInTheDocument();
+    expect(screen.getByText("Cost per successful request")).toBeInTheDocument();
+    expect(screen.getByText("End-to-end p50 / p95")).toBeInTheDocument();
+    const navigation = within(screen.getByRole("navigation", { name: "Main navigation" }));
+    expect(navigation.getByRole("link", { name: "Evaluation · Benchmarks" })).toHaveAttribute("href", "/evaluation");
   });
 
   it("shows legal and commercial placeholders without inventing the operator or governing law", () => {

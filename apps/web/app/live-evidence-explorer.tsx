@@ -390,8 +390,8 @@ export default function LiveEvidenceExplorer({
     { href: relationshipsOnly ? "#relationships" : "/relationships", label: "Relationships", status: relationshipsState === "ready" ? "Connected" : relationshipsState === "loading" ? "Pending" : "Unavailable" },
     { href: navTarget("reading-guide"), label: "Reading Guide", status: recordsState === "ready" ? "Evidence-grounded" : recordsState === "loading" ? "Pending" : "Unavailable" },
     { href: navTarget("verification"), label: "Verification", status: sourcesState === "ready" ? "Connected" : sourcesState === "loading" ? "Pending" : "Unavailable" },
-    { href: navTarget("evaluation"), label: "Evaluation", status: "Historical" },
-    { href: "/cost-performance", label: "Cost & Performance", status: "Historical" },
+    { href: "/evaluation", label: "Evaluation · Benchmarks", status: "Historical" },
+    { href: "/cost-performance", label: "Cost & Performance", status: "Partially available" },
     { href: navTarget("settings-access"), label: "Settings & Access", status: selectedWorkspace ? "Partially available" : isLoading ? "Pending" : "Unavailable" },
   ];
 
@@ -620,7 +620,7 @@ export default function LiveEvidenceExplorer({
               <section id="evaluation" className="live-section live-capability">
                 <p className="live-eyebrow">Evaluation · Historical reports</p><h2>Evaluation records are separate from live Workspace data</h2>
                 <p>No per-workspace evaluation execution or results API is configured. The published Phase 6, 7, and 7B reports are historical benchmarks, not live evaluations.</p>
-                <Link href="/cost-performance">Read historical evaluation and cost reports</Link>
+                <Link href="/evaluation">Read benchmark reports and their limits</Link>
               </section>
               <section id="settings-access" className="live-section live-capability">
                 <p className="live-eyebrow">Settings &amp; access</p><h2>{selectedWorkspace.name}</h2>
@@ -632,7 +632,7 @@ export default function LiveEvidenceExplorer({
               </>
               )}
 
-              <footer className="live-footer"><span>Evidence Layer · Evidence first. Conclusions remain inspectable.</span><nav><Link href="/documentation">Documentation</Link><Link href="/cost-performance">Cost &amp; Performance</Link><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link></nav></footer>
+              <footer className="live-footer"><span>Evidence Layer · Evidence first. Conclusions remain inspectable.</span><nav><Link href="/documentation">Documentation</Link><Link href="/evaluation">Evaluation · Benchmarks</Link><Link href="/cost-performance">Cost &amp; Performance</Link><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link></nav></footer>
             </>
           )}
         </div>

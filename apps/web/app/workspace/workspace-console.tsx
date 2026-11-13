@@ -886,7 +886,7 @@ export default function WorkspaceConsole({
 
         <footer className="workspace-footer">
           <span>Live workspace data comes from the verified Evidence Service.</span>
-          <Link href="/cost-performance">View benchmark reports and their limits</Link>
+          <Link href="/evaluation">View benchmark reports and their limits</Link>
         </footer>
       </div>
     </main>

@@ -146,6 +146,7 @@ describe("workspace product console", () => {
       "/workspace#source-read-heading",
       "/relationships",
       "/#verification",
+      "/evaluation",
       "/cost-performance",
       "/#settings-access",
     ]);

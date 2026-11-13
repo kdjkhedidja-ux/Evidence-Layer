@@ -14,7 +14,7 @@ const REQUIRED_FEATURES: Record<string, string[]> = {
   "Reading Guide": ["Reading instructions", "Source inspection", "Provenance guidance"],
   Verification: ["Snapshot integrity", "Hash verification"],
   Evaluation: ["Historical reports", "Comparisons"],
-  "Cost & Performance": ["Historical estimates", "Token usage", "API calls", "Latency"],
+  "Cost & Performance": ["Cost estimates", "Token usage", "API calls", "Latency"],
   "Settings & Access": [
     "Account profile",
     "Security",
@@ -57,6 +57,7 @@ describe("workspace capability catalog contract", () => {
       "/workspace#source-read-heading",
       "/relationships",
       "/#verification",
+      "/evaluation",
       "/cost-performance",
       "/#settings-access",
     ]);
