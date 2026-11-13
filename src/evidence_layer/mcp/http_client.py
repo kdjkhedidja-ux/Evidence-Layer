@@ -59,6 +59,7 @@ class EvidenceApiClient:
         top_k: int = 5,
         max_tokens: int = 1200,
         max_chars: int = 6000,
+        candidate_limit: int = 50,
     ) -> dict[str, Any]:
         return self._request(
             "POST",
@@ -68,6 +69,7 @@ class EvidenceApiClient:
                 "top_k": top_k,
                 "max_tokens": max_tokens,
                 "max_chars": max_chars,
+                "candidate_limit": candidate_limit,
             },
         )
 
