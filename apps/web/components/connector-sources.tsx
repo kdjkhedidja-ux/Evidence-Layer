@@ -18,10 +18,43 @@ type ConnectorConnection = {
   last_error_category: string | null;
 };
 
+const CONNECTOR_FEEDBACK: Record<string, Record<string, string>> = {
+  google_drive: {
+    connected: "Google Drive is connected.",
+    coming_soon: "Google Drive connections are not available right now.",
+    configuration: "Google Drive connection is not configured.",
+    denied: "Google Drive authorization was cancelled or could not be verified.",
+    retry: "Two-factor authentication is verified. Retry connecting Google Drive.",
+    store: "Google Drive was authorized, but its connection could not be saved.",
+    token: "Google Drive authorization could not be completed. Try again.",
+    unavailable: "Google Drive identity verification is unavailable. Try again later.",
+  },
+  notion: {
+    connected: "Notion is connected.",
+    coming_soon: "Notion connections are not available right now.",
+    configuration: "Notion connection is not configured.",
+    denied: "Notion authorization was cancelled or could not be verified.",
+    retry: "Two-factor authentication is verified. Retry connecting Notion.",
+    store: "Notion was authorized, but its connection could not be saved.",
+    token: "Notion authorization could not be completed. Try again.",
+    unavailable: "Notion identity verification is unavailable. Try again later.",
+  },
+  github: {
+    connected: "GitHub is connected.",
+    coming_soon: "GitHub connections are not available right now.",
+    configuration: "GitHub connection is not configured.",
+    denied: "GitHub authorization was cancelled or could not be verified.",
+    retry: "Two-factor authentication is verified. Retry connecting GitHub.",
+    store: "GitHub was authorized, but its connection could not be saved.",
+    unavailable: "GitHub identity verification is unavailable. Try again later.",
+  },
+};
+
 export default function ConnectorSources() {
   const [connectors, setConnectors] = useState<ConnectorConnection[]>([]);
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState("");
+  const [callbackMessage, setCallbackMessage] = useState("");
   const googleDriveConnectorEnabled = resolveGoogleDriveConnectorEnabled({
     flag: process.env.NEXT_PUBLIC_GOOGLE_DRIVE_CONNECTOR_ENABLED,
   });
@@ -87,9 +120,11 @@ export default function ConnectorSources() {
   }, [loadConnectors]);
 
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("connector")) {
-      void loadConnectors();
-    }
+    const params = new URLSearchParams(window.location.search);
+    const provider = params.get("connector");
+    const status = params.get("status");
+    if (provider && status) setCallbackMessage(CONNECTOR_FEEDBACK[provider]?.[status] ?? "");
+    if (provider) void loadConnectors();
   }, [loadConnectors]);
 
   return (
@@ -149,6 +184,7 @@ export default function ConnectorSources() {
           </button>
         </div>
       ))}
+      {callbackMessage && <p className="workspace-message" role="status">{callbackMessage}</p>}
       {message && <p className="workspace-message" role="status">{message}</p>}
     </section>
   );

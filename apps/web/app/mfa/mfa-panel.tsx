@@ -168,7 +168,8 @@ export default function MfaPanel({ next }: { next: string }) {
           <p className="mfa-status mfa-status--verified">Verified for this session</p>
           <p>
             This session completed the authenticator challenge. Removing an authenticator does
-            not revoke existing access tokens; sign out everywhere after a security change.
+            not revoke existing access tokens. Signing out everywhere revokes refresh sessions,
+            but existing access tokens may remain valid until they expire.
           </p>
           <ul className="mfa-factors">
             {factors.filter((factor) => factor.status === "verified").map((factor) => (

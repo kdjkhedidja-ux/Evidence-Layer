@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { createNotionConnection } from "../../../../../lib/connector-api";
+import {
+  connectorMfaFailurePath,
+  connectorMfaRedirectPath,
+  connectorMfaStatus,
+  createNotionConnection,
+} from "../../../../../lib/connector-api";
 import { resolveNotionRedirectUri } from "../../../../../lib/notion-oauth";
 import { getVerifiedAuthContext } from "../../../../../lib/supabase/server";
 
@@ -32,6 +37,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   const auth = await getVerifiedAuthContext();
   if (auth.kind !== "authenticated") return redirect(request, "/login?next=/workspace");
+  const mfaStatus = await connectorMfaStatus(auth);
+  if (mfaStatus !== "not-required") {
+    return redirect(request, connectorMfaRedirectPath("notion", mfaStatus));
+  }
 
   const clientId = process.env.NOTION_OAUTH_CLIENT_ID;
   const clientSecret = process.env.NOTION_OAUTH_CLIENT_SECRET;
@@ -74,11 +83,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return redirect(request, "/workspace?connector=notion&status=token");
   }
 
-  const stored = await createNotionConnection(auth.accessToken, {
+  const stored = await createNotionConnection(auth, {
     access_token: accessToken,
     account_email: workspaceName,
     scopes: [],
   });
+  const mfaFailure = await connectorMfaFailurePath("notion", stored);
+  if (mfaFailure) return redirect(request, mfaFailure);
   if (!stored.ok) return redirect(request, "/workspace?connector=notion&status=store");
   return redirect(request, "/workspace?connector=notion&status=connected");
 }

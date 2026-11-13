@@ -2,6 +2,10 @@ import { randomBytes } from "node:crypto";
 
 import { NextResponse } from "next/server";
 
+import {
+  connectorMfaRedirectPath,
+  connectorMfaStatus,
+} from "../../../../../lib/connector-api";
 import { resolveNotionRedirectUri } from "../../../../../lib/notion-oauth";
 import { getVerifiedAuthContext } from "../../../../../lib/supabase/server";
 
@@ -30,6 +34,10 @@ export async function GET(request: Request): Promise<NextResponse> {
     requestUrl: request.url,
   });
   if (!redirectUri) return redirect(request, "/workspace?connector=notion&status=configuration");
+  const mfaStatus = await connectorMfaStatus(auth);
+  if (mfaStatus !== "not-required") {
+    return redirect(request, connectorMfaRedirectPath("notion", mfaStatus));
+  }
   const state = randomBytes(32).toString("base64url");
   const url = new URL("https://api.notion.com/v1/oauth/authorize");
   url.searchParams.set("owner", "user");

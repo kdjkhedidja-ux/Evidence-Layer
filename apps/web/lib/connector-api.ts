@@ -1,6 +1,57 @@
 import { getEvidenceServiceBaseUrl } from "./supabase/config";
 import { getMfaChallengeStatus } from "./supabase/mfa";
-import { getVerifiedAuthContext } from "./supabase/server";
+import type { MfaChallengeStatus } from "./supabase/mfa";
+import { getVerifiedAuthContext, type AuthenticatedAuthContext } from "./supabase/server";
+
+export type ConnectorProvider = "google_drive" | "notion" | "github";
+
+export async function connectorMfaStatus(auth: AuthenticatedAuthContext): Promise<MfaChallengeStatus> {
+  return getMfaChallengeStatus(auth.client);
+}
+
+export function connectorMfaRedirectPath(
+  provider: ConnectorProvider,
+  status: Exclude<MfaChallengeStatus, "not-required">,
+): string {
+  if (status === "unavailable") return "/auth/error?reason=mfa-unavailable";
+  const next = new URLSearchParams({ connector: provider, status: "retry" });
+  const mfa = new URLSearchParams({ next: `/workspace?${next.toString()}` });
+  return `/mfa?${mfa.toString()}`;
+}
+
+export async function connectorMfaFailurePath(
+  provider: ConnectorProvider,
+  response: Response,
+): Promise<string | null> {
+  if (response.status !== 403 && response.status !== 503) return null;
+  const payload: unknown = await response.clone().json().catch(() => null);
+  if (!payload || typeof payload !== "object" || !("code" in payload)) return null;
+  if (payload.code === "mfa_required") return connectorMfaRedirectPath(provider, "required");
+  if (payload.code === "mfa_unavailable") return connectorMfaRedirectPath(provider, "unavailable");
+  return null;
+}
+
+async function createConnection(
+  auth: AuthenticatedAuthContext,
+  path: string,
+  body: unknown,
+): Promise<Response> {
+  const mfaStatus = await connectorMfaStatus(auth);
+  if (mfaStatus !== "not-required") {
+    const required = mfaStatus === "required";
+    return json(required ? 403 : 503, {
+      code: required ? "mfa_required" : "mfa_unavailable",
+      error: required
+        ? "Complete two-factor authentication to continue."
+        : "Two-factor authentication status is unavailable.",
+    });
+  }
+  return upstreamJson(path, auth.accessToken, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
 
 function json(status: number, payload: unknown): Response {
   return Response.json(payload, {
@@ -105,7 +156,7 @@ export async function proxyDeleteConnector(connectionId: string, request: Reques
 }
 
 export async function createGoogleDriveConnection(
-  accessToken: string,
+  auth: AuthenticatedAuthContext,
   payload: {
     access_token: string;
     refresh_token: string | null;
@@ -114,35 +165,23 @@ export async function createGoogleDriveConnection(
     account_email: string | null;
   },
 ): Promise<Response> {
-  return upstreamJson("/v1/connectors/google_drive/connection", accessToken, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
+  return createConnection(auth, "/v1/connectors/google_drive/connection", payload);
 }
 
 export async function createNotionConnection(
-  accessToken: string,
+  auth: AuthenticatedAuthContext,
   payload: {
     access_token: string;
     account_email: string | null;
     scopes: string[];
   },
 ): Promise<Response> {
-  return upstreamJson("/v1/connectors/notion/connection", accessToken, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
+  return createConnection(auth, "/v1/connectors/notion/connection", payload);
 }
 
 export async function createGitHubConnection(
-  accessToken: string,
+  auth: AuthenticatedAuthContext,
   installationId: number,
 ): Promise<Response> {
-  return upstreamJson("/v1/connectors/github/connection", accessToken, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ installation_id: installationId }),
-  });
+  return createConnection(auth, "/v1/connectors/github/connection", { installation_id: installationId });
 }

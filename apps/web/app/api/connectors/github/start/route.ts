@@ -2,6 +2,10 @@ import { randomBytes } from "node:crypto";
 
 import { NextResponse } from "next/server";
 
+import {
+  connectorMfaRedirectPath,
+  connectorMfaStatus,
+} from "../../../../../lib/connector-api";
 import { getVerifiedAuthContext } from "../../../../../lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +26,10 @@ export async function GET(request: Request): Promise<NextResponse> {
   }
   const slug = process.env.GITHUB_APP_SLUG ?? process.env.GIT_APP_SLUG;
   if (!slug) return redirect(request, "/workspace?connector=github&status=configuration");
+  const mfaStatus = await connectorMfaStatus(auth);
+  if (mfaStatus !== "not-required") {
+    return redirect(request, connectorMfaRedirectPath("github", mfaStatus));
+  }
   const state = randomBytes(32).toString("base64url");
   const url = new URL(`https://github.com/apps/${encodeURIComponent(slug)}/installations/new`);
   url.searchParams.set("state", state);
