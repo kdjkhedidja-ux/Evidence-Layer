@@ -417,6 +417,12 @@ class PersonalApiKeyRetrievedItem(BaseModel):
     score: float
     token_count: int
     char_count: int
+    chunk_id: str
+    chunk_index: int
+    chunk_start: int
+    chunk_end: int
+    path: str | None
+    title: str | None
 
 
 class PersonalApiKeyRetrieveResponse(BaseModel):
@@ -427,11 +433,14 @@ class PersonalApiKeyRetrieveResponse(BaseModel):
     max_tokens: int
     max_chars: int
     candidate_count: int
+    chunk_count: int
+    matched_chunk_count: int
     selected_count: int
     used_tokens: int
     used_chars: int
     token_estimator: str
     scoring_provider: str
+    chunking: str
     evidence: list[PersonalApiKeyRetrievedItem]
 
 
@@ -1830,21 +1839,30 @@ def create_app(
             max_tokens=payload.max_tokens,
             max_chars=payload.max_chars,
             candidate_count=result.candidate_count,
+            chunk_count=result.chunk_count,
+            matched_chunk_count=result.matched_chunk_count,
             selected_count=len(result.selected),
             used_tokens=result.used_tokens,
             used_chars=result.used_chars,
             token_estimator=result.token_estimator,
             scoring_provider="lexical_stopword_filtered",
+            chunking=result.chunking,
             evidence=[
                 PersonalApiKeyRetrievedItem(
                     evidence_id=item.record.id,
-                    content=item.record.content,
+                    content=item.content,
                     source_label=item.record.source_label,
                     source_id=item.record.source_id,
                     source_version_id=item.record.source_version_id,
                     score=item.score,
                     token_count=item.token_count,
                     char_count=item.char_count,
+                    chunk_id=item.chunk_id,
+                    chunk_index=item.chunk_index,
+                    chunk_start=item.chunk_start,
+                    chunk_end=item.chunk_end,
+                    path=item.path,
+                    title=item.title,
                 )
                 for item in result.selected
             ],

@@ -1,0 +1,15 @@
+{"query":"What is Evidence Layer and what problem does it solve?"}
+{"query":"Describe the current architecture and the responsibilities of the web app, Evidence Service, Supabase, and Railway."}
+{"query":"What were the Phase 8 scope decisions for C3 through C7?"}
+{"query":"How does account deletion and purge work end to end?"}
+{"query":"How does account export work, including grants, expiry, and revocation?"}
+{"query":"Which connectors are live or coming soon, and how does the GitHub bridge work?"}
+{"query":"How do personal API keys work for agents?"}
+{"query":"How do retrieve and select work with Lexical scoring, candidate windows, and token budgets?"}
+{"query":"What does the ROI and cost calculator claim, and what does it explicitly not claim?"}
+{"query":"How are privacy and Google Drive data deletion handled?"}
+{"query":"What are the GitHub ingestion and bridge limits?"}
+{"query":"Which controls prevent cross-tenant access and ownerless writes?"}
+{"query":"How is the deletion worker operated and what are its durability assumptions?"}
+{"query":"How does the MCP server use the personal API-key retrieve path?"}
+{"query":"What are the remaining Phase 8 and production risks?"}

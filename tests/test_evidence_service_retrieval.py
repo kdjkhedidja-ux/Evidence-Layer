@@ -35,12 +35,24 @@ class FakeRepository:
         return self.record if kwargs["evidence_id"] == RECORD_ID else None
 
 
+class LongRepository(FakeRepository):
+    def __init__(self):
+        self.record = EvidenceRecord(
+            id=RECORD_ID,
+            workspace_id=WORKSPACE,
+            content="# Evidence Layer\n\n" + ("lexical retrieval product evidence " * 800),
+            source_label="GitHub: owner/repo/README.md",
+            created_at=datetime(2026, 11, 12, tzinfo=timezone.utc),
+            updated_at=datetime(2026, 11, 12, tzinfo=timezone.utc),
+        )
+
+
 class OpenFence:
     async def is_open(self) -> bool:
         return True
 
 
-def make_client(enabled: bool = True):
+def make_client(enabled: bool = True, repository=None):
     settings = SupabaseSettings(
         supabase_url="https://project.supabase.co",
         publishable_key="sb_publishable_test",
@@ -51,7 +63,7 @@ def make_client(enabled: bool = True):
     app = create_app(
         settings,
         recovery_fence_reader=OpenFence(),
-        personal_api_key_repository=FakeRepository(),
+        personal_api_key_repository=repository or FakeRepository(),
         retrieval_enabled=enabled,
     )
     return TestClient(app)
@@ -68,7 +80,36 @@ def test_retrieve_with_personal_api_key():
     body = response.json()
     assert body["status"] == "ok"
     assert body["selected_count"] == 1
-    assert body["evidence"][0]["evidence_id"] == str(RECORD_ID)
+    assert body["chunking"] == "retrieve_time_v1"
+    assert body["chunk_count"] == 1
+    assert body["matched_chunk_count"] == 1
+    item = body["evidence"][0]
+    assert item["evidence_id"] == str(RECORD_ID)
+    assert item["chunk_id"].startswith(f"{RECORD_ID}:")
+    assert item["chunk_start"] == 0
+    assert item["chunk_end"] == len("lexical retrieval evidence")
+
+
+def test_retrieve_returns_ranked_chunks_not_the_whole_document():
+    client = make_client(repository=LongRepository())
+    response = client.post(
+        f"/v1/personal-api-keys/workspaces/{WORKSPACE}/retrieve",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        json={
+            "query": "readme product evidence",
+            "top_k": 1,
+            "max_tokens": 1000,
+            "max_chars": 4000,
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["chunk_count"] > 1
+    item = body["evidence"][0]
+    assert item["path"] == "README.md"
+    assert item["title"] == "Evidence Layer"
+    assert 0 <= item["chunk_start"] < item["chunk_end"] < len(LongRepository().record.content)
+    assert len(item["content"]) == item["char_count"] < len(LongRepository().record.content)
 
 
 def test_get_document_with_personal_api_key():
