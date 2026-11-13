@@ -28,6 +28,8 @@ from evidence_service.auth import (
     AuthenticatedRequest,
     AuthenticationRejected,
     AuthenticationUnavailable,
+    MFAFactorVerifier,
+    SupabaseMFAFactorVerifier,
     SupabaseTokenVerifier,
     TokenVerifier,
     VerifiedTokenVerifier,
@@ -513,6 +515,45 @@ def _token_verifier(request: Request) -> TokenVerifier:
     return verifier
 
 
+def _mfa_factor_verifier(request: Request) -> MFAFactorVerifier:
+    verifier = request.app.state.mfa_factor_verifier
+    if verifier is None:
+        verifier = SupabaseMFAFactorVerifier(_settings_for(request))
+        request.app.state.mfa_factor_verifier = verifier
+    return verifier
+
+
+async def _require_mfa_assurance(
+    request: Request, authenticated_request: AuthenticatedRequest
+) -> None:
+    assurance_level = authenticated_request.principal.assurance_level
+    if assurance_level == "aal2":
+        return
+    if assurance_level != "aal1":
+        raise HTTPException(
+            status_code=503, detail="Two-factor authentication status is unavailable"
+        )
+    try:
+        has_verified_factor = await _mfa_factor_verifier(request).has_verified_factor(
+            authenticated_request.access_token,
+            authenticated_request.principal.subject,
+        )
+    except AuthenticationRejected as exc:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid bearer access token",
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from exc
+    except AuthenticationUnavailable as exc:
+        raise HTTPException(
+            status_code=503, detail="Two-factor authentication status is unavailable"
+        ) from exc
+    if has_verified_factor:
+        raise HTTPException(
+            status_code=403, detail="Two-factor authentication is required"
+        )
+
+
 def _account_lifecycle_reader(request: Request) -> AccountLifecycleReader:
     reader = request.app.state.account_lifecycle_reader
     if reader is None:
@@ -788,6 +829,7 @@ async def require_authenticated_request(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
 ) -> AuthenticatedRequest:
     authenticated_request = await _verify_bearer(request, credentials)
+    await _require_mfa_assurance(request, authenticated_request)
     await _require_protected_access(request, authenticated_request)
     return authenticated_request
 
@@ -796,13 +838,15 @@ async def require_control_request(
     request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
 ) -> AuthenticatedRequest:
-    """Authenticate only: deletion status and acceptance replay stay reachable.
+    """Skip lifecycle gates while retaining verified identity and MFA checks.
 
     These two control operations must remain callable while a revocation is
     pending, otherwise the owner cannot observe status or replay an accepted
     request. The repository query is still requester-scoped and RLS-bound.
     """
-    return await _verify_bearer(request, credentials)
+    authenticated_request = await _verify_bearer(request, credentials)
+    await _require_mfa_assurance(request, authenticated_request)
+    return authenticated_request
 
 
 async def require_personal_api_key(
@@ -1173,6 +1217,7 @@ def create_app(
     settings: SupabaseSettings | None = None,
     *,
     token_verifier: TokenVerifier | None = None,
+    mfa_factor_verifier: MFAFactorVerifier | None = None,
     account_lifecycle_reader: AccountLifecycleReader | None = None,
     recovery_fence_reader: RecoveryFenceReader | None = None,
     workspace_directory: WorkspaceDirectory | None = None,
@@ -1201,6 +1246,7 @@ def create_app(
     )
     application.state.supabase_settings = settings
     application.state.token_verifier = token_verifier
+    application.state.mfa_factor_verifier = mfa_factor_verifier
     application.state.account_lifecycle_reader = account_lifecycle_reader
     application.state.recovery_fence_reader = recovery_fence_reader
     application.state.workspace_directory = workspace_directory
@@ -1735,7 +1781,7 @@ def create_app(
         connection_id: UUID,
         request: Request,
         auth: AuthenticatedRequest = Depends(require_authenticated_request),
-        limit: int = Query(default=100, ge=1, le=200),
+        limit: int = Query(default=25, ge=1, le=25),
     ) -> ConnectorSyncResponse:
         try:
             connection = await _with_account_gate(

@@ -52,6 +52,9 @@ const CONNECTOR_FEEDBACK: Record<string, Record<string, string>> = {
 
 export default function ConnectorSources() {
   const [connectors, setConnectors] = useState<ConnectorConnection[]>([]);
+  const [connectorsState, setConnectorsState] = useState<
+    "loading" | "ready" | "unavailable"
+  >("loading");
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState("");
   const [callbackMessage, setCallbackMessage] = useState("");
@@ -66,13 +69,25 @@ export default function ConnectorSources() {
   });
 
   const loadConnectors = useCallback(async (): Promise<void> => {
+    setConnectorsState("loading");
     try {
       const response = await fetch("/api/evidence/connectors", { cache: "no-store" });
-      if (!response.ok) return;
-      const payload = (await response.json()) as ConnectorConnection[];
-      setConnectors(Array.isArray(payload) ? payload : []);
+      if (!response.ok) {
+        setConnectors([]);
+        setConnectorsState("unavailable");
+        return;
+      }
+      const payload: unknown = await response.json();
+      if (!Array.isArray(payload)) {
+        setConnectors([]);
+        setConnectorsState("unavailable");
+        return;
+      }
+      setConnectors(payload as ConnectorConnection[]);
+      setConnectorsState("ready");
     } catch {
-      // The connector panel is optional; leave the existing state intact.
+      setConnectors([]);
+      setConnectorsState("unavailable");
     }
   }, []);
 
@@ -167,7 +182,13 @@ export default function ConnectorSources() {
           Refresh sources
         </button>
       </div>
-      {connectors.length === 0 && <p className="workspace-note">No source is connected.</p>}
+      {connectorsState === "loading" && <p aria-live="polite">Loading connected sources…</p>}
+      {connectorsState === "unavailable" && (
+        <p role="alert">Connected sources are unavailable right now. Refresh to try again.</p>
+      )}
+      {connectorsState === "ready" && connectors.length === 0 && (
+        <p className="workspace-note">No source is connected.</p>
+      )}
       {connectors.map((connection) => (
         <div key={connection.connection_id} className="workspace-form-actions">
           <span className="workspace-note">

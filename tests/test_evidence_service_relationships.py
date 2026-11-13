@@ -43,7 +43,7 @@ class StaticVerifier:
     async def verify(self, token: str) -> Principal:
         if token != TOKEN:
             raise AuthenticationRejected
-        return Principal(ISSUER, SUBJECT)
+        return Principal(ISSUER, SUBJECT, "aal2")
 
 
 class MembershipDirectory:

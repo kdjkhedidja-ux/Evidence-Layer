@@ -1208,7 +1208,7 @@ export async function proxyVerifiedSourceContent({
   }
 
   const declaredLength = Number(upstream.headers.get("content-length"));
-  if (Number.isFinite(declaredLength) && declaredLength > 4 * 1024 * 1024) {
+  if (Number.isFinite(declaredLength) && declaredLength > 8 * 1024 * 1024) {
     return json(502, { error: "Evidence service returned an invalid response." });
   }
   if (!upstream.body) {
@@ -1222,7 +1222,7 @@ export async function proxyVerifiedSourceContent({
       const { done, value } = await reader.read();
       if (done) break;
       totalBytes += value.byteLength;
-      if (totalBytes > 4 * 1024 * 1024) {
+      if (totalBytes > 8 * 1024 * 1024) {
         await reader.cancel();
         return json(502, { error: "Evidence service returned an invalid response." });
       }

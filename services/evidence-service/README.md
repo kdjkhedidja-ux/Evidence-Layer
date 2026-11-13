@@ -1,7 +1,8 @@
 # Evidence Layer service
 
-This local FastAPI service exposes a public `GET /healthz`, plus a small
-Supabase Auth identity and workspace-membership boundary:
+This FastAPI service exposes a public `GET /healthz` and authenticated identity,
+workspace, evidence, source, connector, organization, export, and deletion APIs.
+The core workspace and source boundaries include:
 
 - `GET /v1/me` returns the verified Supabase user ID, verified issuer, and the
   caller's active workspace memberships and roles.
@@ -32,8 +33,8 @@ The service does not collect passwords or expose a login/signup UI. A client
 signs in with Supabase Auth, then sends its access token to this service.
 `/healthz` does not depend on Supabase configuration or credentials. Protected
 routes return an error when the required identity configuration is absent or
-invalid. Evidence retrieval, source connectors, JEV, Decisions, and answer
-generation are not part of this service increment.
+invalid. JEV, Decisions, and answer generation are not implemented by this
+service.
 
 ## Identity and tenant boundary
 
@@ -45,6 +46,12 @@ time claims, and that the token is not an anonymous Auth user. Verification
 uses a 30-second clock leeway. JWKS are cached for at most 300 seconds; an
 unknown `kid` triggers a refresh, rate-limited to one unknown-key refresh per
 second. A failed refresh or unknown key fails closed.
+
+Protected user routes also enforce the signed `aal` claim. AAL2 sessions are
+accepted; AAL1 sessions are allowed only when Supabase Auth confirms that the
+user has no verified MFA factor. If factor status cannot be verified, the
+service fails closed. This check is enforced by the service itself, including
+for direct `/v1` requests that do not pass through the web BFF.
 
 Only asymmetric Supabase signing algorithms `ES256` and `RS256` are accepted.
 Supabase's legacy `HS256` signing secret is not accepted or stored by this

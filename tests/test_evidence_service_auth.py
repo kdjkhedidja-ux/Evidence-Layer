@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import time
 import uuid
 
@@ -18,7 +19,9 @@ from evidence_service.app import create_app
 from evidence_service.auth import (
     AuthenticatedRequest,
     AuthenticationRejected,
+    AuthenticationUnavailable,
     Principal,
+    SupabaseMFAFactorVerifier,
     SupabaseTokenVerifier,
 )
 from evidence_service.config import SupabaseSettings
@@ -74,6 +77,7 @@ def token_for(
         "sub": str(subject),
         "role": "authenticated",
         "is_anonymous": False,
+        "aal": "aal2",
         "session_id": "30000000-0000-4000-8000-000000000003",
         "iat": now,
         "exp": now + 300,
@@ -140,9 +144,27 @@ class DirectorySpy:
         return None
 
 
+class MFAFactorVerifierSpy:
+    def __init__(
+        self,
+        has_verified_factor: bool = False,
+        error: Exception | None = None,
+    ) -> None:
+        self.has_factor = has_verified_factor
+        self.error = error
+        self.calls: list[tuple[str, uuid.UUID]] = []
+
+    async def has_verified_factor(self, token: str, subject: uuid.UUID) -> bool:
+        self.calls.append((token, subject))
+        if self.error is not None:
+            raise self.error
+        return self.has_factor
+
+
 def make_client(
     feed: JwksFeed,
     directory: DirectorySpy,
+    mfa_factor_verifier=None,
 ) -> TestClient:
     verifier = SupabaseTokenVerifier(
         settings(), transport=httpx.MockTransport(feed)
@@ -151,6 +173,7 @@ def make_client(
         create_app(
             settings(),
             token_verifier=verifier,
+            mfa_factor_verifier=mfa_factor_verifier,
             account_lifecycle_reader=AvailableAccountLifecycleReader(),
             recovery_fence_reader=OpenRecoveryFenceReader(),
             workspace_directory=directory,
@@ -195,6 +218,55 @@ def test_valid_access_token_returns_verified_subject_and_memberships() -> None:
     }
     assert directory.calls == [("list", SUBJECT_A, token)]
     assert token not in repr(AuthenticatedRequest(Principal(ISSUER, SUBJECT_A), token))
+
+
+@pytest.mark.parametrize(
+    ("has_verified_factor", "error", "expected_status"),
+    [
+        (False, None, 200),
+        (True, None, 403),
+        (False, AuthenticationUnavailable(), 503),
+    ],
+)
+def test_aal1_access_is_allowed_only_when_no_verified_mfa_factor_exists(
+    has_verified_factor: bool,
+    error: Exception | None,
+    expected_status: int,
+) -> None:
+    key = new_signing_key()
+    directory = DirectorySpy()
+    factors = MFAFactorVerifierSpy(has_verified_factor, error)
+    feed = JwksFeed([{"keys": [jwk_for(key, "key-1")]}])
+    token = token_for(key, claim_overrides={"aal": "aal1"})
+
+    with make_client(feed, directory, factors) as client:
+        response = client.get("/v1/me", headers={"Authorization": f"Bearer {token}"})
+
+    assert response.status_code == expected_status
+    assert factors.calls == [(token, SUBJECT_A)]
+    assert bool(directory.calls) is (expected_status == 200)
+
+
+def test_supabase_mfa_factor_verifier_reads_factors_with_the_user_token() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "id": str(SUBJECT_A),
+                "factors": [{"factor_type": "totp", "status": "verified"}],
+            },
+        )
+
+    verifier = SupabaseMFAFactorVerifier(
+        settings(), transport=httpx.MockTransport(handler)
+    )
+    assert asyncio.run(verifier.has_verified_factor("user-token", SUBJECT_A))
+    assert seen[0].url == httpx.URL(f"{ISSUER}/user")
+    assert seen[0].headers["apikey"] == settings().publishable_key
+    assert seen[0].headers["authorization"] == "Bearer user-token"
 
 
 def test_missing_and_malformed_tokens_are_rejected_before_directory_access() -> None:
@@ -339,7 +411,7 @@ def test_invalid_claims_are_rejected_before_directory_access(
     assert directory.calls == []
 
 
-@pytest.mark.parametrize("missing_claim", ["aud", "exp", "iat", "iss", "sub", "role"])
+@pytest.mark.parametrize("missing_claim", ["aal", "aud", "exp", "iat", "iss", "sub", "role"])
 def test_each_required_claim_is_rejected_when_actually_absent(
     missing_claim: str,
 ) -> None:
@@ -352,6 +424,7 @@ def test_each_required_claim_is_rejected_when_actually_absent(
         "sub": str(SUBJECT_A),
         "role": "authenticated",
         "is_anonymous": False,
+        "aal": "aal2",
         "iat": now,
         "exp": now + 300,
     }
@@ -482,8 +555,8 @@ def test_new_kid_forces_jwks_refresh_and_accepts_rotated_key() -> None:
         return before, after
 
     assert asyncio.run(verify_both()) == (
-        Principal(ISSUER, SUBJECT_A),
-        Principal(ISSUER, SUBJECT_A),
+        Principal(ISSUER, SUBJECT_A, "aal2"),
+        Principal(ISSUER, SUBJECT_A, "aal2"),
     )
     assert feed.calls == 2
 
@@ -571,8 +644,8 @@ def test_rotated_key_document_replaces_old_key_after_cache_expiry() -> None:
         return before, after
 
     assert asyncio.run(verify_across_rotation()) == (
-        Principal(ISSUER, SUBJECT_A),
-        Principal(ISSUER, SUBJECT_A),
+        Principal(ISSUER, SUBJECT_A, "aal2"),
+        Principal(ISSUER, SUBJECT_A, "aal2"),
     )
     assert feed.calls == 2
 
@@ -601,6 +674,7 @@ def test_es256_supabase_signing_key_is_cryptographically_verified() -> None:
         "sub": str(SUBJECT_A),
         "role": "authenticated",
         "is_anonymous": False,
+        "aal": "aal2",
         "iat": int(time.time()),
         "exp": int(time.time()) + 300,
     }
@@ -622,6 +696,4 @@ def test_es256_supabase_signing_key_is_cryptographically_verified() -> None:
         transport=httpx.MockTransport(JwksFeed([{"keys": [jwk]}])),
     )
 
-    import asyncio
-
-    assert asyncio.run(verifier.verify(token)) == Principal(ISSUER, SUBJECT_A)
+    assert asyncio.run(verifier.verify(token)) == Principal(ISSUER, SUBJECT_A, "aal2")

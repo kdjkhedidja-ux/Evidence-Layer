@@ -20,7 +20,11 @@ NOW = datetime(2026, 11, 11, tzinfo=timezone.utc)
 class StaticVerifier:
     async def verify(self, token: str) -> Principal:
         assert token == TOKEN
-        return Principal(issuer="https://project.supabase.co/auth/v1", subject=SUBJECT)
+        return Principal(
+            issuer="https://project.supabase.co/auth/v1",
+            subject=SUBJECT,
+            assurance_level="aal2",
+        )
 
 
 class AvailableLifecycle:
