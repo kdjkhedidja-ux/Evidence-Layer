@@ -90,6 +90,42 @@ Response:
 
 `score` is the adjusted Lexical score after deterministic path/title boosts. If the pinned tokenizer artifact is unavailable, `token_estimator` is `chars_div_4`; token counts are estimates in that mode.
 
+## Workspace task-context preparation
+
+The authenticated workspace UI can prepare evidence for a specific agent task
+without requiring a personal API key in the browser:
+
+`POST /v1/workspaces/{workspace_id}/task-context`
+
+Authentication: the user's verified Supabase bearer token; current workspace
+membership and RLS are checked by the service.
+
+```json
+{
+  "task": "Review the release plan",
+  "expected_outcome": "List evidence-backed risks and mitigations",
+  "context_requirements": "Prioritize rollback steps and owner approvals",
+  "top_k": 5,
+  "max_tokens": 1200,
+  "max_chars": 6000
+}
+```
+
+The three task fields are combined as the lexical retrieval query. The service
+first finds seed evidence, then gives up to three directly related record IDs
+preference in the final ranking. Related records still need a lexical match;
+the service does not infer a relationship or treat the relationship itself as
+evidence. The response includes the task brief, selected snippets, token and
+character estimates, and only explicit relationship edges whose two evidence
+records are both selected, including their rationale and provenance note.
+
+Selection stays inside `top_k`, `max_tokens`, and `max_chars`. Retrieval is
+lexical-only; this route does not use JEV or transfer evidence to an external
+provider. The caller can copy the prepared task and evidence bundle to an
+agent. The agent performs the task; this route does not invoke the agent,
+persist a task run, or collect model usage, cost, or outcome quality. The route
+is governed by the existing `EVIDENCE_RETRIEVE_API_ENABLED` service flag.
+
 ### curl examples
 
 ```bash

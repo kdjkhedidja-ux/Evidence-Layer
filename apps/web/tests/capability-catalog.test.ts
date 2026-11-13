@@ -11,6 +11,7 @@ const REQUIRED_FEATURES: Record<string, string[]> = {
     "Rationale",
     "Review basis",
   ],
+  "Task Context": ["Task-focused retrieval", "Relationship-aware selection"],
   "Reading Guide": ["Reading instructions", "Source inspection", "Provenance guidance"],
   Verification: ["Snapshot integrity", "Hash verification"],
   Evaluation: ["Historical reports", "Comparisons"],
@@ -55,13 +56,13 @@ describe("workspace capability catalog contract", () => {
       "/?account=1#account-organization-title",
       "/#explorer",
       "/workspace#records-heading",
-      "/#reading-guide",
       "/workspace#source-read-heading",
       "/relationships",
-      "/#verification",
       "/evaluation",
       "/cost-performance",
-      "/#settings-access",
+      "/workspace#agent-connection",
+      "/workspace#task-context",
+      "/workspace#task-measurement",
     ]);
     const features = CAPABILITY_GROUPS.flatMap((group) => group.features);
     for (const feature of features) {

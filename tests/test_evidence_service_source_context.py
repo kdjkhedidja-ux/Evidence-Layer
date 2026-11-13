@@ -85,6 +85,7 @@ def signed_token(
             "sub": str(subject),
             "role": "authenticated",
             "is_anonymous": False,
+            "aal": "aal2",
             "iat": now,
             "exp": expiry if expiry is not None else now + 300,
         },

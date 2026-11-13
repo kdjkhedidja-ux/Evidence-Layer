@@ -14,4 +14,14 @@ describe("connector OAuth feedback", () => {
       "Two-factor authentication is verified. Retry connecting Google Drive.",
     );
   });
+
+  it("shows a load failure instead of reporting that no source is connected", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network unavailable")));
+    render(<ConnectorSources />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Connected sources are unavailable right now.",
+    );
+    expect(screen.queryByText("No source is connected.")).not.toBeInTheDocument();
+  });
 });

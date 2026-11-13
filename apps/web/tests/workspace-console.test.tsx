@@ -33,6 +33,8 @@ vi.mock("../lib/supabase/client", () => ({
 const USER_ID = "10000000-0000-4000-8000-000000000001";
 const WORKSPACE_ID = "10000000-0000-4000-8000-000000000002";
 const EVIDENCE_ID = "10000000-0000-4000-8000-000000000003";
+const RELATED_EVIDENCE_ID = "10000000-0000-4000-8000-000000000006";
+const RELATION_ID = "10000000-0000-4000-8000-000000000007";
 const SOURCE_ID = "10000000-0000-4000-8000-000000000004";
 const VERSION_ID = "10000000-0000-4000-8000-000000000005";
 const WORKSPACE = { id: WORKSPACE_ID, name: "Team workspace", role: "owner" as const };
@@ -77,6 +79,60 @@ function mockProductFetch(
     if (url.endsWith("/evidence") && init?.method === "POST") {
       return Response.json({ ...RECORD, content: "New workspace evidence" }, { status: 201 });
     }
+    if (url.endsWith("/task-context") && init?.method === "POST") {
+      return Response.json({
+        task: "Review the release",
+        expected_outcome: "Identify risks and mitigations",
+        context_requirements: "Focus on deployment",
+        retrieval: {
+          status: "ok",
+          query: "Review the release\nIdentify risks and mitigations\nFocus on deployment",
+          workspace_id: WORKSPACE_ID,
+          selected_count: 2,
+          used_tokens: 18,
+          used_chars: 72,
+          token_estimator: "chars_div_4",
+          evidence: [
+            {
+              evidence_id: EVIDENCE_ID,
+              content: "Release checklist and deployment evidence.",
+              source_label: "release.md",
+              source_id: null,
+              source_version_id: null,
+              score: 0.8,
+              chunk_id: `${EVIDENCE_ID}:0:40`,
+              token_count: 10,
+              char_count: 40,
+              path: "release.md",
+              title: "Release",
+            },
+            {
+              evidence_id: RELATED_EVIDENCE_ID,
+              content: "Rollback steps and owner approvals.",
+              source_label: "rollback.md",
+              source_id: null,
+              source_version_id: null,
+              score: 0.6,
+              chunk_id: `${RELATED_EVIDENCE_ID}:0:32`,
+              token_count: 8,
+              char_count: 32,
+              path: "rollback.md",
+              title: "Rollback",
+            },
+          ],
+        },
+        relationships: [
+          {
+            id: RELATION_ID,
+            evidence_id_a: EVIDENCE_ID,
+            evidence_id_b: RELATED_EVIDENCE_ID,
+            relation_type: "contextualizes",
+            rationale: "The rollback procedure provides operational context.",
+            provenance_note: "Reviewed together by the workspace owner.",
+          },
+        ],
+      });
+    }
     if (url.endsWith(`/sources/${SOURCE_ID}/versions/${VERSION_ID}/content`)) {
       return new Response("source fixture", {
         headers: {
@@ -107,21 +163,60 @@ describe("workspace product console", () => {
     expect(screen.getByRole("combobox", { name: "Authorized workspace" })).toHaveValue(WORKSPACE_ID);
     expect(screen.getByText("Not exposed by the membership API")).toBeInTheDocument();
     expect(screen.getByText("Owner", { exact: true })).toBeInTheDocument();
-    expect(screen.getByText(/These are stored workspace evidence records/)).toBeInTheDocument();
+    expect(screen.getByText(/Connector sync currently imports into your personal workspace/)).toBeInTheDocument();
     expect(screen.getByText("1 record")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Evidence Explorer" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "Evidence" })).toHaveAttribute("href", "/#explorer");
     expect(screen.getByRole("link", { name: "Relationships" })).toHaveAttribute("href", "/relationships");
-    expect(screen.getByRole("heading", { name: "Capability Catalog" })).toBeInTheDocument();
+    expect(screen.getByText("Full capability reference (advanced)")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Task outcomes and usage" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Evidence Relationships" })).toBeInTheDocument();
     expect(screen.queryByText("Demo only")).not.toBeInTheDocument();
   });
 
-  it("places Remote MCP above Connected sources", async () => {
+  it("puts source sync before agent setup", async () => {
     render(<WorkspaceConsole userId={USER_ID} email="reader@example.test" />);
     expect(await screen.findByRole("heading", { name: "Remote MCP" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Connected sources" })).toBeInTheDocument();
     const headings = screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent);
-    expect(headings.indexOf("Remote MCP")).toBeLessThan(headings.indexOf("Connected sources"));
+    expect(headings.indexOf("Connected sources")).toBeLessThan(headings.indexOf("Remote MCP"));
+    expect(screen.getByRole("link", { name: "Connect an agent" })).toHaveAttribute(
+      "href",
+      "/workspace#agent-connection",
+    );
+    expect(screen.getByText(/does not yet run agent tasks or collect the model's token usage/i)).toBeInTheDocument();
+  });
+
+  it("uses the task and expected outcome to prepare bounded, linked evidence context", async () => {
+    const fetchMock = mockProductFetch();
+    render(<WorkspaceConsole userId={USER_ID} email="reader@example.test" />);
+    await screen.findByText("Current workspace evidence");
+    fireEvent.change(screen.getByLabelText("What should the agent do?"), {
+      target: { value: "Review the release" },
+    });
+    fireEvent.change(screen.getByLabelText("What should a successful result include?"), {
+      target: { value: "Identify risks and mitigations" },
+    });
+    fireEvent.change(screen.getByLabelText("What context should EL prioritize? (optional)"), {
+      target: { value: "Focus on deployment" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Prepare evidence context" }));
+
+    expect(await screen.findByText("Release checklist and deployment evidence.")).toBeInTheDocument();
+    expect(screen.getByText("The rollback procedure provides operational context.")).toBeInTheDocument();
+    expect(screen.getByText(/18 estimated evidence tokens/)).toBeInTheDocument();
+    const request = fetchMock.mock.calls.find(([input]) => String(input).endsWith("/task-context"));
+    expect(request).toBeDefined();
+    expect(request?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        task: "Review the release",
+        expected_outcome: "Identify risks and mitigations",
+        context_requirements: "Focus on deployment",
+        top_k: 5,
+        max_tokens: 1200,
+        max_chars: 6000,
+      }),
+    });
   });
 
   it("offers navigation and a local sign out from the header menu", async () => {
@@ -129,8 +224,13 @@ describe("workspace product console", () => {
     render(<WorkspaceConsole userId={USER_ID} email="reader@example.test" />);
     const toggle = screen.getByRole("button", { name: "Menu" });
     expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(toggle).toHaveAttribute("aria-controls", "workspace-menu");
     fireEvent.click(toggle);
     expect(screen.getByRole("button", { name: "Close" })).toHaveAttribute("aria-expanded", "true");
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(toggle).toHaveFocus();
+    fireEvent.click(toggle);
     fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
     await waitFor(() => expect(mocks.signOut).toHaveBeenCalledWith({ scope: "local" }));
   });
@@ -138,6 +238,7 @@ describe("workspace product console", () => {
   it("shows contract-based feature states and links only to existing destinations", async () => {
     render(<WorkspaceConsole userId={USER_ID} email="reader@example.test" />);
     await screen.findByText("Current workspace evidence");
+    fireEvent.click(screen.getByText("Full capability reference (advanced)"));
 
     const catalog = screen.getByRole("region", { name: "Capability Catalog" });
     const links = within(catalog).getAllByRole("link");
@@ -150,13 +251,12 @@ describe("workspace product console", () => {
       "/?account=1#account-organization-title",
       "/#explorer",
       "/workspace#records-heading",
-      "/#reading-guide",
       "/workspace#source-read-heading",
+      "/workspace#task-context",
       "/relationships",
-      "/#verification",
       "/evaluation",
       "/cost-performance",
-      "/#settings-access",
+      "/workspace#membership-heading",
     ]);
     expect(links.length).toBeGreaterThan(0);
     for (const link of links) {

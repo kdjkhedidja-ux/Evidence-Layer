@@ -103,7 +103,7 @@ export const CAPABILITY_GROUPS: readonly CapabilityGroup[] = [
         name: "Provenance",
         status: "Evidence-grounded",
         detail: "Stored source labels and exact source-version identifiers remain attached to records when supplied.",
-        href: "/#reading-guide",
+        href: "/#explorer",
       },
       {
         name: "Source links",
@@ -143,13 +143,30 @@ export const CAPABILITY_GROUPS: readonly CapabilityGroup[] = [
     ],
   },
   {
+    name: "Task Context",
+    features: [
+      {
+        name: "Task-focused retrieval",
+        status: "Partially available",
+        detail: "Combines the task, expected outcome, and context requirements to prepare bounded lexical evidence; it does not execute the agent task.",
+        href: "/workspace#task-context",
+      },
+      {
+        name: "Relationship-aware selection",
+        status: "Partially available",
+        detail: "Prioritizes up to three explicitly linked records for retrieved seed evidence and returns links only when both records are selected. JEV and semantic ranking are not connected.",
+        href: "/workspace#task-context",
+      },
+    ],
+  },
+  {
     name: "Reading Guide",
     features: [
       {
         name: "Reading instructions",
         status: "Evidence-grounded",
         detail: "The guide explains how to inspect stored evidence without generating conclusions.",
-        href: "/#reading-guide",
+        href: "/workspace#records-heading",
       },
       {
         name: "Source inspection",
@@ -161,7 +178,7 @@ export const CAPABILITY_GROUPS: readonly CapabilityGroup[] = [
         name: "Provenance guidance",
         status: "Evidence-grounded",
         detail: "The guide distinguishes stored evidence from its exact source and version; missing links remain explicit.",
-        href: "/#reading-guide",
+        href: "/workspace#records-heading",
       },
     ],
   },
@@ -172,13 +189,13 @@ export const CAPABILITY_GROUPS: readonly CapabilityGroup[] = [
         name: "Snapshot integrity",
         status: "Connected",
         detail: "Only published versions that passed the verifier are marked integrity-verified; access is checked again during reads.",
-        href: "/#verification",
+        href: "/workspace#source-read-heading",
       },
       {
         name: "Hash verification",
         status: "Connected",
         detail: "The service verifies source bytes against the pinned SHA-256 before delivery and returns a Content-Digest header.",
-        href: "/#verification",
+        href: "/workspace#source-read-heading",
       },
     ],
   },

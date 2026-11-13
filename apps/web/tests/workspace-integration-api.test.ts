@@ -237,6 +237,25 @@ describe("workspace evidence and verified source Next.js boundary", () => {
     expect(new Headers(init?.headers).get("Authorization")).toBe(`Bearer ${TOKEN}`);
   });
 
+  it("accepts verified source content up to the backend's 8 MiB limit", async () => {
+    const bytes = new Uint8Array(5 * 1024 * 1024);
+    vi.mocked(fetch).mockResolvedValue(new Response(bytes, {
+      status: 200,
+      headers: {
+        "Content-Type": "application/octet-stream",
+        "Content-Length": String(bytes.byteLength),
+      },
+    }));
+
+    const response = await getSourceContent(
+      request("/api/source"),
+      params({ workspaceId: WORKSPACE_ID, sourceId: SOURCE_ID, versionId: VERSION_ID }),
+    );
+
+    expect(response.status).toBe(200);
+    expect((await response.arrayBuffer()).byteLength).toBe(bytes.byteLength);
+  });
+
   it("returns no content when the service denies the source grant or is unavailable", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(Response.json({ detail: "private denial detail" }, { status: 403 }));
     const denied = await getSourceContent(

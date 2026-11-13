@@ -10,6 +10,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Protocol, runtime_checkable
+from uuid import UUID
 
 import httpx
 import jwt
@@ -32,6 +33,7 @@ class AuthenticationUnavailable(Exception):
 class Principal:
     issuer: str
     subject: uuid.UUID
+    assurance_level: str | None = None
 
 
 @dataclass(frozen=True)
@@ -53,6 +55,11 @@ class TokenVerifier(Protocol):
     """Compatibility interface for request authentication."""
 
     async def verify(self, token: str) -> Principal: ...
+
+
+@runtime_checkable
+class MFAFactorVerifier(Protocol):
+    async def has_verified_factor(self, token: str, subject: UUID) -> bool: ...
 
 
 @runtime_checkable
@@ -127,6 +134,9 @@ class SupabaseTokenVerifier:
 
         if claims.get("role") != "authenticated" or claims.get("is_anonymous") is not False:
             raise AuthenticationRejected
+        assurance_level = claims.get("aal")
+        if not isinstance(assurance_level, str) or assurance_level not in {"aal1", "aal2"}:
+            raise AuthenticationRejected
 
         raw_expiry = claims.get("exp")
         if (
@@ -149,7 +159,11 @@ class SupabaseTokenVerifier:
         if not isinstance(issuer, str) or not issuer:
             raise AuthenticationRejected
         return VerifiedAccessToken(
-            principal=Principal(issuer=issuer, subject=subject),
+            principal=Principal(
+                issuer=issuer,
+                subject=subject,
+                assurance_level=assurance_level,
+            ),
             expires_at=expires_at,
         )
 
@@ -240,3 +254,55 @@ class SupabaseTokenVerifier:
         except AuthenticationUnavailable:
             self._last_refresh_failed = True
             raise
+
+
+class SupabaseMFAFactorVerifier:
+    """Checks the user's verified MFA factors through Supabase Auth."""
+
+    def __init__(
+        self,
+        settings: SupabaseSettings,
+        *,
+        transport: httpx.AsyncBaseTransport | None = None,
+    ) -> None:
+        self._settings = settings
+        self._transport = transport
+
+    async def has_verified_factor(self, token: str, subject: UUID) -> bool:
+        try:
+            async with httpx.AsyncClient(
+                timeout=self._settings.timeout_seconds,
+                transport=self._transport,
+            ) as client:
+                response = await client.get(
+                    f"{self._settings.jwt_issuer.rstrip('/')}/user",
+                    headers={
+                        "apikey": self._settings.publishable_key,
+                        "Authorization": f"Bearer {token}",
+                    },
+                )
+        except httpx.HTTPError as exc:
+            raise AuthenticationUnavailable from exc
+
+        if response.status_code in {401, 403}:
+            raise AuthenticationRejected
+        if response.status_code >= 300:
+            raise AuthenticationUnavailable
+        try:
+            user = response.json()
+        except ValueError as exc:
+            raise AuthenticationUnavailable from exc
+        if not isinstance(user, dict) or user.get("id") != str(subject):
+            raise AuthenticationUnavailable
+
+        factors = user.get("factors", [])
+        if factors is None:
+            factors = []
+        if not isinstance(factors, list):
+            raise AuthenticationUnavailable
+        for factor in factors:
+            if not isinstance(factor, dict) or not isinstance(factor.get("status"), str):
+                raise AuthenticationUnavailable
+            if factor["status"] == "verified":
+                return True
+        return False

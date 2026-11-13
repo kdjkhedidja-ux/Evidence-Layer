@@ -140,7 +140,7 @@ export async function proxySyncConnector(connectionId: string, request: Request)
   if (!sameOrigin(request)) return json(403, { error: "Request origin was not accepted." });
   const auth = await session();
   if (auth.kind === "response") return auth.response;
-  return upstreamJson(`/v1/connectors/${encodeURIComponent(connectionId)}/sync?limit=100`, auth.accessToken, {
+  return upstreamJson(`/v1/connectors/${encodeURIComponent(connectionId)}/sync?limit=25`, auth.accessToken, {
     method: "POST",
   });
 }
