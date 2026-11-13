@@ -92,6 +92,7 @@ export default function LiveEvidenceExplorer({
   const [message, setMessage] = useState("");
   const [accountOpen, setAccountOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const mobileMenuToggleRef = useRef<HTMLButtonElement>(null);
   const [relationshipDraft, setRelationshipDraft] = useState({
     evidence_id_a: "",
     evidence_id_b: "",
@@ -100,6 +101,7 @@ export default function LiveEvidenceExplorer({
     provenance_note: "",
   });
   const [editingRelationship, setEditingRelationship] = useState("");
+  const [confirmDeleteRelationshipId, setConfirmDeleteRelationshipId] = useState("");
   const [editDraft, setEditDraft] = useState({
     relation_type: "contextualizes" as Relationship["relation_type"],
     rationale: "",
@@ -108,6 +110,17 @@ export default function LiveEvidenceExplorer({
   const [mutationState, setMutationState] = useState<DataState>("idle");
   const activeWorkspaceRef = useRef("");
   const loadGenerationRef = useRef(0);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setMobileMenuOpen(false);
+      mobileMenuToggleRef.current?.focus();
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [mobileMenuOpen]);
 
   const selectedWorkspace = workspaces.find((workspace) => workspace.id === workspaceId) ?? null;
   const filteredRecords = useMemo(() => {
@@ -140,6 +153,7 @@ export default function LiveEvidenceExplorer({
       setSourceReadState("idle");
       setRelationshipDraft({ evidence_id_a: "", evidence_id_b: "", relation_type: "contextualizes", rationale: "", provenance_note: "" });
       setEditingRelationship("");
+      setConfirmDeleteRelationshipId("");
     }
     if (!id) {
       setRecords([]);
@@ -358,6 +372,12 @@ export default function LiveEvidenceExplorer({
   };
 
   const deleteRelationship = async (relationshipId: string) => {
+    if (confirmDeleteRelationshipId !== relationshipId) {
+      setEditingRelationship("");
+      setConfirmDeleteRelationshipId(relationshipId);
+      return;
+    }
+    setConfirmDeleteRelationshipId("");
     const targetWorkspaceId = workspaceId;
     setMutationState("loading");
     try {
@@ -400,11 +420,18 @@ export default function LiveEvidenceExplorer({
       <a className="live-skip" href="#explorer">Skip to Evidence Explorer</a>
       <div className="live-mobile-bar">
         <Link className="live-brand" href="/">evidence<span>layer</span></Link>
-        <button type="button" className="live-menu-toggle" aria-expanded={mobileMenuOpen} onClick={() => setMobileMenuOpen((value) => !value)}>
+        <button
+          ref={mobileMenuToggleRef}
+          type="button"
+          className="live-menu-toggle"
+          aria-expanded={mobileMenuOpen}
+          aria-controls="live-sidebar"
+          onClick={() => setMobileMenuOpen((value) => !value)}
+        >
           {mobileMenuOpen ? "Close" : "Menu"}
         </button>
       </div>
-      <aside className={`live-sidebar${mobileMenuOpen ? " live-sidebar--open" : ""}`}>
+      <aside id="live-sidebar" className={`live-sidebar${mobileMenuOpen ? " live-sidebar--open" : ""}`}>
         <Link className="live-brand live-brand--sidebar" href="/">evidence<span>layer</span></Link>
         <p className="live-sidebar-tagline">Evidence first. Conclusions remain inspectable.</p>
         <nav aria-label="Product navigation" className="live-nav">
@@ -562,9 +589,18 @@ export default function LiveEvidenceExplorer({
                         <div className="live-row-actions">
                           <button type="button" onClick={() => {
                             setEditingRelationship(relationship.id);
+                            setConfirmDeleteRelationshipId("");
                             setEditDraft({ relation_type: relationship.relation_type, rationale: relationship.rationale, provenance_note: relationship.provenance_note });
                           }}>Edit</button>
-                          <button type="button" onClick={() => void deleteRelationship(relationship.id)}>Delete</button>
+                          {confirmDeleteRelationshipId === relationship.id ? (
+                            <>
+                              <span role="alert">Delete this relationship? This cannot be undone.</span>
+                              <button type="button" onClick={() => void deleteRelationship(relationship.id)}>Confirm delete</button>
+                              <button type="button" onClick={() => setConfirmDeleteRelationshipId("")}>Cancel</button>
+                            </>
+                          ) : (
+                            <button type="button" onClick={() => void deleteRelationship(relationship.id)}>Delete</button>
+                          )}
                         </div>
                       ) : null}
                     </article>
@@ -626,7 +662,7 @@ export default function LiveEvidenceExplorer({
                 <p className="live-eyebrow">Settings &amp; access</p><h2>{selectedWorkspace.name}</h2>
                 <p>Your verified role is <strong>{selectedWorkspace.role}</strong>. Members may inspect active workspace data; only owners and admins can create, edit, or delete documented relationships.</p>
                 <p>Organization admins manage members and roles from Account → Workspace &amp; Access; group workspaces follow organization membership. There is no email invitation flow, per-workspace permissions editor, or workspace-settings endpoint.</p>
-                <p>Personal API Keys are planned as separate credentials. They are not session JWTs, and this application has no key issuance or revocation endpoint.</p>
+                <p>Personal API keys are read-only credentials, separate from your session. Manage them in <Link href="/workspace#personal-api-keys">Workspace access</Link>.</p>
                 <Link href="/workspace">Open Workspace</Link>
               </section>
               </>

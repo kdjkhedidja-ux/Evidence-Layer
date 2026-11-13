@@ -176,7 +176,7 @@ export default function RelationshipCanvas({ records, relationships, onOpenEvide
       <svg
         className="relationship-canvas-svg"
         viewBox="0 0 860 580"
-        role="img"
+        role="graphics-document"
         aria-label={`Recorded relationship canvas, ${nodes.length} evidence records and ${edges.length} links`}
         onPointerDown={(event) => {
           if (event.target !== event.currentTarget) return;

@@ -209,6 +209,14 @@ test("workspace route shows authorized service records on desktop and mobile", a
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByRole("heading", { name: "Capability Catalog" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+
+  const menuButton = page.getByRole("button", { name: "Menu" });
+  await expect(menuButton).toHaveAttribute("aria-controls", "workspace-menu");
+  await menuButton.click();
+  await expect(page.locator("#workspace-menu")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(menuButton).toHaveAttribute("aria-expanded", "false");
+  await expect(menuButton).toBeFocused();
 });
 
 test("workspace sources index lists versions and reads one through the verified route", async ({ page }) => {

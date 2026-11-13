@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createSupabaseBrowserClient } from "../../lib/supabase/client";
 import ConnectorSources from "../../components/connector-sources";
 import RemoteMcp from "../../components/remote-mcp";
@@ -75,6 +75,7 @@ export default function WorkspaceConsole({
   const [message, setMessage] = useState("");
   const [pending, setPending] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuToggleRef = useRef<HTMLButtonElement>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteConfirmationId, setDeleteConfirmationId] = useState<string | null>(null);
   const [sources, setSources] = useState<SourceVersion[]>([]);
@@ -87,6 +88,16 @@ export default function WorkspaceConsole({
     const editor = document.getElementById("evidence-editor");
     editor?.scrollIntoView?.({ behavior: "smooth", block: "start" });
   }, [editingId]);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setMenuOpen(false);
+      menuToggleRef.current?.focus();
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [menuOpen]);
   const [sourceContent, setSourceContent] = useState("");
   const [sourceDigest, setSourceDigest] = useState("");
   const [sourceMessage, setSourceMessage] = useState("");
@@ -472,6 +483,7 @@ export default function WorkspaceConsole({
       <header className="workspace-header">
         <Link className="workspace-brand" href="/">evidence<span>layer</span></Link>
         <button
+          ref={menuToggleRef}
           type="button"
           className="workspace-menu-toggle"
           aria-expanded={menuOpen}

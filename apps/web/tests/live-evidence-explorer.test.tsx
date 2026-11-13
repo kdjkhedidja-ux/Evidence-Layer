@@ -147,6 +147,27 @@ describe("live Evidence Explorer", () => {
     ]);
   });
 
+  it("points users to the implemented API key controls", async () => {
+    render(<LiveEvidenceExplorer account={{ id: USER_ID, email: "reader@example.test" }} />);
+    const keyLink = await screen.findByRole("link", { name: "Workspace access" });
+    expect(keyLink).toHaveAttribute("href", "/workspace#personal-api-keys");
+    expect(screen.queryByText(/API Keys are planned/i)).not.toBeInTheDocument();
+  });
+
+  it("makes the mobile navigation controllable and dismissible by keyboard", async () => {
+    render(<LiveEvidenceExplorer account={{ id: USER_ID, email: "reader@example.test" }} />);
+    const toggle = screen.getByRole("button", { name: "Menu" });
+    expect(toggle).toHaveAttribute("aria-controls", "live-sidebar");
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(toggle);
+    expect(screen.getByRole("button", { name: "Close" })).toHaveAttribute("aria-expanded", "true");
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(toggle).toHaveFocus();
+  });
+
   it("fails closed when evidence service is unavailable instead of using synthetic fixtures", async () => {
     vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
       const url = String(input);
@@ -201,6 +222,31 @@ describe("live Evidence Explorer", () => {
         evidence_id_b: RECORD_B_ID,
         rationale: "The two stored claims disagree.",
       });
+    });
+  });
+
+  it("requires confirmation before deleting a relationship", async () => {
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/api/evidence/me") return Response.json({ user_id: USER_ID, workspaces: [WORKSPACE] });
+      if (url.endsWith("/evidence")) return Response.json([RECORD_A, RECORD_B]);
+      if (url.endsWith("/sources")) return Response.json([]);
+      if (url.endsWith("/relationships") && init?.method === "DELETE") return new Response(null, { status: 204 });
+      if (url.endsWith("/relationships")) return Response.json([liveRelationship()]);
+      return Response.json({}, { status: 404 });
+    });
+
+    render(<LiveEvidenceExplorer account={{ id: USER_ID, email: "reader@example.test" }} />);
+    expect(await screen.findByText("The two stored claims disagree.")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("This cannot be undone.");
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === "DELETE")).toBe(false);
+
+    fireEvent.click(screen.getByRole("button", { name: "Confirm delete" }));
+    await waitFor(() => {
+      expect(fetchMock.mock.calls.some(([, init]) => init?.method === "DELETE")).toBe(true);
     });
   });
 
