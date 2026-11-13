@@ -264,7 +264,7 @@ test("workspace sources index lists versions and reads one through the verified 
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL("/workspace");
 
-  await expect(page.getByRole("heading", { name: "Workspace sources" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Verified source snapshots" })).toBeVisible();
   await expect(page.getByText(/Version 10000000/)).toBeVisible();
   await expect(page.getByText(/· Published ·/)).toBeVisible();
 
