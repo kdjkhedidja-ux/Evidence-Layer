@@ -7,7 +7,6 @@ const PRIMARY_PUBLIC_LINKS = [
 ] as const;
 
 const PUBLIC_LINKS = [
-  ...PRIMARY_PUBLIC_LINKS,
   { href: "/evaluation", label: "Evaluation · Benchmarks" },
   { href: "/cost-performance", label: "Cost & Performance" },
   { href: "/privacy", label: "Privacy Policy" },

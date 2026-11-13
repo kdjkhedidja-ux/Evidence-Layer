@@ -36,16 +36,19 @@ describe("public information pages", () => {
     expect(screen.getByRole("link", { name: "Skip to content" })).toHaveAttribute("href", "#main-content");
     expect(screen.getByRole("main", { name: "" })).toHaveAttribute("id", "main-content");
     expect(screen.getByRole("heading", { level: 1, name })).toBeInTheDocument();
-    expect(screen.getByRole("navigation", { name: "Main navigation" })).toBeInTheDocument();
-
-    const footerNav = screen.getByRole("navigation", { name: "Legal and product information" });
-    const currentPageLink = within(footerNav).getByRole("link", { name, current: "page" });
-    expect(currentPageLink).toHaveAttribute("href", path);
-    const headerNav = within(screen.getByRole("navigation", { name: "Main navigation" }));
+    const headerNavElement = screen.getByRole("navigation", { name: "Main navigation" });
+    const headerNav = within(headerNavElement);
     expect(headerNav.getAllByRole("link").map((link) => link.textContent)).toEqual([
       "Workspace",
       "Documentation",
     ]);
+
+    const footerNav = screen.getByRole("navigation", { name: "Legal and product information" });
+    expect(within(footerNav).queryByRole("link", { name: "Workspace" })).not.toBeInTheDocument();
+    expect(within(footerNav).queryByRole("link", { name: "Documentation" })).not.toBeInTheDocument();
+    const currentPageLink = within(path === "/documentation" ? headerNavElement : footerNav)
+      .getByRole("link", { name, current: "page" });
+    expect(currentPageLink).toHaveAttribute("href", path);
 
     for (const route of routes) {
       const matchingLinks = screen.getAllByRole("link", { name: route.name });
