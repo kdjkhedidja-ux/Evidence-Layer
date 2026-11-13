@@ -18,6 +18,7 @@ SETTINGS = SupabaseSettings(
     jwt_algorithms=("ES256",),
 )
 USER = UUID("11111111-1111-4111-8111-111111111111")
+WORKSPACE = UUID("33333333-3333-4333-8333-333333333333")
 CONNECTION = UUID("22222222-2222-4222-8222-222222222222")
 
 
@@ -56,6 +57,17 @@ class ConnectorRepositoryTests(unittest.IsolatedAsyncioTestCase):
                 if "connection_id" in request.url.params or "provider" in request.url.params:
                     return httpx.Response(200, json=[_row(include_secrets=True)])
                 return httpx.Response(200, json=[_row()])
+            if request.method == "GET" and request.url.path.endswith("/workspace_memberships"):
+                return httpx.Response(200, json=[{
+                    "workspace_id": str(WORKSPACE),
+                    "role": "owner",
+                    "status": "active",
+                    "workspaces": {"id": str(WORKSPACE), "name": "Personal", "created_at": "2026-11-11T00:00:00Z"},
+                }])
+            if request.method == "POST" and request.url.path.endswith("/evidence_records"):
+                body = json.loads(request.content)
+                assert body[0]["connector_external_id"] == "file-1"
+                return httpx.Response(201)
             if request.method == "POST" and request.url.path.endswith("/connector_documents"):
                 body = json.loads(request.content)
                 assert body[0]["content_text"] == "hello"
@@ -81,6 +93,15 @@ class ConnectorRepositoryTests(unittest.IsolatedAsyncioTestCase):
         by_provider = await repository.get_connection_for_provider("token", "google_drive")
         assert by_provider is not None
         self.assertEqual(by_provider.refresh_token_ciphertext, "v1.refresh")
+        self.assertEqual(await repository.personal_workspace_id("token", USER), WORKSPACE)
+        await repository.upsert_evidence_documents("token", [{
+            "workspace_id": str(WORKSPACE),
+            "content": "hello",
+            "source_label": "GitHub: file-1",
+            "connector_connection_id": str(CONNECTION),
+            "connector_external_id": "file-1",
+            "connector_revision": "rev",
+        }])
         await repository.upsert_documents("token", [{
             "user_id": str(USER),
             "connection_id": str(CONNECTION),

@@ -12,6 +12,7 @@ from evidence_service.github_app_sync_service import GitHubAppSyncService
 
 USER = UUID("11111111-1111-4111-8111-111111111111")
 CONNECTION = UUID("22222222-2222-4222-8222-222222222222")
+WORKSPACE = UUID("33333333-3333-4333-8333-333333333333")
 
 
 class FakeRepository:
@@ -27,10 +28,12 @@ class FakeRepository:
             last_error_category=None,
             access_token_expires_at=None,
             provider_config={"installation_id": "123"},
+            workspace_id=WORKSPACE,
             access_token_ciphertext=None,
             refresh_token_ciphertext=None,
         )
         self.documents = None
+        self.evidence_documents = None
         self.synced = False
 
     async def get_connection(self, access_token, connection_id):
@@ -41,6 +44,18 @@ class FakeRepository:
 
     async def mark_sync(self, access_token, *, connection_id, success, error_category=None):
         self.synced = success
+
+    async def personal_workspace_id(self, access_token, user_id):
+        return WORKSPACE
+
+    async def set_connection_workspace(self, access_token, connection_id, workspace_id):
+        return None
+
+    async def upsert_evidence_documents(self, access_token, documents):
+        self.evidence_documents = documents
+
+    async def delete_stale_connector_evidence(self, access_token, connection_id, external_ids):
+        return None
 
 
 class GitHubAppSyncTests(unittest.IsolatedAsyncioTestCase):
@@ -77,6 +92,9 @@ class GitHubAppSyncTests(unittest.IsolatedAsyncioTestCase):
         assert repository.documents is not None
         self.assertEqual(repository.documents[0]["provider"], "github")
         self.assertEqual(repository.documents[0]["content_text"], "hello")
+        assert repository.evidence_documents is not None
+        self.assertEqual(repository.evidence_documents[0]["content"], "hello")
+        self.assertEqual(repository.evidence_documents[0]["workspace_id"], str(WORKSPACE))
 
     async def test_sync_skips_empty_repository(self):
         def handler(request: httpx.Request) -> httpx.Response:
@@ -119,3 +137,4 @@ class GitHubAppSyncTests(unittest.IsolatedAsyncioTestCase):
         assert repository.upserted is not None
         self.assertEqual(repository.upserted["provider"], "github")
         self.assertEqual(repository.upserted["provider_config"], {"installation_id": "123"})
+        self.assertEqual(repository.upserted["workspace_id"], WORKSPACE)

@@ -223,6 +223,7 @@ class ConnectorGitHubConnectionRequest(BaseModel):
 
 class ConnectorConnectionResponse(BaseModel):
     connection_id: UUID
+    workspace_id: UUID | None
     provider: str
     account_email: str | None
     scopes: list[str]
@@ -847,6 +848,7 @@ def _relationship_repository(request: Request) -> RelationshipRepository:
 def _connector_connection_response(connection) -> ConnectorConnectionResponse:
     return ConnectorConnectionResponse(
         connection_id=connection.connection_id,
+        workspace_id=connection.workspace_id,
         provider=connection.provider,
         account_email=connection.account_email,
         scopes=list(connection.scopes),
@@ -1562,7 +1564,7 @@ def create_app(
         connection_id: UUID,
         request: Request,
         auth: AuthenticatedRequest = Depends(require_authenticated_request),
-        limit: int = Query(default=10, ge=1, le=25),
+        limit: int = Query(default=100, ge=1, le=200),
     ) -> ConnectorSyncResponse:
         try:
             connection = await _with_account_gate(

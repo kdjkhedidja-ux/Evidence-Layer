@@ -22,8 +22,9 @@ from evidence_service.connector_repository import (
 )
 
 MAX_DOCUMENT_BYTES = 2 * 1024 * 1024
-MAX_SYNC_ITEMS = 25
+MAX_SYNC_ITEMS = 100
 MAX_REPOSITORIES = 5
+MAX_TOTAL_BYTES = 12 * 1024 * 1024
 
 
 class GitHubAppSyncError(Exception):
@@ -122,6 +123,11 @@ class GitHubAppSyncService:
     ) -> ConnectorConnection:
         try:
             account_login = await self._installation_account(installation_id)
+            workspace_id = await self._repository.personal_workspace_id(
+                access_token, user_id
+            )
+            if workspace_id is None:
+                raise GitHubAppSyncError("a personal workspace is required")
             return await self._repository.upsert_connection(
                 access_token,
                 user_id=user_id,
@@ -132,6 +138,7 @@ class GitHubAppSyncService:
                 refresh_token_ciphertext=None,
                 access_token_expires_at=None,
                 provider_config={"installation_id": str(installation_id)},
+                workspace_id=workspace_id,
             )
         except (ConnectorDenied, ConnectorNotFound):
             raise
@@ -168,6 +175,8 @@ class GitHubAppSyncService:
             documents: list[dict[str, Any]] = []
             listed = 0
             skipped = 0
+            total_bytes = 0
+            had_errors = False
             for repository in repositories[:MAX_REPOSITORIES]:
                 if not isinstance(repository, dict):
                     continue
@@ -189,10 +198,14 @@ class GitHubAppSyncService:
                     ),
                     transport=self._transport,
                 )
+                remaining = MAX_SYNC_ITEMS - len(documents)
+                if remaining <= 0:
+                    break
                 try:
-                    page = await connector.list_items(limit=min(5, max(1, limit)))
+                    page = await connector.list_items(limit=min(50, remaining))
                 except ConnectorError:
                     skipped += 1
+                    had_errors = True
                     continue
                 listed += len(page.items)
                 for item in page.items:
@@ -200,10 +213,15 @@ class GitHubAppSyncService:
                         document = await connector.fetch_document(item)
                     except ConnectorError:
                         skipped += 1
+                        had_errors = True
                         continue
-                    if len(document.content) > MAX_DOCUMENT_BYTES:
+                    if (
+                        len(document.content) > MAX_DOCUMENT_BYTES
+                        or total_bytes + len(document.content) > MAX_TOTAL_BYTES
+                    ):
                         skipped += 1
                         continue
+                    total_bytes += len(document.content)
                     content_type = document.content_type.split(";")[0].strip().lower()
                     if content_type.startswith("text/") or content_type in {
                         "application/json", "application/xml", "application/xhtml+xml"
@@ -234,8 +252,54 @@ class GitHubAppSyncService:
                 if len(documents) >= MAX_SYNC_ITEMS:
                     break
             await self._repository.upsert_documents(access_token, documents)
+            if connection.workspace_id is None:
+                workspace_id = await self._repository.personal_workspace_id(
+                    access_token, connection.user_id
+                )
+                if workspace_id is None:
+                    raise GitHubAppSyncError("a personal workspace is required")
+                await self._repository.set_connection_workspace(
+                    access_token, connection.connection_id, workspace_id
+                )
+                connection = ConnectorConnection(
+                    connection_id=connection.connection_id,
+                    user_id=connection.user_id,
+                    provider=connection.provider,
+                    account_email=connection.account_email,
+                    scopes=connection.scopes,
+                    status=connection.status,
+                    last_sync_at=connection.last_sync_at,
+                    last_error_category=connection.last_error_category,
+                    access_token_expires_at=connection.access_token_expires_at,
+                    provider_config=connection.provider_config,
+                    workspace_id=workspace_id,
+                )
+            evidence_documents = [
+                {
+                    "workspace_id": str(connection.workspace_id),
+                    "content": doc["content_text"],
+                    "source_label": f"GitHub: {doc['external_id']}"[:512],
+                    "connector_connection_id": str(connection.connection_id),
+                    "connector_external_id": doc["external_id"],
+                    "connector_revision": doc["revision"],
+                }
+                for doc in documents
+                if doc.get("content_text")
+            ]
+            await self._repository.upsert_evidence_documents(
+                access_token, evidence_documents
+            )
+            if not had_errors:
+                await self._repository.delete_stale_connector_evidence(
+                    access_token,
+                    connection.connection_id,
+                    {doc["external_id"] for doc in documents},
+                )
             await self._repository.mark_sync(
-                access_token, connection_id=connection.connection_id, success=True
+                access_token,
+                connection_id=connection.connection_id,
+                success=True,
+                error_category="partial" if had_errors else None,
             )
             return GitHubSyncResult(
                 connection_id=str(connection.connection_id),

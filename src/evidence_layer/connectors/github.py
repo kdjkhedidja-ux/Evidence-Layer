@@ -11,6 +11,41 @@ import httpx
 from .base import ConnectorDocument, ConnectorItem, ConnectorPage
 from .http import ConnectorHttp
 
+PRIORITY_EXTENSIONS = {".md", ".mdx", ".rst", ".txt"}
+SECONDARY_EXTENSIONS = {
+    ".ts", ".tsx", ".js", ".jsx", ".py", ".go", ".rs", ".java", ".kt",
+    ".rb", ".php", ".c", ".h", ".cpp", ".cs", ".swift", ".sh",
+    ".json", ".yml", ".yaml", ".toml", ".ini", ".cfg",
+}
+SKIP_PARTS = {
+    "node_modules", "vendor", "dist", "build", ".next", "coverage",
+    ".git", "__pycache__",
+}
+SKIP_NAMES = {
+    "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "poetry.lock",
+    "Cargo.lock", "go.sum",
+}
+
+
+def _path_priority(path: str) -> int | None:
+    lower = path.lower()
+    name = lower.rsplit("/", 1)[-1]
+    parts = set(lower.split("/"))
+    if parts & SKIP_PARTS or name in SKIP_NAMES:
+        return None
+    if name.endswith((".min.js", ".min.css", ".map")):
+        return None
+    if lower.startswith("readme") or "/readme" in lower:
+        return 0
+    if lower.startswith("docs/") or "/docs/" in lower:
+        return 1
+    if any(name.endswith(ext) for ext in PRIORITY_EXTENSIONS):
+        return 2
+    if any(name.endswith(ext) for ext in SECONDARY_EXTENSIONS):
+        return 3
+    return None
+
+
 
 @dataclass(frozen=True)
 class GitHubConfig:
@@ -58,36 +93,40 @@ class GitHubConnector:
         )
         payload = response.json()
         prefix = self._config.path_prefix.strip("/")
-        items: list[ConnectorItem] = []
+        candidate_pairs = []
         for entry in payload.get("tree", []):
             if not isinstance(entry, dict) or entry.get("type") != "blob":
                 continue
             path = str(entry.get("path") or "")
             if not path or (prefix and not path.startswith(prefix + "/")):
                 continue
+            priority = _path_priority(path)
+            if priority is None:
+                continue
             size = entry.get("size")
             if isinstance(size, int) and size > self._config.max_file_bytes:
                 continue
             mime, _ = mimetypes.guess_type(path)
-            items.append(
-                ConnectorItem(
-                    provider=self.provider,
-                    external_id=f"{self._config.owner}/{self._config.repo}/{path}",
-                    name=path.rsplit("/", 1)[-1],
-                    kind="file",
-                    mime_type=mime,
-                    revision=str(entry.get("sha") or "") or None,
-                    url=(
-                        f"https://github.com/{self._config.owner}/{self._config.repo}"
-                        f"/blob/{quote(self._config.ref, safe='/')}/{quote(path, safe='/')}"
-                    ),
-                    size_bytes=size if isinstance(size, int) else None,
-                    metadata={"path": path, "ref": self._config.ref},
-                )
+            item = ConnectorItem(
+                provider=self.provider,
+                external_id=f"{self._config.owner}/{self._config.repo}/{path}",
+                name=path.rsplit("/", 1)[-1],
+                kind="file",
+                mime_type=mime,
+                revision=str(entry.get("sha") or "") or None,
+                url=(
+                    f"https://github.com/{self._config.owner}/{self._config.repo}"
+                    f"/blob/{quote(self._config.ref, safe='/')}/{quote(path, safe='/')}"
+                ),
+                size_bytes=size if isinstance(size, int) else None,
+                metadata={"path": path, "ref": self._config.ref, "priority": priority},
             )
-            if len(items) >= max(1, limit):
-                break
-        return ConnectorPage(items=tuple(items), next_cursor=None)
+            candidate_pairs.append((priority, path, item))
+        candidate_pairs.sort(key=lambda pair: (pair[0], pair[1]))
+        return ConnectorPage(
+            items=tuple(item for _, _, item in candidate_pairs[: max(1, limit)]),
+            next_cursor=None,
+        )
 
     async def fetch_document(self, item: ConnectorItem) -> ConnectorDocument:
         if item.provider != self.provider:

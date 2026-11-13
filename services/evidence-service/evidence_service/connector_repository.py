@@ -13,7 +13,7 @@ from evidence_service.config import SupabaseSettings
 
 CONNECTION_SELECT = (
     "connection_id,user_id,provider,account_email,scopes,status,"
-    "last_sync_at,last_error_category,access_token_expires_at,provider_config,"
+    "last_sync_at,last_error_category,access_token_expires_at,provider_config,workspace_id,"
     "created_at,updated_at"
 )
 CONNECTION_SECRET_SELECT = CONNECTION_SELECT + ",access_token_ciphertext,refresh_token_ciphertext"
@@ -47,6 +47,7 @@ class ConnectorConnection:
     last_error_category: str | None
     access_token_expires_at: datetime | None
     provider_config: dict[str, Any]
+    workspace_id: UUID | None = None
     access_token_ciphertext: str | None = None
     refresh_token_ciphertext: str | None = None
 
@@ -125,6 +126,7 @@ class ConnectorRepository:
         refresh_token_ciphertext: str | None,
         access_token_expires_at: datetime | None,
         provider_config: dict[str, Any] | None = None,
+        workspace_id: UUID | None = None,
     ) -> ConnectorConnection:
         body = {
             "user_id": str(user_id),
@@ -137,6 +139,7 @@ class ConnectorRepository:
                 access_token_expires_at.isoformat() if access_token_expires_at else None
             ),
             "provider_config": provider_config or {},
+            "workspace_id": str(workspace_id) if workspace_id else None,
             "status": "connected",
             "last_error_category": None,
             "updated_at": datetime.now().astimezone().isoformat(),
@@ -243,7 +246,11 @@ class ConnectorRepository:
             body={
                 "last_sync_at": datetime.now().astimezone().isoformat(),
                 "status": "connected" if success else "error",
-                "last_error_category": None if success else (error_category or "sync_failed"),
+                "last_error_category": (
+                    error_category
+                    if error_category
+                    else (None if success else "sync_failed")
+                ),
                 "updated_at": datetime.now().astimezone().isoformat(),
             },
             prefer="return=minimal",
@@ -255,6 +262,90 @@ class ConnectorRepository:
             access_token,
             "connector_connections",
             params={"connection_id": f"eq.{connection_id}"},
+            prefer="return=minimal",
+        )
+
+    async def personal_workspace_id(
+        self, access_token: str, user_id: UUID
+    ) -> UUID | None:
+        response = await self._request(
+            "GET",
+            access_token,
+            "workspace_memberships",
+            params={
+                "select": "workspace_id,role,status,workspaces(id,name,created_at)",
+                "user_id": f"eq.{user_id}",
+                "role": "eq.owner",
+                "status": "eq.active",
+                "order": "created_at.asc",
+                "limit": "1",
+            },
+        )
+        rows = response.json()
+        if not isinstance(rows, list) or not rows:
+            return None
+        workspace = rows[0].get("workspaces")
+        if not isinstance(workspace, dict) or not workspace.get("id"):
+            return None
+        return UUID(str(workspace["id"]))
+
+    async def set_connection_workspace(
+        self, access_token: str, connection_id: UUID, workspace_id: UUID
+    ) -> None:
+        await self._request(
+            "PATCH",
+            access_token,
+            "connector_connections",
+            params={"connection_id": f"eq.{connection_id}"},
+            body={"workspace_id": str(workspace_id), "updated_at": datetime.now().astimezone().isoformat()},
+            prefer="return=minimal",
+        )
+
+    async def upsert_evidence_documents(
+        self, access_token: str, documents: list[dict[str, Any]]
+    ) -> None:
+        if not documents:
+            return
+        await self._request(
+            "POST",
+            access_token,
+            "evidence_records",
+            params={
+                "on_conflict": "connector_connection_id,connector_external_id",
+                "select": "id",
+            },
+            body=documents,
+            prefer="resolution=merge-duplicates,return=minimal",
+        )
+
+    async def delete_stale_connector_evidence(
+        self, access_token: str, connection_id: UUID, current_external_ids: set[str]
+    ) -> None:
+        response = await self._request(
+            "GET",
+            access_token,
+            "evidence_records",
+            params={
+                "select": "id,connector_external_id",
+                "connector_connection_id": f"eq.{connection_id}",
+                "limit": "1000",
+            },
+        )
+        rows = response.json()
+        stale = [
+            str(row["id"])
+            for row in rows
+            if isinstance(row, dict)
+            and row.get("id")
+            and str(row.get("connector_external_id") or "") not in current_external_ids
+        ]
+        if not stale:
+            return
+        await self._request(
+            "DELETE",
+            access_token,
+            "evidence_records",
+            params={"id": "in.(" + ",".join(stale) + ")"},
             prefer="return=minimal",
         )
 
@@ -295,6 +386,11 @@ class ConnectorRepository:
                 row.get("provider_config")
                 if isinstance(row.get("provider_config"), dict)
                 else {}
+            ),
+            workspace_id=(
+                UUID(str(row["workspace_id"]))
+                if row.get("workspace_id")
+                else None
             ),
             access_token_ciphertext=(
                 row.get("access_token_ciphertext") if include_secrets else None

@@ -11,6 +11,7 @@ import {
 type ConnectorConnection = {
   connection_id: string;
   provider: string;
+  workspace_id: string | null;
   account_email: string | null;
   status: string;
   last_sync_at: string | null;
@@ -101,8 +102,9 @@ export default function ConnectorSources() {
         <span className="workspace-role">Personal</span>
       </div>
       <p className="workspace-note">
-        Connect a read-only Notion or Google Drive source, then run a bounded sync. Documents are
-        stored in your personal connector store; no files are written back to the provider.
+        Connect a read-only source, then run a bounded sync. GitHub documents are bridged
+        into your personal workspace evidence store so retrieve can use them. No files are
+        written back to the provider.
       </p>
       <div className="workspace-form-actions">
         {googleDriveConnectorEnabled ? (
@@ -136,6 +138,7 @@ export default function ConnectorSources() {
           <span className="workspace-note">
             {connection.provider}: {connection.status}
             {connection.account_email ? ` (${connection.account_email})` : ""}
+            {connection.workspace_id ? ` · workspace ${connection.workspace_id}` : ""}
             {connection.last_sync_at ? ` · last sync ${new Date(connection.last_sync_at).toLocaleString()}` : ""}
           </span>
           <button type="button" disabled={pending} onClick={() => void syncConnector(connection.connection_id)}>
