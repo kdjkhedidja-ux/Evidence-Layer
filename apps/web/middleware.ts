@@ -76,7 +76,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 
   if (protectedReset && user) {
     const recoveryCookie = request.cookies.get(RECOVERY_COOKIE)?.value;
-    if (!accessToken || !hasRecoveryProof(recoveryCookie, accessToken)) {
+    if (!accessToken || !(await hasRecoveryProof(recoveryCookie, accessToken))) {
       return redirectTo(request, verificationFailed
         ? "/auth/error?reason=configuration" : "/auth/error?reason=invalid-link", response);
     }

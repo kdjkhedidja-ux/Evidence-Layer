@@ -52,7 +52,7 @@ describe("server route protection and session refresh", () => {
     expect(response.headers.get("location")).toBe("https://app.example/auth/error?reason=invalid-link");
 
     const valid = new NextRequest("https://app.example/reset-password");
-    valid.cookies.set(RECOVERY_COOKIE, recoveryProof("synthetic-access-token"));
+    valid.cookies.set(RECOVERY_COOKIE, await recoveryProof("synthetic-access-token"));
     const allowed = await middleware(valid);
     expect(allowed.headers.get("x-middleware-next")).toBe("1");
   });

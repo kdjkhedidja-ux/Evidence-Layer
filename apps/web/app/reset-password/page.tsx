@@ -11,7 +11,7 @@ export default async function ResetPasswordPage() {
   if (auth.kind === "unauthenticated") redirect("/auth/error?reason=expired-link");
   if (auth.kind === "unavailable") redirect("/auth/error?reason=configuration");
   const recoveryCookie = (await cookies()).get(RECOVERY_COOKIE)?.value;
-  if (!hasRecoveryProof(recoveryCookie, auth.accessToken)) {
+  if (!(await hasRecoveryProof(recoveryCookie, auth.accessToken))) {
     redirect("/auth/error?reason=invalid-link");
   }
   return <AuthForm mode="reset-password" />;
