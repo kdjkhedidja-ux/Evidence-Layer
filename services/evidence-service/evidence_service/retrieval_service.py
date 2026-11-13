@@ -9,6 +9,14 @@ from typing import Callable
 from evidence_layer.scoring.lexical import LexicalScorer
 from evidence_layer.tokenization import shared_visible_counter
 
+from evidence_service.chunking import (
+    CHUNKING_VERSION,
+    TextChunk,
+    adjusted_score,
+    chunk_text,
+    document_title,
+    source_path,
+)
 from evidence_service.evidence_repository import EvidenceRecord
 
 _counter_cache: tuple[Callable[[str], int], str] | None = None
@@ -32,9 +40,16 @@ def token_counter() -> tuple[Callable[[str], int], str]:
 @dataclass(frozen=True)
 class SelectedEvidence:
     record: EvidenceRecord
+    content: str
     score: float
     token_count: int
     char_count: int
+    chunk_id: str
+    chunk_index: int
+    chunk_start: int
+    chunk_end: int
+    path: str | None
+    title: str | None
 
 
 @dataclass(frozen=True)
@@ -42,9 +57,31 @@ class RetrievalSelection:
     status: str
     selected: list[SelectedEvidence]
     candidate_count: int
+    chunk_count: int
+    matched_chunk_count: int
     used_tokens: int
     used_chars: int
     token_estimator: str
+    chunking: str = CHUNKING_VERSION
+
+
+@dataclass(frozen=True)
+class _ChunkCandidate:
+    record: EvidenceRecord
+    chunk: TextChunk
+    path: str | None
+    title: str | None
+    score: float
+    token_count: int
+    char_count: int
+
+    @property
+    def parent_key(self) -> str:
+        return str(self.record.id)
+
+    @property
+    def chunk_key(self) -> str:
+        return f"{self.record.id}:{self.chunk.start}:{self.chunk.end}"
 
 
 def select_evidence(
@@ -56,38 +93,87 @@ def select_evidence(
     max_chars: int,
 ) -> RetrievalSelection:
     scorer = LexicalScorer()
+    query_terms = set(scorer.normalize(query))
     counter, estimator = token_counter()
-    scored: list[tuple[float, EvidenceRecord]] = []
+    candidates: list[_ChunkCandidate] = []
+    chunk_count = 0
     for record in records:
-        text = record.content or ""
-        score = scorer.score(query, text)
-        if score > 0:
-            scored.append((score, record))
-    scored.sort(key=lambda pair: (-pair[0], str(pair[1].id)))
+        path = source_path(record.source_label)
+        title = document_title(record.content or "", path)
+        for chunk in chunk_text(record.content or ""):
+            chunk_count += 1
+            raw_score = scorer.score(query, chunk.content)
+            if raw_score <= 0:
+                continue
+            score = adjusted_score(
+                raw_score,
+                path=path,
+                title=title,
+                query_terms=query_terms,
+            )
+            if score <= 0:
+                continue
+            candidates.append(
+                _ChunkCandidate(
+                    record=record,
+                    chunk=chunk,
+                    path=path,
+                    title=title,
+                    score=score,
+                    token_count=counter(chunk.content),
+                    char_count=len(chunk.content),
+                )
+            )
+    candidates.sort(
+        key=lambda item: (
+            -item.score,
+            item.path or "",
+            str(item.record.id),
+            item.chunk.start,
+        )
+    )
 
     selected: list[SelectedEvidence] = []
+    selected_chunks: set[str] = set()
+    per_parent: dict[str, int] = {}
     used_tokens = 0
     used_chars = 0
     budget_hit = False
-    for score, record in scored:
-        text = record.content or ""
-        chars = len(text)
-        tokens = counter(text)
-        if used_tokens + tokens > max_tokens or used_chars + chars > max_chars:
-            budget_hit = True
-            continue
-        selected.append(
-            SelectedEvidence(
-                record=record,
-                score=score,
-                token_count=tokens,
-                char_count=chars,
-            )
-        )
-        used_tokens += tokens
-        used_chars += chars
+    for parent_limit in (1, 2, max(1, top_k)):
         if len(selected) >= top_k:
             break
+        for candidate in candidates:
+            if len(selected) >= top_k:
+                break
+            if candidate.chunk_key in selected_chunks:
+                continue
+            if per_parent.get(candidate.parent_key, 0) >= parent_limit:
+                continue
+            if (
+                used_tokens + candidate.token_count > max_tokens
+                or used_chars + candidate.char_count > max_chars
+            ):
+                budget_hit = True
+                continue
+            selected.append(
+                SelectedEvidence(
+                    record=candidate.record,
+                    content=candidate.chunk.content,
+                    score=candidate.score,
+                    token_count=candidate.token_count,
+                    char_count=candidate.char_count,
+                    chunk_id=candidate.chunk_key,
+                    chunk_index=candidate.chunk.index,
+                    chunk_start=candidate.chunk.start,
+                    chunk_end=candidate.chunk.end,
+                    path=candidate.path,
+                    title=candidate.title,
+                )
+            )
+            selected_chunks.add(candidate.chunk_key)
+            per_parent[candidate.parent_key] = per_parent.get(candidate.parent_key, 0) + 1
+            used_tokens += candidate.token_count
+            used_chars += candidate.char_count
 
     if not selected:
         status = "no_results"
@@ -99,6 +185,8 @@ def select_evidence(
         status=status,
         selected=selected,
         candidate_count=len(records),
+        chunk_count=chunk_count,
+        matched_chunk_count=len(candidates),
         used_tokens=used_tokens,
         used_chars=used_chars,
         token_estimator=estimator,

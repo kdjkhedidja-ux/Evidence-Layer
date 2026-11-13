@@ -24,6 +24,30 @@ Request:
 
 `candidate_limit` is the newest evidence window read for the workspace, capped at 100. Selection is deterministic **Lexical** scoring; JEV is not used.
 
+### Chunking and path priority
+
+Retrieval chunks each evidence body at read time (no schema change and no re-sync required):
+
+| Setting | Value |
+|---|---:|
+| Target chunk size | 2,400 characters (~500–800 visible tokens) |
+| Overlap | 240 characters |
+| Maximum chunks per evidence | 48 |
+| Chunk identity | `evidence_id:start:end` (stable character offsets) |
+
+Chunks are scored individually, then packed into `top_k`, `max_tokens`, and `max_chars`. Packing prefers one chunk per parent path first, then a second pass, then remaining chunks; this avoids filling the response from one huge file when other paths match. Each item preserves the parent `evidence_id` and adds `chunk_id`, `chunk_index`, `chunk_start`, `chunk_end`, `path`, and `title`.
+
+Deterministic path/title multipliers (applied to the Lexical score):
+
+- `README*` and `docs/ARCHITECTURE*`: **1.50×**
+- `docs/product|design|overview|spec*`: **1.35×**
+- other Markdown under `docs/`: **1.20×**
+- top-level Markdown: **1.15×**
+- query term hits the path or first heading: **1.08×** each
+- closure/verification/smoke/checklist paths: **0.70×** only when the query has no ops term (audit, deploy, deletion, migration, runbook, worker, etc.), so real ops questions are not hidden
+
+Selection remains lexical-only. Chunking is deterministic and happens on every request, so existing GitHub evidence is picked up immediately after deploy; operators do **not** need to re-sync for this change.
+
 Response:
 
 ```json
@@ -35,27 +59,36 @@ Response:
   "max_tokens": 1200,
   "max_chars": 6000,
   "candidate_count": 12,
+  "chunk_count": 31,
+  "matched_chunk_count": 8,
   "selected_count": 2,
   "used_tokens": 280,
   "used_chars": 1100,
   "token_estimator": "o200k_base-tiktoken-0.14.0",
   "scoring_provider": "lexical_stopword_filtered",
+  "chunking": "retrieve_time_v1",
   "evidence": [
     {
       "evidence_id": "…",
-      "content": "…",
-      "source_label": "…",
+      "content": "…selected chunk…",
+      "source_label": "GitHub: owner/repo/README.md",
       "source_id": null,
       "source_version_id": null,
       "score": 0.42,
       "token_count": 120,
-      "char_count": 480
+      "char_count": 480,
+      "chunk_id": "…:0:480",
+      "chunk_index": 0,
+      "chunk_start": 0,
+      "chunk_end": 480,
+      "path": "README.md",
+      "title": "Evidence Layer"
     }
   ]
 }
 ```
 
-If the pinned tokenizer artifact is unavailable, `token_estimator` is `chars_div_4`. Token counts are estimates in that mode.
+`score` is the adjusted Lexical score after deterministic path/title boosts. If the pinned tokenizer artifact is unavailable, `token_estimator` is `chars_div_4`; token counts are estimates in that mode.
 
 ### curl examples
 
@@ -76,6 +109,29 @@ curl -sS \
   "$EL_API_URL/v1/personal-api-keys/workspaces/$EL_WORKSPACE_ID/evidence/$EVIDENCE_ID" \
   -H "Authorization: Bearer $EL_API_KEY"
 ```
+
+## Re-running the 15-question retrieval check
+
+The A/B protocol used on 2026-11-13 is stored at
+`tests/fixtures/retrieval_harness/ab_questions.jsonl`. It is a retrieval-quality
+check first; calling DeepSeek is optional and only needed to compare answer
+quality.
+
+1. Export the same private workspace corpus from `connector_documents` (do not
+   commit it; it may contain private repository text).
+2. Run the retrieval harness with the same budgets as the production check:
+   `top_k=8`, `max_tokens=3500`, `max_chars=14000`, `candidate_limit=100`.
+3. Confirm the selected parent paths cover the expected sources:
+   README/product chunks for the product question, `docs/ARCHITECTURE` for the
+   architecture question, deletion/worker docs for the deletion question, and
+   API/MCP docs for the agent question.
+4. Check that selection stays within budget and that no single file supplies all
+   `top_k` chunks while other paths match.
+5. If DeepSeek keys are available, run the same questions with and without
+   retrieved context, then inspect `usage.total_tokens` and answer sufficiency.
+
+Chunking is retrieve-time only. A normal deploy is sufficient; do **not** force
+a GitHub re-sync just to get chunking.
 
 ## MCP server
 
@@ -117,10 +173,11 @@ export EVIDENCE_WORKSPACE_ID="00000000-0000-4000-8000-000000000000"
 
 python scripts/measure_retrieval_reduction.py \
   --corpus /tmp/github-synced-corpus.jsonl \
-  --queries /tmp/queries.jsonl \
+  --queries tests/fixtures/retrieval_harness/ab_questions.jsonl \
   --api-url "$EVIDENCE_API_URL" \
   --api-key "$EVIDENCE_API_KEY" \
   --workspace-id "$EVIDENCE_WORKSPACE_ID" \
+  --top-k 8 --max-tokens 3500 --max-chars 14000 --candidate-limit 100 \
   --output reports/retrieval-token-reduction-github.md
 ```
 
