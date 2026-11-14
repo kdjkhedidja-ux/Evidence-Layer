@@ -16,18 +16,21 @@ whether the agent should **answer**, **abstain**, or **escalate**.
 
 ## Current Status
 
-The approved target architecture makes JEV the intended primary evidence
-scorer only when explicitly enabled and permitted by policy. On any JEV failure
-or invalid/incomplete score, the entire candidate set is recomputed lexically;
-JEV and lexical rankings are never mixed. The service provider-selection and
-MCP/stdio paths remain lexical-only. A separate one-run benchmark host can
-score only the complete, fingerprint-verified public Real-World v1 set under a
-one-use permit; it does not enable production provider transfers. Its
-exploratory results and scientific limits are recorded in
+The approved architecture makes JEV an optional scorer. On any JEV failure or
+invalid/incomplete score, the entire candidate set is recomputed lexically; JEV
+and lexical rankings are never mixed. The hosted task-context and retrieve
+paths can use JEV only when the request opts in and `EVIDENCE_JEV_ENABLED` is
+open; Lexical remains the default. The Remote MCP tool surface does not expose
+JEV as a hidden default, and the local stdio path remains lexical-only. The
+production activation and synthetic smoke are recorded in
+[`docs/operations/provider-jev-activation-2026-11-14.md`](docs/operations/provider-jev-activation-2026-11-14.md).
+A separate one-run benchmark host scores only the complete, fingerprint-verified
+public Real-World v1 set under a one-use permit; its exploratory results and
+scientific limits are recorded in
 [`docs/phase6_real_world_jev_report.md`](docs/phase6_real_world_jev_report.md).
-The current corpus retriever also denies source reads by default, so it does
-not return corpus evidence without a future trusted source boundary. The
-historical held-out comparison was **Inconclusive**.
+The local corpus retriever denies source reads by default; the hosted service
+uses workspace/RLS/API-key boundaries. The historical held-out comparison was
+**Inconclusive**.
 
 A local stdio MCP server (`retrieve_evidence`) is implemented. The repository
 also contains an authenticated Next.js workspace product in `apps/web/` and a
@@ -528,11 +531,12 @@ verified during development. It is an alias and may resolve to a changing
 underlying model; this does not provide pinned-model reproducibility. Callers
 can select another model explicitly with `JevEvidenceScorer(model="...")`.
 
-The TypeSafe SDK is pinned at `typesafe-sdk==0.7.2`. The ordinary
-provider-selection policy remains lexical-only. The dedicated Real-World v1
-runner requires `--run-authorized`, verifies the fixed 40-case/200-candidate
-inputs and the synthetic freeze fingerprints, then issues a one-use scope for
-those exact query/candidate pairs. It uses the official System One endpoint,
+The TypeSafe SDK is pinned at `typesafe-sdk==0.7.2`. The ordinary library
+provider-selection policy remains lexical-only by default. The hosted
+request-opt-in JEV path is separately gated and fail-closed. The dedicated
+Real-World v1 runner requires `--run-authorized`, verifies the fixed
+40-case/200-candidate inputs and the synthetic freeze fingerprints, then issues
+a one-use scope for those exact query/candidate pairs. It uses the official System One endpoint,
 `TYPESAFE_API_KEY` Bearer authentication, zero SDK retries, and records safe
 scores and metadata without request bodies or credentials. The completed run
 and its offline verifier are documented in
