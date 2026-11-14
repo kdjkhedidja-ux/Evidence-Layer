@@ -129,6 +129,24 @@ def test_long_readme_chunks_outrank_an_incidental_ops_file():
     assert result.selected[0].chunk_id.startswith("11111111-1111-4111-8111-111111111111:")
 
 
+def test_low_relevance_chunks_do_not_fill_empty_top_k_slots():
+    high = "alpha " * 200
+    low = "alpha " + ("unrelated filler text " * 700)
+    result = select_evidence(
+        [
+            record(high, "66666666-6666-4666-8666-666666666666", "GitHub: owner/repo/README.md"),
+            record(low, "77777777-7777-4777-8777-777777777777", "GitHub: owner/repo/docs/guide.md"),
+        ],
+        query="alpha",
+        top_k=3,
+        max_tokens=4_000,
+        max_chars=20_000,
+    )
+    assert len(result.selected) == 1
+    assert result.selected[0].path == "README.md"
+    assert result.status == "ok"
+
+
 def test_definitional_query_prefers_readme_over_adr_and_plans():
     readme = "# Evidence Layer\n\n" + (
         "Evidence Layer is a provider-agnostic evidence-selection and context-reduction layer. "

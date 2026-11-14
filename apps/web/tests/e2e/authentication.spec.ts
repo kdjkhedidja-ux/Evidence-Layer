@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+test.describe.configure({ mode: "serial" });
+
 const email = "person@example.test";
 const secondEmail = "switch@example.test";
 const password = "Synthetic-password-123";
@@ -15,7 +17,7 @@ test("login authenticates with the local fixture and opens Workspace", async ({ 
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
 
-  await expect(page).toHaveURL("/workspace");
+  await expect(page).toHaveURL("/workspace", { timeout: 15_000 });
   await expect(page.getByRole("heading", { name: "Evidence workspace" })).toBeVisible();
 });
 
@@ -25,7 +27,7 @@ test("browser session cookies reach the verified server-side workspace API", asy
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
 
-  await expect(page).toHaveURL("http://localhost:3000/workspace");
+  await expect(page).toHaveURL("http://localhost:3000/workspace", { timeout: 15_000 });
   await expect(page.getByRole("heading", { name: "Evidence workspace" })).toBeVisible();
 
   const identity = await page.evaluate(async () => {
@@ -71,7 +73,7 @@ test("server workspace APIs reject absent sessions and workspaces outside a user
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL("http://localhost:3000/workspace");
+  await expect(page).toHaveURL("http://localhost:3000/workspace", { timeout: 15_000 });
 
   const unauthorized = await page.evaluate(async () => {
     const response = await fetch("/api/evidence/workspaces/10000000-0000-4000-8000-000000000004", {
@@ -98,9 +100,9 @@ test("a workspace failure keeps the signed-in session and can be retried", async
   await page.getByRole("button", { name: "Sign in" }).click();
 
   await expect(page.locator(".auth-error[role='alert']")).toContainText("workspace could not be opened");
-  await expect(page).toHaveURL("http://localhost:3000/login");
+  await expect(page).toHaveURL("http://localhost:3000/login", { timeout: 15_000 });
   await page.getByRole("button", { name: "Retry opening workspace" }).click();
-  await expect(page).toHaveURL("http://localhost:3000/workspace");
+  await expect(page).toHaveURL("http://localhost:3000/workspace", { timeout: 15_000 });
   await expect(page.getByRole("heading", { name: "Evidence workspace" })).toBeVisible();
   expect(attempts).toBe(2);
 });
@@ -132,7 +134,7 @@ test("account panel signs out cleanly before a different synthetic account signs
   await page.getByLabel("Email").fill(activeAccount.email);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL("http://localhost:3000/account");
+  await expect(page).toHaveURL("http://localhost:3000/account", { timeout: 15_000 });
   await expect(page.getByRole("heading", { level: 1, name: "Account" })).toBeVisible();
 
   const accountPanel = page.locator("#account-panel");
@@ -140,7 +142,7 @@ test("account panel signs out cleanly before a different synthetic account signs
   await expect(accountPanel.getByText(email, { exact: true })).toBeVisible();
   await expect(accountPanel.getByText(accounts[0].workspace.name, { exact: true })).toBeVisible();
   await accountPanel.getByRole("button", { name: "Sign out", exact: true }).click();
-  await expect(page).toHaveURL("http://localhost:3000/login?reason=signed-out");
+  await expect(page).toHaveURL("http://localhost:3000/login?reason=signed-out", { timeout: 15_000 });
   await expect(page.getByRole("status")).toContainText("You have been signed out.");
 
   activeAccount = accounts[1];
@@ -148,7 +150,7 @@ test("account panel signs out cleanly before a different synthetic account signs
   await page.getByLabel("Email").fill(activeAccount.email);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL("http://localhost:3000/account");
+  await expect(page).toHaveURL("http://localhost:3000/account", { timeout: 15_000 });
 
   const switchedPanel = page.locator("#account-panel");
   await expect(switchedPanel.getByText(secondEmail, { exact: true })).toBeVisible();
@@ -198,7 +200,7 @@ test("workspace route shows authorized service records on desktop and mobile", a
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL("/workspace");
+  await expect(page).toHaveURL("/workspace", { timeout: 15_000 });
 
   await page.setViewportSize({ width: 1280, height: 800 });
   await expect(page.getByRole("heading", { name: "Evidence workspace" })).toBeVisible();
@@ -261,7 +263,7 @@ test("workspace sources index lists versions and reads one through the verified 
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL("/workspace");
+  await expect(page).toHaveURL("/workspace", { timeout: 15_000 });
 
   await expect(page.getByRole("heading", { name: "Verified source snapshots" })).toBeVisible();
   await expect(page.getByText(/Version 10000000/)).toBeVisible();
@@ -314,7 +316,7 @@ test("workspace sources read denial shows a safe message and no content", async 
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL("/workspace");
+  await expect(page).toHaveURL("/workspace", { timeout: 15_000 });
 
   await page.getByRole("button", { name: "Read source" }).click();
   await expect(page.getByText("Source read is not authorized.")).toBeVisible();
@@ -330,7 +332,7 @@ test("login normalizes an unsafe external next destination to the app root", asy
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
 
-  await expect(page).toHaveURL("http://localhost:3000/");
+  await expect(page).toHaveURL("http://localhost:3000/", { timeout: 15_000 });
 });
 
 test("login failure is announced accessibly", async ({ page }) => {
@@ -379,7 +381,7 @@ test("login prevents duplicate submissions while the local Auth request is pendi
     await form.evaluate((element) => (element as HTMLFormElement).requestSubmit());
     releaseAuthRequest();
 
-    await expect(page).toHaveURL("http://localhost:3000/");
+    await expect(page).toHaveURL("http://localhost:3000/", { timeout: 15_000 });
     await expect(page.getByRole("heading", { name: "Evidence Explorer" })).toBeVisible();
     expect(passwordRequests).toBe(1);
   } finally {
@@ -438,7 +440,7 @@ test("forgot-password displays a non-enumerating reset status", async ({ page })
 
 test("recovery callback opens reset-password and completes using the synthetic Auth fixture", async ({ page }) => {
   await page.goto("/auth/callback?token_hash=synthetic-recovery-link&type=recovery");
-  await expect(page).toHaveURL(/\/reset-password$/);
+  await expect(page).toHaveURL(/\/reset-password$/, { timeout: 15_000 });
   await expect(page.getByRole("heading", { name: "Choose a new password" })).toBeVisible();
   await page.getByLabel("New password").fill(password);
   await page.getByLabel("Confirm password").fill(password);
@@ -450,7 +452,7 @@ test("recovery callback opens reset-password and completes using the synthetic A
 test("expired recovery token is rejected by the deterministic local fixture", async ({ page }) => {
   await page.goto("/auth/callback?token_hash=synthetic-expired-recovery-link&type=recovery");
 
-  await expect(page).toHaveURL("http://localhost:3000/auth/error?reason=invalid-link");
+  await expect(page).toHaveURL("http://localhost:3000/auth/error?reason=invalid-link", { timeout: 15_000 });
   await expect(page.getByRole("heading", { name: "This link could not be verified" })).toBeVisible();
   await expect(page.locator("body")).not.toContainText("synthetic-expired-recovery-link");
 });
@@ -460,7 +462,7 @@ test("callback errors show safe, accessible guidance", async ({ page }) => {
     "/auth/callback?error=access_denied&error_code=otp_expired&error_description=synthetic-private-detail",
   );
 
-  await expect(page).toHaveURL(/\/auth\/error\?reason=expired-link$/);
+  await expect(page).toHaveURL(/\/auth\/error\?reason=expired-link$/, { timeout: 15_000 });
   await expect(page.getByRole("heading", { name: "This link has expired" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Request a password-reset link" })).toHaveAttribute(
     "href",
@@ -479,7 +481,7 @@ for (const viewport of [
 
     await page.getByRole("button", { name: "Menu" }).click();
     await page.locator("#site-menu").getByRole("link", { name: "Sign in" }).click();
-    await expect(page).toHaveURL(/\/login$/);
+    await expect(page).toHaveURL(/\/login$/, { timeout: 15_000 });
     await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
   });
 }

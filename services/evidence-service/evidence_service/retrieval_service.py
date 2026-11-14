@@ -20,6 +20,7 @@ from evidence_service.chunking import (
 )
 from evidence_service.evidence_repository import EvidenceRecord
 
+MIN_RELATIVE_SCORE = 0.35
 _counter_cache: tuple[Callable[[str], int], str] | None = None
 
 
@@ -75,6 +76,7 @@ class _ChunkCandidate:
     score: float
     token_count: int
     char_count: int
+    protected: bool = False
 
     @property
     def parent_key(self) -> str:
@@ -142,6 +144,10 @@ def select_evidence(
                     score=score,
                     token_count=counter(chunk.content),
                     char_count=len(chunk.content),
+                    protected=bool(
+                        (seed_record_ids and record.id in seed_record_ids)
+                        or (related_record_scores and record.id in related_record_scores)
+                    ),
                 )
             )
     candidates.sort(
@@ -171,6 +177,10 @@ def select_evidence(
                 continue
             if per_parent.get(candidate.parent_key, 0) >= parent_limit:
                 continue
+            if selected and not candidate.protected:
+                floor = max(item.score for item in selected) * MIN_RELATIVE_SCORE
+                if candidate.score < floor:
+                    continue
             if (
                 used_tokens + candidate.token_count > max_tokens
                 or used_chars + candidate.char_count > max_chars
