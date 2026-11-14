@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import PageTitle from "./page-title";
+import SiteHeader from "./site-header";
 import { useRouter } from "next/navigation";
 import { useRef, useState, type FormEvent } from "react";
 import { createSupabaseBrowserClient } from "../lib/supabase/client";
@@ -226,10 +227,8 @@ export default function AuthForm({
 
   return (
     <main className="auth-page">
+      <SiteHeader />
       <div className="auth-card">
-        <Link className="auth-brand" href="/login" aria-label="Evidence Layer sign in">
-          <span className="brand-name">evidence<span>layer</span></span>
-        </Link>
         <p className="eyebrow">{content.eyebrow}</p>
         <h1><PageTitle>{content.title}</PageTitle></h1>
         <p className="auth-description">{content.description}</p>

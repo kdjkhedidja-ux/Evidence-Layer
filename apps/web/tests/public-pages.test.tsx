@@ -30,6 +30,7 @@ describe("public information pages", () => {
   it.each(routes)("renders the $name route with metadata, landmarks, and working public navigation", ({ path, name, Page, metadata }) => {
     expect(metadata.title).toContain(name);
     expect(metadata.description).toBeTruthy();
+    window.history.replaceState({}, "", path);
 
     render(<Page />);
 
@@ -40,7 +41,16 @@ describe("public information pages", () => {
     const headerNav = within(headerNavElement);
     expect(headerNav.getAllByRole("link").map((link) => link.textContent)).toEqual([
       "Workspace",
+      "Telemetry",
+      "Evidence",
+      "Relationships",
+      "Connect an agent",
       "Documentation",
+      "Evaluation · Benchmarks",
+      "Cost & Performance",
+      "Privacy",
+      "Terms",
+      "Data Deletion",
     ]);
 
     const footerNav = screen.getByRole("navigation", { name: "Legal and product information" });

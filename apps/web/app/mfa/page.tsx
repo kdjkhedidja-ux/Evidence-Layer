@@ -1,5 +1,5 @@
-import Link from "next/link";
 import PageTitle from "../../components/page-title";
+import SiteHeader from "../../components/site-header";
 import { redirect } from "next/navigation";
 import { getVerifiedAuthContext } from "../../lib/supabase/server";
 import { safeInternalPath } from "../../lib/supabase/redirect";
@@ -20,10 +20,7 @@ export default async function MfaPage({
   if (auth.kind === "unavailable") {
     return (
       <main className="workspace-page workspace-page--gate">
-        <header className="workspace-header">
-          <Link className="workspace-brand" href="/">evidence<span>layer</span></Link>
-          <Link href="/">Open Explorer</Link>
-        </header>
+        <SiteHeader />
         <section aria-labelledby="mfa-gate-title" className="workspace-gate">
           <p className="eyebrow">Evidence Layer · Security</p>
           <h1 id="mfa-gate-title"><PageTitle>Authentication service is unavailable</PageTitle></h1>
@@ -41,16 +38,7 @@ export default async function MfaPage({
 
   return (
     <main className="workspace-page">
-      <header className="workspace-header">
-        <Link className="workspace-brand" href="/">evidence<span>layer</span></Link>
-        <nav aria-label="Account">
-          <Link href="/workspace">Workspace</Link>
-          <Link href="/">Explorer</Link>
-        </nav>
-        <div className="workspace-user">
-          <span>{auth.user.email ?? "Account"}</span>
-        </div>
-      </header>
+      <SiteHeader accountEmail={auth.user.email ?? null} />
       <MfaPanel next={next} />
     </main>
   );

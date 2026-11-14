@@ -506,7 +506,9 @@ for (const viewport of [
       .toBeLessThanOrEqual(viewport.width);
 
     await page.keyboard.press("Tab");
-    await expect(page.getByRole("link", { name: "Evidence Layer sign in" })).toBeFocused();
+    await expect(page.getByRole("link", { name: "Evidence Layer home" })).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(page.getByRole("button", { name: "Menu" })).toBeFocused();
     await page.keyboard.press("Tab");
     const emailInput = page.getByLabel("Email");
     await expect(emailInput).toBeFocused();
