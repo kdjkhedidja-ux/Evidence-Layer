@@ -1242,7 +1242,9 @@ export async function proxyWorkspaceTaskContextRequest({
   body: WorkspaceTaskContextInput;
 }): Promise<Response> {
   if (!isUuid(workspaceId)) return json(404, { error: "Workspace not found." });
-  if (!sameOrigin(request)) return json(403, { error: "Request origin was not accepted." });
+  if (request.method !== "GET" && !sameOrigin(request)) {
+    return json(403, { error: "Request origin was not accepted." });
+  }
   const auth = await getVerifiedAuthContext();
   if (auth.kind === "unauthenticated") return json(401, { error: "Authentication is required." });
   if (auth.kind === "unavailable") return json(503, { error: "Identity verification is unavailable." });
@@ -1538,7 +1540,9 @@ export async function proxyWorkspaceTaskRunsRequest({
   workspaceId: string;
 }): Promise<Response> {
   if (!isUuid(workspaceId)) return json(404, { error: "Workspace not found." });
-  if (!sameOrigin(request)) return json(403, { error: "Request origin was not accepted." });
+  if (request.method !== "GET" && !sameOrigin(request)) {
+    return json(403, { error: "Request origin was not accepted." });
+  }
   const auth = await getVerifiedAuthContext();
   if (auth.kind === "unauthenticated") return json(401, { error: "Authentication is required." });
   if (auth.kind === "unavailable") return json(503, { error: "Identity verification is unavailable." });
