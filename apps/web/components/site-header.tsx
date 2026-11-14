@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { href: "/privacy", label: "Privacy" },
   { href: "/terms", label: "Terms" },
   { href: "/data-deletion", label: "Data Deletion" },
+  { href: "/account", label: "Account" },
 ] as const;
 
 function isCurrent(pathname: string | null, href: string): boolean {
