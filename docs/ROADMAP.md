@@ -32,8 +32,9 @@ organization/snapshot smokes reached `purged`. See
 [`docs/operations/DELETION-WORKER-VERIFY-2026-11-11.md`](operations/DELETION-WORKER-VERIFY-2026-11-11.md).
 
 Hosted task-context, chunked personal-key retrieval, and Remote MCP are
-deployed and production-verified. JEV remains opt-in and off by default;
-agent execution, server-persisted per-task usage/cost/quality telemetry,
+deployed and production-verified. JEV is enabled server-side as of 2026-11-14
+but remains request-level opt-in (`use_jev=false` by default); agent execution,
+server-persisted per-task usage/cost/quality telemetry,
 source ingestion/publish, billing/metering, production background connectors,
 shared-workspace deletion approvals, and the remaining Phase 8 gates are not
 complete. A narrowed account/personal export and mediated download path is
