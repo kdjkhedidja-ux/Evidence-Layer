@@ -43,11 +43,11 @@ the hosted Evidence Service does not generate model answers.
 | Provider | Credential check | Generation check | State |
 |---|---|---|---|
 | DeepSeek | `/models` `200`, 2 models | `deepseek-chat` `200`, returned `deepseek-flash`, 9 tokens | **ACTIVE for evaluation** |
-| OpenAI | `/models` `401 expired_secret_key` | not attempted | **BLOCKED — rotate key** |
-| Anthropic | `/models` `401 invalid x-api-key` | not attempted | **BLOCKED — rotate key** |
+| OpenAI | `/models` `200`, 98 models after key rotation | `gpt-6.1-sol` `429 insufficient_quota` — no credits remaining | **BLOCKED — add credits** |
+| Anthropic | `/models` `200`, 15 models after key rotation | `claude-haiku-5-5` `200`, returned `claude-haiku-5-5`, 4 output tokens | **ACTIVE for evaluation** |
 
 No new full benchmark run was started. Phase 2 comparison remains based on the
-existing documented answer pairs, so it is not blocked by the two expired keys.
+existing documented answer pairs, so it is not blocked by provider quotas.
 
 ## Rollback
 
@@ -63,4 +63,4 @@ JEV is fail-closed: disabling the flag does not require a code rollback.
 - The smoke used synthetic text only.
 - Real-World v1 egress for JEV remains a separate data-transfer decision.
 - Provider-side JEV usage/cost is not returned by the current API contract.
-- OpenAI/Anthropic key rotation is an operator action outside this repository.
+- OpenAI billing/credits are an operator action outside this repository.
