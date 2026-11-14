@@ -60,6 +60,7 @@ class EvidenceApiClient:
         max_tokens: int = 1200,
         max_chars: int = 6000,
         candidate_limit: int = 50,
+        use_jev: bool = True,
     ) -> dict[str, Any]:
         return self._request(
             "POST",
@@ -70,6 +71,7 @@ class EvidenceApiClient:
                 "max_tokens": max_tokens,
                 "max_chars": max_chars,
                 "candidate_limit": candidate_limit,
+                "use_jev": use_jev,
             },
         )
 

@@ -130,8 +130,8 @@ def create_remote_mcp_runtime(backend: RemoteMcpBackend, *, enabled: bool) -> Re
             "Read-only Evidence Layer tools. Resolve the workspace from the hosted URL and the "
             "personal API key from the Authorization header. Use retrieve_evidence to get a "
             "bounded, provenance-rich context, then get_document only when the full parent record "
-            "is needed. Set use_jev=true only with explicit request-level consent to send the "
-            "query and bounded candidate snippets to JEV; the server may keep JEV disabled."
+            "is needed. JEV is primary when the server flag is enabled; set use_jev=false to "
+            "force lexical scoring. The server may still disable JEV and fall back lexically."
         ),
     )
 
@@ -144,9 +144,9 @@ def create_remote_mcp_runtime(backend: RemoteMcpBackend, *, enabled: bool) -> Re
         top_k: int = 5,
         max_tokens: int = 1200,
         max_chars: int = 6000,
-        use_jev: bool = False,
+        use_jev: bool = True,
     ) -> dict:
-        """Retrieve bounded evidence; use_jev opts this request into JEV scoring."""
+        """Retrieve bounded evidence; JEV is primary when enabled, with lexical fallback."""
         return await backend.retrieve(
             _current_principal(),
             query=query,

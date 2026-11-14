@@ -97,7 +97,7 @@ export default function DocumentationPage() {
           <article className="public-card public-card--muted">
             <h3>Partial or constrained</h3>
             <ul>
-              <li>JEV is server-enabled but not the default: the request must set <code>use_jev=true</code>.</li>
+              <li>JEV is primary when the server flag is enabled; set <code>use_jev=false</code> to force the lexical fallback.</li>
               <li>Google Drive remains <strong>Coming soon</strong> pending OAuth verification; Notion still needs a live production smoke.</li>
               <li>Export is narrowed to the personal/account path; shared/group export and general CDN delivery are unavailable.</li>
               <li>Background connector scheduling, ACL propagation, source verification, and deletion propagation are not complete.</li>

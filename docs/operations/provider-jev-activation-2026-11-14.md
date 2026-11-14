@@ -13,7 +13,7 @@ contract.
 | Source commit | `f88092b012f5440255bf21675c148cfebc1e8731` |
 | Server flag | `EVIDENCE_JEV_ENABLED=true` |
 | Provider credential | `TYPESAFE_API_KEY` configured as a server secret; value not recorded |
-| Request gate | `use_jev=true` remains required per request; default is `false` |
+| Request gate | JEV is primary when server flag is open; `use_jev=false` forces lexical fallback |
 | Fallback | any JEV configuration, provider, response, or validation failure discards the whole JEV batch and recomputes Lexical |
 
 ### Synthetic production smoke

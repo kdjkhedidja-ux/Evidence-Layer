@@ -217,7 +217,7 @@ describe("workspace product console", () => {
         top_k: 5,
         max_tokens: 1200,
         max_chars: 6000,
-        use_jev: false,
+        use_jev: true,
       }),
     });
     expect(screen.getByText(/sent to JEV for scoring/)).toBeInTheDocument();
@@ -228,7 +228,7 @@ describe("workspace product console", () => {
         String(input).endsWith("/task-context"),
       );
       expect(taskRequests).toHaveLength(2);
-      expect(taskRequests[1]?.[1]?.body).toContain('"use_jev":true');
+      expect(taskRequests[1]?.[1]?.body).toContain('"use_jev":false');
     });
 
   });
