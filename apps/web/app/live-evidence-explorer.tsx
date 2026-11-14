@@ -3,10 +3,8 @@
 import Link from "next/link";
 import RelationshipCanvas from "./relationships/relationship-canvas";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import AuthAccount from "../components/auth-account";
 import PageTitle from "../components/page-title";
 import SiteHeader from "../components/site-header";
-import ThemeToggle from "./theme-toggle";
 
 type Workspace = { id: string; name: string; role: "owner" | "admin" | "member" };
 type Evidence = {
@@ -73,7 +71,6 @@ export default function LiveEvidenceExplorer({
   const [query, setQuery] = useState("");
   const [provenanceFilter, setProvenanceFilter] = useState<"all" | "linked" | "unlinked">("all");
   const [message, setMessage] = useState("");
-  const [accountOpen, setAccountOpen] = useState(false);
   const [relationshipDraft, setRelationshipDraft] = useState({
     evidence_id_a: "",
     evidence_id_b: "",
@@ -180,16 +177,6 @@ export default function LiveEvidenceExplorer({
       setRelationshipsState("unavailable");
     }
   }, []);
-
-  useEffect(() => {
-    if (!account) return;
-    if (new URLSearchParams(window.location.search).get("account") === "1") {
-      setAccountOpen(true);
-      requestAnimationFrame(() => {
-        document.getElementById("account-organization-title")?.scrollIntoView?.({ block: "start" });
-      });
-    }
-  }, [account]);
 
   useEffect(() => {
     let active = true;
@@ -317,45 +304,12 @@ export default function LiveEvidenceExplorer({
 
   const evidenceById = useMemo(() => new Map(records.map((record) => [record.id, record])), [records]);
   const isLoading = workspaceState === "loading";
-  const sidebarItems = [
-    { href: "/workspace", label: "Prepare evidence", status: selectedWorkspace ? "Workspace ready" : isLoading ? "Checking access" : "Unavailable" },
-    { href: relationshipsOnly ? "/" : "#explorer", label: "Evidence", status: recordsState === "ready" ? `${records.length} records` : recordsState === "loading" ? "Loading" : "Unavailable" },
-    { href: relationshipsOnly ? "#relationships" : "/relationships", label: "Relationships", status: relationshipsState === "ready" ? `${relationships.length} links` : relationshipsState === "loading" ? "Loading" : "Unavailable" },
-    { href: "/workspace#agent-connection", label: "Connect an agent", status: "API / MCP" },
-    { href: "/workspace#task-measurement", label: "Task outcomes", status: "Not connected" },
-  ];
-
   return (
     <>
       <SiteHeader accountEmail={account?.email ?? null} />
       <div className="live-shell">
       <a className="live-skip" href="#explorer">Skip to Evidence Explorer</a>
-      <aside id="live-sidebar" className="live-sidebar">
-        <p className="live-sidebar-tagline">Evidence first. Conclusions remain inspectable.</p>
-        <nav aria-label="Product navigation" className="live-nav">
-          {sidebarItems.map((item) => item.href.startsWith("/") ? (
-            <Link href={item.href} key={item.label} className="live-nav-item">
-              <span>{item.label}</span><small>{item.status}</small>
-            </Link>
-          ) : (
-            <a href={item.href} key={item.label} className="live-nav-item">
-              <span>{item.label}</span><small>{item.status}</small>
-            </a>
-          ))}
-        </nav>
-        <div className="live-sidebar-footer">
-          <Link href="/privacy">Privacy Policy</Link><Link href="/terms">Terms of Use</Link>
-          <div className="live-controls">
-            {account ? (
-              <button type="button" className="live-account-button" onClick={() => setAccountOpen((value) => !value)} aria-expanded={accountOpen}>
-                {accountOpen ? "Close account" : "Account"}
-              </button>
-            ) : <Link className="live-account-button" href="/login">Sign in</Link>}
-            <ThemeToggle />
-          </div>
-          {account && accountOpen && <AuthAccount userId={account.id} email={account.email} />}
-        </div>
-      </aside>
+
 
       <main className="live-main">
         <header className="live-topbar">

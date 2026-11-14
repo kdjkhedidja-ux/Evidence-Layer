@@ -474,11 +474,12 @@ for (const viewport of [
   { name: "desktop", width: 1280, height: 800 },
   { name: "mobile", width: 390, height: 844 },
 ]) {
-  test(`signed-out sidebar navigation reaches login on ${viewport.name}`, async ({ page }) => {
+  test(`signed-out header navigation reaches login on ${viewport.name}`, async ({ page }) => {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
     await page.goto("/");
 
-    await page.getByRole("complementary").getByRole("link", { name: "Sign in" }).click();
+    await page.getByRole("button", { name: "Menu" }).click();
+    await page.locator("#site-menu").getByRole("link", { name: "Sign in" }).click();
     await expect(page).toHaveURL(/\/login$/);
     await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
   });
