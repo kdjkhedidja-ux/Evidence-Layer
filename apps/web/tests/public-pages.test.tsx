@@ -48,21 +48,26 @@ describe("public information pages", () => {
       "Documentation",
       "Evaluation · Benchmarks",
       "Cost & Performance",
-      "Privacy",
-      "Terms",
-      "Data Deletion",
       "Account",
     ]);
 
     const footerNav = screen.getByRole("navigation", { name: "Legal and product information" });
     expect(within(footerNav).queryByRole("link", { name: "Workspace" })).not.toBeInTheDocument();
     expect(within(footerNav).queryByRole("link", { name: "Documentation" })).not.toBeInTheDocument();
-    const currentPageLink = within(path === "/documentation" ? headerNavElement : footerNav)
-      .getByRole("link", { name, current: "page" });
+    const legalLabels = new Map([
+      ["/privacy", "Privacy"],
+      ["/terms", "Terms"],
+      ["/data-deletion", "Data Deletion"],
+    ]);
+    const legalPaths = new Set(legalLabels.keys());
+    const currentPageLink = within(legalPaths.has(path) ? footerNav : headerNavElement)
+      .getByRole("link", { name: legalLabels.get(path) ?? name, current: "page" });
     expect(currentPageLink).toHaveAttribute("href", path);
 
     for (const route of routes) {
-      const matchingLinks = screen.getAllByRole("link", { name: route.name });
+      const matchingLinks = screen.getAllByRole("link", {
+        name: legalLabels.get(route.path) ?? route.name,
+      });
       expect(matchingLinks.some((link) => link.getAttribute("href") === route.path)).toBe(true);
     }
   });
@@ -79,7 +84,7 @@ describe("public information pages", () => {
     render(<DocumentationPage />);
     expect(screen.getByRole("heading", { name: /selects and traces evidence; it does not write the final answer/i })).toBeInTheDocument();
     expect(screen.getByText(/caller.s chosen LLM consumes the selected context and writes the final answer/i)).toBeInTheDocument();
-    const navigation = within(screen.getByRole("navigation", { name: "Legal and product information" }));
+    const navigation = within(screen.getByRole("navigation", { name: "Main navigation" }));
     expect(navigation.getByRole("link", { name: "Evaluation · Benchmarks" })).toHaveAttribute("href", "/evaluation");
   });
 
@@ -147,7 +152,7 @@ describe("public information pages", () => {
     expect(screen.getByRole("heading", { name: "Metrics worth tracking in production" })).toBeInTheDocument();
     expect(screen.getByText("Cost per successful request")).toBeInTheDocument();
     expect(screen.getByText("End-to-end p50 / p95")).toBeInTheDocument();
-    const navigation = within(screen.getByRole("navigation", { name: "Legal and product information" }));
+    const navigation = within(screen.getByRole("navigation", { name: "Main navigation" }));
     expect(navigation.getByRole("link", { name: "Evaluation · Benchmarks" })).toHaveAttribute("href", "/evaluation");
   });
 

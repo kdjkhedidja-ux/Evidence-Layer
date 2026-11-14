@@ -1,4 +1,5 @@
 import PageTitle from "../../components/page-title";
+import SiteFooter from "../../components/site-footer";
 import SiteHeader from "../../components/site-header";
 import { redirect } from "next/navigation";
 import { getVerifiedAuthContext } from "../../lib/supabase/server";
@@ -26,6 +27,7 @@ export default async function MfaPage({
           <h1 id="mfa-gate-title"><PageTitle>Authentication service is unavailable</PageTitle></h1>
           <p>Two-factor authentication could not be verified. No workspace data was loaded.</p>
         </section>
+        <SiteFooter />
       </main>
     );
   }
@@ -40,6 +42,7 @@ export default async function MfaPage({
     <main className="workspace-page">
       <SiteHeader accountEmail={auth.user.email ?? null} />
       <MfaPanel next={next} />
+      <SiteFooter />
     </main>
   );
 }

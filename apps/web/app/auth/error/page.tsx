@@ -1,4 +1,5 @@
 import Link from "next/link";
+import SiteFooter from "../../../components/site-footer";
 import SiteHeader from "../../../components/site-header";
 import AuthErrorMessage from "./auth-error-message";
 
@@ -19,6 +20,7 @@ export default async function AuthErrorPage({ searchParams }: { searchParams: Se
           <Link href="/login">Return to sign in</Link>
         </nav>
       </section>
+      <SiteFooter />
     </main>
   );
 }

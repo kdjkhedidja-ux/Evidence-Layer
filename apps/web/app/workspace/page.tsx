@@ -1,5 +1,6 @@
 import Link from "next/link";
 import PageTitle from "../../components/page-title";
+import SiteFooter from "../../components/site-footer";
 import SiteHeader from "../../components/site-header";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
@@ -70,6 +71,7 @@ function WorkspaceGate({
         <p>{description}</p>
         {action}
       </section>
+      <SiteFooter />
     </main>
   );
 }

@@ -36,9 +36,6 @@ describe("SiteHeader", () => {
       "Documentation",
       "Evaluation · Benchmarks",
       "Cost & Performance",
-      "Privacy",
-      "Terms",
-      "Data Deletion",
       "Account",
     ]);
     expect(within(nav).getByRole("link", { name: "Documentation" })).toHaveAttribute("aria-current", "page");

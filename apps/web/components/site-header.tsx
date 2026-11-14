@@ -15,9 +15,6 @@ const NAV_ITEMS = [
   { href: "/documentation", label: "Documentation" },
   { href: "/evaluation", label: "Evaluation · Benchmarks" },
   { href: "/cost-performance", label: "Cost & Performance" },
-  { href: "/privacy", label: "Privacy" },
-  { href: "/terms", label: "Terms" },
-  { href: "/data-deletion", label: "Data Deletion" },
   { href: "/account", label: "Account" },
 ] as const;
 
