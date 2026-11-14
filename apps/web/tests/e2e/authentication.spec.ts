@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+test.describe.configure({ mode: "serial" });
+
 const email = "person@example.test";
 const secondEmail = "switch@example.test";
 const password = "Synthetic-password-123";
