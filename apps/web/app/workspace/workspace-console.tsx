@@ -6,6 +6,7 @@ import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } fro
 import { createSupabaseBrowserClient } from "../../lib/supabase/client";
 import type { WorkspaceTaskContextResult } from "../../lib/evidence-api";
 import ConnectorSources from "../../components/connector-sources";
+import PageTitle from "../../components/page-title";
 import RemoteMcp from "../../components/remote-mcp";
 import PersonalApiKeys from "./personal-api-keys";
 import { CAPABILITY_GROUPS } from "./capability-catalog";
@@ -628,7 +629,7 @@ export default function WorkspaceConsole({
         <div className="workspace-title-row">
           <div>
             <p className="eyebrow">Authenticated product workspace</p>
-            <h1>Evidence workspace</h1>
+            <h1><PageTitle>Evidence workspace</PageTitle></h1>
             <p className="workspace-lede">
               Connect sources, prepare evidence, then give your agent bounded context through API or MCP.
             </p>

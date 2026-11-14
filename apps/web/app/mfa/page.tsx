@@ -1,4 +1,5 @@
 import Link from "next/link";
+import PageTitle from "../../components/page-title";
 import { redirect } from "next/navigation";
 import { getVerifiedAuthContext } from "../../lib/supabase/server";
 import { safeInternalPath } from "../../lib/supabase/redirect";
@@ -25,7 +26,7 @@ export default async function MfaPage({
         </header>
         <section aria-labelledby="mfa-gate-title" className="workspace-gate">
           <p className="eyebrow">Evidence Layer · Security</p>
-          <h1 id="mfa-gate-title">Authentication service is unavailable</h1>
+          <h1 id="mfa-gate-title"><PageTitle>Authentication service is unavailable</PageTitle></h1>
           <p>Two-factor authentication could not be verified. No workspace data was loaded.</p>
         </section>
       </main>
