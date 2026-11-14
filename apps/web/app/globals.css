@@ -3013,6 +3013,20 @@ select:focus-visible,
   resize: vertical;
 }
 
+.workspace-form .workspace-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  cursor: pointer;
+}
+
+.workspace-form .workspace-checkbox input {
+  width: auto;
+  min-height: auto;
+  margin: 0.25rem 0 0;
+  flex: 0 0 auto;
+}
+
 .workspace-form-actions {
   display: flex;
   flex-wrap: wrap;

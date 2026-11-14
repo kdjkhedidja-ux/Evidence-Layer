@@ -60,6 +60,8 @@ export type WorkspaceTaskContextResult = {
     used_tokens: number;
     used_chars: number;
     token_estimator: string;
+    scoring_provider: string;
+    scoring_fallback_reason: string | null;
     evidence: Array<{
       evidence_id: string;
       content: string;
@@ -91,6 +93,7 @@ export type WorkspaceTaskContextInput = {
   top_k: number;
   max_tokens: number;
   max_chars: number;
+  use_jev: boolean;
 };
 
 export type PersonalApiKeySummary = {
@@ -1104,6 +1107,7 @@ export async function parseWorkspaceTaskContextInput(
   const topK = candidate.top_k ?? 5;
   const maxTokens = candidate.max_tokens ?? 1200;
   const maxChars = candidate.max_chars ?? 6000;
+  const useJev = candidate.use_jev ?? false;
   const allowedFields = new Set([
     "task",
     "expected_outcome",
@@ -1111,6 +1115,7 @@ export async function parseWorkspaceTaskContextInput(
     "top_k",
     "max_tokens",
     "max_chars",
+    "use_jev",
   ]);
   if (
     Object.keys(candidate).some((key) => !allowedFields.has(key)) ||
@@ -1127,7 +1132,8 @@ export async function parseWorkspaceTaskContextInput(
     Number(maxTokens) > 8000 ||
     !Number.isInteger(maxChars) ||
     Number(maxChars) < 1 ||
-    Number(maxChars) > 40_000
+    Number(maxChars) > 40_000 ||
+    typeof useJev !== "boolean"
   ) {
     return { ok: false };
   }
@@ -1140,6 +1146,7 @@ export async function parseWorkspaceTaskContextInput(
       top_k: Number(topK),
       max_tokens: Number(maxTokens),
       max_chars: Number(maxChars),
+      use_jev: useJev,
     },
   };
 }
@@ -1202,6 +1209,9 @@ function safeTaskContextResult(
     !Number.isSafeInteger(selected.used_tokens) ||
     !Number.isSafeInteger(selected.used_chars) ||
     typeof selected.token_estimator !== "string" ||
+    typeof selected.scoring_provider !== "string" ||
+    (selected.scoring_fallback_reason !== null &&
+      typeof selected.scoring_fallback_reason !== "string") ||
     !Array.isArray(selected.evidence) ||
     selected.evidence.some((item) => !validEvidence(item)) ||
     !Array.isArray(candidate.relationships) ||

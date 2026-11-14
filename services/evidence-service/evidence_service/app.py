@@ -3,16 +3,18 @@
 from __future__ import annotations
 
 import base64
+import math
 import os
 from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Literal, TypeVar
-from uuid import UUID
+from typing import TYPE_CHECKING, Literal, TypeVar
+from uuid import UUID, uuid4
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+from starlette.concurrency import run_in_threadpool
 
 from evidence_service.account_lifecycle import (
     AccountLifecycleReader,
@@ -115,6 +117,9 @@ from evidence_service.tenant_context import (
     WorkspaceDirectory,
     resolve_workspace_context,
 )
+
+if TYPE_CHECKING:
+    from evidence_layer.scoring.jev_request import JevRequestScorer
 
 
 class WorkspaceSummary(BaseModel):
@@ -415,6 +420,7 @@ class PersonalApiKeyRetrieveRequest(BaseModel):
     max_tokens: int = Field(default=1200, ge=1, le=8000)
     max_chars: int = Field(default=6000, ge=1, le=40000)
     candidate_limit: int = Field(default=50, ge=1, le=100)
+    use_jev: bool = Field(default=False, strict=True)
 
 
 class PersonalApiKeyRetrievedItem(BaseModel):
@@ -449,8 +455,22 @@ class PersonalApiKeyRetrieveResponse(BaseModel):
     used_chars: int
     token_estimator: str
     scoring_provider: str
+    scoring_fallback_reason: str | None = None
     chunking: str
     evidence: list[PersonalApiKeyRetrievedItem]
+    relationships: list[TaskContextRelationship] = Field(default_factory=list)
+
+
+def _evidence_page_items(page: PersonalApiKeyPage) -> list[EvidenceRecord]:
+    if not all(isinstance(item, EvidenceRecord) for item in page.items):
+        raise PersonalApiKeyDataUnavailable
+    return [item for item in page.items if isinstance(item, EvidenceRecord)]
+
+
+def _relationship_page_items(page: PersonalApiKeyPage) -> list[EvidenceRelationship]:
+    if not all(isinstance(item, EvidenceRelationship) for item in page.items):
+        raise PersonalApiKeyDataUnavailable
+    return [item for item in page.items if isinstance(item, EvidenceRelationship)]
 
 
 class WorkspaceTaskContextRequest(BaseModel):
@@ -462,6 +482,7 @@ class WorkspaceTaskContextRequest(BaseModel):
     top_k: int = Field(default=5, ge=1, le=20)
     max_tokens: int = Field(default=1200, ge=1, le=8000)
     max_chars: int = Field(default=6000, ge=1, le=40000)
+    use_jev: bool = Field(default=False, strict=True)
 
     def retrieval_query(self) -> str:
         return "\n".join(
@@ -1099,12 +1120,17 @@ def _source_read_error(exc) -> HTTPException:
     return HTTPException(status_code=403, detail="Source read is not authorized")
 
 
-def _retrieval_response(
+async def _retrieval_response(
     page: PersonalApiKeyPage,
     workspace_id: UUID,
     payload: PersonalApiKeyRetrieveRequest | WorkspaceTaskContextRequest,
     *,
-    preferred_record_ids: set[UUID] | None = None,
+    seed_record_ids: set[UUID] | None = None,
+    related_record_scores: dict[UUID, float] | None = None,
+    relationships: list[EvidenceRelationship] | None = None,
+    jev_enabled: bool = False,
+    jev_scorer: JevRequestScorer | None = None,
+    jev_principal_id: str | None = None,
 ) -> PersonalApiKeyRetrieveResponse:
     records = [item for item in page.items if hasattr(item, "content")]
     query = (
@@ -1118,8 +1144,114 @@ def _retrieval_response(
         top_k=payload.top_k,
         max_tokens=payload.max_tokens,
         max_chars=payload.max_chars,
-        preferred_record_ids=preferred_record_ids,
+        seed_record_ids=seed_record_ids,
+        related_record_scores=related_record_scores,
     )
+    scoring_provider = "lexical_stopword_filtered"
+    scoring_fallback_reason: str | None = None
+    if payload.use_jev:
+        if not jev_enabled:
+            scoring_fallback_reason = "jev_disabled"
+        elif jev_principal_id is None:
+            scoring_fallback_reason = "jev_unavailable"
+        else:
+            candidate_selection = select_evidence(
+                records,
+                query=query,
+                top_k=50,
+                max_tokens=payload.max_tokens,
+                max_chars=payload.max_chars,
+                seed_record_ids=seed_record_ids,
+                related_record_scores=related_record_scores,
+            )
+            if candidate_selection.selected:
+                try:
+                    from evidence_layer.scoring.jev_request import (
+                        JevRequestCandidate,
+                        JevRequestScorer,
+                        JevResponseError,
+                        JevScorerError,
+                        _issue_jev_request_transfer_permit,
+                    )
+                except ImportError:
+                    scoring_fallback_reason = "dependency_missing"
+                else:
+                    candidates = [
+                        JevRequestCandidate(
+                            candidate_id=item.chunk_id,
+                            source_id=str(item.record.source_id or workspace_id),
+                            text=item.content,
+                        )
+                        for item in candidate_selection.selected
+                    ]
+                    try:
+                        permit = _issue_jev_request_transfer_permit(
+                            request_id=str(uuid4()),
+                            principal_id=jev_principal_id,
+                            tenant_id=str(workspace_id),
+                            query=query,
+                            candidates=candidates,
+                            server_enabled=jev_enabled,
+                            permitted_by_request=payload.use_jev,
+                        )
+                        scorer = jev_scorer or JevRequestScorer()
+                        scores = await run_in_threadpool(
+                            scorer.score_candidates,
+                            query,
+                            candidates,
+                            transfer_permit=permit,
+                        )
+                        if len(scores) != len(candidates):
+                            raise JevScorerError(
+                                "JEV returned an incomplete score batch."
+                            )
+                        if any(
+                            isinstance(score, bool)
+                            or not isinstance(score, (int, float))
+                            or not math.isfinite(score)
+                            or not 0 <= score <= 1
+                            for score in scores
+                        ):
+                            raise JevResponseError(
+                                "JEV returned an invalid score batch."
+                            )
+                    except JevScorerError as exc:
+                        scoring_fallback_reason = exc.category
+                    except Exception:
+                        scoring_fallback_reason = "provider_failure"
+                    else:
+                        score_overrides = {
+                            item.candidate_id: score
+                            for item, score in zip(candidates, scores, strict=True)
+                        }
+                        result = select_evidence(
+                            records,
+                            query=query,
+                            top_k=payload.top_k,
+                            max_tokens=payload.max_tokens,
+                            max_chars=payload.max_chars,
+                            seed_record_ids=(
+                                seed_record_ids if related_record_scores else None
+                            ),
+                            related_record_scores=related_record_scores,
+                            score_overrides=score_overrides,
+                        )
+                        scoring_provider = "jev"
+    selected_ids = {item.record.id for item in result.selected}
+    selected_relationships = [
+        TaskContextRelationship(
+            id=relationship.id,
+            evidence_id_a=relationship.evidence_id_a,
+            evidence_id_b=relationship.evidence_id_b,
+            relation_type=relationship.relation_type,
+            rationale=relationship.rationale,
+            provenance_note=relationship.provenance_note,
+        )
+        for relationship in relationships or []
+        if relationship.workspace_id == workspace_id
+        and relationship.evidence_id_a in selected_ids
+        and relationship.evidence_id_b in selected_ids
+    ]
     return PersonalApiKeyRetrieveResponse(
         status=result.status,
         query=query,
@@ -1134,7 +1266,8 @@ def _retrieval_response(
         used_tokens=result.used_tokens,
         used_chars=result.used_chars,
         token_estimator=result.token_estimator,
-        scoring_provider="lexical_stopword_filtered",
+        scoring_provider=scoring_provider,
+        scoring_fallback_reason=scoring_fallback_reason,
         chunking=result.chunking,
         evidence=[
             PersonalApiKeyRetrievedItem(
@@ -1155,59 +1288,98 @@ def _retrieval_response(
             )
             for item in result.selected
         ],
+        relationships=selected_relationships,
     )
 
 
-def _workspace_task_context_response(
+def _relationship_expansion(
+    records: list[EvidenceRecord],
+    relationships: list[EvidenceRelationship],
+    workspace_id: UUID,
+    query: str,
+    *,
+    top_k: int,
+    max_tokens: int,
+    max_chars: int,
+) -> tuple[set[UUID], dict[UUID, float]]:
+    seed = select_evidence(
+        records,
+        query=query,
+        top_k=max(1, top_k - 1),
+        max_tokens=max_tokens,
+        max_chars=max_chars,
+    )
+    seed_scores: dict[UUID, float] = {}
+    for item in seed.selected:
+        seed_scores[item.record.id] = max(seed_scores.get(item.record.id, 0), item.score)
+
+    record_ids = {record.id for record in records}
+    related_candidates: dict[UUID, float] = {}
+    if seed_scores and top_k > 1:
+        for relationship in relationships:
+            if relationship.workspace_id != workspace_id:
+                continue
+            if relationship.evidence_id_a in seed_scores:
+                related_id = relationship.evidence_id_b
+                anchor_id = relationship.evidence_id_a
+            elif relationship.evidence_id_b in seed_scores:
+                related_id = relationship.evidence_id_a
+                anchor_id = relationship.evidence_id_b
+            else:
+                continue
+            if related_id not in record_ids or related_id in seed_scores:
+                continue
+            related_candidates[related_id] = max(
+                related_candidates.get(related_id, 0),
+                seed_scores[anchor_id] * 0.8,
+            )
+    related_ids = sorted(
+        related_candidates,
+        key=lambda record_id: (-related_candidates[record_id], str(record_id)),
+    )[: min(3, top_k - 1)]
+    return set(seed_scores), {
+        record_id: related_candidates[record_id] for record_id in related_ids
+    }
+
+
+async def _workspace_task_context_response(
     records: list[EvidenceRecord],
     relationships: list[EvidenceRelationship],
     workspace_id: UUID,
     payload: WorkspaceTaskContextRequest,
+    *,
+    jev_enabled: bool = False,
+    jev_scorer: JevRequestScorer | None = None,
+    jev_principal_id: str | None = None,
 ) -> WorkspaceTaskContextResponse:
     query = payload.retrieval_query()
-    seed = select_evidence(
+    seed_ids, related_record_scores = _relationship_expansion(
         records,
+        relationships,
+        workspace_id,
         query=query,
-        top_k=max(1, payload.top_k - 1),
+        top_k=payload.top_k,
         max_tokens=payload.max_tokens,
         max_chars=payload.max_chars,
     )
-    seed_ids = {item.record.id for item in seed.selected}
-    related_ids: set[UUID] = set()
-    if seed_ids and payload.top_k > 1:
-        for relationship in relationships:
-            if relationship.evidence_id_a in seed_ids:
-                related_ids.add(relationship.evidence_id_b)
-            elif relationship.evidence_id_b in seed_ids:
-                related_ids.add(relationship.evidence_id_a)
-        related_ids = set(sorted(related_ids, key=str)[: min(3, payload.top_k - 1)])
 
-    retrieval = _retrieval_response(
+    retrieval = await _retrieval_response(
         PersonalApiKeyPage(items=records, next_cursor=None),
         workspace_id,
         payload,
-        preferred_record_ids=related_ids,
+        seed_record_ids=seed_ids,
+        related_record_scores=related_record_scores,
+        relationships=relationships,
+        jev_enabled=jev_enabled,
+        jev_scorer=jev_scorer,
+        jev_principal_id=jev_principal_id,
     )
-    selected_ids = {item.evidence_id for item in retrieval.evidence}
-    selected_relationships = [
-        TaskContextRelationship(
-            id=relationship.id,
-            evidence_id_a=relationship.evidence_id_a,
-            evidence_id_b=relationship.evidence_id_b,
-            relation_type=relationship.relation_type,
-            rationale=relationship.rationale,
-            provenance_note=relationship.provenance_note,
-        )
-        for relationship in relationships
-        if relationship.evidence_id_a in selected_ids
-        and relationship.evidence_id_b in selected_ids
-    ]
     return WorkspaceTaskContextResponse(
         task=payload.task,
         expected_outcome=payload.expected_outcome,
         context_requirements=payload.context_requirements,
         retrieval=retrieval,
-        relationships=selected_relationships,
+        relationships=retrieval.relationships,
     )
 
 
@@ -1242,6 +1414,7 @@ class _HostedRemoteMcpBackend:
         top_k: int,
         max_tokens: int,
         max_chars: int,
+        use_jev: bool,
     ) -> dict:
         blocked = await self._guard()
         if blocked is not None:
@@ -1252,6 +1425,7 @@ class _HostedRemoteMcpBackend:
                 top_k=top_k,
                 max_tokens=max_tokens,
                 max_chars=max_chars,
+                use_jev=use_jev,
             )
         except ValueError:
             return _remote_mcp_error("invalid_argument", "Invalid retrieve arguments")
@@ -1272,10 +1446,52 @@ class _HostedRemoteMcpBackend:
             return _remote_mcp_error("unavailable", "Personal API key service is unavailable")
         except Exception:
             return _remote_mcp_error("internal_error", "retrieve_evidence failed")
+        relationship_page = PersonalApiKeyPage(items=[], next_cursor=None)
+        if payload.top_k > 1:
+            try:
+                relationship_page = await _personal_api_key_repository(
+                    self._state_request
+                ).read_relationships(
+                    key_id=principal.key_id,
+                    key_hash=principal.key_hash,
+                    workspace_id=principal.workspace_id,
+                    limit=100,
+                    cursor_created_at=None,
+                    cursor_id=None,
+                )
+            except PersonalApiKeyAccessDenied:
+                return _remote_mcp_error("unauthorized", "Personal API key is invalid or revoked")
+            except PersonalApiKeyRateLimited:
+                return _remote_mcp_error("rate_limited", "Personal API key rate limit exceeded")
+            except PersonalApiKeyDataUnavailable:
+                return _remote_mcp_error("unavailable", "Personal API key service is unavailable")
+            except Exception:
+                return _remote_mcp_error("internal_error", "retrieve_evidence failed")
         try:
-            return _retrieval_response(
-                page, principal.workspace_id, payload
-            ).model_dump(mode="json")
+            records = _evidence_page_items(page)
+            relationships = _relationship_page_items(relationship_page)
+            seed_ids, related_scores = _relationship_expansion(
+                records,
+                relationships,
+                principal.workspace_id,
+                payload.query,
+                top_k=payload.top_k,
+                max_tokens=payload.max_tokens,
+                max_chars=payload.max_chars,
+            )
+            return (await _retrieval_response(
+                page,
+                principal.workspace_id,
+                payload,
+                seed_record_ids=seed_ids,
+                related_record_scores=related_scores,
+                relationships=relationships,
+                jev_enabled=self._application.state.jev_enabled,
+                jev_scorer=self._application.state.jev_scorer,
+                jev_principal_id=str(principal.key_id),
+            )).model_dump(mode="json")
+        except PersonalApiKeyDataUnavailable:
+            return _remote_mcp_error("unavailable", "Personal API key service is unavailable")
         except Exception:
             return _remote_mcp_error("internal_error", "retrieve_evidence failed")
 
@@ -1321,6 +1537,8 @@ def create_app(
     relationship_repository: RelationshipRepository | None = None,
     personal_api_key_repository: SupabasePersonalApiKeyRepository | None = None,
     retrieval_enabled: bool | None = None,
+    jev_enabled: bool | None = None,
+    jev_scorer: JevRequestScorer | None = None,
     deletion_repository: DeletionRepository | None = None,
     export_repository: SupabaseExportRepository | None = None,
     connector_repository: ConnectorRepository | None = None,
@@ -1354,6 +1572,12 @@ def create_app(
         if retrieval_enabled is not None
         else os.environ.get("EVIDENCE_RETRIEVE_API_ENABLED") == "true"
     )
+    application.state.jev_enabled = (
+        jev_enabled
+        if jev_enabled is not None
+        else os.environ.get("EVIDENCE_JEV_ENABLED") == "true"
+    )
+    application.state.jev_scorer = jev_scorer
     application.state.deletion_repository = deletion_repository
     application.state.export_repository = export_repository
     application.state.connector_repository = connector_repository
@@ -2127,7 +2351,53 @@ def create_app(
         except PersonalApiKeyDataUnavailable as exc:
             raise HTTPException(status_code=503, detail="Personal API key service is unavailable") from exc
 
-        return _retrieval_response(page, workspace_id, payload)
+        relationship_page = PersonalApiKeyPage(items=[], next_cursor=None)
+        if payload.top_k > 1:
+            try:
+                relationship_page = await _personal_api_key_repository(request).read_relationships(
+                    key_id=key_id,
+                    key_hash=key_hash,
+                    workspace_id=workspace_id,
+                    limit=100,
+                    cursor_created_at=None,
+                    cursor_id=None,
+                )
+            except PersonalApiKeyAccessDenied as exc:
+                raise HTTPException(status_code=401, detail="Personal API key is invalid or revoked") from exc
+            except PersonalApiKeyRateLimited as exc:
+                raise HTTPException(
+                    status_code=429,
+                    detail="Personal API key rate limit exceeded",
+                    headers={"Retry-After": "60"},
+                ) from exc
+            except PersonalApiKeyDataUnavailable as exc:
+                raise HTTPException(status_code=503, detail="Personal API key service is unavailable") from exc
+
+        try:
+            records = _evidence_page_items(page)
+            relationships = _relationship_page_items(relationship_page)
+        except PersonalApiKeyDataUnavailable as exc:
+            raise HTTPException(status_code=503, detail="Personal API key service is unavailable") from exc
+        seed_ids, related_scores = _relationship_expansion(
+            records,
+            relationships,
+            workspace_id,
+            payload.query,
+            top_k=payload.top_k,
+            max_tokens=payload.max_tokens,
+            max_chars=payload.max_chars,
+        )
+        return await _retrieval_response(
+            page,
+            workspace_id,
+            payload,
+            seed_record_ids=seed_ids,
+            related_record_scores=related_scores,
+            relationships=relationships,
+            jev_enabled=request.app.state.jev_enabled,
+            jev_scorer=request.app.state.jev_scorer,
+            jev_principal_id=str(key_id),
+        )
 
     @application.get(
         "/v1/personal-api-keys/workspaces/{workspace_id}/evidence/{evidence_id}",
@@ -2520,12 +2790,16 @@ def create_app(
                     auth.access_token, context.workspace_id
                 ),
             )
-            relationships = await _with_account_gate(
-                request,
-                auth,
-                lambda: _relationship_repository(request).list_relationships(
-                    auth.access_token, context.workspace_id
-                ),
+            relationships = (
+                await _with_account_gate(
+                    request,
+                    auth,
+                    lambda: _relationship_repository(request).list_relationships(
+                        auth.access_token, context.workspace_id
+                    ),
+                )
+                if payload.top_k > 1
+                else []
             )
         except EvidenceAccessDenied as exc:
             raise _evidence_access_error(exc) from exc
@@ -2535,8 +2809,14 @@ def create_app(
             raise HTTPException(status_code=404, detail="Workspace not found") from exc
         except RelationshipDataUnavailable as exc:
             raise _relationship_data_error(exc) from exc
-        return _workspace_task_context_response(
-            records, relationships, context.workspace_id, payload
+        return await _workspace_task_context_response(
+            records,
+            relationships,
+            context.workspace_id,
+            payload,
+            jev_enabled=request.app.state.jev_enabled,
+            jev_scorer=request.app.state.jev_scorer,
+            jev_principal_id=str(auth.principal.subject),
         )
 
     @application.post(

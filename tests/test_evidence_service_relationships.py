@@ -82,10 +82,11 @@ class RelationshipRepositorySpy:
             updated_by=SUBJECT,
             updated_at=datetime(2026, 11, 2, tzinfo=UTC),
         )
+        self.relationships = [self.relationship]
 
     async def list_relationships(self, access_token: str, workspace_id: UUID):
         self.calls.append(("list", access_token, workspace_id))
-        return [self.relationship] if workspace_id == WORKSPACE_A else []
+        return self.relationships if workspace_id == WORKSPACE_A else []
 
     async def create_relationship(
         self, access_token, workspace_id, *, evidence_id_a, evidence_id_b,
@@ -132,8 +133,16 @@ class TaskContextEvidenceRepository:
             EvidenceRecord(
                 id=EVIDENCE_B,
                 workspace_id=WORKSPACE_A,
-                content="Evidence Layer emergency rollback procedure.",
+                content="Emergency procedures for reverting a deployment.",
                 source_label="rollback.md",
+                created_at=now,
+                updated_at=now,
+            ),
+            EvidenceRecord(
+                id=UUID("e3000000-0000-4000-8000-000000000003"),
+                workspace_id=WORKSPACE_A,
+                content="A second-hop record must not be expanded.",
+                source_label="second-hop.md",
                 created_at=now,
                 updated_at=now,
             ),
@@ -205,6 +214,16 @@ def test_owner_can_create_update_and_delete_explicit_relationship() -> None:
 def test_task_context_retrieval_uses_expected_outcome_and_explicit_links() -> None:
     async def run() -> None:
         relationship_repository = RelationshipRepositorySpy()
+        second_hop_id = UUID("e3000000-0000-4000-8000-000000000003")
+        relationship_repository.relationships.append(
+            replace(
+                relationship_repository.relationship,
+                id=UUID("f2000000-0000-4000-8000-000000000002"),
+                evidence_id_a=EVIDENCE_B,
+                evidence_id_b=second_hop_id,
+                relation_type="supports",
+            )
+        )
         evidence_repository = TaskContextEvidenceRepository()
         async with make_client(
             MembershipDirectory(),
@@ -217,8 +236,8 @@ def test_task_context_retrieval_uses_expected_outcome_and_explicit_links() -> No
                 headers={"Authorization": f"Bearer {TOKEN}"},
                 json={
                     "task": "review Evidence Layer release",
-                    "expected_outcome": "identify emergency rollback procedure",
-                    "context_requirements": "focus on release rollback controls",
+                    "expected_outcome": "identify mitigation strategies",
+                    "context_requirements": "focus operational controls",
                     "top_k": 2,
                     "max_tokens": 400,
                     "max_chars": 1600,
@@ -227,10 +246,11 @@ def test_task_context_retrieval_uses_expected_outcome_and_explicit_links() -> No
         assert response.status_code == 200
         body = response.json()
         assert body["task"] == "review Evidence Layer release"
-        assert body["expected_outcome"] == "identify emergency rollback procedure"
-        assert "focus on release rollback controls" in body["retrieval"]["query"]
+        assert body["expected_outcome"] == "identify mitigation strategies"
+        assert "focus operational controls" in body["retrieval"]["query"]
         selected_ids = {item["evidence_id"] for item in body["retrieval"]["evidence"]}
         assert selected_ids == {str(EVIDENCE_A), str(EVIDENCE_B)}
+        assert body["retrieval"]["matched_chunk_count"] == 1
         assert body["relationships"] == [
             {
                 "id": str(RELATION_ID),
@@ -241,6 +261,64 @@ def test_task_context_retrieval_uses_expected_outcome_and_explicit_links() -> No
                 "provenance_note": "Manual comparison of both original records.",
             }
         ]
+
+    asyncio.run(run())
+
+
+def test_task_context_caps_relationship_expansion_at_three_records() -> None:
+    async def run() -> None:
+        relationship_repository = RelationshipRepositorySpy()
+        evidence_repository = TaskContextEvidenceRepository()
+        direct_ids = [
+            UUID("e2000000-0000-4000-8000-000000000002"),
+            UUID("e3000000-0000-4000-8000-000000000003"),
+            UUID("e4000000-0000-4000-8000-000000000004"),
+            UUID("e5000000-0000-4000-8000-000000000005"),
+        ]
+        now = datetime(2026, 11, 2, tzinfo=UTC)
+        evidence_repository.records.extend(
+            EvidenceRecord(
+                id=record_id,
+                workspace_id=WORKSPACE_A,
+                content=f"Unmatched context {index} for the incident.",
+                source_label=f"context-{index}.md",
+                created_at=now,
+                updated_at=now,
+            )
+            for index, record_id in enumerate(direct_ids[1:], start=2)
+        )
+        relationship_repository.relationships = [
+            replace(
+                relationship_repository.relationship,
+                id=UUID(f"f{index:03d}0000-0000-4000-8000-00000000000{index}"),
+                evidence_id_a=EVIDENCE_A,
+                evidence_id_b=record_id,
+            )
+            for index, record_id in enumerate(direct_ids, start=1)
+        ]
+        async with make_client(
+            MembershipDirectory(),
+            relationship_repository,
+            evidence_repository=evidence_repository,
+            retrieval_enabled=True,
+        ) as client:
+            response = await client.post(
+                f"/v1/workspaces/{WORKSPACE_A}/task-context",
+                headers={"Authorization": f"Bearer {TOKEN}"},
+                json={
+                    "task": "review Evidence Layer release",
+                    "expected_outcome": "identify mitigation strategies",
+                    "context_requirements": "focus operational controls",
+                    "top_k": 5,
+                    "max_tokens": 400,
+                    "max_chars": 1600,
+                },
+            )
+        assert response.status_code == 200
+        body = response.json()
+        selected_ids = {item["evidence_id"] for item in body["retrieval"]["evidence"]}
+        assert selected_ids == {str(EVIDENCE_A), *(str(item) for item in direct_ids[:3])}
+        assert len(body["relationships"]) == 3
 
     asyncio.run(run())
 

@@ -92,6 +92,8 @@ function mockProductFetch(
           used_tokens: 18,
           used_chars: 72,
           token_estimator: "chars_div_4",
+          scoring_provider: "lexical_stopword_filtered",
+          scoring_fallback_reason: null,
           evidence: [
             {
               evidence_id: EVIDENCE_ID,
@@ -215,8 +217,20 @@ describe("workspace product console", () => {
         top_k: 5,
         max_tokens: 1200,
         max_chars: 6000,
+        use_jev: false,
       }),
     });
+    expect(screen.getByText(/sent to JEV for scoring/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("checkbox", { name: /Score with JEV/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Prepare evidence context" }));
+    await waitFor(() => {
+      const taskRequests = fetchMock.mock.calls.filter(([input]) =>
+        String(input).endsWith("/task-context"),
+      );
+      expect(taskRequests).toHaveLength(2);
+      expect(taskRequests[1]?.[1]?.body).toContain('"use_jev":true');
+    });
+
   });
 
   it("offers navigation and a local sign out from the header menu", async () => {

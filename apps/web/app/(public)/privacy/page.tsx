@@ -147,10 +147,14 @@ export default function PrivacyPage() {
           The repository identifies integrations with Supabase Auth and a configurable Evidence
           Service, and documents deployment of the website through Vercel. This is not a verified
           subprocessor register. Before publication, the operator must name each entity, purpose,
-          processing location, retention, contractual role, and onward recipient. OpenAI, DeepSeek,
-          and TypeSafe/JEV appear in separate benchmark tooling; they are not connected to answer
-          generation by the public website. Their use for any future customer workload requires a
-          fresh review and notice.
+          processing location, retention, contractual role, and onward recipient. OpenAI and
+          DeepSeek appear in benchmark tooling and are not connected to answer generation by the
+          public website. The hosted retrieval code also contains an optional TypeSafe/JEV scoring
+          path: it can receive the task query and bounded candidate snippets only when the caller
+          opts in for that request and the service operator enables the server-side gate. It is
+          disabled by default; provider regions, retention, and contractual terms have not been
+          verified, so an operator must complete that review and provide any required notice before
+          enabling it for customer data.
         </p>
         <p>
           If personal data is transferred outside the EEA, the controller and processor must identify

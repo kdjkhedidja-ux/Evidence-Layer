@@ -7,7 +7,8 @@ Status: **implemented and enabled in production on 2026-11-12** with `EVIDENCE_R
 `POST /v1/personal-api-keys/workspaces/{workspace_id}/retrieve`
 
 Authentication: `Authorization: Bearer evl_pk_...`
-Required API-key scope: `evidence:read`
+Required API-key scope: `evidence:read`; relationship expansion also requires
+`relationships:read` when `top_k` is greater than one.
 The key is workspace-scoped; the existing API-key authorization RPC rechecks lifecycle `available`, active membership, expiry, revocation, and the 60/minute limit.
 
 Request:
@@ -18,11 +19,28 @@ Request:
   "top_k": 5,
   "max_tokens": 1200,
   "max_chars": 6000,
-  "candidate_limit": 50
+  "candidate_limit": 50,
+  "use_jev": false
 }
 ```
 
-`candidate_limit` is the newest evidence window read for the workspace, capped at 100. Selection is deterministic **Lexical** scoring; JEV is not used.
+`use_jev` defaults to `false`. Setting it to `true` is request-level consent to
+send the combined query and up to 50 budget-bounded candidate snippets to JEV.
+The service must also have `EVIDENCE_JEV_ENABLED=true`; this flag defaults to
+false. If either gate is closed, the response stays lexical and reports
+`scoring_fallback_reason`. The Typesafe credential is read only by the service
+from `TYPESAFE_API_KEY`.
+
+`candidate_limit` is the newest evidence window read for the workspace, capped
+at 100. Retrieval first selects lexical seed records, then reads up to 100
+relationship edges and expands one hop to at most three linked records. A
+linked record can be selected without a lexical match and receives 0.8 times
+the adjusted score of its strongest selected seed. Seed records rank first;
+all snippets share the same `top_k`, token, and character budgets. `top_k: 1`
+skips relationship lookup. The response includes relation type, rationale,
+and provenance only for edges whose endpoints are both selected. No second hop
+is followed. Lexical scoring remains the default; JEV requires explicit
+request-level and server-level opt-ins.
 
 ### Chunking and path priority
 
@@ -46,7 +64,9 @@ Deterministic path/title multipliers (applied to the Lexical score):
 - query term hits the path or first heading: **1.08×** each
 - closure/verification/smoke/checklist paths: **0.70×** only when the query has no ops term (audit, deploy, deletion, migration, runbook, worker, etc.), so real ops questions are not hidden
 
-Selection remains lexical-only. Chunking is deterministic and happens on every request, so existing GitHub evidence is picked up immediately after deploy; operators do **not** need to re-sync for this change.
+Lexical scoring and chunking are deterministic and happen on every request, so
+existing GitHub evidence is picked up immediately after deploy; operators do
+**not** need to re-sync for this change.
 
 Response:
 
@@ -66,6 +86,7 @@ Response:
   "used_chars": 1100,
   "token_estimator": "o200k_base-tiktoken-0.14.0",
   "scoring_provider": "lexical_stopword_filtered",
+  "scoring_fallback_reason": null,
   "chunking": "retrieve_time_v1",
   "evidence": [
     {
@@ -84,11 +105,36 @@ Response:
       "path": "README.md",
       "title": "Evidence Layer"
     }
+  ],
+  "relationships": [
+    {
+      "id": "…",
+      "evidence_id_a": "…",
+      "evidence_id_b": "…",
+      "relation_type": "supports",
+      "rationale": "The release record supports the linked rollback procedure.",
+      "provenance_note": "Manually reviewed both records."
+    }
   ]
 }
 ```
 
-`score` is the adjusted Lexical score after deterministic path/title boosts. If the pinned tokenizer artifact is unavailable, `token_estimator` is `chars_div_4`; token counts are estimates in that mode.
+`scoring_provider` is `jev` only when every candidate score is returned and
+validated. JEV scores the complete bounded candidate batch selected for that
+request; SDK retries are disabled, and any provider, dependency, timeout, or
+validation failure discards every JEV score and recomputes the complete
+candidate set lexically. Rankings are never mixed. The at-most-50 candidates
+are sent in one System One scoring request with an eight-second timeout and
+SDK retries disabled. `scoring_fallback_reason` is a sanitized category and
+is null when JEV was not requested or completed successfully.
+
+`score` is the adjusted lexical score (or the discounted linked-seed score)
+after deterministic path/title boosts when `scoring_provider` is lexical; it
+is the provider relevance score when `scoring_provider` is `jev`.
+`matched_chunk_count` counts lexical matches only; relationship-only chunks do
+not inflate it. If the pinned
+tokenizer artifact is unavailable, `token_estimator` is `chars_div_4`; token
+counts are estimates in that mode.
 
 ## Workspace task-context preparation
 
@@ -107,24 +153,33 @@ membership and RLS are checked by the service.
   "context_requirements": "Prioritize rollback steps and owner approvals",
   "top_k": 5,
   "max_tokens": 1200,
-  "max_chars": 6000
+  "max_chars": 6000,
+  "use_jev": false
 }
 ```
 
-The three task fields are combined as the lexical retrieval query. The service
-first finds seed evidence, then gives up to three directly related record IDs
-preference in the final ranking. Related records still need a lexical match;
-the service does not infer a relationship or treat the relationship itself as
-evidence. The response includes the task brief, selected snippets, token and
-character estimates, and only explicit relationship edges whose two evidence
-records are both selected, including their rationale and provenance note.
+The three task fields are combined as the retrieval query. Lexical scoring
+remains the default; setting `use_jev` to `true` explicitly authorizes transfer
+of that query and the bounded candidate snippets only if the service's
+`EVIDENCE_JEV_ENABLED` flag is also open. JEV provider-side usage and cost are
+not yet reported. The service
+first finds lexical seed evidence, then expands one relationship hop to at most
+three directly linked records. A related record can be selected even when its
+text does not match the query; it inherits 0.8 times the adjusted lexical score
+of the strongest selected seed it links to. Seeds are ranked before expanded
+records, and expanded records remain subject to the same `top_k`, token, and
+character limits. Expansion uses only persisted relationships and evidence
+records returned for this workspace; it does not follow second-hop links.
+The response includes the task brief, selected snippets, token and character
+estimates, and only explicit relationship edges whose two evidence records are
+both selected, including their type, rationale, and provenance note.
 
-Selection stays inside `top_k`, `max_tokens`, and `max_chars`. Retrieval is
-lexical-only; this route does not use JEV or transfer evidence to an external
-provider. The caller can copy the prepared task and evidence bundle to an
-agent. The agent performs the task; this route does not invoke the agent,
-persist a task run, or collect model usage, cost, or outcome quality. The route
-is governed by the existing `EVIDENCE_RETRIEVE_API_ENABLED` service flag.
+Selection stays inside `top_k`, `max_tokens`, and `max_chars`. Relationship
+expansion uses only persisted workspace edges. The caller can copy the prepared
+task and evidence bundle to an agent. The agent performs
+the task; this route does not invoke the agent, persist a task run, or collect
+model usage, cost, or outcome quality. The route is governed by the existing
+`EVIDENCE_RETRIEVE_API_ENABLED` service flag.
 
 ### curl examples
 
@@ -172,7 +227,7 @@ a GitHub re-sync just to get chunking.
 ## Remote MCP (hosted, no local Python)
 
 The hosted endpoint is a Streamable HTTP MCP server in the Evidence Service. It uses the same
-personal API-key retrieve path and exposes the same two tools:
+personal API-key retrieve path, including bounded explicit relationship expansion, and exposes the same two tools:
 
 - `retrieve_evidence(query, top_k, max_tokens, max_chars)`
 - `get_document(evidence_id)`
@@ -308,8 +363,10 @@ A/B token reports: [`first run`](../operations/el-vs-baseline-deepseek-tokens-20
 ## Enablement/config notes
 
 - Service flags: `EVIDENCE_RETRIEVE_API_ENABLED=true` for retrieve/get-document, and `EVIDENCE_REMOTE_MCP_ENABLED=true` for the hosted MCP mount. Both default false and return 404 while disabled.
+- JEV is separately gated by `EVIDENCE_JEV_ENABLED` (default false) and an explicit per-request `use_jev: true`. Candidate snippets and the query leave the Evidence Service only when both gates are open. Configure `TYPESAFE_API_KEY` as a server secret; do not expose it to the browser or logs.
 - Web flags: `NEXT_PUBLIC_REMOTE_MCP_ENABLED=true` and `NEXT_PUBLIC_REMOTE_MCP_URL=https://<service>/mcp`; these are separate from connector flags.
 - Deploy migration `20261112120000_personal_api_key_evidence_document.sql` for `get_document`.
 - API key scope: `evidence:read`; workspace membership and lifecycle are enforced by the existing key RPC.
-- No JEV, no Google Drive, no Marketplace work.
+- JEV scoring is opt-in and disabled unless explicitly enabled by an operator; no live provider call is part of development or test validation.
+- No Google Drive or Marketplace work.
 - Logs must not contain API keys or returned document content.

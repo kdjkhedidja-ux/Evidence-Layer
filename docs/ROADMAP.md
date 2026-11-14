@@ -210,15 +210,18 @@ User query
 → Caller’s model (final answer generation)
 ```
 
-JEV is the intended primary evidence-scoring and ranking provider only when
-explicitly enabled and permitted by policy. Before transferring query or
-candidate text to JEV, the trusted server must separately authorize that
-provider transfer and minimize the data sent. Source access does not authorize
-the transfer; if transfer authorization is absent or unclear, do not send the
-data. On any JEV failure—including provider errors, timeouts, missing,
-malformed, invalid, or incomplete scores, or output that fails validation—
-recompute the entire candidate set lexically. Never mix JEV and lexical scores
-or rankings. The final answer remains the caller model's responsibility.
+The hosted retrieval service now has a distinct, opt-in JEV scoring path.
+Transfer requires both an explicit per-request `use_jev: true` and the
+server-side `EVIDENCE_JEV_ENABLED=true` gate (default false). The trusted
+service binds a short-lived, one-use permit to its verified principal,
+workspace, query, and complete batch of at most 50 bounded candidate snippets;
+the Typesafe key remains server-side and SDK retries are disabled. Source
+access alone does not authorize transfer. On any provider, timeout, dependency,
+or score-validation failure, the service discards every JEV score and
+recomputes the complete candidate set lexically. It never mixes JEV and lexical
+rankings. No live provider request was made while developing or testing this
+path. Persistent per-task usage/cost and quality measurement remain
+unimplemented. The final answer remains the caller model's responsibility.
 
 OpenAI Decisions API is the required routing-intelligence component for
 complex source-routing decisions; the future routing policy may use

@@ -35,6 +35,7 @@ class RemoteMcpBackend(Protocol):
         top_k: int,
         max_tokens: int,
         max_chars: int,
+        use_jev: bool,
     ) -> dict: ...
 
     async def get_document(self, principal: RemoteMcpPrincipal, evidence_id: str) -> dict: ...
@@ -129,7 +130,8 @@ def create_remote_mcp_runtime(backend: RemoteMcpBackend, *, enabled: bool) -> Re
             "Read-only Evidence Layer tools. Resolve the workspace from the hosted URL and the "
             "personal API key from the Authorization header. Use retrieve_evidence to get a "
             "bounded, provenance-rich context, then get_document only when the full parent record "
-            "is needed."
+            "is needed. Set use_jev=true only with explicit request-level consent to send the "
+            "query and bounded candidate snippets to JEV; the server may keep JEV disabled."
         ),
     )
 
@@ -142,14 +144,16 @@ def create_remote_mcp_runtime(backend: RemoteMcpBackend, *, enabled: bool) -> Re
         top_k: int = 5,
         max_tokens: int = 1200,
         max_chars: int = 6000,
+        use_jev: bool = False,
     ) -> dict:
-        """Retrieve a bounded, lexical-selected evidence context for a query."""
+        """Retrieve bounded evidence; use_jev opts this request into JEV scoring."""
         return await backend.retrieve(
             _current_principal(),
             query=query,
             top_k=top_k,
             max_tokens=max_tokens,
             max_chars=max_chars,
+            use_jev=use_jev,
         )
 
     @server.tool(
