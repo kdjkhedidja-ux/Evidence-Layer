@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createSupabaseBrowserClient } from "../../lib/supabase/client";
 import type { WorkspaceTaskContextResult } from "../../lib/evidence-api";
+import { recordTaskTelemetry } from "../../lib/task-telemetry";
 import ConnectorSources from "../../components/connector-sources";
 import PageTitle from "../../components/page-title";
 import RemoteMcp from "../../components/remote-mcp";
@@ -467,6 +468,7 @@ export default function WorkspaceConsole({
     taskContextAbortRef.current?.abort();
     const controller = new AbortController();
     taskContextAbortRef.current = controller;
+    const startedAt = performance.now();
     setTaskContextPending(true);
     setTaskContextMessage("");
     setTaskContextResult(null);
@@ -507,6 +509,23 @@ export default function WorkspaceConsole({
         return;
       }
       setTaskContextResult(result);
+      recordTaskTelemetry({
+        recordedAt: new Date().toISOString(),
+        status: result.retrieval.status,
+        latencyMs: Math.max(0, Math.round(performance.now() - startedAt)),
+        usedTokens: result.retrieval.used_tokens,
+        usedChars: result.retrieval.used_chars,
+        selectedCount: result.retrieval.selected_count,
+        chunkCount: result.retrieval.chunk_count,
+        matchedChunkCount: result.retrieval.matched_chunk_count,
+        relationshipCount: result.relationships.length,
+        scoringProvider: result.retrieval.scoring_provider,
+        fallbackReason: result.retrieval.scoring_fallback_reason ?? null,
+        topK: result.retrieval.top_k,
+        maxTokens: result.retrieval.max_tokens,
+        maxChars: result.retrieval.max_chars,
+        useJev,
+      });
       setTaskContextMessage(
         result.retrieval.selected_count > 0
           ? "Evidence context is ready to review."

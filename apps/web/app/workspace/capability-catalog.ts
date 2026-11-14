@@ -273,6 +273,12 @@ export const CAPABILITY_GROUPS: readonly CapabilityGroup[] = [
         href: "/workspace#personal-api-keys",
       },
       {
+        name: "Telemetry",
+        status: "Partially available",
+        detail: "The Telemetry page summarizes browser-local task-context retrieval runs: selected tokens, chunks, latency, relationships, and scoring fallback. Agent cost and answer quality are not collected yet.",
+        href: "/workspace/telemetry",
+      },
+      {
         name: "Remote MCP",
         status: "Partially available",
         detail: "Hosted Streamable HTTP MCP endpoint for retrieve_evidence and get_document using a personal API key; enabled by its own flag, not a connector flag. A local Python server is optional.",
