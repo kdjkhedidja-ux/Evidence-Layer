@@ -115,6 +115,8 @@ def select_evidence(
                     path=path,
                     title=title,
                     query_terms=query_terms,
+                    query=query,
+                    chunk_index=chunk.index,
                 )
                 if raw_score > 0 else 0
             )

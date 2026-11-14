@@ -35,6 +35,10 @@ _OPS_NOISE_PATH = re.compile(
 )
 _MARKDOWN_HEADING = re.compile(r"^\s{0,3}#{1,6}\s+(.+?)\s*$")
 _TOKEN = re.compile(r"[a-z0-9]+")
+_DEFINITIONAL = re.compile(r"^\s*(what is|what are|define|explain|describe|overview)\b", re.IGNORECASE)
+_INTENT_OVERRIDE_TERMS = frozenset(
+    {"adr", "architecture", "decision", "decisions", "design", "plan", "roadmap"}
+)
 
 
 @dataclass(frozen=True)
@@ -134,7 +138,7 @@ def baseline_path_multiplier(path: str | None, query_terms: set[str]) -> float:
         multiplier = README_BOOST
     elif lower.startswith("docs/architecture") or "/architecture" in lower:
         multiplier = ARCHITECTURE_BOOST
-    elif re.search(r"(^|/)docs/(product|design|overview|spec)(/|$|[-_.])", lower):
+    elif re.search(r"(^|/)docs/(product|design|overview|spec|prd)(/|$|[-_.])", lower):
         multiplier = PRODUCT_DOCS_BOOST
     elif lower.startswith("docs/") and name.endswith((".md", ".mdx")):
         multiplier = DOCS_MARKDOWN_BOOST
@@ -163,15 +167,69 @@ def query_metadata_boost(
     return boost
 
 
+def _canonical_product_path(path: str | None) -> bool:
+    if not path:
+        return False
+    lower = path.lower()
+    name = lower.rsplit("/", 1)[-1]
+    return (
+        name.startswith("readme")
+        or name.startswith("prd")
+        or lower.startswith("docs/prd")
+        or bool(re.search(r"(^|/)docs/(product|overview|architecture)(/|$|[-_.])", lower))
+    )
+
+
+def _definitional_intent(query: str) -> bool:
+    return bool(_DEFINITIONAL.search(query)) or "what is" in query.lower()
+
+
+def _definitional_penalty(path: str | None, query: str) -> float:
+    if not _definitional_intent(query):
+        return 1.0
+    lower = (path or "").lower()
+    if set(_TOKEN.findall(query.lower())) & _INTENT_OVERRIDE_TERMS:
+        return 1.0
+    if lower.startswith("docs/adr/") or any(
+        token in lower for token in ("roadmap", "optimization_plan", "development_plan", "implementation_audit")
+    ):
+        return 0.85
+    return 1.0
+
+
+def _title_phrase_boost(query: str, title: str | None) -> float:
+    if not title:
+        return 1.0
+    normalized_title = " ".join(_TOKEN.findall(title.lower()))
+    normalized_query = " ".join(_TOKEN.findall(query.lower()))
+    if len(normalized_title.split()) >= 2 and normalized_title in normalized_query:
+        return 1.45
+    return 1.0
+
+
+def _intro_boost(query: str, path: str | None, chunk_index: int) -> float:
+    if chunk_index != 0 or not _canonical_product_path(path):
+        return 1.0
+    boost = 1.15
+    if _definitional_intent(query):
+        boost *= 1.10
+    return boost
+
+
 def adjusted_score(
     lexical_score: float,
     *,
     path: str | None,
     title: str | None,
     query_terms: set[str],
+    query: str = "",
+    chunk_index: int = 1,
 ) -> float:
     return (
         lexical_score
         * baseline_path_multiplier(path, query_terms)
         * query_metadata_boost(path=path, title=title, query_terms=query_terms)
+        * _title_phrase_boost(query, title)
+        * _definitional_penalty(path, query)
+        * _intro_boost(query, path, chunk_index)
     )

@@ -58,10 +58,13 @@ Chunks are scored individually, then packed into `top_k`, `max_tokens`, and `max
 Deterministic path/title multipliers (applied to the Lexical score):
 
 - `README*` and `docs/ARCHITECTURE*`: **1.50×**
-- `docs/product|design|overview|spec*`: **1.35×**
+- `docs/product|design|overview|spec|prd*`: **1.35×**
 - other Markdown under `docs/`: **1.20×**
 - top-level Markdown: **1.15×**
 - query term hits the path or first heading: **1.08×** each
+- exact document title phrase in the query (for example `Evidence Layer`): **1.45×**
+- canonical intro chunk (`README`, `PRD`, `ARCHITECTURE`, product/overview docs): **1.15×**; **1.10×** extra for definitional queries
+- definitional queries (`what is`, `what are`, `define`, `explain`, `describe`, `overview`): ADR, roadmap, optimization-plan, development-plan, and implementation-audit paths receive **0.85×** unless the query also contains `adr`, `architecture`, `decision`, `design`, `plan`, or `roadmap`
 - closure/verification/smoke/checklist paths: **0.70×** only when the query has no ops term (audit, deploy, deletion, migration, runbook, worker, etc.), so real ops questions are not hidden
 
 Lexical scoring and chunking are deterministic and happen on every request, so
