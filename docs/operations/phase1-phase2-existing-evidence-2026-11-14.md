@@ -41,12 +41,50 @@ No new retrieval or provider run is required to start Phase 2.
 
 1. Freeze the existing artifact list and hashes read-only.
 2. Build a blinded comparison pack from saved answer pairs:
-   - hide route/provider labels;
-   - randomize order per pair with a private seed;
-   - retain the mapping in a coordinator-only key.
-3. Collect human votes from at least two independent reviewers:
-   `A`, `B`, `Tie`, `Both bad`.
-4. Reconcile disagreements with a third reviewer or panel.
+
+```bash
+python scripts/build_phase2_comparison_pack.py \
+  --report reports/phase7_end_to_end_rag.json \
+  --cases data/real_world_dev/cases.jsonl \
+          data/real_world_validation/cases.jsonl \
+          data/real_world_test/cases.jsonl \
+  --seed 20261114 \
+  --pack /private/phase2-pack.json \
+  --key /private/phase2-key.json
+```
+
+Run `python scripts/build_real_world_dataset.py` first if the ignored split
+case files are absent. The Phase 7 report produces 80 pairs (OpenAI + DeepSeek
+× 40 cases). The pack contains only question, pair token, case token, left
+answer, and right answer.
+The key contains the route mapping and answer hashes. The pack must not contain
+route/provider labels.
+
+3. Reviewers submit one JSONL row per pair:
+
+```json
+{"pair_token":"pair_…","vote":"A"}
+```
+
+Allowed votes: `A`, `B`, `Tie`, `Both bad`.
+
+4. Reconcile disagreements:
+
+```bash
+python scripts/reconcile_phase2_comparison.py \
+  --key /private/phase2-key.json \
+  --reviewer-a /private/reviewer-a.jsonl \
+  --reviewer-b /private/reviewer-b.jsonl \
+  --third /private/reviewer-third.jsonl \
+  --output /private/phase2-reconciliation.json \
+  --strict
+```
+
+The report maps displayed `A`/`B` back to `evidence_layer` or
+`traditional_rag`, counts wins/ties/both-bad, records exact reviewer
+agreement, and leaves unresolved pairs pending a panel. Votes are never
+averaged.
+
 5. Report:
    - human preference counts and agreement;
    - token, cost, and latency deltas from saved usage;
