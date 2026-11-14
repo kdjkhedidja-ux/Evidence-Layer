@@ -41,28 +41,29 @@ export routes backed by Supabase RLS. The dedicated account-deletion worker is d
 one replica; the current operational record is
 [`docs/operations/DELETION-WORKER-VERIFY-2026-11-11.md`](docs/operations/DELETION-WORKER-VERIFY-2026-11-11.md).
 
-The hosted retrieval/scoring path is not yet wired into the product. The
-JEV/lexical scoring core remains a library and evaluation path, and the FastAPI
-service does not perform retrieval or scoring. A narrowed account/personal export and mediated download path is deployed to
-production and was enabled after a create/download/revoke smoke. Shared/group
-export remains unavailable. A read-only connector SDK for Google Drive,
-GitHub, Dropbox, Confluence, and Notion exists under
-`src/evidence_layer/connectors/`. Google Drive also has a personal-only vertical slice: OAuth connect/callback,
-server-side encrypted token storage, a manual bounded sync into owner-only
-`connector_documents`, and a minimal account UI. It remains **Coming soon**
-until Google OAuth verification. Notion has the same OAuth/manual-sync slice and
-is enabled for personal production use; a live smoke remains pending. GitHub App installation-based read-only sync is deployed and smoke-tested;
-empty repositories are skipped. The API-key retrieval endpoint and HTTP MCP
-server are implemented; see `docs/connectors/api-retrieval-mcp.md`. Background
-scheduling, ACL mapping, source-snapshot verification, deletion propagation,
-and production deployment are not implemented. Still absent
-are a hosted retrieval/scoring endpoint, source ingestion/publish UI, full
-shared/group export, general-purpose download/CDN delivery, billing/metering,
-production connectors, and shared-workspace deletion approvals. Phase 8 is not closed. The planned target architecture is
-Vercel/Next.js for the frontend, Supabase for backend services, Railway for the
-persistent HTTP MCP/worker services, JEV as the core evidence-scoring and
-ranking provider when explicitly authorized, and Lexical as its supporting
-fallback.
+The hosted FastAPI service exposes workspace task-context, personal API-key
+retrieve/get-document, and hosted Remote MCP over bounded, chunked evidence.
+Lexical scoring is the default. JEV is optional and requires both per-request
+consent and the server-side `EVIDENCE_JEV_ENABLED` flag; it remains off by
+default. The agent API-key and MCP paths are read-only workspace-scoped access,
+not agent execution; see `docs/connectors/api-retrieval-mcp.md`. A narrowed
+account/personal export and mediated download path is deployed to production
+after a create/download/revoke smoke. Shared/group export remains unavailable.
+A read-only connector SDK for Google Drive, GitHub, Dropbox, Confluence, and
+Notion exists under `src/evidence_layer/connectors/`. Google Drive has a
+personal-only OAuth/manual-sync slice and remains **Coming soon** until Google
+OAuth verification. Notion has the same OAuth/manual-sync slice and is enabled
+for personal production use; a live smoke remains pending. GitHub App
+installation-based read-only sync is deployed and smoke-tested; empty
+repositories are skipped. Background connector scheduling, ACL mapping,
+source-snapshot verification, and deletion propagation are not implemented.
+Still absent are agent execution, per-task tokens/cost/latency/quality
+telemetry, source ingestion/publish UI, full shared/group export,
+general-purpose download/CDN delivery, billing/metering, production background
+connectors, and shared-workspace deletion approvals. Phase 8 is not closed. The
+target architecture is Vercel/Next.js for the frontend, Supabase for backend
+services, Railway for the hosted service/MCP and worker, JEV as an explicitly
+authorized optional scorer, and Lexical as the supporting default fallback.
 A local deterministic routing foundation (source contract, catalog filter,
 deterministic router, and output validator in
 `src/evidence_layer/routing/`) exists as an unwired library with no allowing
