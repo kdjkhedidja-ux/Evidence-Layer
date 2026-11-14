@@ -273,6 +273,38 @@ workspace-scoped URL and a copyable client configuration. No local package insta
 When disabled, the endpoint is not mounted and returns 404; the workspace page shows the capability
 as not enabled.
 
+### Use it from Kilo or another MCP client
+
+Add the server to the client's MCP configuration. Keep the personal API key in the client secret
+store or a user-only config file; never commit it.
+
+```json
+{
+  "mcpServers": {
+    "evidence-layer": {
+      "type": "http",
+      "url": "https://evidence-layer-production-c4b5.up.railway.app/mcp/workspaces/<workspace_id>/",
+      "headers": {
+        "Authorization": "Bearer <YOUR_PERSONAL_API_KEY>"
+      }
+    }
+  }
+}
+```
+
+For Kilo, the equivalent entry is under `mcp` in `~/.config/kilo/kilo.jsonc` with `type: "remote"`.
+Restart Kilo or start a new session after adding the server so the tools are discovered.
+
+Repeatable read-only smoke:
+
+```bash
+python scripts/smoke_remote_mcp.py
+```
+
+It reads `EL_API_KEY` and `EL_WORKSPACE_ID` from the environment or the Codespaces staged env file,
+initializes the hosted MCP server, lists tools, calls `retrieve_evidence`, then calls `get_document`
+and prints only metadata. It exits non-zero on an MCP/auth/tool failure.
+
 ## Python SDK
 
 The same retrieve API has a small Python SDK for agents and backend jobs:
