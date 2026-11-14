@@ -4215,10 +4215,11 @@ select:focus-visible,
   .live-record:hover, .live-record.is-selected { border-color: var(--accent-color); background: var(--bg-selected); }
   .live-record > span, .live-record small { color: var(--text-muted); font-size: 0.68rem; }
   .live-record strong { font-size: 0.84rem; font-weight: 550; line-height: 1.45; }
-  .live-record-detail, .live-empty, .live-notice, .live-capability { border: 1px solid var(--border-color); border-radius: 0.45rem; background: var(--bg-secondary); padding: 1.2rem; }
+  .live-record-detail, .live-empty, .live-notice, .live-capability { min-width: 0; border: 1px solid var(--border-color); border-radius: 0.45rem; background: var(--bg-secondary); padding: 1.2rem; }
   .live-record-detail h3, .live-empty h3, .live-relationship-form h3 { margin: 0.1rem 0 0.7rem; }
   .live-record-detail blockquote,
   .live-guide-record blockquote {
+    max-width: 100%;
     max-height: min(38vh, 24rem);
     overflow-y: auto;
     margin: 0.6rem 0 1rem;
@@ -4226,6 +4227,7 @@ select:focus-visible,
     padding: 0.4rem 0.6rem 0.4rem 1rem;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
+    word-break: break-word;
     scrollbar-color: var(--border-control-color) var(--bg-secondary);
     scrollbar-gutter: stable;
     scrollbar-width: thin;
@@ -4285,9 +4287,9 @@ select:focus-visible,
     .live-sidebar { position: fixed; top: 54px; right: 0; bottom: 0; left: 0; display: none; width: 100%; overflow-y: auto; border-right: 0; padding: 1rem; }
     .live-sidebar--open { display: flex; }
     .live-main { margin-left: 0; }
-    .live-topbar { position: static; min-height: 48px; flex-direction: column; align-items: flex-start; gap: 0.35rem; padding: 0.5rem 1rem; }
-    .live-topbar > div { max-width: 100%; font-size: 0.72rem; overflow-wrap: anywhere; }
-    .live-status-pill { max-width: 100%; text-align: left; }
+    .live-topbar { position: static; min-height: 48px; flex-direction: row; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; }
+    .live-topbar > div { min-width: 0; max-width: 52%; font-size: 0.72rem; overflow-wrap: anywhere; }
+    .live-status-pill { max-width: 48%; text-align: center; overflow-wrap: anywhere; }
     .live-content { padding: 1rem 1rem 2.5rem; }
     .live-intro { grid-template-columns: 1fr; align-items: start; padding-top: 0.8rem; }
     .live-workspace-picker { max-width: 100%; }
