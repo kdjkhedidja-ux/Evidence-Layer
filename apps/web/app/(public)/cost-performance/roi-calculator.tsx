@@ -37,9 +37,9 @@ const msFormat = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
 
 export default function RoiCalculator() {
   const [mode, setMode] = useState<Mode>("projected");
-  const [modelId, setModelId] = useState("gpt-6-luna");
+  const [modelId, setModelId] = useState("gpt-6.1-sol");
   const [volume, setVolume] = useState(1_000_000);
-  const [scenario, setScenario] = useState<Scenario>("median");
+  const [scenario, setScenario] = useState<Scenario>("measured");
   const [evidenceLayer, setEvidenceLayer] = useState(true);
   const [scorer, setScorer] = useState<Scorer>("lexical");
   const [jevIntensity, setJevIntensity] = useState(DEFAULT_JEV_INTENSITY);
@@ -107,9 +107,18 @@ export default function RoiCalculator() {
         <span className="benchmark-tag">Not an invoice</span>
       </div>
       <p>
-        Applies the token reduction measured on Real-World v1 (40 cases) to your own volume, then
-        estimates cost from published list prices. It does not promise an answer-quality gain.
+        Applies the observed production A/B reduction from the 15-question multi-provider run to
+        your own volume, then estimates API calls, cost, and latency from your assumptions. It does
+        not promise an answer-quality gain or act as an invoice.
       </p>
+
+      <div className="roi-observed-results" role="note">
+        <strong>Observed production A/B reduction</strong>
+        <span>DeepSeek 80.9%</span>
+        <span>OpenAI 80.7%</span>
+        <span>Anthropic 80.5%</span>
+        <small>15 questions · 49 GitHub-bridged documents · same production retrieve budgets</small>
+      </div>
 
       <div className="roi-grid">
         <label className="roi-field">
@@ -329,8 +338,7 @@ export default function RoiCalculator() {
             JEV at ${result.assumptions.jevPerMillion.toFixed(3)}/M input tokens ×{" "}
             {result.assumptions.jevIntensity.toFixed(1)} per baseline token;{" "}
             {(result.assumptions.inputShare * 100).toFixed(0)}% input split; prices editable in the
-            module, list prices at the time of writing. Measured reduction range across the paired
-            runs is {(MEASURED_RANGE.min * 100).toFixed(1)}%–{(MEASURED_RANGE.max * 100).toFixed(1)}%.
+            module, list prices at the time of writing. Observed production reduction range across providers is {(MEASURED_RANGE.min * 100).toFixed(1)}%–{(MEASURED_RANGE.max * 100).toFixed(1)}%.
           </p>
         </>
       ) : (

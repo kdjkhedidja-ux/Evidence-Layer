@@ -5677,3 +5677,32 @@ h4 {
     transform: translateX(-50%);
   }
 }
+
+.roi-observed-results {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 1rem;
+  margin: 1rem 0;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--border-control-color);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.roi-observed-results strong {
+  color: var(--text-strong);
+}
+
+.roi-observed-results span {
+  color: var(--accent-color);
+  font-weight: 700;
+}
+
+.roi-observed-results small {
+  flex-basis: 100%;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
