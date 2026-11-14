@@ -128,14 +128,14 @@ test("account panel signs out cleanly before a different synthetic account signs
     body: JSON.stringify({ user_id: activeAccount.id, workspaces: [activeAccount.workspace] }),
   }));
 
-  await page.goto("/login?next=%2F");
+  await page.goto("/login?next=%2Faccount");
   await page.getByLabel("Email").fill(activeAccount.email);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL("http://localhost:3000/");
-  await page.getByRole("button", { name: "Account" }).click();
+  await expect(page).toHaveURL("http://localhost:3000/account");
+  await expect(page.getByRole("heading", { level: 1, name: "Account" })).toBeVisible();
 
-  const accountPanel = page.getByRole("region", { name: "ACCOUNT WORKSPACE" });
+  const accountPanel = page.locator("#account-panel");
   await expect(accountPanel).toBeVisible();
   await expect(accountPanel.getByText(email, { exact: true })).toBeVisible();
   await expect(accountPanel.getByText(accounts[0].workspace.name, { exact: true })).toBeVisible();
@@ -144,14 +144,13 @@ test("account panel signs out cleanly before a different synthetic account signs
   await expect(page.getByRole("status")).toContainText("You have been signed out.");
 
   activeAccount = accounts[1];
-  await page.goto("/login?next=%2F");
+  await page.goto("/login?next=%2Faccount");
   await page.getByLabel("Email").fill(activeAccount.email);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL("http://localhost:3000/");
-  await page.getByRole("button", { name: "Account" }).click();
+  await expect(page).toHaveURL("http://localhost:3000/account");
 
-  const switchedPanel = page.getByRole("region", { name: "ACCOUNT WORKSPACE" });
+  const switchedPanel = page.locator("#account-panel");
   await expect(switchedPanel.getByText(secondEmail, { exact: true })).toBeVisible();
   await expect(switchedPanel.getByText(accounts[1].workspace.name, { exact: true })).toBeVisible();
   await expect(switchedPanel.getByText(accounts[0].workspace.name, { exact: true })).toHaveCount(0);
@@ -474,11 +473,12 @@ for (const viewport of [
   { name: "desktop", width: 1280, height: 800 },
   { name: "mobile", width: 390, height: 844 },
 ]) {
-  test(`signed-out sidebar navigation reaches login on ${viewport.name}`, async ({ page }) => {
+  test(`signed-out header navigation reaches login on ${viewport.name}`, async ({ page }) => {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
     await page.goto("/");
 
-    await page.getByRole("complementary").getByRole("link", { name: "Sign in" }).click();
+    await page.getByRole("button", { name: "Menu" }).click();
+    await page.locator("#site-menu").getByRole("link", { name: "Sign in" }).click();
     await expect(page).toHaveURL(/\/login$/);
     await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
   });

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { AnchorHTMLAttributes } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import LiveEvidenceExplorer from "../app/live-evidence-explorer";
@@ -74,50 +74,14 @@ describe("live Evidence Explorer", () => {
     expect(screen.getAllByText("Stored source claim beta.")).toHaveLength(2);
   });
 
-  it("keeps one primary navigation destination for every existing product page and section", async () => {
+  it("renders Explorer content without the old product sidebar", async () => {
     render(<LiveEvidenceExplorer account={{ id: USER_ID, email: "reader@example.test" }} />);
     await screen.findAllByText("Stored source claim alpha.");
-
-    const navigationRoot = screen.getByRole("navigation", { name: "Product navigation" });
-    const navigation = within(navigationRoot);
-    const links = navigation.getAllByRole("link");
-    const destinations = links.map((link) => link.getAttribute("href"));
-    expect(new Set(destinations).size).toBe(destinations.length);
-    expect(links.map((link) => link.querySelector("span")?.textContent)).toEqual([
-      "Prepare evidence",
-      "Evidence",
-      "Relationships",
-      "Connect an agent",
-      "Task outcomes",
-    ]);
-    expect(destinations).toEqual([
-      "/workspace",
-      "#explorer",
-      "/relationships",
-      "/workspace#agent-connection",
-      "/workspace#task-measurement",
-    ]);
-    for (const destination of destinations) {
-      if (destination?.startsWith("#")) {
-        expect(document.getElementById(destination.slice(1))).not.toBeNull();
-      }
-    }
-    const validStatuses = new Set([
-      "Connected",
-      "Workspace ready",
-      "2 records",
-      "0 links",
-      "API / MCP",
-      "Not connected",
-      "Pending",
-      "Unavailable",
-    ]);
-    for (const status of navigationRoot.querySelectorAll("small")) {
-      expect(validStatuses.has(status.textContent ?? "")).toBe(true);
-    }
+    expect(screen.queryByRole("navigation", { name: "Product navigation" })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Evidence Explorer" })).toBeInTheDocument();
   });
 
-  it("keeps relationship-page links pointed at the single existing destinations", async () => {
+  it("keeps the relationship-page heading and content", async () => {
     render(
       <LiveEvidenceExplorer
         relationshipsOnly
@@ -127,18 +91,6 @@ describe("live Evidence Explorer", () => {
     const heading = await screen.findByRole("heading", { name: "Evidence Relationships" });
     expect(heading).toHaveTextContent("Evidence Relationships");
     expect(heading.querySelector(".page-title-accent")).toHaveTextContent("Relationships");
-
-    const navigation = within(screen.getByRole("navigation", { name: "Product navigation" }));
-    const links = navigation.getAllByRole("link");
-    const destinations = links.map((link) => link.getAttribute("href"));
-    expect(new Set(destinations).size).toBe(destinations.length);
-    expect(destinations).toEqual([
-      "/workspace",
-      "/",
-      "#relationships",
-      "/workspace#agent-connection",
-      "/workspace#task-measurement",
-    ]);
   });
 
   it("points users to the agent connection workflow", async () => {
@@ -261,14 +213,6 @@ describe("live Evidence Explorer", () => {
     expect(screen.getByRole("combobox", { name: "Workspace" })).toHaveValue(WORKSPACE_ID);
     expect(screen.getByRole("option", { name: "Group workspace · admin" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Document a relationship" })).toBeInTheDocument();
-  });
-
-  it("opens the account panel from the organization management link", async () => {
-    window.history.replaceState({}, "", "/?account=1");
-    render(<LiveEvidenceExplorer account={{ id: USER_ID, email: "reader@example.test" }} />);
-    expect(await screen.findByRole("button", { name: "Close account" })).toBeInTheDocument();
-    expect(screen.getByText("Account settings")).toBeInTheDocument();
-    window.history.replaceState({}, "", "/");
   });
 
   it("requires authentication before displaying any workspace data", async () => {

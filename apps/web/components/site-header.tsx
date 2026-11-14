@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
+import ThemeToggle from "../app/theme-toggle";
 import { createSupabaseBrowserClient } from "../lib/supabase/client";
 
 const NAV_ITEMS = [
@@ -117,6 +118,10 @@ export default function SiteHeader({ accountEmail }: { accountEmail?: string | n
             </Link>
           ))}
         </nav>
+        <div className="site-theme">
+          <span>Theme</span>
+          <ThemeToggle />
+        </div>
         <div className="site-session">
           {email ? (
             <>

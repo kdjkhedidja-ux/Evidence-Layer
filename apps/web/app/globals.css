@@ -5483,47 +5483,31 @@ h4 {
   }
 }
 
-/* Explorer sits below the shared header */
-@media (min-width: 641px) {
-  .live-sidebar {
-    top: 64px;
-    height: calc(100vh - 64px);
-  }
-
-  .live-topbar {
-    top: 64px;
-  }
+/* Explorer content uses the full width below the shared header. */
+.live-shell {
+  display: block;
 }
 
-@media (max-width: 640px) {
-  .live-sidebar {
-    position: static;
-    inset: auto;
-    display: flex;
-    width: auto;
-    height: auto;
-    overflow: visible;
-    padding: 1rem;
-    border-right: 0;
-    border-bottom: 1px solid var(--border-color);
-  }
+.live-main {
+  min-height: calc(100vh - 64px);
+  margin-left: 0;
+}
 
-  .live-sidebar-tagline {
-    display: none;
-  }
+.site-theme {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-color);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
 
-  .live-nav {
-    grid-auto-flow: column;
-    grid-auto-columns: max-content;
-    overflow-x: auto;
-    padding-bottom: 0.35rem;
-  }
-
-  .live-nav-item {
-    white-space: nowrap;
-  }
-
-  .live-main {
-    margin-left: 0;
-  }
+.site-theme .theme-toggle {
+  width: 34px;
+  height: 34px;
+  min-height: 34px;
+  margin: 0;
+  color: var(--text-main);
 }
