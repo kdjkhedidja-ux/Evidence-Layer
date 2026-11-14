@@ -39,7 +39,7 @@ export default function SiteHeader({ accountEmail }: { accountEmail?: string | n
   }, []);
 
   useEffect(() => {
-    setMenuOpen(false);
+    if (pathname) setMenuOpen(false);
   }, [pathname]);
 
   useEffect(() => {

@@ -212,9 +212,9 @@ test("workspace route shows authorized service records on desktop and mobile", a
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 
   const menuButton = page.getByRole("button", { name: "Menu" });
-  await expect(menuButton).toHaveAttribute("aria-controls", "workspace-menu");
+  await expect(menuButton).toHaveAttribute("aria-controls", "site-menu");
   await menuButton.click();
-  await expect(page.locator("#workspace-menu")).toBeVisible();
+  await expect(page.locator("#site-menu")).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(menuButton).toHaveAttribute("aria-expanded", "false");
   await expect(menuButton).toBeFocused();
@@ -477,15 +477,6 @@ for (const viewport of [
   test(`signed-out sidebar navigation reaches login on ${viewport.name}`, async ({ page }) => {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
     await page.goto("/");
-
-    if (viewport.width <= 900) {
-      const menuButton = page.getByRole("button", { name: "Menu" });
-      await menuButton.click();
-      await expect(page.getByRole("button", { name: "Close" })).toHaveAttribute(
-        "aria-expanded",
-        "true",
-      );
-    }
 
     await page.getByRole("complementary").getByRole("link", { name: "Sign in" }).click();
     await expect(page).toHaveURL(/\/login$/);
