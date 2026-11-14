@@ -4181,8 +4181,10 @@ select:focus-visible,
   .live-status-pill.is-connected { color: var(--accent-color); }
   .live-content { width: min(1120px, 100%); margin: 0 auto; padding: 2rem 2.5rem 4rem; }
   .live-intro { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 1rem 2rem; padding: 1.25rem 0 2rem; }
-  .live-intro h1 { margin: 0; font-size: clamp(2.2rem, 5vw, 3.5rem); letter-spacing: -0.055em; }
-  .live-intro > p:not(.live-eyebrow) { max-width: 700px; margin: 0.7rem 0 0; color: var(--text-muted); }
+  .live-intro-copy { min-width: 0; }
+  .live-intro h1 { margin: 0; font-size: clamp(2.2rem, 5vw, 3.5rem) !important; letter-spacing: -0.055em !important; line-height: 1.08 !important; }
+  .live-intro-copy > p:not(.live-eyebrow) { max-width: 700px; margin: 0.7rem 0 0; color: var(--text-muted); }
+  .live-intro-copy > .live-boundary-note { max-width: 700px; }
   .live-eyebrow { margin: 0 0 0.4rem; color: var(--accent-color); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.11em; text-transform: uppercase; }
   .live-workspace-picker { display: grid; min-width: 210px; gap: 0.25rem; color: var(--text-muted); font-size: 0.72rem; }
   .live-shell input, .live-shell select, .live-shell textarea {
@@ -4215,10 +4217,11 @@ select:focus-visible,
   .live-record:hover, .live-record.is-selected { border-color: var(--accent-color); background: var(--bg-selected); }
   .live-record > span, .live-record small { color: var(--text-muted); font-size: 0.68rem; }
   .live-record strong { font-size: 0.84rem; font-weight: 550; line-height: 1.45; }
-  .live-record-detail, .live-empty, .live-notice, .live-capability { border: 1px solid var(--border-color); border-radius: 0.45rem; background: var(--bg-secondary); padding: 1.2rem; }
+  .live-record-detail, .live-empty, .live-notice, .live-capability { min-width: 0; border: 1px solid var(--border-color); border-radius: 0.45rem; background: var(--bg-secondary); padding: 1.2rem; }
   .live-record-detail h3, .live-empty h3, .live-relationship-form h3 { margin: 0.1rem 0 0.7rem; }
   .live-record-detail blockquote,
   .live-guide-record blockquote {
+    max-width: 100%;
     max-height: min(38vh, 24rem);
     overflow-y: auto;
     margin: 0.6rem 0 1rem;
@@ -4226,6 +4229,7 @@ select:focus-visible,
     padding: 0.4rem 0.6rem 0.4rem 1rem;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
+    word-break: break-word;
     scrollbar-color: var(--border-control-color) var(--bg-secondary);
     scrollbar-gutter: stable;
     scrollbar-width: thin;
@@ -4285,9 +4289,9 @@ select:focus-visible,
     .live-sidebar { position: fixed; top: 54px; right: 0; bottom: 0; left: 0; display: none; width: 100%; overflow-y: auto; border-right: 0; padding: 1rem; }
     .live-sidebar--open { display: flex; }
     .live-main { margin-left: 0; }
-    .live-topbar { position: static; min-height: 48px; padding: 0.5rem 1rem; }
-    .live-topbar > div { font-size: 0.72rem; }
-    .live-status-pill { max-width: 48%; text-align: center; }
+    .live-topbar { position: static; min-height: 48px; flex-direction: row; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; }
+    .live-topbar > div { min-width: 0; max-width: 52%; font-size: 0.72rem; overflow-wrap: anywhere; }
+    .live-status-pill { max-width: 48%; text-align: center; overflow-wrap: anywhere; }
     .live-content { padding: 1rem 1rem 2.5rem; }
     .live-intro { grid-template-columns: 1fr; align-items: start; padding-top: 0.8rem; }
     .live-workspace-picker { max-width: 100%; }
@@ -5183,4 +5187,19 @@ p, li {
 
 .workspace-id-copy:hover {
   border-color: var(--accent-color);
+}
+
+h1,
+h2,
+h3,
+h4 {
+  color: var(--text-strong) !important;
+  font-size: 1.35rem !important;
+  font-weight: 750 !important;
+  letter-spacing: -0.07em !important;
+  line-height: 1.2 !important;
+}
+
+.live-title-accent {
+  color: var(--accent-color) !important;
 }
