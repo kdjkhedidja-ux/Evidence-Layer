@@ -633,6 +633,7 @@ export default function WorkspaceConsole({
         <div className={`workspace-menu${menuOpen ? " workspace-menu--open" : ""}`} id="workspace-menu">
           <nav aria-label="Workspace navigation">
             <Link aria-current="page" href="/workspace" onClick={() => setMenuOpen(false)}>Workspace</Link>
+            <Link href="/workspace/telemetry" onClick={() => setMenuOpen(false)}>Telemetry</Link>
             <Link href="/#explorer" onClick={() => setMenuOpen(false)}>Evidence</Link>
             <Link href="/relationships" onClick={() => setMenuOpen(false)}>Relationships</Link>
             <Link href="/workspace#agent-connection" onClick={() => setMenuOpen(false)}>Connect an agent</Link>

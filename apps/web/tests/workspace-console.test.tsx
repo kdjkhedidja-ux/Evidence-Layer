@@ -233,6 +233,11 @@ describe("workspace product console", () => {
 
   });
 
+  it("links to the telemetry page from the workspace header", async () => {
+    render(<WorkspaceConsole userId={USER_ID} email="reader@example.test" />);
+    expect(screen.getByRole("link", { name: "Telemetry" })).toHaveAttribute("href", "/workspace/telemetry");
+  });
+
   it("offers navigation and a local sign out from the header menu", async () => {
     mocks.signOut.mockResolvedValue({ error: null });
     render(<WorkspaceConsole userId={USER_ID} email="reader@example.test" />);
