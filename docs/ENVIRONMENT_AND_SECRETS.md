@@ -31,6 +31,7 @@
 | GitHub connector | Server-only GitHub App credentials; installation tokens are minted on demand and not stored | Preferred: `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_SLUG`. Accepted aliases: `GIT_APP_ID`, `GIT_APP_PRIVATE_KEY`, `GIT_APP_SLUG`. Also `NEXT_PUBLIC_GITHUB_CONNECTOR_ENABLED` |
 | API-key retrieval service | Server-only feature flags and optional provider credential | `EVIDENCE_RETRIEVE_API_ENABLED` (currently `true` in production); `EVIDENCE_JEV_ENABLED` is `true` in production as of 2026-11-14; `TYPESAFE_API_KEY` is a server-only secret required only for explicitly opted-in JEV scoring |
 | Remote MCP service | Server-only feature flag for the hosted Streamable HTTP MCP endpoint | `EVIDENCE_REMOTE_MCP_ENABLED` (default false; independent of connector flags) |
+| Task ledger | Server-only flag for the content-free task-run ledger | `EVIDENCE_TASK_LEDGER_ENABLED` (default false; enable after the ledger migration) |
 | GitHub Codespaces | Encrypted Codespaces secrets | provider keys used for local work |
 
 Supabase secret and service-role keys must never reach the frontend, a

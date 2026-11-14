@@ -22,7 +22,8 @@
     "lifecycle-comment": "Documents the lifecycle relation and server-managed fields so the fail-closed state contract and retention boundary remain explicit without changing runtime privileges.",
     "personal-api-key-function-ownership": "Transfers the personal API key management and read RPCs to dedicated NOLOGIN, NOINHERIT, NOBYPASSRLS roles created in the same file. The temporary SET grants used only for ownership transfer are revoked before commit; the reader RPCs additionally require a one-use HMAC gateway proof and remain subject to forced RLS.",
     "personal-api-key-schema-ddl-window": "Temporary CREATE on schema public/private granted to the personal API key manager and reader so the same migration can transfer function ownership. The window is revoked in the same file; those roles never create tables or policies at runtime.",
-    "connector-workspace-backfill": "Backfill existing connector connections to a personal workspace selected from active owner memberships; no user input and no cross-tenant access."
+    "connector-workspace-backfill": "Backfill existing connector connections to a personal workspace selected from active owner memberships; no user input and no cross-tenant access.",
+    "task-ledger-service-role-grant": "GRANT ALL on the content-free public.task_run_ledger to service_role. service_role is server-only, never browser-reachable, and this grant is limited to the ledger relation; authenticated retains only SELECT and INSERT through membership-scoped RLS."
   },
   "entries": [
     {
@@ -4532,6 +4533,55 @@
       "line": 83,
       "verb": "grant execute",
       "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "f311700894ee9543",
+      "file": "20261114210000_task_run_ledger.sql",
+      "line": 34,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "0b93674e0ca2ac87",
+      "file": "20261114210000_task_run_ledger.sql",
+      "line": 35,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "a6336f372338d3c9",
+      "file": "20261114210000_task_run_ledger.sql",
+      "line": 37,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "d378cb65cc85ce6a",
+      "file": "20261114210000_task_run_ledger.sql",
+      "line": 38,
+      "verb": "grant select",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "bb99be44e50a1f04",
+      "file": "20261114210000_task_run_ledger.sql",
+      "line": 39,
+      "verb": "grant all",
+      "rationale_ref": "task-ledger-service-role-grant"
+    },
+    {
+      "id": "574c526ccfee8eeb",
+      "file": "20261114210000_task_run_ledger.sql",
+      "line": 41,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "3ac610a567cdd452",
+      "file": "20261114210000_task_run_ledger.sql",
+      "line": 55,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
     }
   ]
 }

@@ -159,6 +159,8 @@ def make_client(
     *,
     evidence_repository=None,
     retrieval_enabled: bool = False,
+    task_run_ledger_repository=None,
+    task_ledger_enabled: bool = False,
 ):
     app = create_app(
         settings(),
@@ -169,10 +171,58 @@ def make_client(
         relationship_repository=repository,
         evidence_repository=evidence_repository,
         retrieval_enabled=retrieval_enabled,
+        task_run_ledger_repository=task_run_ledger_repository,
+        task_ledger_enabled=task_ledger_enabled,
     )
     return httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     )
+
+
+class TaskRunLedgerSpy:
+    def __init__(self) -> None:
+        self.records: list[dict] = []
+        self.listed: list[dict] = []
+
+    async def record(self, access_token: str, *, workspace_id, actor_user_id, metrics):
+        self.records.append(
+            {
+                "access_token": access_token,
+                "workspace_id": workspace_id,
+                "actor_user_id": actor_user_id,
+                "metrics": metrics,
+            }
+        )
+
+    async def list_runs(self, access_token: str, *, workspace_id, limit: int = 100):
+        self.listed.append({"access_token": access_token, "workspace_id": workspace_id, "limit": limit})
+        return [
+            {
+                "run_id": "91000000-0000-4000-8000-000000000001",
+                "workspace_id": str(WORKSPACE_A),
+                "run_type": "task_context",
+                "status": "ok",
+                "created_at": "2026-11-14T20:00:00Z",
+                "retrieval_latency_ms": 21,
+                "retrieval_tokens": 120,
+                "retrieval_chars": 480,
+                "selected_count": 2,
+                "chunk_count": 3,
+                "relationship_count": 1,
+                "scoring_provider": "jev",
+                "fallback_reason": None,
+                "use_jev": True,
+                "agent_provider": None,
+                "agent_model": None,
+                "agent_input_tokens": None,
+                "agent_output_tokens": None,
+                "agent_total_tokens": None,
+                "agent_cost_usd": None,
+                "agent_latency_ms": None,
+                "quality_status": None,
+                "quality_score": None,
+            }
+        ]
 
 
 def test_owner_can_create_update_and_delete_explicit_relationship() -> None:
@@ -414,5 +464,45 @@ def test_relationship_routes_require_verified_authentication() -> None:
             response = await client.get(f"/v1/workspaces/{WORKSPACE_A}/relationships")
         assert response.status_code == 401
         assert repository.calls == []
+
+    asyncio.run(run())
+
+
+def test_task_context_writes_and_lists_server_ledger_without_content() -> None:
+    async def run() -> None:
+        ledger = TaskRunLedgerSpy()
+        async with make_client(
+            MembershipDirectory(),
+            RelationshipRepositorySpy(),
+            evidence_repository=TaskContextEvidenceRepository(),
+            retrieval_enabled=True,
+            task_run_ledger_repository=ledger,
+            task_ledger_enabled=True,
+        ) as client:
+            headers = {"Authorization": f"Bearer {TOKEN}"}
+            response = await client.post(
+                f"/v1/workspaces/{WORKSPACE_A}/task-context",
+                headers=headers,
+                json={
+                    "task": "review Evidence Layer release",
+                    "expected_outcome": "identify mitigation strategies",
+                    "top_k": 2,
+                    "max_tokens": 400,
+                    "max_chars": 1600,
+                },
+            )
+            listed = await client.get(f"/v1/workspaces/{WORKSPACE_A}/task-runs", headers=headers)
+        assert response.status_code == 200
+        assert listed.status_code == 200
+        assert len(ledger.records) == 1
+        record = ledger.records[0]
+        assert record["workspace_id"] == WORKSPACE_A
+        assert record["actor_user_id"] == SUBJECT
+        assert record["metrics"]["run_type"] == "task_context"
+        assert record["metrics"]["selected_count"] == 2
+        assert record["metrics"]["use_jev"] is True
+        assert "task" not in record["metrics"]
+        assert listed.json()[0]["run_id"] == "91000000-0000-4000-8000-000000000001"
+        assert listed.json()[0]["scoring_provider"] == "jev"
 
     asyncio.run(run())

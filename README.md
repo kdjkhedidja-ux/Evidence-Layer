@@ -61,8 +61,9 @@ for personal production use; a live smoke remains pending. GitHub App
 installation-based read-only sync is deployed and smoke-tested; empty
 repositories are skipped. Background connector scheduling, ACL mapping,
 source-snapshot verification, and deletion propagation are not implemented.
-Still absent are agent execution, per-task tokens/cost/latency/quality
-telemetry, source ingestion/publish UI, full shared/group export,
+A content-free server-side retrieval task ledger exists; agent execution and
+agent-reported tokens/cost/latency/quality remain absent. Still absent are
+source ingestion/publish UI, full shared/group export,
 general-purpose download/CDN delivery, billing/metering, production background
 connectors, and shared-workspace deletion approvals. Phase 8 is not closed. The
 target architecture is Vercel/Next.js for the frontend, Supabase for backend

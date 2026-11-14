@@ -272,6 +272,12 @@
       "version": "20261112160000",
       "sha256": "5d9c8c8cea34507a5be31c11018bed9ac04d71d989dd42ab6aa1d8e4674022a7",
       "provenance": "Secure RPC for connector evidence upsert; revoke workspace ownership UPDATE grant."
+    },
+    {
+      "file": "20261114210000_task_run_ledger.sql",
+      "version": "20261114210000",
+      "sha256": "d92e4c8050b2d5abdd28b50d382087cd88d36946ab51edb38f5a78296e926df7",
+      "provenance": "Server-side content-free task-run ledger with workspace-member RLS for task-context retrieval metrics."
     }
   ]
 }
