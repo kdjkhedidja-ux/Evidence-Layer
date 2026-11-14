@@ -183,7 +183,7 @@ def test_retrieve_with_personal_api_key():
     assert item["chunk_end"] == len("lexical retrieval evidence")
     assert body["relationships"] == []
     assert body["scoring_provider"] == "lexical_stopword_filtered"
-    assert body["scoring_fallback_reason"] is None
+    assert body["scoring_fallback_reason"] == "jev_disabled"
     assert repository.relationship_reads == 0
 
 
@@ -207,7 +207,7 @@ def test_jev_requires_server_gate_and_explicit_request_opt_in():
     assert scorer.calls == []
 
 
-def test_jev_request_flag_is_strict_and_no_consent_makes_no_provider_call():
+def test_jev_defaults_to_primary_when_enabled_and_false_forces_lexical():
     scorer = FakeJevScorer()
     client = make_client(
         repository=TwoMatchRepository(),
@@ -231,8 +231,13 @@ def test_jev_request_flag_is_strict_and_no_consent_makes_no_provider_call():
         json={"query": "lexical retrieval"},
     )
     assert ordinary.status_code == 200
-    assert ordinary.json()["scoring_fallback_reason"] is None
-    assert scorer.calls == []
+    assert ordinary.json()["scoring_provider"] == "jev"
+    assert scorer.calls
+
+    lexical = client.post(path, headers=headers, json={"query": "lexical retrieval", "use_jev": False})
+    assert lexical.status_code == 200
+    assert lexical.json()["scoring_provider"] == "lexical_stopword_filtered"
+    assert len(scorer.calls) == 1
 
 
 def test_jev_ranks_the_bounded_full_candidate_batch_only_after_opt_in():

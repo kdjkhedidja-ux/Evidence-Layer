@@ -33,7 +33,7 @@ organization/snapshot smokes reached `purged`. See
 
 Hosted task-context, chunked personal-key retrieval, and Remote MCP are
 deployed and production-verified. JEV is enabled server-side as of 2026-11-14
-but remains request-level opt-in (`use_jev=false` by default); agent execution,
+but uses JEV as the request default when the server flag is enabled (`use_jev=false` forces lexical); agent execution,
 server-persisted per-task usage/cost/quality telemetry,
 source ingestion/publish, billing/metering, production background connectors,
 shared-workspace deletion approvals, and the remaining Phase 8 gates are not
@@ -234,8 +234,8 @@ User query
 
 The hosted retrieval service now has a distinct, opt-in JEV scoring path.
 Transfer requires both an explicit per-request `use_jev: true` and the
-server-side `EVIDENCE_JEV_ENABLED=true` gate (default false). The trusted
-service binds a short-lived, one-use permit to its verified principal,
+server-side `EVIDENCE_JEV_ENABLED=true` gate (code default false; production
+open). The trusted service binds a short-lived, one-use permit to its verified principal,
 workspace, query, and complete batch of at most 50 bounded candidate snippets;
 the Typesafe key remains server-side and SDK retries are disabled. Source
 access alone does not authorize transfer. On any provider, timeout, dependency,

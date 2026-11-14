@@ -21,7 +21,7 @@ invalid/incomplete score, the entire candidate set is recomputed lexically; JEV
 and lexical rankings are never mixed. The hosted task-context and retrieve
 paths can use JEV only when the request opts in and `EVIDENCE_JEV_ENABLED` is
 open; Lexical remains the default. The Remote MCP tool surface does not expose
-JEV as a hidden default, and the local stdio path remains lexical-only. The
+JEV as the primary hosted scorer when enabled, with lexical fallback, and the local stdio path remains lexical-only. The
 production activation and synthetic smoke are recorded in
 [`docs/operations/provider-jev-activation-2026-11-14.md`](docs/operations/provider-jev-activation-2026-11-14.md).
 A separate one-run benchmark host scores only the complete, fingerprint-verified
@@ -48,8 +48,8 @@ one replica; the current operational record is
 The hosted FastAPI service exposes workspace task-context, personal API-key
 retrieve/get-document, and hosted Remote MCP over bounded, chunked evidence.
 Lexical scoring is the default. JEV is optional and requires both per-request
-consent and the server-side `EVIDENCE_JEV_ENABLED` flag; it remains off by
-default. The agent API-key and MCP paths are read-only workspace-scoped access,
+the server-side `EVIDENCE_JEV_ENABLED` flag; with the production flag open it
+is primary by default, and `use_jev=false` forces lexical fallback. The agent API-key and MCP paths are read-only workspace-scoped access,
 not agent execution; see `docs/connectors/api-retrieval-mcp.md`. A narrowed
 account/personal export and mediated download path is deployed to production
 after a create/download/revoke smoke. Shared/group export remains unavailable.
@@ -547,7 +547,8 @@ provider-selection policy module, Egress, Supabase, or Railway.
 
 Hosted evidence retrieval has a separate JEV opt-in path: a caller must set
 `use_jev: true` for that request and the service operator must set
-`EVIDENCE_JEV_ENABLED=true`. Both gates default off for provider scoring.
+`EVIDENCE_JEV_ENABLED=true`. Production has the server gate open; clients can
+force the lexical fallback with `use_jev=false`.
 Only the bounded candidate snippets and query for that request are sent;
 provider failure discards the complete JEV score set and reruns lexical
 selection. This path does not yet persist task-level model usage, cost, or

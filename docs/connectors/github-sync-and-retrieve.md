@@ -92,6 +92,6 @@ The retrieve response includes the parent `evidence_id` plus `chunk_id`, `chunk_
 
 - Only text documents are bridged; binary files remain in `connector_documents` as base64 and are not evidence.
 - The 100-document cap is not a full repository clone.
-- Lexical selection is the default. JEV is a separate request-level opt-in that also requires `EVIDENCE_JEV_ENABLED=true`; connector sync itself does not send documents to JEV. Chunking and path boosts are deterministic and in-process.
+- JEV is the primary scorer when `EVIDENCE_JEV_ENABLED=true` and the request leaves `use_jev` at its default; setting `use_jev=false` forces lexical. Connector sync itself does not send documents to JEV. Chunking and path boosts are deterministic and in-process.
 - Only the current sync set is guaranteed; partial failures retain old evidence until a successful re-sync.
 - Group/shared workspace bridging is out of scope.

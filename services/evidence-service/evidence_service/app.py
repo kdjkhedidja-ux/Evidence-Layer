@@ -420,7 +420,7 @@ class PersonalApiKeyRetrieveRequest(BaseModel):
     max_tokens: int = Field(default=1200, ge=1, le=8000)
     max_chars: int = Field(default=6000, ge=1, le=40000)
     candidate_limit: int = Field(default=50, ge=1, le=100)
-    use_jev: bool = Field(default=False, strict=True)
+    use_jev: bool = Field(default=True, strict=True)
 
 
 class PersonalApiKeyRetrievedItem(BaseModel):
@@ -482,7 +482,7 @@ class WorkspaceTaskContextRequest(BaseModel):
     top_k: int = Field(default=5, ge=1, le=20)
     max_tokens: int = Field(default=1200, ge=1, le=8000)
     max_chars: int = Field(default=6000, ge=1, le=40000)
-    use_jev: bool = Field(default=False, strict=True)
+    use_jev: bool = Field(default=True, strict=True)
 
     def retrieval_query(self) -> str:
         return "\n".join(

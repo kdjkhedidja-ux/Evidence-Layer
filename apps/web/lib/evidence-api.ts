@@ -1113,7 +1113,7 @@ export async function parseWorkspaceTaskContextInput(
   const topK = candidate.top_k ?? 5;
   const maxTokens = candidate.max_tokens ?? 1200;
   const maxChars = candidate.max_chars ?? 6000;
-  const useJev = candidate.use_jev ?? false;
+  const useJev = candidate.use_jev ?? true;
   const allowedFields = new Set([
     "task",
     "expected_outcome",
