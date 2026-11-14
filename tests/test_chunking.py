@@ -129,6 +129,29 @@ def test_long_readme_chunks_outrank_an_incidental_ops_file():
     assert result.selected[0].chunk_id.startswith("11111111-1111-4111-8111-111111111111:")
 
 
+def test_definitional_query_prefers_readme_over_adr_and_plans():
+    readme = "# Evidence Layer\n\n" + (
+        "Evidence Layer is a provider-agnostic evidence-selection and context-reduction layer. "
+        * 80
+    )
+    adr = "# ADR 0005 — Separate ranking from evidence selection\n\n" + (
+        "The evidence problem is to solve ranking and selection with a complete candidate pool. "
+        * 80
+    )
+    result = select_evidence(
+        [
+            record(adr, "44444444-4444-4444-8444-444444444444", "GitHub: owner/repo/docs/adr/0005-selection.md"),
+            record(readme, "55555555-5555-4555-8555-555555555555", "GitHub: owner/repo/README.md"),
+        ],
+        query="What is Evidence Layer and what problem does it solve?",
+        top_k=2,
+        max_tokens=2_000,
+        max_chars=12_000,
+    )
+    assert result.selected[0].path == "README.md"
+    assert result.selected[0].chunk_index == 0
+
+
 def test_packing_prefers_parent_path_diversity():
     alpha = "shared product context " * 1_000
     beta = "shared product context " * 1_000
