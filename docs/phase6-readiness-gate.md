@@ -1,6 +1,6 @@
 # Phase 6 Readiness Gate
 
-Status date: 2026-11-06. This gate consolidates local Phase 6 work and distinguishes frozen offline contracts from operational/provider approval. It does not authorize provider calls, JEV, or Production.
+Status date: 2026-11-06 (historical gate). This gate consolidates local Phase 6 work and distinguishes frozen offline contracts from operational/provider approval. It does not authorize provider calls, JEV, or Production. Current roadmap status is governed by [`ADR 0011`](adr/0011-merge-phase1-validation-into-phase2-comparison.md); later Phase 7 automated judge runs are documented separately and remain non-confirmatory.
 
 ## Current status
 
