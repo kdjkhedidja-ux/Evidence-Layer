@@ -1,12 +1,5 @@
 # Real-World Benchmark v1 — Blind Relevance Review Protocol
 
-Status update (2026-11-14): Phase 1 and Phase 2 are merged by
-[`ADR 0011`](adr/0011-merge-phase1-validation-into-phase2-comparison.md).
-Existing documented experiments are used as retrospective evidence for the
-Phase 2 comparison experience. This protocol remains the confirmatory path for
-relevance judgments and a new sealed set; it is not replaced by automated
-judge scores or retrospective human votes.
-
 ## Current judgment status
 
 The current 0/1/2 relevance judgments were authored by the developer before
