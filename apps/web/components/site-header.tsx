@@ -46,6 +46,8 @@ export default function SiteHeader({ accountEmail }: { accountEmail?: string | n
       setEmail(accountEmail);
       return;
     }
+    const currentPath = window.location.pathname;
+    if (/^\/(login|signup|forgot-password|reset-password|auth)(\/|$)/.test(currentPath)) return;
     let cancelled = false;
     try {
       void createSupabaseBrowserClient().auth.getSession().then(({ data }) => {
