@@ -16,13 +16,13 @@ whether the agent should **answer**, **abstain**, or **escalate**.
 
 ## Current Status
 
-The approved architecture makes JEV an optional scorer. On any JEV failure or
-invalid/incomplete score, the entire candidate set is recomputed lexically; JEV
-and lexical rankings are never mixed. The hosted task-context and retrieve
-paths can use JEV only when the request opts in and `EVIDENCE_JEV_ENABLED` is
-open; Lexical remains the default. The Remote MCP tool surface does not expose
-JEV as the primary hosted scorer when enabled, with lexical fallback, and the local stdio path remains lexical-only. The
-production activation and synthetic smoke are recorded in
+JEV is the primary hosted scorer when `EVIDENCE_JEV_ENABLED` is open. On any
+JEV failure or invalid/incomplete score, the entire candidate set is recomputed
+lexically; JEV and lexical rankings are never mixed. The hosted task-context,
+API-key retrieve, Python SDK, and Remote MCP paths use JEV by default when the
+server gate is open; `use_jev=false` forces the lexical fallback. The local
+stdio path remains lexical-only. Production activation and the synthetic smoke
+are recorded in
 [`docs/operations/provider-jev-activation-2026-11-14.md`](docs/operations/provider-jev-activation-2026-11-14.md).
 A separate one-run benchmark host scores only the complete, fingerprint-verified
 public Real-World v1 set under a one-use permit; its exploratory results and
@@ -47,10 +47,10 @@ one replica; the current operational record is
 
 The hosted FastAPI service exposes workspace task-context, personal API-key
 retrieve/get-document, and hosted Remote MCP over bounded, chunked evidence.
-Lexical scoring is the default. JEV is optional and requires both per-request
-the server-side `EVIDENCE_JEV_ENABLED` flag; with the production flag open it
-is primary by default, and `use_jev=false` forces lexical fallback. The agent API-key and MCP paths are read-only workspace-scoped access,
-not agent execution; see `docs/connectors/api-retrieval-mcp.md`. A narrowed
+JEV is the primary scorer when the server-side `EVIDENCE_JEV_ENABLED` flag is
+open; `use_jev=false` forces lexical fallback. The agent API-key and MCP paths
+are read-only workspace-scoped access, not agent execution; see
+`docs/connectors/api-retrieval-mcp.md`. A narrowed
 account/personal export and mediated download path is deployed to production
 after a create/download/revoke smoke. Shared/group export remains unavailable.
 A read-only connector SDK for Google Drive, GitHub, Dropbox, Confluence, and
@@ -67,8 +67,8 @@ source ingestion/publish UI, full shared/group export,
 general-purpose download/CDN delivery, billing/metering, production background
 connectors, and shared-workspace deletion approvals. Phase 8 is not closed. The
 target architecture is Vercel/Next.js for the frontend, Supabase for backend
-services, Railway for the hosted service/MCP and worker, JEV as an explicitly
-authorized optional scorer, and Lexical as the supporting default fallback.
+services, Railway for the hosted service/MCP and worker, JEV as the primary
+scorer when enabled, and Lexical as the fail-closed fallback.
 A local deterministic routing foundation (source contract, catalog filter,
 deterministic router, and output validator in
 `src/evidence_layer/routing/`) exists as an unwired library with no allowing
@@ -391,11 +391,12 @@ recall@k and context-reduction versus the current no-op baseline.
   unique task IDs, non-empty queries/passages, valid gold IDs, required facts,
   distribution, and no dev/test overlap.
 - `pytest` passes with no failures.
-- The standard MCP path constructs `LocalCorpusRetriever()` without an injected
-  JEV policy. The retriever's default source-read boundary denies before corpus
-  content is opened, and live JEV transfer is hard-denied before credential
-  lookup, SDK loading, payload construction, or provider calls. Injected JEV
-  dependencies do not enable live transfer in the current implementation.
+- The local stdio MCP path constructs `LocalCorpusRetriever()` without an
+  injected JEV policy. The local retriever's default source-read boundary denies
+  before corpus content is opened, and local live JEV transfer is hard-denied
+  before credential lookup, SDK loading, payload construction, or provider
+  calls. The hosted task-context/API-key/Remote MCP paths use the separate
+  server-gated JEV scorer described below.
 
 **PROPOSAL**
 
@@ -533,8 +534,8 @@ underlying model; this does not provide pinned-model reproducibility. Callers
 can select another model explicitly with `JevEvidenceScorer(model="...")`.
 
 The TypeSafe SDK is pinned at `typesafe-sdk==0.7.2`. The ordinary library
-provider-selection policy remains lexical-only by default. The hosted
-request-opt-in JEV path is separately gated and fail-closed. The dedicated
+provider-selection policy remains lexical-only by default. The hosted JEV path
+is separately gated and fail-closed. The dedicated
 Real-World v1 runner requires `--run-authorized`, verifies the fixed
 40-case/200-candidate inputs and the synthetic freeze fingerprints, then issues
 a one-use scope for those exact query/candidate pairs. It uses the official System One endpoint,
@@ -546,10 +547,9 @@ That evaluation is exploratory: the judgments were developer-authored and the
 exposed held-out split is not blind. It does not change the production
 provider-selection policy module, Egress, Supabase, or Railway.
 
-Hosted evidence retrieval has a separate JEV opt-in path: a caller must set
-`use_jev: true` for that request and the service operator must set
-`EVIDENCE_JEV_ENABLED=true`. Production has the server gate open; clients can
-force the lexical fallback with `use_jev=false`.
+Hosted evidence retrieval uses JEV by default when the service operator has set
+`EVIDENCE_JEV_ENABLED=true`. Clients can force the lexical fallback with
+`use_jev=false`. Production has the server gate open.
 Only the bounded candidate snippets and query for that request are sent;
 provider failure discards the complete JEV score set and reruns lexical
 selection. This path does not yet persist task-level model usage, cost, or
