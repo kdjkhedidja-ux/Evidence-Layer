@@ -5537,3 +5537,143 @@ h4 {
 .site-footer a:hover {
   color: var(--accent-color);
 }
+
+/* Documentation diagrams */
+.docs-figure {
+  margin: 1.2rem 0 0;
+}
+
+.docs-diagram {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1.2fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.7rem;
+  padding: 1rem;
+  border: 1px solid var(--border-control-color);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+}
+
+.docs-diagram-group {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.docs-node {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.8rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-primary);
+}
+
+.docs-node strong {
+  color: var(--text-strong);
+  font-size: 0.86rem;
+}
+
+.docs-node span {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+.docs-node--quiet {
+  background: transparent;
+}
+
+.docs-node--accent {
+  border-color: var(--accent-color);
+}
+
+.docs-arrow {
+  color: var(--accent-color);
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.docs-source-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 1rem;
+  margin-top: 0.6rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.docs-source-row strong {
+  color: var(--text-strong);
+}
+
+.docs-figure figcaption {
+  margin-top: 0.6rem;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.docs-pipeline {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin: 1.2rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.docs-pipeline li {
+  position: relative;
+  min-width: 0;
+  padding: 0.85rem;
+  border: 1px solid var(--border-control-color);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+}
+
+.docs-pipeline li:not(:last-child)::after {
+  position: absolute;
+  top: 50%;
+  right: -0.58rem;
+  color: var(--accent-color);
+  content: "→";
+  font-weight: 700;
+  transform: translateY(-50%);
+}
+
+.docs-pipeline strong {
+  display: block;
+  margin-bottom: 0.3rem;
+  color: var(--text-strong);
+  font-size: 0.82rem;
+}
+
+.docs-pipeline span {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+@media (max-width: 800px) {
+  .docs-diagram {
+    grid-template-columns: 1fr;
+  }
+
+  .docs-arrow {
+    justify-self: center;
+    transform: rotate(90deg);
+  }
+
+  .docs-pipeline {
+    grid-template-columns: 1fr;
+  }
+
+  .docs-pipeline li:not(:last-child)::after {
+    top: auto;
+    right: auto;
+    bottom: -0.72rem;
+    left: 50%;
+    content: "↓";
+    transform: translateX(-50%);
+  }
+}
