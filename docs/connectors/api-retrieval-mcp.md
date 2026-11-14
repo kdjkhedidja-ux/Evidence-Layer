@@ -53,7 +53,7 @@ Retrieval chunks each evidence body at read time (no schema change and no re-syn
 | Maximum chunks per evidence | 48 |
 | Chunk identity | `evidence_id:start:end` (stable character offsets) |
 
-Chunks are scored individually, then packed into `top_k`, `max_tokens`, and `max_chars`. Packing prefers one chunk per parent path first, then a second pass, then remaining chunks; this avoids filling the response from one huge file when other paths match. Each item preserves the parent `evidence_id` and adds `chunk_id`, `chunk_index`, `chunk_start`, `chunk_end`, `path`, and `title`.
+Chunks are scored individually, then packed into `top_k`, `max_tokens`, and `max_chars`. Packing prefers one chunk per parent path first, then a second pass, then remaining chunks; this avoids filling the response from one huge file when other paths match. After the first selection, a chunk below **35% of the highest selected score** is not used merely to fill an empty `top_k` slot. Explicit seed/related records are exempt. Each item preserves the parent `evidence_id` and adds `chunk_id`, `chunk_index`, `chunk_start`, `chunk_end`, `path`, and `title`.
 
 Deterministic path/title multipliers (applied to the Lexical score):
 
