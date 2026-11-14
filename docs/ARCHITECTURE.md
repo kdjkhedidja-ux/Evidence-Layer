@@ -84,13 +84,15 @@ document data or scorer behavior.
   scoring requires both per-request consent and the server-side
   `EVIDENCE_JEV_ENABLED` flag, which defaults off. The local stdio MCP policy
   remains unchanged.
-- A persistent Railway HTTP MCP/retrieval service is planned; it will host the
-  `retrieve_evidence` tool behind authenticated tenant context.
-- The future customer-facing service must authenticate/authorize the caller
-  and establish tenant context.
-- It must validate requests, invoke retrieval and scoring, enforce usage limits,
-  and return sanitized results.
-- It must keep secrets server-side and emit request-level operational metadata.
+- Railway hosts the FastAPI service with workspace task-context, personal
+  API-key retrieval, and Remote MCP. The production task-context smoke and the
+  API-key/MCP checks are recorded in `docs/operations/`.
+- The hosted service authenticates and authorizes the caller, establishes
+  tenant context, validates requests, invokes bounded retrieval/scoring, and
+  returns sanitized results.
+- It keeps secrets server-side and applies lifecycle, membership, RLS, and
+  rate-limit gates. Per-task token, cost, latency, and answer-quality telemetry
+  is not yet persisted.
 
 ### Supabase backend (implemented core; broader schemas planned)
 
