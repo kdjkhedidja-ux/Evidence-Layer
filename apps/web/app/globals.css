@@ -5511,3 +5511,29 @@ h4 {
   margin: 0;
   color: var(--text-main);
 }
+
+/* Shared footer */
+.site-footer {
+  display: flex;
+  justify-content: center;
+  padding: 1.4rem clamp(1rem, 4vw, 3rem);
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+}
+
+.site-footer nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1.1rem;
+}
+
+.site-footer a {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  text-decoration: none;
+}
+
+.site-footer a:hover {
+  color: var(--accent-color);
+}

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import PageTitle from "../../../components/page-title";
+import SiteFooter from "../../../components/site-footer";
 import SiteHeader from "../../../components/site-header";
 import TelemetryDashboard from "../../../components/telemetry-dashboard";
 import { getMfaChallengeStatus } from "../../../lib/supabase/mfa";
@@ -38,6 +39,7 @@ export default async function WorkspaceTelemetryPage() {
         </p>
       </section>
       <TelemetryDashboard />
+      <SiteFooter />
     </main>
   );
 }
@@ -51,6 +53,7 @@ function TelemetryGate({ title }: { title: string }) {
         <h1><PageTitle>{title}</PageTitle></h1>
         <p>Telemetry was not loaded. Try again later.</p>
       </section>
+      <SiteFooter />
     </main>
   );
 }

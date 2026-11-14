@@ -1,15 +1,7 @@
-import Link from "next/link";
 import PageTitle from "../components/page-title";
+import SiteFooter from "../components/site-footer";
 import SiteHeader from "../components/site-header";
 import type { ReactNode } from "react";
-
-const PUBLIC_LINKS = [
-  { href: "/evaluation", label: "Evaluation · Benchmarks" },
-  { href: "/cost-performance", label: "Cost & Performance" },
-  { href: "/privacy", label: "Privacy Policy" },
-  { href: "/terms", label: "Terms of Use" },
-  { href: "/data-deletion", label: "Data Deletion" },
-] as const;
 
 export function PublicSiteShell({
   currentPath,
@@ -38,20 +30,7 @@ export function PublicSiteShell({
         <div className="public-body">{children}</div>
       </main>
 
-      <footer className="public-footer">
-        <p>Evidence Layer · Evidence selection with traceable sources.</p>
-        <nav aria-label="Legal and product information">
-          {PUBLIC_LINKS.map((item) => (
-            <Link
-              aria-current={currentPath === item.href ? "page" : undefined}
-              href={item.href}
-              key={item.href}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-      </footer>
+      <SiteFooter currentPath={currentPath} />
     </div>
   );
 }

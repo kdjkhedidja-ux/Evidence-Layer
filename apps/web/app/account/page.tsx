@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import AuthAccount from "../../components/auth-account";
 import PageTitle from "../../components/page-title";
+import SiteFooter from "../../components/site-footer";
 import SiteHeader from "../../components/site-header";
 import { getMfaChallengeStatus } from "../../lib/supabase/mfa";
 import { getVerifiedAuthContext } from "../../lib/supabase/server";
@@ -43,6 +44,7 @@ export default async function AccountPage() {
         </div>
         <AuthAccount userId={auth.user.id} email={auth.user.email ?? "Account"} />
       </div>
+      <SiteFooter />
     </main>
   );
 }
@@ -56,6 +58,7 @@ function AccountGate({ title }: { title: string }) {
         <h1><PageTitle>{title}</PageTitle></h1>
         <p>The account page could not be loaded. Try again later.</p>
       </section>
+      <SiteFooter />
     </main>
   );
 }

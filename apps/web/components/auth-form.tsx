@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import PageTitle from "./page-title";
+import SiteFooter from "./site-footer";
 import SiteHeader from "./site-header";
 import { useRouter } from "next/navigation";
 import { useRef, useState, type FormEvent } from "react";
@@ -300,6 +301,7 @@ export default function AuthForm({
           {mode !== "login" && <Link href="/login">Back to sign in</Link>}
         </nav>
       </div>
+      <SiteFooter />
     </main>
   );
 }

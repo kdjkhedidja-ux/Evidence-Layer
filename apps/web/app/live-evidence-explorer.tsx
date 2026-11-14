@@ -4,6 +4,7 @@ import Link from "next/link";
 import RelationshipCanvas from "./relationships/relationship-canvas";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import PageTitle from "../components/page-title";
+import SiteFooter from "../components/site-footer";
 import SiteHeader from "../components/site-header";
 
 type Workspace = { id: string; name: string; role: "owner" | "admin" | "member" };
@@ -483,7 +484,7 @@ export default function LiveEvidenceExplorer({
                 )}
               </section>
 
-              <footer className="live-footer"><span>Evidence Layer · Focused context for agent tasks.</span><nav><Link href="/workspace#agent-connection">Connect an agent</Link><Link href="/documentation">Documentation</Link><Link href="/evaluation">Historical benchmarks</Link><Link href="/cost-performance">Cost estimates</Link><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link></nav></footer>
+              <SiteFooter />
             </>
           )}
         </div>

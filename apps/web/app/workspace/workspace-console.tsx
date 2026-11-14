@@ -8,6 +8,7 @@ import type { WorkspaceTaskContextResult } from "../../lib/evidence-api";
 import { recordTaskTelemetry } from "../../lib/task-telemetry";
 import ConnectorSources from "../../components/connector-sources";
 import PageTitle from "../../components/page-title";
+import SiteFooter from "../../components/site-footer";
 import RemoteMcp from "../../components/remote-mcp";
 import PersonalApiKeys from "./personal-api-keys";
 import SiteHeader from "../../components/site-header";
@@ -1201,10 +1202,7 @@ export default function WorkspaceConsole({
         </section>
         </details>
 
-        <footer className="workspace-footer">
-          <span>Workspace data is scoped to verified membership and service permissions.</span>
-          <Link href="/documentation">Developer documentation</Link>
-        </footer>
+        <SiteFooter includeDeveloperDocs />
       </div>
     </main>
   );
