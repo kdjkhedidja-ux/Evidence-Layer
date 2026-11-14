@@ -363,10 +363,10 @@ A/B token reports: [`first run`](../operations/el-vs-baseline-deepseek-tokens-20
 ## Enablement/config notes
 
 - Service flags: `EVIDENCE_RETRIEVE_API_ENABLED=true` for retrieve/get-document, and `EVIDENCE_REMOTE_MCP_ENABLED=true` for the hosted MCP mount. Both default false and return 404 while disabled.
-- JEV is separately gated by `EVIDENCE_JEV_ENABLED` (default false) and an explicit per-request `use_jev: true`. Candidate snippets and the query leave the Evidence Service only when both gates are open. Configure `TYPESAFE_API_KEY` as a server secret; do not expose it to the browser or logs.
+- JEV is separately gated by `EVIDENCE_JEV_ENABLED` (code default false; enabled in production on 2026-11-14) and an explicit per-request `use_jev: true`. Candidate snippets and the query leave the Evidence Service only when both gates are open. Configure `TYPESAFE_API_KEY` as a server secret; do not expose it to the browser or logs.
 - Web flags: `NEXT_PUBLIC_REMOTE_MCP_ENABLED=true` and `NEXT_PUBLIC_REMOTE_MCP_URL=https://<service>/mcp`; these are separate from connector flags.
 - Deploy migration `20261112120000_personal_api_key_evidence_document.sql` for `get_document`.
 - API key scope: `evidence:read`; workspace membership and lifecycle are enforced by the existing key RPC.
-- JEV scoring is opt-in and disabled unless explicitly enabled by an operator; no live provider call is part of development or test validation.
+- JEV scoring is request-level opt-in and controlled by the server flag; production was enabled on 2026-11-14 after a synthetic smoke (`docs/operations/provider-jev-activation-2026-11-14.md`).
 - No Google Drive or Marketplace work.
 - Logs must not contain API keys or returned document content.
