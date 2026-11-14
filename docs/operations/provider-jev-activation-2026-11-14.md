@@ -43,11 +43,11 @@ the hosted Evidence Service does not generate model answers.
 | Provider | Credential check | Generation check | State |
 |---|---|---|---|
 | DeepSeek | `/models` `200`, 2 models | `deepseek-chat` `200`, returned `deepseek-flash`, 9 tokens | **ACTIVE for evaluation** |
-| OpenAI | `/models` `200`, 98 models after key rotation | `gpt-6.1-sol` `429 insufficient_quota` — no credits remaining | **BLOCKED — add credits** |
+| OpenAI | `/models` `200`, 98 models | `gpt-6.1-sol` `200`, returned `gpt-6.1-sol`, 13 total tokens | **ACTIVE for evaluation** |
 | Anthropic | `/models` `200`, 15 models after key rotation | `claude-haiku-5-5` `200`, returned `claude-haiku-5-5`, 4 output tokens | **ACTIVE for evaluation** |
 
 No new full benchmark run was started. Phase 2 comparison remains based on the
-existing documented answer pairs, so it is not blocked by provider quotas.
+existing documented answer pairs.
 
 ## Rollback
 
@@ -63,4 +63,4 @@ JEV is fail-closed: disabling the flag does not require a code rollback.
 - The smoke used synthetic text only.
 - Real-World v1 egress for JEV remains a separate data-transfer decision.
 - Provider-side JEV usage/cost is not returned by the current API contract.
-- OpenAI billing/credits are an operator action outside this repository.
+- OpenAI generation requires `max_completion_tokens` for the pinned `gpt-6.1-sol` model; run scripts must use the model-specific parameter contract.
