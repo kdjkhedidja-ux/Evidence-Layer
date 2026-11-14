@@ -82,8 +82,15 @@ describe("public information pages", () => {
 
   it("documents that Evidence Layer selects evidence and the caller's model writes the answer", () => {
     render(<DocumentationPage />);
-    expect(screen.getByRole("heading", { name: /selects and traces evidence; it does not write the final answer/i })).toBeInTheDocument();
-    expect(screen.getByText(/caller.s chosen LLM consumes the selected context and writes the final answer/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /selects and traces evidence; the caller.s model writes the answer/i })).toBeInTheDocument();
+    expect(screen.getByText(/the agent or application then sends that context to its own/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "The system at a glance" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "How a task becomes context" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Three agent entry points" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "What is live today" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Security, provenance, and what EL does not do" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /agent or rag system sends a task/i })).toBeInTheDocument();
+    expect(screen.getByText("80.9%")).toBeInTheDocument();
     const navigation = within(screen.getByRole("navigation", { name: "Main navigation" }));
     expect(navigation.getByRole("link", { name: "Evaluation · Benchmarks" })).toHaveAttribute("href", "/evaluation");
   });
