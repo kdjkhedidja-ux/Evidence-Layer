@@ -88,35 +88,28 @@ describe("public information pages", () => {
     expect(navigation.getByRole("link", { name: "Evaluation · Benchmarks" })).toHaveAttribute("href", "/evaluation");
   });
 
-  it("keeps Phase 6, Phase 7, and Phase 7B findings distinct and reports the required caveats", () => {
+  it("presents the evidence-reduction concept and its quality guardrail", () => {
     render(<EvaluationBenchmarksPage />);
-    expect(screen.getByRole("heading", { name: "Real-World Benchmark" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "End-to-End RAG Benchmark" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Fresh JEV in the end-to-end path" })).toBeInTheDocument();
-    expect(screen.getByText("−24.75%")).toBeInTheDocument();
-    expect(screen.getByText("−28.93%")).toBeInTheDocument();
-    expect(screen.getByText(/DeepSeek interval includes zero/i)).toBeInTheDocument();
-    expect(screen.getByText(/Coverage decreased by 0.0208/i)).toBeInTheDocument();
-    expect(screen.getByText(/not been independently human-reviewed/i)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "View the Phase 7 manifest" })).toHaveAttribute(
-      "href",
-      "/evaluation/phase7-manifest.html",
-    );
+    expect(screen.getByRole("heading", { name: "Less context. Same task. Measured both ways." })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Headline results" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "What EL actually changes" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "The quality guardrail" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "What the results do not prove" })).toBeInTheDocument();
+    expect(screen.getByText("80.9%")).toBeInTheDocument();
+    expect(screen.getAllByText("80.7%").length).toBeGreaterThan(0);
+    expect(screen.getByText("80.5%")).toBeInTheDocument();
+    expect(screen.getAllByText(/3 wins · 11 ties · 1 loss/).length).toBeGreaterThan(0);
     expect(screen.getByRole("link", { name: "Read the Phase 7 report" })).toHaveAttribute(
       "href",
       "/evaluation/phase7-report.html",
     );
-    expect(screen.getByRole("link", { name: "Read the Phase 6 report" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "View the Phase 7 manifest" })).toHaveAttribute(
       "href",
-      "/evaluation/phase6-report.html",
+      "/evaluation/phase7-manifest.html",
     );
-    expect(screen.getByRole("link", { name: "Read the Phase 7B report" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Read the Haiku lexical report" })).toHaveAttribute(
       "href",
-      "/evaluation/phase7b-report.html",
-    );
-    expect(screen.getByRole("link", { name: "View the Phase 7B manifest" })).toHaveAttribute(
-      "href",
-      "/evaluation/phase7b-manifest.html",
+      "/evaluation/haiku-lexical-report.html",
     );
     for (const link of screen.getAllByRole("link")) {
       expect(link.getAttribute("href") ?? "").not.toMatch(/github\.com/i);
@@ -136,7 +129,7 @@ describe("public information pages", () => {
 
   it("makes wide benchmark tables keyboard-scrollable and constrains public layouts on mobile", () => {
     render(<EvaluationBenchmarksPage />);
-    const resultsRegion = screen.getByRole("region", { name: "Phase 7B live cost validation by provider" });
+    const resultsRegion = screen.getByRole("region", { name: "Headline Evidence Layer A/B results" });
     expect(resultsRegion).toHaveAttribute("tabindex", "0");
     resultsRegion.focus();
     expect(document.activeElement).toBe(resultsRegion);
