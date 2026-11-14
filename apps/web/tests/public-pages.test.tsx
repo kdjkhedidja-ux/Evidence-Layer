@@ -51,6 +51,7 @@ describe("public information pages", () => {
       "Privacy",
       "Terms",
       "Data Deletion",
+      "Account",
     ]);
 
     const footerNav = screen.getByRole("navigation", { name: "Legal and product information" });

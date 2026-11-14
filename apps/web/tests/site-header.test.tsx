@@ -39,8 +39,10 @@ describe("SiteHeader", () => {
       "Privacy",
       "Terms",
       "Data Deletion",
+      "Account",
     ]);
     expect(within(nav).getByRole("link", { name: "Documentation" })).toHaveAttribute("aria-current", "page");
+    expect(within(nav).getByRole("link", { name: "Account" })).toHaveAttribute("href", "/account");
   });
 
   it("shows the signed-in account and performs a local sign out", async () => {

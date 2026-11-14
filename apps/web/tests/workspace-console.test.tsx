@@ -273,6 +273,7 @@ describe("workspace product console", () => {
       "/workspace#source-read-heading",
       "/workspace#task-context",
       "/workspace/telemetry",
+      "/account",
       "/relationships",
       "/evaluation",
       "/cost-performance",
