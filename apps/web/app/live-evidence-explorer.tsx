@@ -484,9 +484,9 @@ export default function LiveEvidenceExplorer({
                 )}
               </section>
 
-              <SiteFooter />
             </>
           )}
+          <SiteFooter />
         </div>
       </main>
       </div>
