@@ -79,6 +79,7 @@ describe("live Evidence Explorer", () => {
     await screen.findAllByText("Stored source claim alpha.");
     expect(screen.queryByRole("navigation", { name: "Product navigation" })).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Evidence Explorer" })).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Legal and product information" })).toBeInTheDocument();
   });
 
   it("keeps the relationship-page heading and content", async () => {
