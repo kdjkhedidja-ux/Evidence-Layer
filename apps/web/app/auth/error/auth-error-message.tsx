@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import PageTitle from "../../../components/page-title";
 
 type ErrorReason = "expired-link" | "invalid-link" | "configuration" | "workspace-provisioning" | "mfa-unavailable";
 
@@ -83,7 +84,7 @@ export default function AuthErrorMessage({ initialReason }: { initialReason?: st
   const content = contentFor(reason);
   return (
     <>
-      <h1 id="auth-error-title">{content.title}</h1>
+      <h1 id="auth-error-title"><PageTitle>{content.title}</PageTitle></h1>
       <p className="auth-description">{content.description}</p>
     </>
   );

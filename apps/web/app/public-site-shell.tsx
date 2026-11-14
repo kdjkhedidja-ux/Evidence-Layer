@@ -1,4 +1,5 @@
 import Link from "next/link";
+import PageTitle from "../components/page-title";
 import type { ReactNode } from "react";
 
 const PRIMARY_PUBLIC_LINKS = [
@@ -50,7 +51,7 @@ export function PublicSiteShell({
       <main className="public-main" id="main-content">
         <div className="public-hero">
           <p className="public-eyebrow">{eyebrow}</p>
-          <h1>{title}</h1>
+          <h1><PageTitle>{title}</PageTitle></h1>
           <p className="public-lede">{description}</p>
         </div>
         <div className="public-body">{children}</div>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import RelationshipCanvas from "./relationships/relationship-canvas";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import AuthAccount from "../components/auth-account";
+import PageTitle from "../components/page-title";
 import ThemeToggle from "./theme-toggle";
 
 type Workspace = { id: string; name: string; role: "owner" | "admin" | "member" };
@@ -392,12 +393,7 @@ export default function LiveEvidenceExplorer({
           <section className="live-intro" id="workspace">
             <div className="live-intro-copy">
               <p className="live-eyebrow">Examine · compare · verify</p>
-              <h1>
-                <span>Evidence</span>{" "}
-                <span className="live-title-accent">
-                  {relationshipsOnly ? "Relationships" : "Explorer"}
-                </span>
-              </h1>
+              <h1><PageTitle>{relationshipsOnly ? "Evidence Relationships" : "Evidence Explorer"}</PageTitle></h1>
               <p>{relationshipsOnly
                 ? "Review and maintain the explicit evidence links that can help an agent understand how records relate."
                 : "Prepare workspace evidence for an agent, inspect its source labels, and review the relationships recorded by workspace owners and admins."}</p>
