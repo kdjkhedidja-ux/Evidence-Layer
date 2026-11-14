@@ -390,22 +390,24 @@ export default function LiveEvidenceExplorer({
         </header>
         <div className="live-content">
           <section className="live-intro" id="workspace">
-            <p className="live-eyebrow">Examine · compare · verify</p>
-            <h1>
-              <span>Evidence</span>{" "}
-              <span className="live-title-accent">
-                {relationshipsOnly ? "Relationships" : "Explorer"}
-              </span>
-            </h1>
-            <p>{relationshipsOnly
-              ? "Review and maintain the explicit evidence links that can help an agent understand how records relate."
-              : "Prepare workspace evidence for an agent, inspect its source labels, and review the relationships recorded by workspace owners and admins."}</p>
-            {!relationshipsOnly && (
-              <p className="live-boundary-note">
-                Agents retrieve bounded evidence through API or MCP. This page does not run the agent
-                or report task-level token use, cost, or quality yet.
-              </p>
-            )}
+            <div className="live-intro-copy">
+              <p className="live-eyebrow">Examine · compare · verify</p>
+              <h1>
+                <span>Evidence</span>{" "}
+                <span className="live-title-accent">
+                  {relationshipsOnly ? "Relationships" : "Explorer"}
+                </span>
+              </h1>
+              <p>{relationshipsOnly
+                ? "Review and maintain the explicit evidence links that can help an agent understand how records relate."
+                : "Prepare workspace evidence for an agent, inspect its source labels, and review the relationships recorded by workspace owners and admins."}</p>
+              {!relationshipsOnly && (
+                <p className="live-boundary-note">
+                  Agents retrieve bounded evidence through API or MCP. This page does not run the agent
+                  or report task-level token use, cost, or quality yet.
+                </p>
+              )}
+            </div>
             {workspaceState === "ready" && workspaces.length > 0 && (
               <label className="live-workspace-picker">
                 Workspace

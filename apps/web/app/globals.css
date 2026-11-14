@@ -4181,8 +4181,10 @@ select:focus-visible,
   .live-status-pill.is-connected { color: var(--accent-color); }
   .live-content { width: min(1120px, 100%); margin: 0 auto; padding: 2rem 2.5rem 4rem; }
   .live-intro { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 1rem 2rem; padding: 1.25rem 0 2rem; }
-  .live-intro h1 { margin: 0; font-size: clamp(2.2rem, 5vw, 3.5rem); letter-spacing: -0.055em; }
-  .live-intro > p:not(.live-eyebrow) { max-width: 700px; margin: 0.7rem 0 0; color: var(--text-muted); }
+  .live-intro-copy { min-width: 0; }
+  .live-intro h1 { margin: 0; font-size: clamp(2.2rem, 5vw, 3.5rem) !important; letter-spacing: -0.055em !important; line-height: 1.08 !important; }
+  .live-intro-copy > p:not(.live-eyebrow) { max-width: 700px; margin: 0.7rem 0 0; color: var(--text-muted); }
+  .live-intro-copy > .live-boundary-note { max-width: 700px; }
   .live-eyebrow { margin: 0 0 0.4rem; color: var(--accent-color); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.11em; text-transform: uppercase; }
   .live-workspace-picker { display: grid; min-width: 210px; gap: 0.25rem; color: var(--text-muted); font-size: 0.72rem; }
   .live-shell input, .live-shell select, .live-shell textarea {
