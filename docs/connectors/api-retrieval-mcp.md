@@ -406,3 +406,20 @@ A/B token reports: [`first run`](../operations/el-vs-baseline-deepseek-tokens-20
 - JEV scoring is server-gated and lexical fallback remains available; production was enabled on 2026-11-14 after a synthetic smoke (`docs/operations/provider-jev-activation-2026-11-14.md`).
 - No Google Drive or Marketplace work.
 - Logs must not contain API keys or returned document content.
+
+
+## Task-run ledger
+
+The authenticated workspace path records content-free retrieval telemetry when
+`EVIDENCE_TASK_LEDGER_ENABLED=true` and the ledger migration is applied.
+
+- write: automatic after a successful `POST /v1/workspaces/{workspace_id}/task-context`
+- read: `GET /v1/workspaces/{workspace_id}/task-runs`
+- auth: verified user session; workspace-member RLS
+- stored: status, retrieval latency, selected tokens/chars, selected/chunk counts,
+  relationship count, scoring provider, fallback reason, `use_jev`
+- not stored: task text, evidence content, answer text, provider responses
+
+The ledger schema also reserves nullable agent fields (`agent_provider`,
+`agent_model`, input/output/total tokens, cost, latency, quality status/score)
+for the later agent-execution path. The current writer is task-context only.

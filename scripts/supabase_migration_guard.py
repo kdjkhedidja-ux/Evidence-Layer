@@ -82,6 +82,7 @@ V_CONNECTORS = "20261111190000"
 V_API_KEY_DOCUMENT = "20261112120000"
 V_CONNECTOR_BRIDGE = "20261112140000"
 V_CONNECTOR_EVIDENCE_RPC = "20261112160000"
+V_TASK_RUN_LEDGER = "20261114210000"
 
 VERSION_RE = re.compile(r"^[0-9]{14}_[a-z0-9_]+\.sql$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -544,6 +545,7 @@ def expected_policy_identity(policy: str) -> str:
         ("personal_api_keys_", "public", "personal_api_keys"),
         ("connector_connections_", "public", "connector_connections"),
         ("connector_documents_", "public", "connector_documents"),
+        ("task_run_ledger_", "public", "task_run_ledger"),
     )
     for prefix, expected_schema, table in relation_prefixes:
         if name.startswith(prefix):
@@ -586,6 +588,7 @@ def expected_catalog(versions: list[str]) -> dict:
     api_key_document = V_API_KEY_DOCUMENT in present
     connector_bridge = V_CONNECTOR_BRIDGE in present
     connector_evidence_rpc = V_CONNECTOR_EVIDENCE_RPC in present
+    task_run_ledger = V_TASK_RUN_LEDGER in present
     source = V_SOURCE_CATALOG in present
     storage = V_SNAPSHOT_STORAGE in present
     verifier = V_VERIFIER_IDENTITY in present
@@ -636,6 +639,8 @@ def expected_catalog(versions: list[str]) -> dict:
     if connectors:
         tables["public.connector_connections"] = (True, True)
         tables["public.connector_documents"] = (True, True)
+    if task_run_ledger:
+        tables["public.task_run_ledger"] = (True, True)
 
     indexes: set[str] = set()
     if identity:
@@ -696,6 +701,11 @@ def expected_catalog(versions: list[str]) -> dict:
         indexes.update({
             "public.connector_documents_external_id_key",
             "public.evidence_records_connector_external_key",
+        })
+    if task_run_ledger:
+        indexes.update({
+            "public.task_run_ledger_pkey",
+            "public.task_run_ledger_workspace_created_idx",
         })
     if phase8_export:
         indexes.update({
@@ -819,6 +829,11 @@ def expected_catalog(versions: list[str]) -> dict:
             "private.snapshot_verifier_allowlist_delete_manager",
             "private.snapshot_verifier_allowlist_audit_insert_owner",
             "private.snapshot_verifier_allowlist_audit_select_manager",
+        })
+    if task_run_ledger:
+        policies.update({
+            "public.task_run_ledger_select_active_member",
+            "public.task_run_ledger_insert_active_member",
         })
     if account_lifecycle:
         policies.update({
