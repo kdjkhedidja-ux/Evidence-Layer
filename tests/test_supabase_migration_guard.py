@@ -1,4 +1,5 @@
 import contextlib
+from datetime import datetime, timezone
 import hashlib
 import io
 import json
@@ -60,12 +61,24 @@ class MigrationGuardTests(unittest.TestCase):
                 guard.build_plan(FakeProject(), self.inventory, require_recovery=True)
 
     def test_reviewed_external_recovery_attestation_satisfies_the_gate(self):
-        with patch.dict(os.environ, {"GITHUB_SHA": self.sha}):
-            plan = guard.build_plan(FakeProject(), self.inventory, require_recovery=True)
-        self.assertIsNotNone(plan["external_recovery"])
         attestation = json.loads(
             (guard.ROOT / "supabase" / "recovery-attestation.json").read_text(encoding="utf-8")
         )
+        now = datetime.now(timezone.utc).isoformat()
+        attestation["uploaded_at"] = now
+        attestation["drill"]["completed_at"] = now
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as handle:
+            json.dump(attestation, handle)
+            path = handle.name
+        try:
+            with patch.dict(os.environ, {
+                "GITHUB_SHA": self.sha,
+                "SUPABASE_EXTERNAL_RECOVERY_ATTESTATION": path,
+            }):
+                plan = guard.build_plan(FakeProject(), self.inventory, require_recovery=True)
+        finally:
+            os.unlink(path)
+        self.assertIsNotNone(plan["external_recovery"])
         self.assertEqual(plan["external_recovery"]["object_key"], attestation["object_key"])
 
     def test_stale_or_invalid_external_attestation_is_rejected(self):
