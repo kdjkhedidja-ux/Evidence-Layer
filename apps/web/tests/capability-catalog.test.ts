@@ -21,6 +21,7 @@ const REQUIRED_FEATURES: Record<string, string[]> = {
     "Security",
     "Authentication sessions",
     "Personal API Keys",
+    "Telemetry",
     "Remote MCP",
   ],
 };
@@ -60,6 +61,7 @@ describe("workspace capability catalog contract", () => {
       "/relationships",
       "/evaluation",
       "/cost-performance",
+      "/workspace/telemetry",
       "/workspace#agent-connection",
       "/workspace#task-context",
       "/workspace#task-measurement",

@@ -56,9 +56,15 @@ export type WorkspaceTaskContextResult = {
     status: string;
     query: string;
     workspace_id: string;
+    candidate_count: number;
+    chunk_count: number;
+    matched_chunk_count: number;
     selected_count: number;
     used_tokens: number;
     used_chars: number;
+    top_k: number;
+    max_tokens: number;
+    max_chars: number;
     token_estimator: string;
     scoring_provider: string;
     scoring_fallback_reason: string | null;
@@ -1205,9 +1211,15 @@ function safeTaskContextResult(
     typeof selected.status !== "string" ||
     typeof selected.query !== "string" ||
     selected.workspace_id !== workspaceId ||
+    !Number.isSafeInteger(selected.candidate_count) ||
+    !Number.isSafeInteger(selected.chunk_count) ||
+    !Number.isSafeInteger(selected.matched_chunk_count) ||
     !Number.isSafeInteger(selected.selected_count) ||
     !Number.isSafeInteger(selected.used_tokens) ||
     !Number.isSafeInteger(selected.used_chars) ||
+    !Number.isSafeInteger(selected.top_k) ||
+    !Number.isSafeInteger(selected.max_tokens) ||
+    !Number.isSafeInteger(selected.max_chars) ||
     typeof selected.token_estimator !== "string" ||
     typeof selected.scoring_provider !== "string" ||
     (selected.scoring_fallback_reason !== null &&
