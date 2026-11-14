@@ -92,6 +92,7 @@ export default function DocumentationPage() {
               <li>GitHub App and Notion personal connector slices; GitHub sync bridge and source catalogue.</li>
               <li>Supabase Auth, RLS-backed personal/organization workspaces, exports, account deletion, and the deletion worker.</li>
               <li>Request-opt-in JEV production scoring, with whole-batch lexical fallback on failure.</li>
+              <li>Content-free server task ledger for retrieval latency, token, selection, and scoring metrics.</li>
             </ul>
           </article>
           <article className="public-card public-card--muted">
@@ -101,14 +102,14 @@ export default function DocumentationPage() {
               <li>Google Drive remains <strong>Coming soon</strong> pending OAuth verification; Notion still needs a live production smoke.</li>
               <li>Export is narrowed to the personal/account path; shared/group export and general CDN delivery are unavailable.</li>
               <li>Background connector scheduling, ACL propagation, source verification, and deletion propagation are not complete.</li>
-              <li>Telemetry is currently browser-local; server-persisted per-task usage, cost, and quality are not available.</li>
+              <li>Telemetry combines a browser-local view with a content-free server ledger for retrieval metrics; agent cost and answer quality are not collected yet.</li>
             </ul>
           </article>
           <article className="public-card public-card--muted">
             <h3>Not implemented</h3>
             <ul>
               <li>Agent execution and final-answer generation inside Evidence Layer.</li>
-              <li>Per-task token/cost/latency/quality ledger and independent quality scoring.</li>
+              <li>Agent token/cost/quality measurement and independent quality scoring; the server ledger stores retrieval metrics only.</li>
               <li>Vector database, embeddings, or ANN indexing; selection is deterministic lexical.</li>
               <li>Billing, usage metering, free-tier limits, and a customer Comparison Lab.</li>
               <li>A source ingestion/publish UI with background scheduling.</li>

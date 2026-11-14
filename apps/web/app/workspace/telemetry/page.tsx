@@ -10,7 +10,7 @@ import { getVerifiedAuthContext } from "../../../lib/supabase/server";
 export const dynamic = "force-dynamic";
 export const metadata = {
   title: "Telemetry · Evidence Layer",
-  description: "Browser-local retrieval telemetry for task-context preparation.",
+  description: "Server-persisted and browser-local retrieval telemetry for task-context preparation.",
 };
 
 export default async function WorkspaceTelemetryPage() {
@@ -34,8 +34,9 @@ export default async function WorkspaceTelemetryPage() {
         <p className="eyebrow">Workspace · telemetry</p>
         <h1><PageTitle>Telemetry</PageTitle></h1>
         <p>
-          Review the retrieval side of task-context preparation. The current view is local to this
-          browser and does not yet include agent execution, provider cost, or answer quality.
+          Review the retrieval side of task-context preparation. The server ledger persists
+          content-free metrics for this workspace, and this browser keeps a local run history.
+          Agent execution, provider cost, and answer quality are not included yet.
         </p>
       </section>
       <TelemetryDashboard />

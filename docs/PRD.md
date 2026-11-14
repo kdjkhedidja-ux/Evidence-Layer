@@ -9,9 +9,10 @@ evidence set with provenance and usage metadata.
 
 **Product intent:** a hosted SaaS product with an MCP interface, not only a
 Python library. The repository includes the Python scoring and evaluation
-foundation plus a synthetic-only Next.js Evidence Explorer prototype; its
-production deployment from `main` on Vercel is confirmed. The UI prototype is
-not the hosted SaaS product or a customer-data service.
+foundation plus an authenticated Next.js workspace product deployed from `main`
+on Vercel, backed by Supabase Auth/RLS and the Evidence Service. The current
+production boundary is recorded in
+[`docs/operations/production-verification-current.md`](operations/production-verification-current.md).
 
 ## Product Identity
 
@@ -208,21 +209,27 @@ The repository has schemas, local corpus retrieval, JEV and lexical scoring
 under the provider-selection policy, an evaluation harness, and a historical
 held-out single-run evaluation whose predeclared outcome was Inconclusive. It
 implements a local stdio MCP server (`retrieve_evidence`) whose standard path
-is lexical-only, and a synthetic-only Next.js Evidence Explorer prototype
-deployed from `main` on Vercel. The prototype does not have backend
-integration or customer operations. Remote scoring requires a trusted,
-appropriately scoped authorization boundary. The hosted HTTP MCP service,
-hosted authentication or tenant-isolation enforcement, production database or
-RLS, hosted provider-transfer authorization, production connectors, SaaS
-dashboard capabilities, billing, and Google Drive connector are not
-implemented. Production source routing and the Decisions API client are planned
-work, not implemented; a local deterministic routing library exists but is not
-wired into any service. The health-only FastAPI service at `services/evidence-service/`
-is deployed on Railway and exposes only `GET /healthz`; it has no customer
-operations. The current corpus retriever denies source reads by default, and
-live JEV transfer is hard-denied on supported package paths. Final answer
-generation remains with the caller's model. No production readiness, savings,
-or generalization claim is established.
+is lexical-only, and an authenticated Next.js workspace product deployed from
+`main` on Vercel. The hosted FastAPI service is deployed on Railway with
+lifecycle-gated `/v1` routes backed by Supabase Auth/RLS: personal and
+organization workspaces, evidence and relationship CRUD, verified source
+reads, task-context, API-key retrieve/get-document, Remote MCP, personal API
+keys, account deletion, account/personal export, and a content-free retrieval
+task ledger. JEV is primary when `EVIDENCE_JEV_ENABLED` is open, with
+whole-set lexical fallback. GitHub App and Notion personal connector slices are
+deployed; Google Drive remains gated pending OAuth verification.
+
+Still missing: source ingestion/publish, production background connectors and
+ACL/deletion propagation, shared/group export, shared-workspace deletion
+approvals, billing and usage metering, agent execution, per-task cost/quality
+measurement, and the remaining Phase 8 gates. Production source routing and the
+Decisions API client are planned, not implemented; a local deterministic
+routing library exists but is not wired into any service. The local corpus
+retriever denies source reads by default, and local live JEV transfer is
+hard-denied on supported package paths. Final answer generation remains with
+the caller's model. The production boundary is recorded in
+[`docs/operations/production-verification-current.md`](operations/production-verification-current.md);
+no production readiness, savings, or generalization claim is established.
 
 ## Open Product Decisions
 

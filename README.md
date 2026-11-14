@@ -37,9 +37,9 @@ also contains an authenticated Next.js workspace product in `apps/web/` and a
 FastAPI identity/data service in `services/evidence-service/`. The web app
 covers Supabase Auth (email confirmation, recovery, TOTP MFA), personal and
 organization workspaces, evidence and relationship CRUD, verified
-source-catalogue reads, task-context preparation, a browser-local Telemetry page,
-workspace-scoped read-only personal API keys, account deletion, and the public
-ROI/evaluation pages. The service exposes lifecycle-
+source-catalogue reads, task-context preparation, a Telemetry page backed by a
+content-free server ledger, workspace-scoped read-only personal API keys,
+account deletion, and the public ROI/evaluation pages. The service exposes lifecycle-
 gated `/v1` account, workspace, evidence, source, deletion, and narrowed
 export routes backed by Supabase RLS. The dedicated account-deletion worker is deployed on Railway with
 one replica; the current operational record is

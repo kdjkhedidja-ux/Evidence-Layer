@@ -63,6 +63,10 @@ set and independent review. See
 closed pending the approvals in
 [`phase6-readiness-gate.md`](phase6-readiness-gate.md).
 
+The active, prioritized development backlog derived from the 2026-11-14
+repository audit is maintained in
+[`docs/DEVELOPMENT_PLAN.md`](DEVELOPMENT_PLAN.md).
+
 ## 3. Intelligence architecture
 
 Evidence-Layer has separate routing, evidence-scoring, and answer-generation
