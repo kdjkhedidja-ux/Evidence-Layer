@@ -151,7 +151,7 @@ describe("live Evidence Explorer", () => {
   it("makes the mobile navigation controllable and dismissible by keyboard", async () => {
     render(<LiveEvidenceExplorer account={{ id: USER_ID, email: "reader@example.test" }} />);
     const toggle = screen.getByRole("button", { name: "Menu" });
-    expect(toggle).toHaveAttribute("aria-controls", "live-sidebar");
+    expect(toggle).toHaveAttribute("aria-controls", "site-menu");
     expect(toggle).toHaveAttribute("aria-expanded", "false");
 
     fireEvent.click(toggle);

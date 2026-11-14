@@ -243,7 +243,7 @@ describe("workspace product console", () => {
     render(<WorkspaceConsole userId={USER_ID} email="reader@example.test" />);
     const toggle = screen.getByRole("button", { name: "Menu" });
     expect(toggle).toHaveAttribute("aria-expanded", "false");
-    expect(toggle).toHaveAttribute("aria-controls", "workspace-menu");
+    expect(toggle).toHaveAttribute("aria-controls", "site-menu");
     fireEvent.click(toggle);
     expect(screen.getByRole("button", { name: "Close" })).toHaveAttribute("aria-expanded", "true");
     fireEvent.keyDown(document, { key: "Escape" });

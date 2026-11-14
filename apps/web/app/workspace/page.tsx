@@ -1,5 +1,6 @@
 import Link from "next/link";
 import PageTitle from "../../components/page-title";
+import SiteHeader from "../../components/site-header";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import WorkspaceConsole from "./workspace-console";
@@ -62,10 +63,7 @@ function WorkspaceGate({
 }) {
   return (
     <main className="workspace-page workspace-page--gate">
-      <header className="workspace-header">
-        <Link className="workspace-brand" href="/">evidence<span>layer</span></Link>
-        <Link href="/">Open Explorer</Link>
-      </header>
+      <SiteHeader />
       <section aria-labelledby="workspace-gate-title" className="workspace-gate">
         <p className="eyebrow">Evidence Layer · Workspace</p>
         <h1 id="workspace-gate-title"><PageTitle>{title}</PageTitle></h1>

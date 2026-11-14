@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import PageTitle from "../../../components/page-title";
+import SiteHeader from "../../../components/site-header";
 import TelemetryDashboard from "../../../components/telemetry-dashboard";
 import { getMfaChallengeStatus } from "../../../lib/supabase/mfa";
 import { getVerifiedAuthContext } from "../../../lib/supabase/server";
@@ -28,20 +28,7 @@ export default async function WorkspaceTelemetryPage() {
 
   return (
     <main className="workspace-page">
-      <header className="workspace-header">
-        <Link className="workspace-brand" href="/">evidence<span>layer</span></Link>
-        <nav aria-label="Workspace navigation">
-          <Link href="/workspace">Workspace</Link>
-          <Link aria-current="page" href="/workspace/telemetry">Telemetry</Link>
-          <Link href="/">Evidence Explorer</Link>
-          <Link href="/relationships">Relationships</Link>
-          <Link href="/documentation">Documentation</Link>
-        </nav>
-        <div className="workspace-user">
-          <span>{auth.user.email ?? "Account"}</span>
-          <Link href="/workspace">Back to workspace</Link>
-        </div>
-      </header>
+      <SiteHeader accountEmail={auth.user.email ?? null} />
       <section className="workspace-intro">
         <p className="eyebrow">Workspace · telemetry</p>
         <h1><PageTitle>Telemetry</PageTitle></h1>
@@ -58,10 +45,7 @@ export default async function WorkspaceTelemetryPage() {
 function TelemetryGate({ title }: { title: string }) {
   return (
     <main className="workspace-page workspace-page--gate">
-      <header className="workspace-header">
-        <Link className="workspace-brand" href="/">evidence<span>layer</span></Link>
-        <Link href="/workspace">Back to workspace</Link>
-      </header>
+      <SiteHeader />
       <section className="workspace-gate">
         <p className="eyebrow">Evidence Layer · Telemetry</p>
         <h1><PageTitle>{title}</PageTitle></h1>

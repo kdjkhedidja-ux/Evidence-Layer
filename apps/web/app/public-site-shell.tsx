@@ -1,11 +1,7 @@
 import Link from "next/link";
 import PageTitle from "../components/page-title";
+import SiteHeader from "../components/site-header";
 import type { ReactNode } from "react";
-
-const PRIMARY_PUBLIC_LINKS = [
-  { href: "/workspace", label: "Workspace" },
-  { href: "/documentation", label: "Documentation" },
-] as const;
 
 const PUBLIC_LINKS = [
   { href: "/evaluation", label: "Evaluation · Benchmarks" },
@@ -31,22 +27,7 @@ export function PublicSiteShell({
   return (
     <div className="public-site">
       <a className="public-skip-link" href="#main-content">Skip to content</a>
-      <header className="public-header">
-        <Link className="public-brand" href="/" aria-label="Evidence Layer home">
-          evidence<span>layer</span>
-        </Link>
-        <nav aria-label="Main navigation" className="public-navigation">
-          {PRIMARY_PUBLIC_LINKS.map((item) => (
-            <Link
-              aria-current={currentPath === item.href ? "page" : undefined}
-              href={item.href}
-              key={item.href}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-      </header>
+      <SiteHeader />
 
       <main className="public-main" id="main-content">
         <div className="public-hero">

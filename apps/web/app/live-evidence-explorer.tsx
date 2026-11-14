@@ -5,6 +5,7 @@ import RelationshipCanvas from "./relationships/relationship-canvas";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import AuthAccount from "../components/auth-account";
 import PageTitle from "../components/page-title";
+import SiteHeader from "../components/site-header";
 import ThemeToggle from "./theme-toggle";
 
 type Workspace = { id: string; name: string; role: "owner" | "admin" | "member" };
@@ -73,8 +74,6 @@ export default function LiveEvidenceExplorer({
   const [provenanceFilter, setProvenanceFilter] = useState<"all" | "linked" | "unlinked">("all");
   const [message, setMessage] = useState("");
   const [accountOpen, setAccountOpen] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const mobileMenuToggleRef = useRef<HTMLButtonElement>(null);
   const [relationshipDraft, setRelationshipDraft] = useState({
     evidence_id_a: "",
     evidence_id_b: "",
@@ -92,17 +91,6 @@ export default function LiveEvidenceExplorer({
   const [mutationState, setMutationState] = useState<DataState>("idle");
   const activeWorkspaceRef = useRef("");
   const loadGenerationRef = useRef(0);
-
-  useEffect(() => {
-    if (!mobileMenuOpen) return;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      setMobileMenuOpen(false);
-      mobileMenuToggleRef.current?.focus();
-    };
-    document.addEventListener("keydown", closeOnEscape);
-    return () => document.removeEventListener("keydown", closeOnEscape);
-  }, [mobileMenuOpen]);
 
   const selectedWorkspace = workspaces.find((workspace) => workspace.id === workspaceId) ?? null;
   const filteredRecords = useMemo(() => {
@@ -197,7 +185,6 @@ export default function LiveEvidenceExplorer({
     if (!account) return;
     if (new URLSearchParams(window.location.search).get("account") === "1") {
       setAccountOpen(true);
-      setMobileMenuOpen(true);
       requestAnimationFrame(() => {
         document.getElementById("account-organization-title")?.scrollIntoView?.({ block: "start" });
       });
@@ -339,31 +326,19 @@ export default function LiveEvidenceExplorer({
   ];
 
   return (
-    <div className="live-shell">
+    <>
+      <SiteHeader accountEmail={account?.email ?? null} />
+      <div className="live-shell">
       <a className="live-skip" href="#explorer">Skip to Evidence Explorer</a>
-      <div className="live-mobile-bar">
-        <Link className="live-brand" href="/">evidence<span>layer</span></Link>
-        <button
-          ref={mobileMenuToggleRef}
-          type="button"
-          className="live-menu-toggle"
-          aria-expanded={mobileMenuOpen}
-          aria-controls="live-sidebar"
-          onClick={() => setMobileMenuOpen((value) => !value)}
-        >
-          {mobileMenuOpen ? "Close" : "Menu"}
-        </button>
-      </div>
-      <aside id="live-sidebar" className={`live-sidebar${mobileMenuOpen ? " live-sidebar--open" : ""}`}>
-        <Link className="live-brand live-brand--sidebar" href="/">evidence<span>layer</span></Link>
+      <aside id="live-sidebar" className="live-sidebar">
         <p className="live-sidebar-tagline">Evidence first. Conclusions remain inspectable.</p>
         <nav aria-label="Product navigation" className="live-nav">
           {sidebarItems.map((item) => item.href.startsWith("/") ? (
-            <Link href={item.href} key={item.label} className="live-nav-item" onClick={() => setMobileMenuOpen(false)}>
+            <Link href={item.href} key={item.label} className="live-nav-item">
               <span>{item.label}</span><small>{item.status}</small>
             </Link>
           ) : (
-            <a href={item.href} key={item.label} className="live-nav-item" onClick={() => setMobileMenuOpen(false)}>
+            <a href={item.href} key={item.label} className="live-nav-item">
               <span>{item.label}</span><small>{item.status}</small>
             </a>
           ))}
@@ -559,7 +534,7 @@ export default function LiveEvidenceExplorer({
           )}
         </div>
       </main>
-
-    </div>
+      </div>
+    </>
   );
 }
