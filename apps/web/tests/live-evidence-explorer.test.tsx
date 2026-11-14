@@ -58,6 +58,8 @@ describe("live Evidence Explorer", () => {
 
   it("uses only authenticated workspace records and filters their actual contents", async () => {
     render(<LiveEvidenceExplorer account={{ id: USER_ID, email: "reader@example.test" }} />);
+    const heading = await screen.findByRole("heading", { name: "Evidence Explorer" });
+    expect(heading.querySelector(".live-title-accent")).toHaveTextContent("Explorer");
     expect(await screen.findAllByText("Stored source claim alpha.")).toHaveLength(2);
     expect(screen.getByText("Stored source claim beta.")).toBeInTheDocument();
     expect(screen.queryByText(/Cedar pilot|EV-SYN|Synthetic sample/i)).not.toBeInTheDocument();
@@ -122,7 +124,9 @@ describe("live Evidence Explorer", () => {
         account={{ id: USER_ID, email: "reader@example.test" }}
       />,
     );
-    expect(await screen.findByRole("heading", { name: "Evidence Relationships" })).toBeInTheDocument();
+    const heading = await screen.findByRole("heading", { name: "Evidence Relationships" });
+    expect(heading.querySelector("span")).toHaveTextContent("Evidence");
+    expect(heading.querySelector(".live-title-accent")).toHaveTextContent("Relationships");
 
     const navigation = within(screen.getByRole("navigation", { name: "Product navigation" }));
     const links = navigation.getAllByRole("link");

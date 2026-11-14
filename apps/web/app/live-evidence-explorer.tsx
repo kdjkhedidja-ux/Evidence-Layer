@@ -391,7 +391,12 @@ export default function LiveEvidenceExplorer({
         <div className="live-content">
           <section className="live-intro" id="workspace">
             <p className="live-eyebrow">Examine · compare · verify</p>
-            <h1>{relationshipsOnly ? "Evidence Relationships" : "Evidence Explorer"}</h1>
+            <h1>
+              <span>Evidence</span>{" "}
+              <span className="live-title-accent">
+                {relationshipsOnly ? "Relationships" : "Explorer"}
+              </span>
+            </h1>
             <p>{relationshipsOnly
               ? "Review and maintain the explicit evidence links that can help an agent understand how records relate."
               : "Prepare workspace evidence for an agent, inspect its source labels, and review the relationships recorded by workspace owners and admins."}</p>
