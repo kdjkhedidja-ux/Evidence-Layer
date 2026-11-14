@@ -67,10 +67,16 @@ coverage 0.868, direct_factual 0.799, multi_source 0.883.
 * The split-to-split spread (dev 0.715 vs validation 0.858) is a reminder that
   small benchmarks are noisy. The exposed split has no confirmatory status.
 
-## Next steps (not started)
+## Next steps
 
-1. Run the independent blind review process described in
-   [`phase6_real_world_review_protocol.md`](phase6_real_world_review_protocol.md).
+Phase 1 and Phase 2 are now merged by
+[`ADR 0011`](adr/0011-merge-phase1-validation-into-phase2-comparison.md).
+Existing experiments are the retrospective evidence base; the Phase 2 blinded
+A/B/Tie/Both-bad comparison is the validation surface.
+
+1. For confirmatory claims, run the independent blind review process described
+   in [`phase6_real_world_review_protocol.md`](phase6_real_world_review_protocol.md)
+   on a new sealed set.
 2. Grow the benchmark (more publishers, more passages) only after the review
    validates v1's judgment quality.
 3. If a future JEV comparison is authorized, use a new, previously unseen
