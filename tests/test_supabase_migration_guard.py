@@ -1173,6 +1173,12 @@ class CatalogCompletenessTests(unittest.TestCase):
         readded = {match.group(1) for match in add_constraint.finditer(joined)}
         for name in dropped - readded:
             found.discard(f"public.{name}")
+        # PostgreSQL truncated the unnamed three-column UNIQUE index name at 63
+        # bytes on the queue table; record the catalog name explicitly.
+        if "unique (workspace_id, source_id, version_id)" in joined:
+            found.add(
+                "private.snapshot_verification_jobs_workspace_id_source_id_version_i_key"
+            )
         self.assertEqual(found, expected["indexes"])
 
     def test_every_extension_and_event_trigger_is_catalogued(self):
