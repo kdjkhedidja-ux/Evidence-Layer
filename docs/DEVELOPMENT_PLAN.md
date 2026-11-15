@@ -88,8 +88,8 @@ Legend: **DONE** = implemented with tests or production evidence; **PARTIAL** =
 code exists but a product, schema, or operational gap remains; **MISSING** = no
 implementation.
 
-Verified baseline: 47 migrations applied in production (pending=0); 1,378
-Python tests passing (15 skipped), 259 web tests passing, and 23 pgTAP files
+Verified baseline: 48 migrations applied in production (pending=0); 1,378
+Python tests passing (15 skipped), 259 web tests passing, and 24 pgTAP files
 with 621 tests. Task-context, API-key retrieve, Remote MCP, JEV,
 and the content-free task ledger are production-verified.
 
@@ -161,10 +161,10 @@ and the content-free task ledger are production-verified.
   plus the workspace form. The service computes SHA-256 and size, creates the
   staged catalog row, inserts the owner's read grant, and returns the private
   bucket/object key; the browser uploads the bytes to `source-snapshots`.
-- Delivered: migration 48 adds the multi-tenant verification queue. Staging
-  enqueues automatically; workers claim with a lease; the worker is auto-added
-  to the per-workspace verifier allowlist at claim time; transient failures
-  back off and verification mismatches are terminal.
+- Delivered: migration 48 is applied and verified in production (48
+  migrations, pending=0). Staging enqueues automatically; workers claim with a
+  lease; the worker is auto-added to the per-workspace verifier allowlist at
+  claim time; transient failures back off and mismatches are terminal.
 - Remaining: the verifier worker, its private HTTPS mode/identity, publication
   deployment evidence, grants for other members, staged-object cleanup, and the
   end-to-end retrieve provenance smoke.

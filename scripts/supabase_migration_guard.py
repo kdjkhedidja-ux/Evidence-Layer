@@ -724,6 +724,7 @@ def expected_catalog(versions: list[str]) -> dict:
             "private.snapshot_verification_jobs_pkey",
             "private.snapshot_verification_jobs_claimable_idx",
             "private.snapshot_verification_jobs_workspace_idx",
+            "private.snapshot_verification_jobs_workspace_id_source_id_version_i_key",
         })
     if phase8_export:
         indexes.update({

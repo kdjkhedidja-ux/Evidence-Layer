@@ -29,8 +29,9 @@ The core workspace and source boundaries include:
   version (4 MB JSON cap). The service computes SHA-256 and byte size, creates
   the staged catalog row, inserts the owner's read grant, and returns the
   private `source-snapshots` bucket and object key. The browser uploads the
-  bytes. The staged row automatically enqueues a verification job; publication
-  remains restricted to the allowlisted snapshot verifier worker.
+  bytes. The staged row automatically enqueues a verification job in the
+  applied queue migration; publication remains restricted to the allowlisted
+  snapshot verifier worker.
 - `GET /v1/workspaces/{workspace_id}/sources/{source_id}/versions/{version_id}/content`
   delivers verified source bytes after membership, catalog, ACL, size, and
   SHA-256 digest checks, with revalidation before opening and before delivery.
