@@ -38,8 +38,11 @@ The core workspace and source boundaries include:
 - `GET|POST /v1/workspaces/{workspace_id}/invitations`,
   `DELETE .../invitations/{invitation_id}`, and `POST /v1/invitations/accept`
   implement one-time hashed invitations. The raw token is returned once; only
-  the SHA-256 hash is stored. Delivery is link-based until an email worker is
-  added.
+  the SHA-256 hash is stored. If `RESEND_API_KEY`, `INVITATION_FROM_EMAIL`, and
+  `INVITATION_BASE_URL` are configured, the service sends the one-time link
+  through Resend and returns `email_sent`. Otherwise the owner shares the link.
+  The production sender is `noreply@evidencelayer.dev` on the verified
+  `evidencelayer.dev` domain.
 - `GET /v1/workspaces/{workspace_id}/sources/{source_id}/versions/{version_id}/content`
   delivers verified source bytes after membership, catalog, ACL, size, and
   SHA-256 digest checks, with revalidation before opening and before delivery.

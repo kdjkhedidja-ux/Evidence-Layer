@@ -86,6 +86,7 @@ function mockProductFetch(
         created_at: "2026-11-15T00:00:00Z",
         expires_at: "2026-11-22T00:00:00Z",
         invite_token: "synthetic-invite-token-value-1234",
+        email_sent: false,
       }, { status: 201 });
     }
     if (url.endsWith(`/sources/${SOURCE_ID}/grants`) && init?.method === "POST") {

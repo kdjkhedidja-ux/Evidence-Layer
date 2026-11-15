@@ -516,7 +516,10 @@ export default function WorkspaceConsole({
         setInviteMessage(await readError(response, "Invitation could not be created."));
         return;
       }
-      const invitation = (await response.json()) as { invite_token?: unknown };
+      const invitation = (await response.json()) as {
+        invite_token?: unknown;
+        email_sent?: unknown;
+      };
       if (typeof invitation.invite_token !== "string" || !invitation.invite_token) {
         setInviteMessage("The service returned an invalid invitation.");
         return;
@@ -525,7 +528,9 @@ export default function WorkspaceConsole({
       setInviteLink(`${origin}/invite/${invitation.invite_token}`);
       setInviteEmail("");
       setInviteMessage(
-        "Invitation created. Share the link now; it is shown only once.",
+        invitation.email_sent === true
+          ? "Invitation created and emailed. The one-time link is also shown."
+          : "Invitation created. Email delivery failed. Share the link now; it is shown only once.",
       );
     } catch {
       setInviteMessage("Invitations are unavailable.");
