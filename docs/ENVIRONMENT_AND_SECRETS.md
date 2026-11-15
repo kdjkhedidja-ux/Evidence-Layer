@@ -32,6 +32,7 @@
 | Connector sync worker | Server-only service-role credential and GitHub App key | `CONNECTOR_SYNC_INTERVAL_SECONDS` (default 900), `CONNECTOR_DOCUMENT_LIMIT` (default 10) |
 | Workspace deletion worker | Server-only bound on approved C3 executions | `WORKSPACE_DELETION_LIMIT` (default 10) |
 | Source cleanup worker | Server-only cleanup bounds on the deletion worker | `SOURCE_CLEANUP_AGE_DAYS` (default 14), `SOURCE_CLEANUP_LIMIT` (default 100) |
+| Supabase Auth email | Provider-side SMTP on the verified Resend domain | Host `smtp.resend.com`, port `465`, user `resend`, sender `noreply@evidencelayer.dev`; password is `RESEND_API_KEY` in Auth config, never in the repository |
 | Invitation email delivery | Server-only Resend send key and verified sender | `RESEND_API_KEY` (send-only), `INVITATION_FROM_EMAIL=noreply@evidencelayer.dev`, `INVITATION_BASE_URL=https://evidencelayer.dev` |
 | API-key retrieval service | Server-only feature flags and optional provider credential | `EVIDENCE_RETRIEVE_API_ENABLED` (currently `true` in production); `EVIDENCE_JEV_ENABLED` is `true` in production as of 2026-11-14; `TYPESAFE_API_KEY` is a server-only secret required only for explicitly opted-in JEV scoring |
 | Remote MCP service | Server-only feature flag for the hosted Streamable HTTP MCP endpoint | `EVIDENCE_REMOTE_MCP_ENABLED` (default false; independent of connector flags) |
