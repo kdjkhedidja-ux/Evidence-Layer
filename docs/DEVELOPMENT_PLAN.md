@@ -88,8 +88,8 @@ Legend: **DONE** = implemented with tests or production evidence; **PARTIAL** =
 code exists but a product, schema, or operational gap remains; **MISSING** = no
 implementation.
 
-Verified baseline: 48 migrations applied in production (pending=0); 1,378
-Python tests passing (15 skipped), 259 web tests passing, and 24 pgTAP files
+Verified baseline: 48 migrations applied in production (pending=0); 1,400
+Python tests passing (15 skipped), 263 web tests passing, and 24 pgTAP files
 with 621 tests. Task-context, API-key retrieve, Remote MCP, JEV,
 and the content-free task ledger are production-verified.
 
@@ -106,7 +106,7 @@ and the content-free task ledger are production-verified.
 | Account deletion and purge worker | **DONE** | Lease/retry active; migration 47 applied; four production smokes passed; single replica until scale-out validation |
 | Account/personal export | **DONE** | Shared/group export unavailable |
 | Connectors | **PARTIAL** | GitHub and Notion deployed; Google Drive gated; Dropbox/Confluence adapters only |
-| Source ingestion/publish | **PARTIAL** | Owner staging, private upload, and an automatic multi-tenant verification queue are implemented; the verifier worker and publication deployment are pending |
+| Source ingestion/publish | **DONE (pilot)** | Owner staging, private upload, queue, hosted verifier worker, publication, and exact provenance passed a production pilot; member grants and cleanup remain scale hardening |
 | Source routing / Decisions API | **MISSING** | Local deterministic routing library is unwired and denies by default |
 | Billing, metering, quotas | **MISSING** | Cost/performance pages are planning estimates only |
 | Agent execution and task measurement | **MISSING** | EL returns evidence; it does not run the agent |
@@ -156,20 +156,22 @@ and the content-free task ledger are production-verified.
 
 ### P1 — Close the product gaps
 
-**P1.1 — Source ingestion and publish (staging implemented 2026-11-15; publication pending)**
-- Delivered: an owner-only `POST /v1/workspaces/{id}/sources` staging endpoint
-  plus the workspace form. The service computes SHA-256 and size, creates the
-  staged catalog row, inserts the owner's read grant, and returns the private
-  bucket/object key; the browser uploads the bytes to `source-snapshots`.
-- Delivered: migration 48 is applied and verified in production (48
-  migrations, pending=0). Staging enqueues automatically; workers claim with a
-  lease; the worker is auto-added to the per-workspace verifier allowlist at
-  claim time; transient failures back off and mismatches are terminal.
-- Remaining: the verifier worker, its private HTTPS mode/identity, publication
-  deployment evidence, grants for other members, staged-object cleanup, and the
-  end-to-end retrieve provenance smoke.
-- Acceptance: a workspace can add a new source version end to end, the verifier
-  marks it integrity-verified, and retrieve can cite it with exact provenance.
+**P1.1 — Source ingestion and publish (CLOSED — production pilot, 2026-11-15)**
+- Delivered: owner-only staging, SHA-256/size computation, the owner read grant,
+  private browser upload, automatic queue enqueue, lease-based claim, hosted
+  verifier worker, publication, and job completion/failure.
+- Deployed: migration 48 is applied and verified (48 migrations, pending=0); the
+  hosted worker runs one replica from `09d2747` with a dedicated non-human
+  verifier identity and exact HTTPS host pinning. Claim auto-authorizes the
+  worker per workspace, so no per-workspace operator setup is required.
+- Pilot: a synthetic owner staged a source, uploaded the object, and the worker
+  published it on the first claim (`attempts=1`). A linked evidence record was
+  then returned by task-context with the exact `source_id` and
+  `source_version_id`.
+- Remaining scale hardening: grants for other members, staged-object cleanup,
+  invitations/email, quotas, and a 10/100-workspace rollout.
+- Acceptance: met for the pilot (end-to-end ingestion, verifier publication, and
+  exact retrieve provenance).
 
 **P1.2 — Phase 8 residual gates**
 - Decide and finance C3 (owner unanimity), C5-full (provider absence proof), and
