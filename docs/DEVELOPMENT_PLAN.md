@@ -88,8 +88,8 @@ Legend: **DONE** = implemented with tests or production evidence; **PARTIAL** =
 code exists but a product, schema, or operational gap remains; **MISSING** = no
 implementation.
 
-Verified baseline: 50 migrations applied in production (pending=0); 1,426
-Python tests passing (15 skipped), 265 web tests passing, and 26 pgTAP files. Task-context, API-key retrieve, Remote MCP, JEV,
+Verified baseline: 51 migrations applied in production (pending=0); 1,431
+Python tests passing (15 skipped), 265 web tests passing, and 27 pgTAP files. Task-context, API-key retrieve, Remote MCP, JEV,
 and the content-free task ledger are production-verified.
 
 ### Status snapshot
@@ -105,7 +105,7 @@ and the content-free task ledger are production-verified.
 | Account deletion and purge worker | **DONE** | Lease/retry active; migration 47 applied; four production smokes passed; single replica until scale-out validation |
 | Account/personal export | **DONE** | Shared/group export unavailable |
 | Connectors | **PARTIAL** | GitHub and Notion deployed; Google Drive gated; Dropbox/Confluence adapters only |
-| Source ingestion/publish | **DONE (two-replica pilot)** | Owner staging, queue, 2-replica hosted verifier worker, publication, exact provenance, member grants, invitations + Resend email, and quotas are delivered; cleanup and the 100-workspace pilot remain |
+| Source ingestion/publish | **DONE (two-replica pilot)** | Owner staging, queue, 2-replica verifier worker, publication, provenance, member grants, invitations + Resend, quotas, and automatic staged-object cleanup are delivered; the 100-workspace pilot remains |
 | Source routing / Decisions API | **MISSING** | Local deterministic routing library is unwired and denies by default |
 | Billing, metering, quotas | **MISSING** | Cost/performance pages are planning estimates only |
 | Agent execution and task measurement | **MISSING** | EL returns evidence; it does not run the agent |
@@ -181,7 +181,11 @@ and the content-free task ledger are production-verified.
 - Pilot: 10 synthetic workspaces published 10/10 with one worker, average job
   latency 7.15 seconds, no retries. A second pilot at two worker replicas
   published 10/10 new versions with no duplicate claims, average 6.89 seconds.
-  The 100-workspace pilot and staged-object cleanup remain.
+- Delivered: automatic staged-object cleanup. Staged versions older than 14
+  days without an active verification job are marked abandoned (hidden and
+  excluded from quotas), queued, and their private Storage object is deleted by
+  the privileged deletion worker. Catalog rows remain immutable. The
+  100-workspace pilot remains.
 - Acceptance: met for the pilot (end-to-end ingestion, verifier publication, and
   exact retrieve provenance).
 

@@ -302,6 +302,12 @@
       "version": "20261115160000",
       "sha256": "b6bb2fc97c19393a6cfc6863262f9604101c4c3d4c68f6856c4f327b135fef4b",
       "provenance": "Scale hardening: owner-only content-free workspace quota counters for staging and invitation limits."
+    },
+    {
+      "file": "20261115180000_source_object_cleanup.sql",
+      "version": "20261115180000",
+      "sha256": "5b9bf9466771e378c074715c1d5fdb3495667ced93383515340e489dd2f4bcae",
+      "provenance": "Scale hardening: abandon stale staged sources, hide them, exclude them from quotas, and queue Storage-object deletion for the privileged cleanup worker."
     }
   ]
 }

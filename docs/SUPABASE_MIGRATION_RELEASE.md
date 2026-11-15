@@ -14,7 +14,7 @@ reviewed environment.
 
 ## Current safety state
 
-As of 2026-11-15 the production project reports 50 applied migrations and zero
+As of 2026-11-15 the production project reports 51 applied migrations and zero
 pending migrations. Its backups
 API reports `pitr_enabled: false` and zero provider backups; the recovery gate is
 therefore met by the reviewed external attestation for

@@ -29,6 +29,7 @@
 | Google Drive connector web OAuth | Server-only OAuth callback credentials | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_URI` |
 | Notion connector web OAuth | Server-only Notion OAuth callback credentials | `NOTION_OAUTH_CLIENT_ID`, `NOTION_OAUTH_CLIENT_SECRET`, `NOTION_REDIRECT_URI`, `NEXT_PUBLIC_NOTION_CONNECTOR_ENABLED` |
 | GitHub connector | Server-only GitHub App credentials; installation tokens are minted on demand and not stored | Preferred: `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_SLUG`. Accepted aliases: `GIT_APP_ID`, `GIT_APP_PRIVATE_KEY`, `GIT_APP_SLUG`. Also `NEXT_PUBLIC_GITHUB_CONNECTOR_ENABLED` |
+| Source cleanup worker | Server-only cleanup bounds on the deletion worker | `SOURCE_CLEANUP_AGE_DAYS` (default 14), `SOURCE_CLEANUP_LIMIT` (default 100) |
 | Invitation email delivery | Server-only Resend send key and verified sender | `RESEND_API_KEY` (send-only), `INVITATION_FROM_EMAIL=noreply@evidencelayer.dev`, `INVITATION_BASE_URL=https://evidencelayer.dev` |
 | API-key retrieval service | Server-only feature flags and optional provider credential | `EVIDENCE_RETRIEVE_API_ENABLED` (currently `true` in production); `EVIDENCE_JEV_ENABLED` is `true` in production as of 2026-11-14; `TYPESAFE_API_KEY` is a server-only secret required only for explicitly opted-in JEV scoring |
 | Remote MCP service | Server-only feature flag for the hosted Streamable HTTP MCP endpoint | `EVIDENCE_REMOTE_MCP_ENABLED` (default false; independent of connector flags) |

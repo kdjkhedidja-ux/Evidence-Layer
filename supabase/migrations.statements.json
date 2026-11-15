@@ -5079,6 +5079,104 @@
       "line": 59,
       "verb": "grant execute",
       "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "ee8f3c73142c7f77",
+      "file": "20261115180000_source_object_cleanup.sql",
+      "line": 8,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "efb8ecb62120fa12",
+      "file": "20261115180000_source_object_cleanup.sql",
+      "line": 37,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "c5c9ee9256a1459a",
+      "file": "20261115180000_source_object_cleanup.sql",
+      "line": 38,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "7e024a6b249b2ee1",
+      "file": "20261115180000_source_object_cleanup.sql",
+      "line": 39,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "05df958b247b4808",
+      "file": "20261115180000_source_object_cleanup.sql",
+      "line": 44,
+      "verb": "create or",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "c743e297f4fe268c",
+      "file": "20261115180000_source_object_cleanup.sql",
+      "line": 121,
+      "verb": "create or",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "e47cb637fa4e9091",
+      "file": "20261115180000_source_object_cleanup.sql",
+      "line": 178,
+      "verb": "create or",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "b0cbbd804d905f89",
+      "file": "20261115180000_source_object_cleanup.sql",
+      "line": 223,
+      "verb": "create or",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "860d470c8ffa83f0",
+      "file": "20261115180000_source_object_cleanup.sql",
+      "line": 257,
+      "verb": "create or",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "9a58eafdbbe82ace",
+      "file": "20261115180000_source_object_cleanup.sql",
+      "line": 297,
+      "verb": "create or",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "54405660e1b4836c",
+      "file": "20261115180000_source_object_cleanup.sql",
+      "line": 344,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "44c5ff20e3a8c07e",
+      "file": "20261115180000_source_object_cleanup.sql",
+      "line": 346,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "937f7b24f99fbedd",
+      "file": "20261115180000_source_object_cleanup.sql",
+      "line": 348,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "dd704aea059baabf",
+      "file": "20261115180000_source_object_cleanup.sql",
+      "line": 350,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
     }
   ]
 }

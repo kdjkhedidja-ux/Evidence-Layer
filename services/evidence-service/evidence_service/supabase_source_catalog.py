@@ -159,6 +159,7 @@ class SupabaseSnapshotCatalog:
             raise SourceCatalogUnavailable
         params = {
             "workspace_id": f"eq.{workspace_id}",
+            "abandoned_at": "is.null",
             "select": _CATALOG_SELECT,
             "order": "source_id.asc,created_at.desc,version_id.asc",
             "limit": "1000",
