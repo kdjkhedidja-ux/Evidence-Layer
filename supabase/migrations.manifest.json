@@ -296,6 +296,12 @@
       "version": "20261115140000",
       "sha256": "634e7e6620821d01eb5dd88e4e4488a4eaf9002d5f0492e31471677b7b8bc1d9",
       "provenance": "Scale hardening: one-time hashed workspace invitations and accept RPCs. Delivery remains link-based until an email worker is added."
+    },
+    {
+      "file": "20261115160000_workspace_quotas.sql",
+      "version": "20261115160000",
+      "sha256": "b6bb2fc97c19393a6cfc6863262f9604101c4c3d4c68f6856c4f327b135fef4b",
+      "provenance": "Scale hardening: owner-only content-free workspace quota counters for staging and invitation limits."
     }
   ]
 }

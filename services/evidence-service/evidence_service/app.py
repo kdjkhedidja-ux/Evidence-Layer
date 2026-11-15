@@ -124,6 +124,11 @@ from evidence_service.workspace_invitation_repository import (
     SupabaseWorkspaceInvitationRepository,
 )
 from evidence_service.resend_email import send_invitation_email
+from evidence_service.workspace_usage_repository import (
+    SupabaseWorkspaceUsageRepository,
+    WorkspaceUsageForbidden,
+    WorkspaceUsageUnavailable,
+)
 from evidence_service.recovery_fence import (
     CloudflareRecoveryFenceReader,
     RecoveryFenceConfigurationError,
@@ -149,6 +154,9 @@ from evidence_service.tenant_context import (
 )
 
 logger = logging.getLogger(__name__)
+MAX_WORKSPACE_SOURCE_VERSIONS = 100
+MAX_WORKSPACE_SOURCE_BYTES = 100 * 1024 * 1024
+MAX_PENDING_WORKSPACE_INVITATIONS = 50
 
 if TYPE_CHECKING:
     from evidence_layer.scoring.jev_request import JevRequestScorer
@@ -880,6 +888,13 @@ def _snapshot_object_store(settings: SupabaseSettings):
         bucket="source-snapshots",
         publishable_key=settings.publishable_key,
     )
+
+
+def _workspace_usage_repository(request: Request, access_token: str):
+    factory = request.app.state.workspace_usage_factory
+    if factory is not None:
+        return factory(access_token)
+    return SupabaseWorkspaceUsageRepository(_settings_for(request))
 
 
 def _workspace_invitation_repository(request: Request, access_token: str):
@@ -1702,6 +1717,7 @@ def create_app(
     source_staging_factory=None,
     source_grant_factory=None,
     workspace_invitation_factory=None,
+    workspace_usage_factory=None,
     remote_mcp_enabled: bool | None = None,
     task_run_ledger_repository=None,
     task_ledger_enabled: bool | None = None,
@@ -1747,6 +1763,7 @@ def create_app(
     application.state.source_staging_factory = source_staging_factory
     application.state.source_grant_factory = source_grant_factory
     application.state.workspace_invitation_factory = workspace_invitation_factory
+    application.state.workspace_usage_factory = workspace_usage_factory
     application.state.remote_mcp_enabled = (
         remote_mcp_enabled
         if remote_mcp_enabled is not None
@@ -2928,6 +2945,23 @@ def create_app(
 
         if len(content) > 4_000_000:
             raise HTTPException(status_code=413, detail="Source version is too large")
+        try:
+            usage = await _with_account_gate(
+                request,
+                auth,
+                lambda: _workspace_usage_repository(
+                    request, auth.access_token
+                ).usage(auth.access_token, workspace_id=context.workspace_id),
+            )
+        except WorkspaceUsageForbidden as exc:
+            raise HTTPException(status_code=403, detail="Workspace owner required") from exc
+        except WorkspaceUsageUnavailable as exc:
+            raise HTTPException(status_code=503, detail="Workspace usage is unavailable") from exc
+        if (
+            usage["version_count"] >= MAX_WORKSPACE_SOURCE_VERSIONS
+            or usage["total_bytes"] + len(content) > MAX_WORKSPACE_SOURCE_BYTES
+        ):
+            raise HTTPException(status_code=429, detail="Workspace source quota exceeded")
         source_id = payload.source_id or uuid4()
         version_id = uuid4()
         object_key = snapshot_object_key(context.workspace_id, source_id, version_id)
@@ -2993,6 +3027,20 @@ def create_app(
         email = payload.email.strip().lower()
         if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
             raise HTTPException(status_code=422, detail="A valid email is required")
+        try:
+            usage = await _with_account_gate(
+                request,
+                auth,
+                lambda: _workspace_usage_repository(
+                    request, auth.access_token
+                ).usage(auth.access_token, workspace_id=context.workspace_id),
+            )
+        except WorkspaceUsageForbidden as exc:
+            raise HTTPException(status_code=403, detail="Workspace owner required") from exc
+        except WorkspaceUsageUnavailable as exc:
+            raise HTTPException(status_code=503, detail="Workspace usage is unavailable") from exc
+        if usage["pending_invitations"] >= MAX_PENDING_WORKSPACE_INVITATIONS:
+            raise HTTPException(status_code=429, detail="Pending invitation quota exceeded")
         token = secrets.token_urlsafe(32)
         token_hash = hashlib.sha256(token.encode()).hexdigest()
         expires_at = datetime.now(timezone.utc) + timedelta(days=7)

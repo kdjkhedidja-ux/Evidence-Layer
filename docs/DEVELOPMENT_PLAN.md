@@ -106,7 +106,7 @@ and the content-free task ledger are production-verified.
 | Account deletion and purge worker | **DONE** | Lease/retry active; migration 47 applied; four production smokes passed; single replica until scale-out validation |
 | Account/personal export | **DONE** | Shared/group export unavailable |
 | Connectors | **PARTIAL** | GitHub and Notion deployed; Google Drive gated; Dropbox/Confluence adapters only |
-| Source ingestion/publish | **DONE (pilot)** | Owner staging, queue, hosted verifier worker, publication, exact provenance, member read grants, and link-based invitations are delivered; email delivery, cleanup, and quotas remain scale hardening |
+| Source ingestion/publish | **DONE (pilot)** | Owner staging, queue, hosted verifier worker, publication, exact provenance, member grants, invitations + Resend email, and quotas are delivered; staged-object cleanup and 10/100 rollout remain |
 | Source routing / Decisions API | **MISSING** | Local deterministic routing library is unwired and denies by default |
 | Billing, metering, quotas | **MISSING** | Cost/performance pages are planning estimates only |
 | Agent execution and task measurement | **MISSING** | EL returns evidence; it does not run the agent |
@@ -177,8 +177,10 @@ and the content-free task ledger are production-verified.
 - Delivered: Resend invitation email delivery from the verified
   `evidencelayer.dev` domain, with `email_sent` surfaced to the owner and a
   link fallback. The service env now holds the send-only Resend key.
-- Remaining scale hardening: invitation email delivery, staged-object cleanup,
-  quotas, and a 10/100-workspace rollout.
+- Delivered: owner-only workspace quotas from content-free counters:
+  100 source versions, 100 MiB of source bytes, and 50 pending invitations.
+- Remaining scale hardening: staged-object cleanup and a 10/100-workspace
+  rollout.
 - Acceptance: met for the pilot (end-to-end ingestion, verifier publication, and
   exact retrieve provenance).
 
