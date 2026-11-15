@@ -88,6 +88,7 @@ V_SNAPSHOT_VERIFICATION_QUEUE = "20261115023000"
 V_WORKSPACE_INVITATIONS = "20261115140000"
 V_WORKSPACE_QUOTAS = "20261115160000"
 V_SOURCE_OBJECT_CLEANUP = "20261115180000"
+V_WORKSPACE_DELETION_APPROVALS = "20261115200000"
 
 VERSION_RE = re.compile(r"^[0-9]{14}_[a-z0-9_]+\.sql$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -601,6 +602,7 @@ def expected_catalog(versions: list[str]) -> dict:
     workspace_invitations = V_WORKSPACE_INVITATIONS in present
     workspace_quotas = V_WORKSPACE_QUOTAS in present
     source_object_cleanup = V_SOURCE_OBJECT_CLEANUP in present
+    workspace_deletion_approvals = V_WORKSPACE_DELETION_APPROVALS in present
     source = V_SOURCE_CATALOG in present
     storage = V_SNAPSHOT_STORAGE in present
     verifier = V_VERIFIER_IDENTITY in present
@@ -660,6 +662,10 @@ def expected_catalog(versions: list[str]) -> dict:
         tables["private.workspace_invitations"] = (True, True)
     if source_object_cleanup:
         tables["private.source_object_cleanup_queue"] = (True, True)
+    if workspace_deletion_approvals:
+        tables["private.workspace_deletion_requests"] = (True, True)
+        tables["private.workspace_deletion_owners"] = (True, True)
+        tables["private.workspace_deletion_approvals"] = (True, True)
 
     indexes: set[str] = set()
     if identity:
@@ -728,6 +734,13 @@ def expected_catalog(versions: list[str]) -> dict:
         })
     if worker_lease_retry:
         indexes.add("public.data_deletion_requests_claimable_idx")
+    if workspace_deletion_approvals:
+        indexes.update({
+            "private.workspace_deletion_requests_pkey",
+            "private.workspace_deletion_requests_active_key",
+            "private.workspace_deletion_owners_pkey",
+            "private.workspace_deletion_approvals_pkey",
+        })
     if source_object_cleanup:
         indexes.update({
             "public.source_snapshots_cleanup_idx",
@@ -1175,6 +1188,16 @@ def expected_catalog(versions: list[str]) -> dict:
 
     if workspace_quotas:
         functions.add("public.workspace_source_usage")
+    if workspace_deletion_approvals:
+        functions.update({
+            "private.workspace_owner_set",
+            "public.request_workspace_deletion",
+            "public.approve_workspace_deletion",
+            "public.withdraw_workspace_deletion_approval",
+            "public.cancel_workspace_deletion",
+            "public.workspace_deletion_status",
+            "private.execute_workspace_deletion",
+        })
     if source_object_cleanup:
         functions.update({
             "private.enqueue_stale_staged_sources",
@@ -1265,6 +1288,16 @@ def expected_catalog(versions: list[str]) -> dict:
         foreign_keys.update({
             ("task_run_ledger_workspace_id_fkey", "public.task_run_ledger", "public.workspaces", "c"),
             ("task_run_ledger_actor_user_id_fkey", "public.task_run_ledger", "auth.users", "c"),
+        })
+    if workspace_deletion_approvals:
+        foreign_keys.update({
+            ("workspace_deletion_requests_workspace_id_fkey", "private.workspace_deletion_requests", "public.workspaces", "c"),
+            ("workspace_deletion_requests_organization_id_fkey", "private.workspace_deletion_requests", "public.organizations", "c"),
+            ("workspace_deletion_requests_requested_by_fkey", "private.workspace_deletion_requests", "auth.users", "c"),
+            ("workspace_deletion_owners_request_id_fkey", "private.workspace_deletion_owners", "private.workspace_deletion_requests", "c"),
+            ("workspace_deletion_owners_owner_user_id_fkey", "private.workspace_deletion_owners", "auth.users", "c"),
+            ("workspace_deletion_approvals_request_id_fkey", "private.workspace_deletion_approvals", "private.workspace_deletion_requests", "c"),
+            ("workspace_deletion_approvals_owner_user_id_fkey", "private.workspace_deletion_approvals", "auth.users", "c"),
         })
     if source_object_cleanup:
         foreign_keys.add((

@@ -24,6 +24,7 @@ from .account_deletion_worker import _connect, run_account_deletion
 from .export_cleanup_worker import run_export_cleanup
 from .storage_cleanup_worker import run_storage_cleanup
 from .source_cleanup_worker import run_source_cleanup
+from .workspace_deletion_worker import run_workspace_deletion
 
 LOCK_KEY = "evidence-layer-deletion-worker"
 LOCK_TIMEOUT_SECONDS = 180
@@ -158,6 +159,10 @@ def process_pending(
         age_days=_int_env("SOURCE_CLEANUP_AGE_DAYS", 14, 1, 365),
         limit=_int_env("SOURCE_CLEANUP_LIMIT", 100, 1, 1000),
     )
+    workspace_deletion = run_workspace_deletion(
+        connection,
+        limit=_int_env("WORKSPACE_DELETION_LIMIT", 10, 1, 100),
+    )
     owner = owner or worker_id()
     processed = 0
     accounts: list[dict] = []
@@ -214,6 +219,7 @@ def process_pending(
         "exports_cleaned": exports_cleaned,
         "storage": storage,
         "source_cleanup": source_cleanup,
+        "workspace_deletion": workspace_deletion,
         "accounts": accounts,
     }
 

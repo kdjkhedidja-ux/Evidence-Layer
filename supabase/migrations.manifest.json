@@ -308,6 +308,12 @@
       "version": "20261115180000",
       "sha256": "5b9bf9466771e378c074715c1d5fdb3495667ced93383515340e489dd2f4bcae",
       "provenance": "Scale hardening: abandon stale staged sources, hide them, exclude them from quotas, and queue Storage-object deletion for the privileged cleanup worker."
+    },
+    {
+      "file": "20261115200000_workspace_deletion_approvals.sql",
+      "version": "20261115200000",
+      "sha256": "9c3b88b1307bcd04c979275310af62fca59c770666112f2c68bcf584c70f5574",
+      "provenance": "C3: revision-bound unanimous owner approval for shared-workspace deletion; direct group workspace deletion is closed and execution is reserved for the privileged deletion worker."
     }
   ]
 }
