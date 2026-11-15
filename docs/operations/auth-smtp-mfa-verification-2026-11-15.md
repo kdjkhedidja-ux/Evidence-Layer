@@ -20,6 +20,10 @@ Supabase Auth SMTP now uses the verified Resend domain:
 - sender name: `Evidence Layer`
 - password: the server-side `RESEND_API_KEY` (not committed)
 - `mailer_autoconfirm` remains `false`
+- `rate_limit_email_sent` raised from `2` to `30` per hour
+- confirmation and recovery templates use direct `token_hash` links to
+  `/auth/callback`, avoiding the PKCE code-verifier dependency when the email is
+  opened in another browser/device
 
 ## Verification
 
@@ -29,11 +33,26 @@ Supabase Auth SMTP now uses the verified Resend domain:
 | TOTP enroll (`POST /auth/v1/factors`) | `200`, factor and secret returned |
 | TOTP challenge | `200`, challenge id returned |
 | TOTP verify | `200`, new access token with `aal=aal2` |
+| Confirmation callback | `307` to `https://evidencelayer.dev/` |
+| Resend SMTP login/send | OK |
 | Test users | deleted after verification |
 
 Signup with `example.com` is rejected by Supabase as
 `email_address_invalid`; that is expected provider validation, not a product
 outage. Use a real deliverable address.
+
+## Vercel verification
+
+- Production domain `evidencelayer.dev` and `www.evidencelayer.dev` are verified.
+- Production deployment is READY at `a3d6108` (latest web code; later commits
+  are backend/docs only).
+- `NEXT_PUBLIC_SUPABASE_URL` points to the same production project
+  (`slxfsjnsrvfkdtxayiud.supabase.co`).
+- `NEXT_PUBLIC_NOTION_CONNECTOR_ENABLED=true`, Notion redirect URI is
+  `https://evidencelayer.dev/api/connectors/notion/callback`, and
+  `EVIDENCE_SERVICE_URL` points to the Railway production service.
+- `/`, `/signup`, and `/login` return `200`; unauthenticated
+  `/api/evidence/me` returns `401`.
 
 ## Residual
 
