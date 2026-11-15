@@ -88,9 +88,8 @@ Legend: **DONE** = implemented with tests or production evidence; **PARTIAL** =
 code exists but a product, schema, or operational gap remains; **MISSING** = no
 implementation.
 
-Verified baseline: 49 migrations applied in production (pending=0); 1,419
-Python tests passing (15 skipped), 265 web tests passing, and 25 pgTAP files
-with 633 tests. Task-context, API-key retrieve, Remote MCP, JEV,
+Verified baseline: 50 migrations applied in production (pending=0); 1,426
+Python tests passing (15 skipped), 265 web tests passing, and 26 pgTAP files. Task-context, API-key retrieve, Remote MCP, JEV,
 and the content-free task ledger are production-verified.
 
 ### Status snapshot
