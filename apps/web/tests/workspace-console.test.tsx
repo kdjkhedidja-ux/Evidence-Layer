@@ -41,6 +41,7 @@ const RELATED_EVIDENCE_ID = "10000000-0000-4000-8000-000000000006";
 const RELATION_ID = "10000000-0000-4000-8000-000000000007";
 const SOURCE_ID = "10000000-0000-4000-8000-000000000004";
 const VERSION_ID = "10000000-0000-4000-8000-000000000005";
+const MEMBER_ID = "10000000-0000-4000-8000-000000000006";
 const WORKSPACE = { id: WORKSPACE_ID, name: "Team workspace", role: "owner" as const };
 const RECORD = {
   id: EVIDENCE_ID,
@@ -76,6 +77,15 @@ function mockProductFetch(
     }
     if (url.endsWith("/sources") && init?.method === undefined) {
       return Response.json([VERSION_SUMMARY]);
+    }
+    if (url.endsWith(`/sources/${SOURCE_ID}/grants`) && init?.method === "POST") {
+      const body = JSON.parse(String(init.body)) as { principal_id: string };
+      return Response.json({
+        principal_id: body.principal_id,
+        grant_type: "read",
+        granted_by: USER_ID,
+        created_at: "2026-11-15T00:00:00Z",
+      }, { status: 201 });
     }
     if (url.endsWith("/sources") && init?.method === "POST") {
       return Response.json({
@@ -249,6 +259,30 @@ describe("workspace product console", () => {
       expect(taskRequests[1]?.[1]?.body).toContain('"use_jev":false');
     });
 
+  });
+
+  it("grants read access to a workspace member", async () => {
+    const fetchMock = mockProductFetch();
+    render(<WorkspaceConsole userId={USER_ID} email="reader@example.test" />);
+    await screen.findByLabelText("Member user ID");
+
+    fireEvent.change(screen.getByLabelText("Source"), {
+      target: { value: SOURCE_ID },
+    });
+    fireEvent.change(screen.getByLabelText("Member user ID"), {
+      target: { value: MEMBER_ID },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Grant read" }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining(`/sources/${SOURCE_ID}/grants`),
+        expect.objectContaining({ method: "POST" }),
+      ),
+    );
+    expect(
+      await screen.findByText(/Read access granted/),
+    ).toBeInTheDocument();
   });
 
   it("links to the telemetry page from the workspace header", async () => {

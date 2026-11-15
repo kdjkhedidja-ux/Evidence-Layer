@@ -1495,6 +1495,128 @@ export async function proxyStageWorkspaceSourceRequest({
   return json(201, payload);
 }
 
+export async function proxyWorkspaceSourceGrantsRequest({
+  request,
+  workspaceId,
+  sourceId,
+}: {
+  request: Request;
+  workspaceId: string;
+  sourceId: string;
+}): Promise<Response> {
+  if (!isUuid(workspaceId) || !isUuid(sourceId)) {
+    return json(404, { error: "Source not found." });
+  }
+  if (!sameOrigin(request)) return json(403, { error: "Request origin was not accepted." });
+  const auth = await getVerifiedAuthContext();
+  if (auth.kind === "unauthenticated") return json(401, { error: "Authentication is required." });
+  if (auth.kind === "unavailable") return json(503, { error: "Identity verification is unavailable." });
+  const blocked = await mfaBlocked(auth);
+  if (blocked) return blocked;
+  const serviceUrl = getEvidenceServiceBaseUrl();
+  if (!serviceUrl) return json(503, { error: "Evidence service is unavailable." });
+
+  let body: string | undefined;
+  if (request.method === "POST") {
+    let payload: unknown;
+    try {
+      payload = await request.json();
+    } catch {
+      return json(400, { error: "Invalid JSON body." });
+    }
+    const principalId = payload && typeof payload === "object"
+      ? (payload as Record<string, unknown>).principal_id
+      : undefined;
+    if (typeof principalId !== "string" || !isUuid(principalId)) {
+      return json(400, { error: "Principal user ID must be a UUID." });
+    }
+    body = JSON.stringify({ principal_id: principalId });
+  }
+
+  let upstream: Response;
+  try {
+    upstream = await fetch(
+      `${serviceUrl}/v1/workspaces/${workspaceId}/sources/${sourceId}/grants`,
+      {
+        method: request.method,
+        headers: {
+          Accept: "application/json",
+          ...(body ? { "Content-Type": "application/json" } : {}),
+          Authorization: `Bearer ${auth.accessToken}`,
+        },
+        body,
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(15_000),
+      },
+    );
+  } catch {
+    return json(503, { error: "Evidence service is unavailable." });
+  }
+  if (upstream.status === 401) return json(401, { error: "Your session is no longer valid." });
+  if (upstream.status === 403) return json(403, { error: "Only a workspace owner can manage source grants." });
+  if (upstream.status === 409) return json(409, { error: "This read grant already exists." });
+  if (upstream.status === 422) return json(422, { error: "The principal must be a workspace member." });
+  if (upstream.status !== 200 && upstream.status !== 201) {
+    return json(503, { error: "Evidence service is unavailable." });
+  }
+  let payload: unknown;
+  try {
+    payload = await upstream.json();
+  } catch {
+    return json(502, { error: "Evidence service returned an invalid response." });
+  }
+  return json(upstream.status, payload);
+}
+
+export async function proxyWorkspaceSourceGrantDeleteRequest({
+  request,
+  workspaceId,
+  sourceId,
+  principalId,
+}: {
+  request: Request;
+  workspaceId: string;
+  sourceId: string;
+  principalId: string;
+}): Promise<Response> {
+  if (!isUuid(workspaceId) || !isUuid(sourceId) || !isUuid(principalId)) {
+    return json(404, { error: "Read grant not found." });
+  }
+  if (request.method !== "DELETE" || !sameOrigin(request)) {
+    return json(403, { error: "Request origin was not accepted." });
+  }
+  const auth = await getVerifiedAuthContext();
+  if (auth.kind === "unauthenticated") return json(401, { error: "Authentication is required." });
+  if (auth.kind === "unavailable") return json(503, { error: "Identity verification is unavailable." });
+  const blocked = await mfaBlocked(auth);
+  if (blocked) return blocked;
+  const serviceUrl = getEvidenceServiceBaseUrl();
+  if (!serviceUrl) return json(503, { error: "Evidence service is unavailable." });
+  let upstream: Response;
+  try {
+    upstream = await fetch(
+      `${serviceUrl}/v1/workspaces/${workspaceId}/sources/${sourceId}/grants/${principalId}`,
+      {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${auth.accessToken}` },
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(15_000),
+      },
+    );
+  } catch {
+    return json(503, { error: "Evidence service is unavailable." });
+  }
+  if (upstream.status === 401) return json(401, { error: "Your session is no longer valid." });
+  if (upstream.status === 403) return json(403, { error: "Only a workspace owner can manage source grants." });
+  if (upstream.status === 404) return json(404, { error: "Read grant not found." });
+  if (upstream.status !== 204 && upstream.status !== 200) {
+    return json(503, { error: "Evidence service is unavailable." });
+  }
+  return new Response(null, { status: 204 });
+}
+
 type SourceContentProxyOptions = {
   workspaceId: string;
   sourceId: string;

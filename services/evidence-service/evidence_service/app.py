@@ -108,6 +108,13 @@ from evidence_service.source_staging_repository import (
     SourceStageUnavailable,
     SupabaseSourceStagingRepository,
 )
+from evidence_service.source_grant_repository import (
+    SourceGrantConflict,
+    SourceGrantForbidden,
+    SourceGrantRejected,
+    SourceGrantUnavailable,
+    SupabaseSourceGrantRepository,
+)
 from evidence_service.recovery_fence import (
     CloudflareRecoveryFenceReader,
     RecoveryFenceConfigurationError,
@@ -301,6 +308,19 @@ class SourceStageResponse(BaseModel):
     bucket: Literal["source-snapshots"]
     object_key: str
     created_at: datetime
+
+
+class SourceGrantSummary(BaseModel):
+    principal_id: UUID
+    grant_type: Literal["read"]
+    granted_by: UUID
+    created_at: datetime
+
+
+class SourceGrantCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    principal_id: UUID
 
 
 class SourceLinkFields(BaseModel):
@@ -819,6 +839,13 @@ def _snapshot_object_store(settings: SupabaseSettings):
         bucket="source-snapshots",
         publishable_key=settings.publishable_key,
     )
+
+
+def _source_grant_repository(request: Request, access_token: str):
+    factory = request.app.state.source_grant_factory
+    if factory is not None:
+        return factory(access_token)
+    return SupabaseSourceGrantRepository(_settings_for(request))
 
 
 def _source_staging_repository(request: Request, access_token: str):
@@ -1625,6 +1652,7 @@ def create_app(
     source_read_path=None,
     source_catalog_factory=None,
     source_staging_factory=None,
+    source_grant_factory=None,
     remote_mcp_enabled: bool | None = None,
     task_run_ledger_repository=None,
     task_ledger_enabled: bool | None = None,
@@ -1668,6 +1696,7 @@ def create_app(
     application.state.source_read_path = source_read_path
     application.state.source_catalog_factory = source_catalog_factory
     application.state.source_staging_factory = source_staging_factory
+    application.state.source_grant_factory = source_grant_factory
     application.state.remote_mcp_enabled = (
         remote_mcp_enabled
         if remote_mcp_enabled is not None
@@ -2896,6 +2925,139 @@ def create_app(
             object_key=staged.object_key,
             created_at=staged.created_at,
         )
+
+    @application.get(
+        "/v1/workspaces/{workspace_id}/sources/{source_id}/grants",
+        response_model=list[SourceGrantSummary],
+    )
+    async def list_source_grants(
+        workspace_id: UUID,
+        source_id: UUID,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> list[SourceGrantSummary]:
+        context = await _resolve_workspace_or_404(request, auth, workspace_id)
+        if context.role != "owner":
+            raise HTTPException(status_code=403, detail="Workspace owner required")
+        try:
+            grants = await _with_account_gate(
+                request,
+                auth,
+                lambda: _source_grant_repository(
+                    request, auth.access_token
+                ).list(
+                    auth.access_token,
+                    workspace_id=context.workspace_id,
+                    source_id=source_id,
+                ),
+            )
+        except SourceGrantForbidden as exc:
+            raise HTTPException(
+                status_code=403, detail="Workspace owner required"
+            ) from exc
+        except SourceGrantUnavailable as exc:
+            raise HTTPException(
+                status_code=503, detail="Source grants are unavailable"
+            ) from exc
+        return [
+            SourceGrantSummary(
+                principal_id=grant.principal_id,
+                grant_type=grant.grant_type,
+                granted_by=grant.granted_by,
+                created_at=grant.created_at,
+            )
+            for grant in grants
+        ]
+
+    @application.post(
+        "/v1/workspaces/{workspace_id}/sources/{source_id}/grants",
+        response_model=SourceGrantSummary,
+        status_code=201,
+    )
+    async def create_source_grant(
+        workspace_id: UUID,
+        source_id: UUID,
+        payload: SourceGrantCreateRequest,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> SourceGrantSummary:
+        context = await _resolve_workspace_or_404(request, auth, workspace_id)
+        if context.role != "owner":
+            raise HTTPException(status_code=403, detail="Workspace owner required")
+        try:
+            grant = await _with_account_gate(
+                request,
+                auth,
+                lambda: _source_grant_repository(
+                    request, auth.access_token
+                ).grant(
+                    auth.access_token,
+                    workspace_id=context.workspace_id,
+                    source_id=source_id,
+                    principal_id=payload.principal_id,
+                ),
+            )
+        except SourceGrantForbidden as exc:
+            raise HTTPException(
+                status_code=403, detail="Workspace owner required"
+            ) from exc
+        except SourceGrantConflict as exc:
+            raise HTTPException(
+                status_code=409, detail="Read grant already exists"
+            ) from exc
+        except SourceGrantRejected as exc:
+            raise HTTPException(
+                status_code=422, detail="Principal must be a workspace member"
+            ) from exc
+        except SourceGrantUnavailable as exc:
+            raise HTTPException(
+                status_code=503, detail="Source grants are unavailable"
+            ) from exc
+        return SourceGrantSummary(
+            principal_id=grant.principal_id,
+            grant_type=grant.grant_type,
+            granted_by=grant.granted_by,
+            created_at=grant.created_at,
+        )
+
+    @application.delete(
+        "/v1/workspaces/{workspace_id}/sources/{source_id}/grants/{principal_id}",
+        status_code=204,
+    )
+    async def delete_source_grant(
+        workspace_id: UUID,
+        source_id: UUID,
+        principal_id: UUID,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> Response:
+        context = await _resolve_workspace_or_404(request, auth, workspace_id)
+        if context.role != "owner":
+            raise HTTPException(status_code=403, detail="Workspace owner required")
+        try:
+            await _with_account_gate(
+                request,
+                auth,
+                lambda: _source_grant_repository(
+                    request, auth.access_token
+                ).revoke(
+                    auth.access_token,
+                    workspace_id=context.workspace_id,
+                    source_id=source_id,
+                    principal_id=principal_id,
+                ),
+            )
+        except SourceGrantForbidden as exc:
+            raise HTTPException(
+                status_code=403, detail="Workspace owner required"
+            ) from exc
+        except SourceGrantRejected as exc:
+            raise HTTPException(status_code=404, detail="Read grant not found") from exc
+        except SourceGrantUnavailable as exc:
+            raise HTTPException(
+                status_code=503, detail="Source grants are unavailable"
+            ) from exc
+        return Response(status_code=204)
 
     @application.get(
         "/v1/workspaces/{workspace_id}/evidence",

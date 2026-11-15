@@ -101,6 +101,10 @@ export default function WorkspaceConsole({
   const [stageSourceContent, setStageSourceContent] = useState("");
   const [stageSourcePending, setStageSourcePending] = useState(false);
   const [stageSourceMessage, setStageSourceMessage] = useState("");
+  const [grantSourceId, setGrantSourceId] = useState("");
+  const [grantPrincipalId, setGrantPrincipalId] = useState("");
+  const [grantPending, setGrantPending] = useState(false);
+  const [grantMessage, setGrantMessage] = useState("");
   const [task, setTask] = useState("");
   const [expectedOutcome, setExpectedOutcome] = useState("");
   const [contextRequirements, setContextRequirements] = useState("");
@@ -485,6 +489,63 @@ export default function WorkspaceConsole({
       setStageSourceMessage("Source staging is unavailable.");
     } finally {
       setStageSourcePending(false);
+    }
+  }
+
+  async function grantSourceAccess(event: FormEvent) {
+    event.preventDefault();
+    if (!workspaceId) return;
+    if (!UUID.test(grantSourceId) || !UUID.test(grantPrincipalId)) {
+      setGrantMessage("Source ID and member user ID must be UUIDs.");
+      return;
+    }
+    setGrantPending(true);
+    setGrantMessage("");
+    try {
+      const response = await fetch(
+        `/api/evidence/workspaces/${encodeURIComponent(workspaceId)}/sources/${encodeURIComponent(grantSourceId)}/grants`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ principal_id: grantPrincipalId }),
+          cache: "no-store",
+        },
+      );
+      if (!response.ok) {
+        setGrantMessage(await readError(response, "Read access could not be granted."));
+        return;
+      }
+      setGrantMessage("Read access granted. The member can now see the published source.");
+      await loadSources(workspaceId);
+    } catch {
+      setGrantMessage("Source access management is unavailable.");
+    } finally {
+      setGrantPending(false);
+    }
+  }
+
+  async function revokeSourceAccess() {
+    if (!workspaceId || !UUID.test(grantSourceId) || !UUID.test(grantPrincipalId)) {
+      setGrantMessage("Source ID and member user ID must be UUIDs.");
+      return;
+    }
+    setGrantPending(true);
+    setGrantMessage("");
+    try {
+      const response = await fetch(
+        `/api/evidence/workspaces/${encodeURIComponent(workspaceId)}/sources/${encodeURIComponent(grantSourceId)}/grants/${encodeURIComponent(grantPrincipalId)}`,
+        { method: "DELETE", cache: "no-store" },
+      );
+      if (!response.ok && response.status !== 204) {
+        setGrantMessage(await readError(response, "Read access could not be revoked."));
+        return;
+      }
+      setGrantMessage("Read access revoked.");
+      await loadSources(workspaceId);
+    } catch {
+      setGrantMessage("Source access management is unavailable.");
+    } finally {
+      setGrantPending(false);
     }
   }
 
@@ -995,6 +1056,54 @@ export default function WorkspaceConsole({
               </form>
             )}
             {stageSourceMessage && <p className="workspace-message" role="status">{stageSourceMessage}</p>}
+            {selectedWorkspace.role === "owner" && sourcesById.length > 0 && (
+              <form className="workspace-form" onSubmit={grantSourceAccess}>
+                <div>
+                  <p className="eyebrow">Source read access</p>
+                  <p className="workspace-note">
+                    Grant an active workspace member read access to a published source.
+                    Do not revoke your own grant unless you intend to hide the source
+                    from yourself.
+                  </p>
+                </div>
+                <label>
+                  Source
+                  <select
+                    value={grantSourceId}
+                    onChange={(event) => setGrantSourceId(event.target.value)}
+                  >
+                    <option value="">Select a source</option>
+                    {sourcesById.map(([sourceId]) => (
+                      <option key={sourceId} value={sourceId}>
+                        Source {sourceId.slice(0, 8)}…
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Member user ID
+                  <input
+                    value={grantPrincipalId}
+                    onChange={(event) => setGrantPrincipalId(event.target.value)}
+                    placeholder="UUID"
+                    maxLength={36}
+                  />
+                </label>
+                <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                  <button type="submit" disabled={grantPending || !grantSourceId || !grantPrincipalId}>
+                    {grantPending ? "Updating…" : "Grant read"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void revokeSourceAccess()}
+                    disabled={grantPending || !grantSourceId || !grantPrincipalId}
+                  >
+                    Revoke read
+                  </button>
+                </div>
+              </form>
+            )}
+            {grantMessage && <p className="workspace-message" role="status">{grantMessage}</p>}
             {sourcesState === "loading" && <p role="status">Loading authorized workspace sources…</p>}
             {sourcesState === "expired" && <p role="alert">Your session needs to be verified again.</p>}
             {sourcesState === "unavailable" && (
