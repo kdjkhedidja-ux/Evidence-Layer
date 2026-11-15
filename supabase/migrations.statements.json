@@ -5058,6 +5058,27 @@
       "line": 232,
       "verb": "grant execute",
       "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "b4669929acb6ab7a",
+      "file": "20261115160000_workspace_quotas.sql",
+      "line": 6,
+      "verb": "create or",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "0d2d69cc96cac530",
+      "file": "20261115160000_workspace_quotas.sql",
+      "line": 57,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "a804f08b5d610497",
+      "file": "20261115160000_workspace_quotas.sql",
+      "line": 59,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
     }
   ]
 }

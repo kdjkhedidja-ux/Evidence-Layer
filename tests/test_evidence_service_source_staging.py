@@ -67,6 +67,19 @@ class MembershipDirectory:
         return None
 
 
+class FakeUsage:
+    def __init__(self, usage=None):
+        self.usage_value = usage or {
+            "version_count": 0,
+            "total_bytes": 0,
+            "staged_count": 0,
+            "pending_invitations": 0,
+        }
+
+    async def usage(self, access_token, *, workspace_id):
+        return self.usage_value
+
+
 class FakeStaging:
     def __init__(self) -> None:
         self.calls: list[dict] = []
@@ -86,11 +99,12 @@ class FakeStaging:
         )
 
 
-def make_client(*, directory: MembershipDirectory, staging: FakeStaging):
+def make_client(*, directory: MembershipDirectory, staging: FakeStaging, usage: FakeUsage | None = None):
     def factory(access_token: str):
         staging.bound_token = access_token
         return staging
 
+    usage = usage or FakeUsage()
     app = create_app(
         settings(),
         token_verifier=StaticVerifier(),
@@ -98,6 +112,7 @@ def make_client(*, directory: MembershipDirectory, staging: FakeStaging):
         recovery_fence_reader=OpenRecoveryFenceReader(),
         workspace_directory=directory,
         source_staging_factory=factory,
+        workspace_usage_factory=lambda access_token: usage,
     )
     return httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
@@ -158,6 +173,22 @@ def test_non_owner_cannot_stage(role: str):
     response = post(client, {"content": CONTENT})
 
     assert response.status_code == 403
+    assert staging.calls == []
+
+
+def test_staging_rejects_over_quota_workspaces():
+    staging = FakeStaging()
+    usage = FakeUsage({
+        "version_count": 100,
+        "total_bytes": 500,
+        "staged_count": 100,
+        "pending_invitations": 0,
+    })
+    client = make_client(directory=MembershipDirectory("owner"), staging=staging, usage=usage)
+
+    response = post(client, {"content": CONTENT})
+
+    assert response.status_code == 429
     assert staging.calls == []
 
 

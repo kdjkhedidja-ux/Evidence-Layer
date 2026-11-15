@@ -86,6 +86,7 @@ V_TASK_RUN_LEDGER = "20261114210000"
 V_WORKER_LEASE_RETRY = "20261114230000"
 V_SNAPSHOT_VERIFICATION_QUEUE = "20261115023000"
 V_WORKSPACE_INVITATIONS = "20261115140000"
+V_WORKSPACE_QUOTAS = "20261115160000"
 
 VERSION_RE = re.compile(r"^[0-9]{14}_[a-z0-9_]+\.sql$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -597,6 +598,7 @@ def expected_catalog(versions: list[str]) -> dict:
     worker_lease_retry = V_WORKER_LEASE_RETRY in present
     verification_queue = V_SNAPSHOT_VERIFICATION_QUEUE in present
     workspace_invitations = V_WORKSPACE_INVITATIONS in present
+    workspace_quotas = V_WORKSPACE_QUOTAS in present
     source = V_SOURCE_CATALOG in present
     storage = V_SNAPSHOT_STORAGE in present
     verifier = V_VERIFIER_IDENTITY in present
@@ -1160,6 +1162,8 @@ def expected_catalog(versions: list[str]) -> dict:
             "private.enqueue_snapshot_verification_after_insert",
         })
 
+    if workspace_quotas:
+        functions.add("public.workspace_source_usage")
     if workspace_invitations:
         functions.update({
             "public.create_workspace_invitation",

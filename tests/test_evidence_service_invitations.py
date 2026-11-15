@@ -62,6 +62,19 @@ class MembershipDirectory:
         return None
 
 
+class FakeUsage:
+    def __init__(self, pending=0):
+        self.pending = pending
+
+    async def usage(self, access_token, *, workspace_id):
+        return {
+            "version_count": 0,
+            "total_bytes": 0,
+            "staged_count": 0,
+            "pending_invitations": self.pending,
+        }
+
+
 class FakeInvitations:
     def __init__(self) -> None:
         self.created: list[dict] = []
@@ -98,10 +111,11 @@ class FakeInvitations:
         return WORKSPACE, "member"
 
 
-def make_client(*, directory: MembershipDirectory, invitations: FakeInvitations):
+def make_client(*, directory: MembershipDirectory, invitations: FakeInvitations, usage: FakeUsage | None = None):
     def factory(access_token: str):
         return invitations
 
+    usage = usage or FakeUsage()
     app = create_app(
         settings(),
         token_verifier=StaticVerifier(),
@@ -109,6 +123,7 @@ def make_client(*, directory: MembershipDirectory, invitations: FakeInvitations)
         recovery_fence_reader=OpenRecoveryFenceReader(),
         workspace_directory=directory,
         workspace_invitation_factory=factory,
+        workspace_usage_factory=lambda access_token: usage,
     )
     return httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
@@ -169,6 +184,23 @@ def test_owner_lists_revokes_and_invitee_accepts():
     assert accepted.status_code == 200
     assert accepted.json() == {"workspace_id": str(WORKSPACE), "role": "member"}
     assert len(invitations.accepted[0]) == 64
+
+
+def test_pending_invitation_quota_blocks_creation():
+    invitations = FakeInvitations()
+    client = make_client(
+        directory=MembershipDirectory("owner"),
+        invitations=invitations,
+        usage=FakeUsage(pending=50),
+    )
+    response = request(
+        client,
+        "POST",
+        f"/v1/workspaces/{WORKSPACE}/invitations",
+        payload={"email": "member@example.test"},
+    )
+    assert response.status_code == 429
+    assert invitations.created == []
 
 
 @pytest.mark.parametrize("role", ["member", "admin"])

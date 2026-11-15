@@ -43,6 +43,9 @@ The core workspace and source boundaries include:
   through Resend and returns `email_sent`. Otherwise the owner shares the link.
   The production sender is `noreply@evidencelayer.dev` on the verified
   `evidencelayer.dev` domain.
+- `public.workspace_source_usage(uuid)` is an owner-only, content-free counter
+  used before staging and invitation creation. Limits: 100 source versions,
+  100 MiB of source bytes, and 50 pending invitations per workspace.
 - `GET /v1/workspaces/{workspace_id}/sources/{source_id}/versions/{version_id}/content`
   delivers verified source bytes after membership, catalog, ACL, size, and
   SHA-256 digest checks, with revalidation before opening and before delivery.
