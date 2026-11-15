@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { readActiveWorkspaceId, writeActiveWorkspaceId } from "../lib/active-workspace";
 import {
   clearTaskTelemetry,
   readTaskTelemetry,
@@ -12,53 +13,113 @@ import {
 import type { TaskRunLedgerItem } from "../lib/evidence-api";
 
 const number = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+type WorkspaceOption = { id: string; name: string };
 
 export default function TelemetryDashboard() {
   const [runs, setRuns] = useState<TaskContextTelemetry[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [workspaces, setWorkspaces] = useState<WorkspaceOption[]>([]);
+  const [workspaceId, setWorkspaceId] = useState("");
+  const [directoryState, setDirectoryState] = useState<"loading" | "ready" | "unavailable">("loading");
   const [serverRuns, setServerRuns] = useState<TaskRunLedgerItem[]>([]);
   const [serverState, setServerState] = useState<"loading" | "ready" | "unavailable">("loading");
-  const [serverWorkspace, setServerWorkspace] = useState<string | null>(null);
 
   useEffect(() => {
     setRuns(readTaskTelemetry());
     setLoaded(true);
   }, []);
 
+  const loadServerLedger = useCallback(async (id: string) => {
+    if (!id) {
+      setServerRuns([]);
+      setServerState("unavailable");
+      return;
+    }
+    setServerRuns([]);
+    setServerState("loading");
+    try {
+      const response = await fetch(
+        `/api/evidence/workspaces/${encodeURIComponent(id)}/task-runs`,
+        { cache: "no-store" },
+      );
+      if (response.status === 404) {
+        setServerState("unavailable");
+        return;
+      }
+      if (!response.ok) throw new Error("server ledger unavailable");
+      const payload = await response.json();
+      if (!Array.isArray(payload)) throw new Error("invalid server ledger");
+      setServerRuns(payload);
+      setServerState("ready");
+    } catch {
+      setServerState("unavailable");
+    }
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
-    async function loadServerLedger() {
+    async function loadWorkspaceDirectory() {
       try {
         const me = await fetch("/api/evidence/me", { cache: "no-store" });
         if (!me.ok) throw new Error("workspace directory unavailable");
         const directory = await me.json();
-        const workspace = Array.isArray(directory.workspaces) ? directory.workspaces[0] : null;
-        if (!workspace?.id) throw new Error("no workspace");
-        const response = await fetch(
-          `/api/evidence/workspaces/${encodeURIComponent(workspace.id)}/task-runs`,
-          { cache: "no-store" },
-        );
-        if (response.status === 404) {
-          if (!cancelled) setServerState("unavailable");
+        const options: WorkspaceOption[] = Array.isArray(directory.workspaces)
+          ? directory.workspaces.filter((item: unknown): item is WorkspaceOption => {
+              if (!item || typeof item !== "object") return false;
+              const candidate = item as Record<string, unknown>;
+              return (
+                typeof candidate.id === "string" &&
+                UUID.test(candidate.id) &&
+                typeof candidate.name === "string"
+              );
+            })
+          : [];
+        if (cancelled) return;
+        setWorkspaces(options);
+        if (options.length === 0) {
+          setDirectoryState("unavailable");
+          setServerState("unavailable");
           return;
         }
-        if (!response.ok) throw new Error("server ledger unavailable");
-        const payload = await response.json();
-        if (!Array.isArray(payload)) throw new Error("invalid server ledger");
-        if (!cancelled) {
-          setServerWorkspace(workspace.name ?? "Workspace");
-          setServerRuns(payload);
-          setServerState("ready");
-        }
+        const requested = new URLSearchParams(window.location.search).get("workspace");
+        const saved = readActiveWorkspaceId();
+        const next =
+          options.find((workspace) => workspace.id === requested)?.id ??
+          options.find((workspace) => workspace.id === saved)?.id ??
+          options[0]?.id ??
+          "";
+        setWorkspaceId(next);
+        if (next) writeActiveWorkspaceId(next);
+        setDirectoryState("ready");
       } catch {
-        if (!cancelled) setServerState("unavailable");
+        if (!cancelled) {
+          setDirectoryState("unavailable");
+          setServerState("unavailable");
+        }
       }
     }
-    void loadServerLedger();
+    void loadWorkspaceDirectory();
     return () => {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!workspaceId) return;
+    void loadServerLedger(workspaceId);
+  }, [workspaceId, loadServerLedger]);
+
+  useEffect(() => {
+    function onFocus() {
+      if (workspaceId) void loadServerLedger(workspaceId);
+    }
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [workspaceId, loadServerLedger]);
+
+  const selectedWorkspace = workspaces.find((workspace) => workspace.id === workspaceId) ?? null;
 
   const serverSummary = useMemo(() => {
     const latency = serverRuns.map((run) => run.retrieval_latency_ms).sort((a, b) => a - b);
@@ -99,13 +160,46 @@ export default function TelemetryDashboard() {
           <p className="eyebrow">Server ledger · workspace</p>
           <h2 id="server-telemetry-heading">Persisted task runs</h2>
         </div>
-        {serverWorkspace && <span className="workspace-role">{serverWorkspace}</span>}
+        {selectedWorkspace && <span className="workspace-role">{selectedWorkspace.name}</span>}
+      </div>
+      <div className="workspace-selector">
+        <label htmlFor="telemetry-workspace">Workspace</label>
+        <select
+          id="telemetry-workspace"
+          value={workspaceId}
+          onChange={(event) => {
+            setWorkspaceId(event.target.value);
+            writeActiveWorkspaceId(event.target.value);
+          }}
+          disabled={directoryState !== "ready"}
+        >
+          {workspaces.map((workspace) => (
+            <option key={workspace.id} value={workspace.id}>{workspace.name}</option>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={() => {
+            if (workspaceId) void loadServerLedger(workspaceId);
+          }}
+          disabled={!workspaceId || serverState === "loading"}
+        >
+          Refresh
+        </button>
       </div>
       <p className="workspace-note">
-        Content-free task-context runs stored by the Evidence Service. The ledger keeps status,
-        retrieval latency, selected tokens/chars, chunks, relationships, scoring provider, and
-        fallback metadata. It does not store task text, evidence content, answer text, or agent cost.
+        Content-free task-context runs stored by the Evidence Service for the selected workspace.
+        Only successful task-context preparations write here; retrieve/API-key, Remote MCP, and
+        agent runs are not persisted. The ledger keeps status, retrieval latency, selected
+        tokens/chars, chunks, relationships, scoring provider, and fallback metadata. It does not
+        store task text, evidence content, answer text, or agent cost.
       </p>
+      {directoryState === "loading" && <p className="workspace-note" role="status">Loading authorized workspaces…</p>}
+      {directoryState === "unavailable" && (
+        <p className="workspace-note">
+          No authorized workspace is available, so the server ledger cannot be selected.
+        </p>
+      )}
       {serverState === "loading" && <p className="workspace-note" role="status">Loading the server ledger…</p>}
       {serverState === "unavailable" && (
         <p className="workspace-note">
@@ -114,7 +208,7 @@ export default function TelemetryDashboard() {
         </p>
       )}
       {serverState === "ready" && serverRuns.length === 0 && (
-        <p className="workspace-empty">No persisted task-context runs yet.</p>
+        <p className="workspace-empty">No persisted task-context runs for this workspace yet.</p>
       )}
       {serverState === "ready" && serverRuns.length > 0 && (
         <>

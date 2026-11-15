@@ -6,6 +6,7 @@ import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } fro
 import { createSupabaseBrowserClient } from "../../lib/supabase/client";
 import type { WorkspaceTaskContextResult } from "../../lib/evidence-api";
 import { recordTaskTelemetry } from "../../lib/task-telemetry";
+import { readActiveWorkspaceId, writeActiveWorkspaceId } from "../../lib/active-workspace";
 import ConnectorSources from "../../components/connector-sources";
 import PageTitle from "../../components/page-title";
 import SiteFooter from "../../components/site-footer";
@@ -73,7 +74,7 @@ export default function WorkspaceConsole({
   const router = useRouter();
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
-  const [workspaceId, setWorkspaceId] = useState("");
+  const [workspaceId, setWorkspaceId] = useState(() => readActiveWorkspaceId() ?? "");
   const [workspaceIdCopied, setWorkspaceIdCopied] = useState(false);
   const [records, setRecords] = useState<EvidenceRecord[]>([]);
   const [recordsState, setRecordsState] = useState<LoadState>("ready");
@@ -164,11 +165,16 @@ export default function WorkspaceConsole({
         );
       });
       setWorkspaces(memberships);
-      setWorkspaceId((current) =>
-        memberships.some((workspace) => workspace.id === current)
+      setWorkspaceId((current) => {
+        const saved = readActiveWorkspaceId();
+        const next = memberships.some((workspace) => workspace.id === current)
           ? current
-          : memberships[0]?.id ?? "",
-      );
+          : memberships.some((workspace) => workspace.id === saved)
+            ? saved ?? ""
+            : memberships[0]?.id ?? "";
+        if (next) writeActiveWorkspaceId(next);
+        return next;
+      });
       setLoadState("ready");
       return memberships;
     } catch {
@@ -326,6 +332,7 @@ export default function WorkspaceConsole({
       const memberships = await loadWorkspaces();
       if (memberships?.some((workspace) => workspace.id === created.id)) {
         setWorkspaceId(created.id);
+        writeActiveWorkspaceId(created.id);
         setMessage("Personal workspace access was confirmed.");
       } else {
         setMessage("Workspace membership could not be confirmed.");
@@ -626,6 +633,7 @@ export default function WorkspaceConsole({
                 value={workspaceId}
                 onChange={(event) => {
                   setWorkspaceId(event.target.value);
+                  writeActiveWorkspaceId(event.target.value);
                   invalidateTaskContext();
                 }}
               >
