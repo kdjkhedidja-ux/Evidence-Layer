@@ -105,7 +105,7 @@ and the content-free task ledger are production-verified.
 | Account deletion and purge worker | **DONE** | Lease/retry active; migration 47 applied; four production smokes passed; single replica until scale-out validation |
 | Account/personal export | **DONE** | Shared/group export unavailable |
 | Connectors | **PARTIAL** | GitHub and Notion deployed; Google Drive gated; Dropbox/Confluence adapters only |
-| Source ingestion/publish | **DONE (10-workspace pilot)** | Owner staging, queue, hosted verifier worker, publication, exact provenance, member grants, invitations + Resend email, and quotas are delivered; cleanup, multi-replica validation, and the 100-workspace pilot remain |
+| Source ingestion/publish | **DONE (two-replica pilot)** | Owner staging, queue, 2-replica hosted verifier worker, publication, exact provenance, member grants, invitations + Resend email, and quotas are delivered; cleanup and the 100-workspace pilot remain |
 | Source routing / Decisions API | **MISSING** | Local deterministic routing library is unwired and denies by default |
 | Billing, metering, quotas | **MISSING** | Cost/performance pages are planning estimates only |
 | Agent execution and task measurement | **MISSING** | EL returns evidence; it does not run the agent |
@@ -179,8 +179,9 @@ and the content-free task ledger are production-verified.
 - Delivered: owner-only workspace quotas from content-free counters:
   100 source versions, 100 MiB of source bytes, and 50 pending invitations.
 - Pilot: 10 synthetic workspaces published 10/10 with one worker, average job
-  latency 7.15 seconds, no retries. The 100-workspace pilot, staged-object
-  cleanup, and multi-replica validation remain.
+  latency 7.15 seconds, no retries. A second pilot at two worker replicas
+  published 10/10 new versions with no duplicate claims, average 6.89 seconds.
+  The 100-workspace pilot and staged-object cleanup remain.
 - Acceptance: met for the pilot (end-to-end ingestion, verifier publication, and
   exact retrieve provenance).
 
