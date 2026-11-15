@@ -20,14 +20,15 @@ Request:
   "max_tokens": 1200,
   "max_chars": 6000,
   "candidate_limit": 50,
-  "use_jev": false
+  "use_jev": true
 }
 ```
 
-`use_jev` defaults to `false`. Setting it to `true` is request-level consent to
+`use_jev` defaults to `true` when the server JEV flag is enabled. Setting it to `false` forces the lexical path; JEV remains server-gated and request-scoped.
 send the combined query and up to 50 budget-bounded candidate snippets to JEV.
-The service must also have `EVIDENCE_JEV_ENABLED=true`; this flag defaults to
-false. If either gate is closed, the response stays lexical and reports
+The service must also have `EVIDENCE_JEV_ENABLED=true`; the code default is
+false, while production is enabled. If the server gate is closed, the response
+stays lexical and reports
 `scoring_fallback_reason`. The Typesafe credential is read only by the service
 from `TYPESAFE_API_KEY`.
 
@@ -157,12 +158,12 @@ membership and RLS are checked by the service.
   "top_k": 5,
   "max_tokens": 1200,
   "max_chars": 6000,
-  "use_jev": false
+  "use_jev": true
 }
 ```
 
-The three task fields are combined as the retrieval query. Lexical scoring
-remains the default; setting `use_jev` to `true` explicitly authorizes transfer
+The three task fields are combined as the retrieval query. JEV is primary when
+the server flag is open; setting `use_jev` to `false` forces the lexical fallback
 of that query and the bounded candidate snippets only if the service's
 `EVIDENCE_JEV_ENABLED` flag is also open. JEV provider-side usage and cost are
 not yet reported. The service
@@ -398,10 +399,27 @@ A/B token reports: [`first run`](../operations/el-vs-baseline-deepseek-tokens-20
 ## Enablement/config notes
 
 - Service flags: `EVIDENCE_RETRIEVE_API_ENABLED=true` for retrieve/get-document, and `EVIDENCE_REMOTE_MCP_ENABLED=true` for the hosted MCP mount. Both default false and return 404 while disabled.
-- JEV is separately gated by `EVIDENCE_JEV_ENABLED` (code default false; enabled in production on 2026-11-14) and an explicit per-request `use_jev: true`. Candidate snippets and the query leave the Evidence Service only when both gates are open. Configure `TYPESAFE_API_KEY` as a server secret; do not expose it to the browser or logs.
+- JEV is separately gated by `EVIDENCE_JEV_ENABLED` (code default false; enabled in production on 2026-11-14). It is primary by default when the server gate is open; `use_jev: false` forces lexical. Candidate snippets and the query leave the Evidence Service only when the server gate is open and JEV is selected. Configure `TYPESAFE_API_KEY` as a server secret; do not expose it to the browser or logs.
 - Web flags: `NEXT_PUBLIC_REMOTE_MCP_ENABLED=true` and `NEXT_PUBLIC_REMOTE_MCP_URL=https://<service>/mcp`; these are separate from connector flags.
 - Deploy migration `20261112120000_personal_api_key_evidence_document.sql` for `get_document`.
 - API key scope: `evidence:read`; workspace membership and lifecycle are enforced by the existing key RPC.
-- JEV scoring is request-level opt-in and controlled by the server flag; production was enabled on 2026-11-14 after a synthetic smoke (`docs/operations/provider-jev-activation-2026-11-14.md`).
+- JEV scoring is server-gated and lexical fallback remains available; production was enabled on 2026-11-14 after a synthetic smoke (`docs/operations/provider-jev-activation-2026-11-14.md`).
 - No Google Drive or Marketplace work.
 - Logs must not contain API keys or returned document content.
+
+
+## Task-run ledger
+
+The authenticated workspace path records content-free retrieval telemetry when
+`EVIDENCE_TASK_LEDGER_ENABLED=true` and the ledger migration is applied.
+
+- write: automatic after a successful `POST /v1/workspaces/{workspace_id}/task-context`
+- read: `GET /v1/workspaces/{workspace_id}/task-runs`
+- auth: verified user session; workspace-member RLS
+- stored: status, retrieval latency, selected tokens/chars, selected/chunk counts,
+  relationship count, scoring provider, fallback reason, `use_jev`
+- not stored: task text, evidence content, answer text, provider responses
+
+The ledger schema also reserves nullable agent fields (`agent_provider`,
+`agent_model`, input/output/total tokens, cost, latency, quality status/score)
+for the later agent-execution path. The current writer is task-context only.

@@ -59,6 +59,11 @@ export default function TermsPage() {
           Detailed processor terms and deletion/retention instructions must be agreed separately
           where the service acts as a processor.
         </p>
+        <p>
+          Backups are logical dumps, not point-in-time recovery, and do not cover all provider-managed
+          data. A restore may reintroduce deleted records; restored access remains blocked until
+          deletion reconciliation completes.
+        </p>
       </section>
 
       <section className="public-section" aria-labelledby="terms-third-party">

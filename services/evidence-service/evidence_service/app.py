@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import base64
+import logging
 import math
 import os
+from time import perf_counter
 from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -94,6 +96,10 @@ from evidence_service.remote_mcp import (
     RemoteMcpPrincipal,
     create_remote_mcp_runtime,
 )
+from evidence_service.task_run_ledger_repository import (
+    SupabaseTaskRunLedgerRepository,
+    TaskRunLedgerUnavailable,
+)
 from evidence_service.recovery_fence import (
     CloudflareRecoveryFenceReader,
     RecoveryFenceConfigurationError,
@@ -117,6 +123,8 @@ from evidence_service.tenant_context import (
     WorkspaceDirectory,
     resolve_workspace_context,
 )
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from evidence_layer.scoring.jev_request import JevRequestScorer
@@ -420,7 +428,7 @@ class PersonalApiKeyRetrieveRequest(BaseModel):
     max_tokens: int = Field(default=1200, ge=1, le=8000)
     max_chars: int = Field(default=6000, ge=1, le=40000)
     candidate_limit: int = Field(default=50, ge=1, le=100)
-    use_jev: bool = Field(default=False, strict=True)
+    use_jev: bool = Field(default=True, strict=True)
 
 
 class PersonalApiKeyRetrievedItem(BaseModel):
@@ -482,7 +490,7 @@ class WorkspaceTaskContextRequest(BaseModel):
     top_k: int = Field(default=5, ge=1, le=20)
     max_tokens: int = Field(default=1200, ge=1, le=8000)
     max_chars: int = Field(default=6000, ge=1, le=40000)
-    use_jev: bool = Field(default=False, strict=True)
+    use_jev: bool = Field(default=True, strict=True)
 
     def retrieval_query(self) -> str:
         return "\n".join(
@@ -507,6 +515,32 @@ class WorkspaceTaskContextResponse(BaseModel):
     context_requirements: str
     retrieval: PersonalApiKeyRetrieveResponse
     relationships: list[TaskContextRelationship]
+
+
+class TaskRunLedgerItem(BaseModel):
+    run_id: UUID
+    workspace_id: UUID
+    run_type: str
+    status: str
+    created_at: datetime
+    retrieval_latency_ms: int
+    retrieval_tokens: int
+    retrieval_chars: int
+    selected_count: int
+    chunk_count: int
+    relationship_count: int
+    scoring_provider: str
+    fallback_reason: str | None
+    use_jev: bool
+    agent_provider: str | None
+    agent_model: str | None
+    agent_input_tokens: int | None
+    agent_output_tokens: int | None
+    agent_total_tokens: int | None
+    agent_cost_usd: float | None
+    agent_latency_ms: int | None
+    quality_status: str | None
+    quality_score: float | None
 
 
 class PersonalApiKeyEvidencePage(BaseModel):
@@ -955,6 +989,14 @@ def _relationship_repository(request: Request) -> RelationshipRepository:
     if repository is None:
         repository = SupabaseRelationshipRepository(_settings_for(request))
         request.app.state.relationship_repository = repository
+    return repository
+
+
+def _task_run_ledger_repository(request: Request) -> SupabaseTaskRunLedgerRepository:
+    repository = request.app.state.task_run_ledger_repository
+    if repository is None:
+        repository = SupabaseTaskRunLedgerRepository(_settings_for(request))
+        request.app.state.task_run_ledger_repository = repository
     return repository
 
 
@@ -1550,6 +1592,8 @@ def create_app(
     source_read_path=None,
     source_catalog_factory=None,
     remote_mcp_enabled: bool | None = None,
+    task_run_ledger_repository=None,
+    task_ledger_enabled: bool | None = None,
 ) -> FastAPI:
     """Create the service app; optional integrations are initialized on demand."""
     application = FastAPI(
@@ -1593,6 +1637,12 @@ def create_app(
         remote_mcp_enabled
         if remote_mcp_enabled is not None
         else os.environ.get("EVIDENCE_REMOTE_MCP_ENABLED") == "true"
+    )
+    application.state.task_run_ledger_repository = task_run_ledger_repository
+    application.state.task_ledger_enabled = (
+        task_ledger_enabled
+        if task_ledger_enabled is not None
+        else os.environ.get("EVIDENCE_TASK_LEDGER_ENABLED") == "true"
     )
 
     @application.api_route(
@@ -2780,6 +2830,7 @@ def create_app(
     ) -> WorkspaceTaskContextResponse:
         if not request.app.state.retrieval_enabled:
             raise HTTPException(status_code=404, detail="Retrieval API is not enabled")
+        started_at = perf_counter()
         await _require_recovery_fence_open(request)
         context = await _resolve_workspace_or_404(request, auth, workspace_id)
         try:
@@ -2809,7 +2860,7 @@ def create_app(
             raise HTTPException(status_code=404, detail="Workspace not found") from exc
         except RelationshipDataUnavailable as exc:
             raise _relationship_data_error(exc) from exc
-        return await _workspace_task_context_response(
+        response = await _workspace_task_context_response(
             records,
             relationships,
             context.workspace_id,
@@ -2818,6 +2869,53 @@ def create_app(
             jev_scorer=request.app.state.jev_scorer,
             jev_principal_id=str(auth.principal.subject),
         )
+        if request.app.state.task_ledger_enabled:
+            try:
+                await _task_run_ledger_repository(request).record(
+                    auth.access_token,
+                    workspace_id=context.workspace_id,
+                    actor_user_id=auth.principal.subject,
+                    metrics={
+                        "run_type": "task_context",
+                        "status": response.retrieval.status,
+                        "retrieval_latency_ms": max(0, round((perf_counter() - started_at) * 1000)),
+                        "retrieval_tokens": response.retrieval.used_tokens,
+                        "retrieval_chars": response.retrieval.used_chars,
+                        "selected_count": response.retrieval.selected_count,
+                        "chunk_count": response.retrieval.chunk_count,
+                        "relationship_count": len(response.relationships),
+                        "scoring_provider": response.retrieval.scoring_provider,
+                        "fallback_reason": response.retrieval.scoring_fallback_reason,
+                        "use_jev": payload.use_jev,
+                    },
+                )
+            except TaskRunLedgerUnavailable:
+                logger.warning("task-context ledger write failed")
+        return response
+
+    @application.get(
+        "/v1/workspaces/{workspace_id}/task-runs",
+        response_model=list[TaskRunLedgerItem],
+    )
+    async def list_workspace_task_runs(
+        workspace_id: UUID,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> list[TaskRunLedgerItem]:
+        if not request.app.state.task_ledger_enabled:
+            raise HTTPException(status_code=404, detail="Task ledger is not enabled")
+        context = await _resolve_workspace_or_404(request, auth, workspace_id)
+        try:
+            rows = await _with_account_gate(
+                request,
+                auth,
+                lambda: _task_run_ledger_repository(request).list_runs(
+                    auth.access_token, workspace_id=context.workspace_id, limit=100
+                ),
+            )
+        except TaskRunLedgerUnavailable as exc:
+            raise HTTPException(status_code=503, detail="Task ledger is unavailable") from exc
+        return [TaskRunLedgerItem.model_validate(row) for row in rows]
 
     @application.post(
         "/v1/workspaces/{workspace_id}/evidence",

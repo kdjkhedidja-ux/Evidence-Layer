@@ -55,3 +55,6 @@ The local dump and temporary restore container were removed after the drill.
 2. Refresh before the 48-hour attestation gate expires.
 3. Re-run the drill after connector migration 41 is applied and after any future Auth/Storage restore work.
 4. Decide on provider PITR/managed backup by 2026-11-30.
+5. On the next disposable restore, run
+   `python -m evidence_service.restore_reconciliation` and record its JSON
+   (`docs/operations/restore-deletion-reconciliation-2026-11-15.md`).

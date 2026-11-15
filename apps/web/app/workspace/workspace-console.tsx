@@ -100,7 +100,7 @@ export default function WorkspaceConsole({
   const [expectedOutcome, setExpectedOutcome] = useState("");
   const [contextRequirements, setContextRequirements] = useState("");
   const [contextBudget, setContextBudget] = useState(1200);
-  const [useJev, setUseJev] = useState(false);
+  const [useJev, setUseJev] = useState(true);
   const [taskContextResult, setTaskContextResult] = useState<WorkspaceTaskContextResult | null>(null);
   const [taskContextPending, setTaskContextPending] = useState(false);
   const [taskContextMessage, setTaskContextMessage] = useState("");

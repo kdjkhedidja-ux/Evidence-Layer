@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import TelemetryDashboard from "../components/telemetry-dashboard";
 import { recordTaskTelemetry } from "../lib/task-telemetry";
@@ -7,6 +7,11 @@ import { recordTaskTelemetry } from "../lib/task-telemetry";
 describe("TelemetryDashboard", () => {
   beforeEach(() => {
     window.localStorage.clear();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 503, json: async () => ({}) }));
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it("shows an empty state that links back to task-context preparation", () => {
@@ -42,3 +47,49 @@ describe("TelemetryDashboard", () => {
     expect(screen.getByText("lexical_stopword_filtered")).toBeInTheDocument();
   });
 });
+
+
+  it("loads the persisted server ledger", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({ workspaces: [{ id: "a1000000-0000-4000-8000-000000000001", name: "Personal" }] }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => [{
+            run_id: "91000000-0000-4000-8000-000000000001",
+            workspace_id: "a1000000-0000-4000-8000-000000000001",
+            run_type: "task_context",
+            status: "ok",
+            created_at: "2026-11-14T20:00:00Z",
+            retrieval_latency_ms: 41,
+            retrieval_tokens: 4100,
+            retrieval_chars: 16400,
+            selected_count: 2,
+            chunk_count: 3,
+            relationship_count: 1,
+            scoring_provider: "jev",
+            fallback_reason: null,
+            use_jev: true,
+            agent_provider: null,
+            agent_model: null,
+            agent_input_tokens: null,
+            agent_output_tokens: null,
+            agent_total_tokens: null,
+            agent_cost_usd: null,
+            agent_latency_ms: null,
+            quality_status: null,
+            quality_score: null,
+          }],
+        }),
+    );
+    render(<TelemetryDashboard />);
+    expect(await screen.findByText("Server-persisted task runs, newest first")).toBeInTheDocument();
+    expect(screen.getAllByText("4,100").length).toBeGreaterThan(0);
+    expect(screen.getByText("Personal")).toBeInTheDocument();
+  });

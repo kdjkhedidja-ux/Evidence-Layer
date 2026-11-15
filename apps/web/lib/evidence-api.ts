@@ -1113,7 +1113,7 @@ export async function parseWorkspaceTaskContextInput(
   const topK = candidate.top_k ?? 5;
   const maxTokens = candidate.max_tokens ?? 1200;
   const maxChars = candidate.max_chars ?? 6000;
-  const useJev = candidate.use_jev ?? false;
+  const useJev = candidate.use_jev ?? true;
   const allowedFields = new Set([
     "task",
     "expected_outcome",
@@ -1242,7 +1242,9 @@ export async function proxyWorkspaceTaskContextRequest({
   body: WorkspaceTaskContextInput;
 }): Promise<Response> {
   if (!isUuid(workspaceId)) return json(404, { error: "Workspace not found." });
-  if (!sameOrigin(request)) return json(403, { error: "Request origin was not accepted." });
+  if (request.method !== "GET" && !sameOrigin(request)) {
+    return json(403, { error: "Request origin was not accepted." });
+  }
   const auth = await getVerifiedAuthContext();
   if (auth.kind === "unauthenticated") return json(401, { error: "Authentication is required." });
   if (auth.kind === "unavailable") return json(503, { error: "Identity verification is unavailable." });
@@ -1502,4 +1504,75 @@ export async function proxyVerifiedSourceContent({
     headers.set("Content-Digest", digest);
   }
   return new Response(bytes, { status: 200, headers });
+}
+
+export type TaskRunLedgerItem = {
+  run_id: string;
+  workspace_id: string;
+  run_type: string;
+  status: string;
+  created_at: string;
+  retrieval_latency_ms: number;
+  retrieval_tokens: number;
+  retrieval_chars: number;
+  selected_count: number;
+  chunk_count: number;
+  relationship_count: number;
+  scoring_provider: string;
+  fallback_reason: string | null;
+  use_jev: boolean;
+  agent_provider: string | null;
+  agent_model: string | null;
+  agent_input_tokens: number | null;
+  agent_output_tokens: number | null;
+  agent_total_tokens: number | null;
+  agent_cost_usd: number | null;
+  agent_latency_ms: number | null;
+  quality_status: string | null;
+  quality_score: number | null;
+};
+
+export async function proxyWorkspaceTaskRunsRequest({
+  request,
+  workspaceId,
+}: {
+  request: Request;
+  workspaceId: string;
+}): Promise<Response> {
+  if (!isUuid(workspaceId)) return json(404, { error: "Workspace not found." });
+  if (request.method !== "GET" && !sameOrigin(request)) {
+    return json(403, { error: "Request origin was not accepted." });
+  }
+  const auth = await getVerifiedAuthContext();
+  if (auth.kind === "unauthenticated") return json(401, { error: "Authentication is required." });
+  if (auth.kind === "unavailable") return json(503, { error: "Identity verification is unavailable." });
+  const blocked = await mfaBlocked(auth);
+  if (blocked) return blocked;
+  const serviceUrl = getEvidenceServiceBaseUrl();
+  if (!serviceUrl) return json(503, { error: "Evidence service is unavailable." });
+  let upstream: Response;
+  try {
+    upstream = await fetch(`${serviceUrl}/v1/workspaces/${workspaceId}/task-runs`, {
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${auth.accessToken}`,
+      },
+      cache: "no-store",
+      redirect: "manual",
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch {
+    return json(503, { error: "Evidence service is unavailable." });
+  }
+  if (upstream.status === 401) return json(401, { error: "Your session is no longer valid." });
+  if (upstream.status === 404) return json(404, { error: "Task ledger is not enabled." });
+  if (upstream.status >= 300) return json(503, { error: "Evidence service is unavailable." });
+  let payload: unknown;
+  try {
+    payload = await upstream.json();
+  } catch {
+    return json(502, { error: "Evidence service returned an invalid response." });
+  }
+  if (!Array.isArray(payload)) return json(502, { error: "Evidence service returned an invalid response." });
+  return json(200, payload);
 }
