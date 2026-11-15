@@ -88,9 +88,9 @@ Legend: **DONE** = implemented with tests or production evidence; **PARTIAL** =
 code exists but a product, schema, or operational gap remains; **MISSING** = no
 implementation.
 
-Verified baseline: 46 migrations applied in production and migration 47 pending
-apply; 1,378 Python tests passing (15 skipped), 259 web tests passing, and 23
-pgTAP files with 621 tests. Task-context, API-key retrieve, Remote MCP, JEV,
+Verified baseline: 47 migrations applied in production (pending=0); 1,378
+Python tests passing (15 skipped), 259 web tests passing, and 23 pgTAP files
+with 621 tests. Task-context, API-key retrieve, Remote MCP, JEV,
 and the content-free task ledger are production-verified.
 
 ### Status snapshot
@@ -103,7 +103,7 @@ and the content-free task ledger are production-verified.
 | Hosted retrieve, task-context, Remote MCP | **DONE** | Read-only, workspace-scoped, bounded |
 | JEV scoring | **DONE** | Server-gated; whole-set lexical fallback; no provider cost returned |
 | Retrieval task ledger | **DONE** | Retrieval metrics only; no agent cost/quality |
-| Account deletion and purge worker | **PARTIAL** | Lease/retry code merged; migration 47 and worker deploy pending; single replica |
+| Account deletion and purge worker | **PARTIAL** | Migration 47 applied and verified; worker still runs the pre-lease build; redeploy and acceptance smokes pending |
 | Account/personal export | **DONE** | Shared/group export unavailable |
 | Connectors | **PARTIAL** | GitHub and Notion deployed; Google Drive gated; Dropbox/Confluence adapters only |
 | Source ingestion/publish | **MISSING** | Sources are read-only in the product |
@@ -127,13 +127,17 @@ and the content-free task ledger are production-verified.
   and the ledger boundary stay stated consistently. Historical plans and ADR
   decision text are exempt but must be read as point-in-time records.
 
-**P0.2 — Worker operational hardening (code merged 2026-11-15; production apply pending)**
+**P0.2 — Worker operational hardening (migration applied 2026-11-15; worker redeploy pending)**
 - Delivered: migration 47 lease/claim RPC, bounded retry/backoff, lease-owner
   checks, stale-lease and retry-overdue alerts, and the secret custody record.
-- Remaining: apply migration 47 through the production workflow, deploy the
-  worker and healthcheck, and run the four acceptance smokes. The production
-  apply is blocked on workflow-dispatch permission; worker deployment is blocked
-  on a valid Railway token.
+  Migration 47 was applied through the reviewed plan and verified (47
+  migrations, pending=0).
+- Production smoke: a synthetic accepted request reached `purged`, but
+  `attempts=0` and no lease row show that the deployed worker still runs the
+  pre-lease build. The new claim path is not active yet.
+- Remaining: redeploy the worker and healthcheck from `main` with the lease
+  environment, then run the four acceptance smokes. Worker deployment is
+  blocked on a valid Railway token.
 - Acceptance: concurrent workers cannot double-process a request; a stuck
   request raises an alert; the runbook is exercised and dated.
 
