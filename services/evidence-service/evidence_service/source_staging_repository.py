@@ -119,6 +119,7 @@ class SupabaseSourceStagingRepository:
         workspace_id: UUID,
         source_id: UUID,
         version_id: UUID,
+        principal_id: UUID,
         object_key: str,
         sha256: str,
         size_bytes: int,
@@ -128,7 +129,7 @@ class SupabaseSourceStagingRepository:
             or not access_token.strip()
             or any(
                 type(value) is not UUID
-                for value in (workspace_id, source_id, version_id)
+                for value in (workspace_id, source_id, version_id, principal_id)
             )
             or not isinstance(object_key, str)
             or not object_key
@@ -138,6 +139,12 @@ class SupabaseSourceStagingRepository:
             or size_bytes < 0
         ):
             raise SourceStageForbidden
+        await self._grant_read(
+            access_token,
+            workspace_id=workspace_id,
+            source_id=source_id,
+            principal_id=principal_id,
+        )
         payload = {
             "workspace_id": str(workspace_id),
             "source_id": str(source_id),
@@ -188,6 +195,45 @@ class SupabaseSourceStagingRepository:
             sha256=sha256,
             size_bytes=size_bytes,
         )
+
+    async def _grant_read(
+        self,
+        access_token: str,
+        *,
+        workspace_id: UUID,
+        source_id: UUID,
+        principal_id: UUID,
+    ) -> None:
+        try:
+            async with httpx.AsyncClient(
+                timeout=self._settings.timeout_seconds,
+                transport=self._transport,
+                trust_env=False,
+            ) as client:
+                response = await client.post(
+                    self._settings.source_grants_url,
+                    json={
+                        "workspace_id": str(workspace_id),
+                        "source_id": str(source_id),
+                        "principal_id": str(principal_id),
+                        "grant_type": "read",
+                    },
+                    headers={
+                        "apikey": self._settings.publishable_key,
+                        "Authorization": f"Bearer {access_token}",
+                        "Content-Type": "application/json",
+                        "Prefer": "return=minimal",
+                    },
+                )
+        except httpx.HTTPError as exc:
+            raise SourceStageUnavailable from exc
+        if response.status_code in {401, 403}:
+            raise SourceStageForbidden
+        if response.status_code in {200, 201, 204, 409}:
+            return
+        if response.status_code in {400, 422}:
+            raise SourceStageRejected
+        raise SourceStageUnavailable
 
     def staged_source_any(self, row: object) -> Any:
         # Kept for symmetry with other repositories; staging never reads rows.
