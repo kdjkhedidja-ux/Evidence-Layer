@@ -88,9 +88,9 @@ Legend: **DONE** = implemented with tests or production evidence; **PARTIAL** =
 code exists but a product, schema, or operational gap remains; **MISSING** = no
 implementation.
 
-Verified baseline: 48 migrations applied in production (pending=0); 1,400
-Python tests passing (15 skipped), 263 web tests passing, and 24 pgTAP files
-with 621 tests. Task-context, API-key retrieve, Remote MCP, JEV,
+Verified baseline: 49 migrations applied in production (pending=0); 1,419
+Python tests passing (15 skipped), 265 web tests passing, and 25 pgTAP files
+with 633 tests. Task-context, API-key retrieve, Remote MCP, JEV,
 and the content-free task ledger are production-verified.
 
 ### Status snapshot
@@ -170,9 +170,10 @@ and the content-free task ledger are production-verified.
   `source_version_id`.
 - Delivered: owner-managed source read grants (list/grant/revoke API and
   workspace UI) for active members.
-- Delivered: one-time hashed workspace invitations (create/list/revoke/accept
-  APIs, owner form, invite link, and accept page). Email delivery is not enabled
-  yet; the owner shares the one-time link.
+- Delivered and applied: one-time hashed workspace invitations (create/list/
+  revoke/accept APIs, owner form, invite link, and accept page). A production
+  test invited a new user, accepted the link, and confirmed an active member
+  membership. Email delivery is not enabled yet; the owner shares the link.
 - Remaining scale hardening: invitation email delivery, staged-object cleanup,
   quotas, and a 10/100-workspace rollout.
 - Acceptance: met for the pilot (end-to-end ingestion, verifier publication, and
