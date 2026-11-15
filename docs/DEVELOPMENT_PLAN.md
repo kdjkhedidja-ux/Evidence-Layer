@@ -88,7 +88,7 @@ Legend: **DONE** = implemented with tests or production evidence; **PARTIAL** =
 code exists but a product, schema, or operational gap remains; **MISSING** = no
 implementation.
 
-Verified baseline: 52 migrations applied in production (pending=0); 1,439
+Verified baseline: 52 migrations applied in production (pending=0); 1,440
 Python tests passing (15 skipped), 265 web tests passing, and 28 pgTAP files. Task-context, API-key retrieve, Remote MCP, JEV,
 and the content-free task ledger are production-verified.
 
@@ -219,9 +219,12 @@ and the content-free task ledger are production-verified.
   The sync response exposes `unchanged`.
 - Delivered earlier: GitHub App and Notion personal connect/manual sync;
   GitHub stale-evidence deletion on successful sync.
-- Remaining: background scheduling for enabled connectors, Notion live
-  connect/sync/disconnect smoke, Google Drive OAuth verification, Dropbox and
-  Confluence OAuth, ACL mapping, and deletion propagation on provider changes.
+- Delivered: background GitHub connector sync worker using the service-role
+  PostgREST credential, a 15-minute default interval, bounded document sync,
+  and content-free cycle logs. It reuses the incremental revision path.
+- Remaining: Notion live connect/sync/disconnect smoke, Google Drive OAuth
+  verification, Dropbox and Confluence OAuth, ACL mapping, and deletion
+  propagation on provider changes.
 - Acceptance: connect, scheduled incremental sync, permission change, and
   disconnect/purge are tested per enabled provider.
 
