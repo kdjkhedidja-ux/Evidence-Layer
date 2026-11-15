@@ -1,6 +1,6 @@
 # Source-object cleanup — 2026-11-15
 
-Status: **implemented; migration pending production apply.**
+Status: **implemented and production-verified.**
 
 ## Policy
 
@@ -21,6 +21,16 @@ Status: **implemented; migration pending production apply.**
   `object_deleted_at`.
 - Failures retry hourly up to five attempts, then become dead.
 - Abandoned rows are hidden by a restrictive RLS policy.
+
+## Production verification
+
+- Migration 51 applied and verified (51 migrations, pending=0).
+- Deletion worker deployment: `749e665b-0438-4d5f-9870-046da335bfcd`.
+- Evidence Service deployment with the abandoned filter:
+  `7834fb46-1724-45fe-9821-c4ba7cdcd9f6`.
+- A synthetic 30-day-old staged source was marked abandoned, its queue row
+  reached `deleted`, the Storage object returned HTTP 400 on read, the source
+  index returned `[]`, and quota usage returned zero.
 
 ## Residual
 
