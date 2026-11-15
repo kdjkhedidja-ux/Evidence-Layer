@@ -4582,6 +4582,90 @@
       "line": 55,
       "verb": "create policy",
       "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "bc75f2572ab212c3",
+      "file": "20261114230000_deletion_worker_lease_retry.sql",
+      "line": 9,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "dc05a3e6c5ed93e0",
+      "file": "20261114230000_deletion_worker_lease_retry.sql",
+      "line": 16,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "995b0e91b78a9bce",
+      "file": "20261114230000_deletion_worker_lease_retry.sql",
+      "line": 20,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "38f2dfc0951ec6d4",
+      "file": "20261114230000_deletion_worker_lease_retry.sql",
+      "line": 31,
+      "verb": "create or",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "4976f98e35b474a8",
+      "file": "20261114230000_deletion_worker_lease_retry.sql",
+      "line": 111,
+      "verb": "create or",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "7f64b6708e422c8f",
+      "file": "20261114230000_deletion_worker_lease_retry.sql",
+      "line": 145,
+      "verb": "create or",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "50dbfde5ae9e6f52",
+      "file": "20261114230000_deletion_worker_lease_retry.sql",
+      "line": 232,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "6de50e170f2afbcf",
+      "file": "20261114230000_deletion_worker_lease_retry.sql",
+      "line": 234,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "beeea57d1ba75fbb",
+      "file": "20261114230000_deletion_worker_lease_retry.sql",
+      "line": 236,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "7f7943524896e115",
+      "file": "20261114230000_deletion_worker_lease_retry.sql",
+      "line": 239,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "cca0c406ebbeba16",
+      "file": "20261114230000_deletion_worker_lease_retry.sql",
+      "line": 241,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "957f3d4304ae834d",
+      "file": "20261114230000_deletion_worker_lease_retry.sql",
+      "line": 243,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
     }
   ]
 }

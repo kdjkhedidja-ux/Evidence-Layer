@@ -14,15 +14,16 @@ reviewed environment.
 
 ## Current safety state
 
-On 2026-11-07 the production project reports 14 applied migrations and 7
-pending deletion/lifecycle migrations. Its backups API reports
-`pitr_enabled: false` and zero backups; the recovery gate is therefore met by
-the reviewed external attestation for `dumps/2026-11-07/evidence-layer.dump`
-and its passing non-production restore drill. `plan` passes. The digest is generated per reviewed commit and changes when
-the commit or attestation changes. The `Production` environment
-gates and secrets still need to be verified through GitHub. Production
-planning and application jobs in the workflow remain explicitly disabled by
-`&& false` until those gates are satisfied.
+As of 2026-11-15 the production project reports 46 applied migrations and one
+pending migration (`20261114230000_deletion_worker_lease_retry.sql`). Its backups
+API reports `pitr_enabled: false` and zero provider backups; the recovery gate is
+therefore met by the reviewed external attestation for
+`dumps/2026-11-15/evidence-layer.dump` in the private B2 bucket `evidence2` and
+its passing non-production restore drill. The digest is generated per reviewed
+commit and changes when the commit or attestation changes. The `Production`
+environment gates and secrets must still be verified through GitHub. The
+`production-plan` and `production-apply` jobs are enabled in the workflow; they
+still require the environment gates, a reviewer, and an explicit manual apply.
 
 Historical context: an earlier 2026-10-19 inspection targeted `Evidence-test`
 (`ayrtyjgqlgtuiwuyigbz`), which had an empty history and no recovery point. That
@@ -36,7 +37,7 @@ credentials.
    GitHub plan supports these controls.
 2. Set `Production` to allow deployments only from `main`. Require a reviewer
    for each job; prevent self-approval and administrator bypass where supported.
-   Verify these settings through GitHub before editing either disabled job.
+   Verify these settings through GitHub before approving either production job.
 3. Store `SUPABASE_ACCESS_TOKEN` and `SUPABASE_DB_PASSWORD` as `Production`
    environment secrets. Set `SUPABASE_PROJECT_REF` as an environment variable
    to the verified ref. Use a project-scoped token with only required rights.
@@ -45,19 +46,20 @@ credentials.
    Supabase completed backup / PITR point, or a reviewed external attestation
    for an uploaded dump plus a passing non-production restore drill. The
    attestation lives at `supabase/recovery-attestation.json` (override with
-   `SUPABASE_EXTERNAL_RECOVERY_ATTESTATION`) and must name the R2 bucket, object
-   key, endpoint, SHA-256, size, upload time, drill status/target/evidence path,
-   and attester. It expires after 48 hours and is included in the plan digest,
+   `SUPABASE_EXTERNAL_RECOVERY_ATTESTATION`) and must name the reviewed R2 or
+   B2 bucket, object key, endpoint, SHA-256, size, upload time, drill
+   status/target/evidence path, and attester. Reviewed buckets are
+   `evidence-layer-db-backups` (R2) and `evidence2` (B2, endpoint
+   `https://s3.<region>.backblazeb2.com`). It expires after 48 hours and is included in the plan digest,
    so changing or refreshing it changes the approved plan. Identify the owner
    who can authorize a restore. The guard refuses to plan when neither source is
    valid.
-5. After those controls are verified, a reviewed PR may remove the literal
-   `false` from the two production job conditions. The `main` condition must
-   remain. Run a manual plan first, inspect its JSON artifact and CLI dry-run,
-   and verify that it targets the same commit, project, and migration versions.
-   Enable automatic production application only after an end-to-end staging
-   apply and post-apply verification succeed on an existing authorized staging
-   target. No staging target was verified during this preparation.
+5. After those controls are verified, confirm the enabled production job
+   conditions still require `main`, workflow dispatch, `operation=apply`, and
+   the typed project ref. Run a manual plan first, inspect its JSON artifact and
+   CLI dry-run, and verify that it targets the same commit, project, and
+   migration versions. Keep application manual until an end-to-end staging
+   apply and post-apply verification succeed on an authorized staging target.
 
 ## Release and recovery
 
