@@ -23,6 +23,7 @@ from uuid import UUID, uuid4
 from .account_deletion_worker import _connect, run_account_deletion
 from .export_cleanup_worker import run_export_cleanup
 from .storage_cleanup_worker import run_storage_cleanup
+from .source_cleanup_worker import run_source_cleanup
 
 LOCK_KEY = "evidence-layer-deletion-worker"
 LOCK_TIMEOUT_SECONDS = 180
@@ -150,6 +151,13 @@ def process_pending(
     repaired = reconcile_stale_manifest_ack(connection)
     exports_cleaned = run_export_cleanup(connection=connection)
     storage = run_storage_cleanup(limit=500, connection=connection)
+    source_cleanup = run_source_cleanup(
+        connection,
+        supabase_url=os.environ.get("SUPABASE_URL", ""),
+        service_role_key=os.environ.get("SUPABASE_SERVICE_ROLE_KEY", ""),
+        age_days=_int_env("SOURCE_CLEANUP_AGE_DAYS", 14, 1, 365),
+        limit=_int_env("SOURCE_CLEANUP_LIMIT", 100, 1, 1000),
+    )
     owner = owner or worker_id()
     processed = 0
     accounts: list[dict] = []
@@ -205,6 +213,7 @@ def process_pending(
         "repaired_stale_ack": repaired,
         "exports_cleaned": exports_cleaned,
         "storage": storage,
+        "source_cleanup": source_cleanup,
         "accounts": accounts,
     }
 
