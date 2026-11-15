@@ -103,6 +103,7 @@ export default function DocumentationPage() {
               <li>Export is narrowed to the personal/account path; shared/group export and general CDN delivery are unavailable.</li>
               <li>Background connector scheduling, ACL propagation, source verification, and deletion propagation are not complete.</li>
               <li>Telemetry combines a browser-local view with a content-free server ledger for retrieval metrics; agent cost and answer quality are not collected yet.</li>
+              <li>Backups are logical dumps with no point-in-time recovery; Auth, Storage, and extensions are outside the dump, and a restore can reintroduce deleted rows until deletion reconciliation completes.</li>
             </ul>
           </article>
           <article className="public-card public-card--muted">

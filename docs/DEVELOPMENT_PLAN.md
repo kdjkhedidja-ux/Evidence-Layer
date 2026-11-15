@@ -88,10 +88,10 @@ Legend: **DONE** = implemented with tests or production evidence; **PARTIAL** =
 code exists but a product, schema, or operational gap remains; **MISSING** = no
 implementation.
 
-Verified baseline: 46 migrations applied in production; 1,377 Python tests
-collected (15 skipped) and 259 web tests passing; 22 pgTAP files with 595
-planned assertions. Task-context, API-key retrieve, Remote MCP, JEV, and the
-content-free task ledger are production-verified.
+Verified baseline: 46 migrations applied in production and migration 47 pending
+apply; 1,378 Python tests passing (15 skipped), 259 web tests passing, and 23
+pgTAP files with 621 tests. Task-context, API-key retrieve, Remote MCP, JEV,
+and the content-free task ledger are production-verified.
 
 ### Status snapshot
 
@@ -103,7 +103,7 @@ content-free task ledger are production-verified.
 | Hosted retrieve, task-context, Remote MCP | **DONE** | Read-only, workspace-scoped, bounded |
 | JEV scoring | **DONE** | Server-gated; whole-set lexical fallback; no provider cost returned |
 | Retrieval task ledger | **DONE** | Retrieval metrics only; no agent cost/quality |
-| Account deletion and purge worker | **DONE** | Single replica; no lease; `purge_failed` has no automatic retry |
+| Account deletion and purge worker | **PARTIAL** | Lease/retry code merged; migration 47 and worker deploy pending; single replica |
 | Account/personal export | **DONE** | Shared/group export unavailable |
 | Connectors | **PARTIAL** | GitHub and Notion deployed; Google Drive gated; Dropbox/Confluence adapters only |
 | Source ingestion/publish | **MISSING** | Sources are read-only in the product |
@@ -111,6 +111,7 @@ content-free task ledger are production-verified.
 | Billing, metering, quotas | **MISSING** | Cost/performance pages are planning estimates only |
 | Agent execution and task measurement | **MISSING** | EL returns evidence; it does not run the agent |
 | Shared workspace deletion approvals | **MISSING** | Account-scope only; owner unanimity deferred |
+| Backup and recovery | **PARTIAL** | Logical B2 dump plus passing restore drill and verifier; PITR disabled; Auth/Storage outside the dump |
 | Full Phase 8 (C1/C3/C5-full/C7) | **PARTIAL** | C4/C6/C8 narrowed are delivered; the rest is deferred |
 
 ### P0 — Make the product truthful and operable (next)
@@ -126,19 +127,27 @@ content-free task ledger are production-verified.
   and the ledger boundary stay stated consistently. Historical plans and ADR
   decision text are exempt but must be read as point-in-time records.
 
-**P0.2 — Worker operational hardening**
-- Add a lease/claim function, retry/backoff for `purge_failed`, and alerting on
-  stale `purge_pending`; record secret custody and rotation for the worker's
-  privileged credentials.
+**P0.2 — Worker operational hardening (code merged 2026-11-15; production apply pending)**
+- Delivered: migration 47 lease/claim RPC, bounded retry/backoff, lease-owner
+  checks, stale-lease and retry-overdue alerts, and the secret custody record.
+- Remaining: apply migration 47 through the production workflow, deploy the
+  worker and healthcheck, and run the four acceptance smokes. The production
+  apply is blocked on workflow-dispatch permission; worker deployment is blocked
+  on a valid Railway token.
 - Acceptance: concurrent workers cannot double-process a request; a stuck
   request raises an alert; the runbook is exercised and dated.
 
-**P0.3 — Backup, restore, and deletion reconciliation**
-- Decide PITR/managed backups and document RPO/RTO; add deletion-aware restore
-  reconciliation (C7) or publish the non-claim explicitly.
-- Acceptance: a restore drill proves that deleted accounts and workspace data
-  are not resurrected within the documented boundary, or the limitation is
-  explicit in product and legal copy.
+**P0.3 — Backup, restore, and deletion reconciliation (CLOSED with explicit limitation, 2026-11-15)**
+- Delivered: a logical production dump in private B2 bucket `evidence2`
+  (SHA-256 `61df647210bef7d34ff082ffa23c3e892043d15d2949f8a450fd3f2d6b43db6a`),
+  a disposable PostgreSQL 17 restore drill, the deletion reconciliation
+  verifier (`clean`, 42/42), the recovery attestation, and a passing
+  production `plan`.
+- Explicit limitation: provider PITR is disabled and no provider-managed backup
+  is enabled. The logical dump excludes Auth, Storage, and extensions. A restore
+  can reintroduce deleted rows; access stays blocked until reconciliation. This
+  limitation is published in the public documentation and legal drafts.
+- Acceptance: met via the passing drill plus the explicit limitation.
 
 ### P1 — Close the product gaps
 
