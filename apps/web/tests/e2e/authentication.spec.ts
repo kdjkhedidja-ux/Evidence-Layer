@@ -401,6 +401,21 @@ test("signup displays its confirmation status without sending real email", async
   );
 });
 
+test("signup tells an existing account to sign in instead", async ({ page }) => {
+  await page.goto("/signup");
+  await page.getByLabel("Email").fill("existing@example.test");
+  await page.getByLabel("Password", { exact: true }).fill(password);
+  await page.getByLabel("Confirm password").fill(password);
+  await page.getByRole("button", { name: "Create account" }).click();
+
+  await expect(page.locator("p.auth-error")).toHaveText(
+    "An account with this email already exists. Sign in instead, or reset your password.",
+  );
+  const options = page.getByRole("navigation", { name: "Account options" });
+  await expect(options.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/login");
+  await expect(options.getByRole("link", { name: "Reset your password" })).toHaveAttribute("href", "/forgot-password");
+});
+
 test("signup reports required and malformed fields through native browser validation", async ({ page }) => {
   let passwordRequests = 0;
   page.on("request", (request) => {

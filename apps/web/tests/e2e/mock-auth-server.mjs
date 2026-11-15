@@ -92,6 +92,11 @@ const server = createServer(async (request, response) => {
   }
 
   if (endpoint === "/signup" && request.method === "POST") {
+    const body = await readJson(request);
+    if (body.email === "existing@example.test") {
+      sendJson(response, 200, { ...user(), email: body.email, identities: [], confirmation_sent_at: "2026-01-01T00:00:00.000Z" });
+      return;
+    }
     sendJson(response, 200, { ...user(), email: "person@example.test", confirmation_sent_at: "2026-01-01T00:00:00.000Z" });
     return;
   }

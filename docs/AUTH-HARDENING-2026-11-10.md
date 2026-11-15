@@ -30,6 +30,10 @@ Password-reset recovery sessions are exempt from the current-password check in S
 - Workspace session panel adds **Sign out everywhere** (`signOut({ scope: "global" })`) and a link to `/mfa`.
 - Workspace Account Profile supports confirmed email changes and password changes with the current password; stale sessions request and accept Supabase's email reauthentication nonce.
 - Capability catalog marks Security and Authentication sessions as **Partially available**.
+- Signup now detects Supabase's empty-`identities` response for an existing address and
+  shows a clear existing-account message with links to sign in or reset the password.
+  This is a deliberate enumeration tradeoff for signup UX; password recovery remains
+  non-enumerating.
 
 ## Deliberate limits
 
