@@ -290,6 +290,12 @@
       "version": "20261115023000",
       "sha256": "633fb180b7bf1b559de869c920308539a44977038a66a05c12b44ac24f595444",
       "provenance": "PR 1 of the multi-tenant publication plan: automatic staging enqueue, lease-based claim, auto per-workspace verifier authorization, and bounded retry. Publication remains closed until a worker is registered and deployed."
+    },
+    {
+      "file": "20261115140000_workspace_invitations.sql",
+      "version": "20261115140000",
+      "sha256": "634e7e6620821d01eb5dd88e4e4488a4eaf9002d5f0492e31471677b7b8bc1d9",
+      "provenance": "Scale hardening: one-time hashed workspace invitations and accept RPCs. Delivery remains link-based until an email worker is added."
     }
   ]
 }

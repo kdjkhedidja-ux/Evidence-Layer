@@ -115,9 +115,9 @@ Status legend:
 - **Export:** a narrowed account/personal export is deployed and production-smoke-tested; shared/group export is unavailable.
 - **Download-link control:** mediated export grants, expiry, no-store, revocation, and cleanup are deployed; production smoke passed.
 - **Shared-workspace deletion:** no owner-unanimity workflow; deletion is account-scope only, and group-workspace deletion is admin-initiated.
-- **Source ingestion/publish:** owner staging, private upload, the queue, a hosted verifier worker, and owner-managed member read grants are implemented. A production pilot published a synthetic source and task-context returned its exact provenance. Cleanup, invitations, and quotas remain scale hardening; no per-workspace operator allowlist setup is required.
+- **Source ingestion/publish:** owner staging, private upload, the queue, a hosted verifier worker, member read grants, and one-time hashed invitations are implemented. A production pilot published a synthetic source and task-context returned its exact provenance. Invitation email delivery, cleanup, and quotas remain scale hardening; no per-workspace operator allowlist setup is required.
 - **Scoring in the product:** hosted retrieval and Remote MCP default to lexical scoring. An optional JEV path is request-consented, server-flagged, capped at 50 candidate snippets, and uses whole-set lexical fallback. It remains disabled unless an operator explicitly enables it; live usage/cost and task-quality measurement are not yet persisted.
-- **Billing, metering, invitations, enterprise SSO, multi-organization membership:** not implemented.
+- **Billing, metering, invitation email delivery, enterprise SSO, multi-organization membership:** not implemented.
 - **Cancellation after acceptance:** explicitly unsupported.
 - **Provider PITR / full data-plane restore:** not proven; the recorded backup is a logical `public` + `private` dump excluding `auth`, `storage`, and extensions.
 
@@ -136,7 +136,7 @@ Status legend:
 
 7. **Document and verify personal API keys in production.** Add `PERSONAL_API_KEY_GATEWAY_SECRET` to the service environment documentation and release checklist; add an apply/verification record and a production smoke for create/list/read/revoke.
 8. **Define source ingestion/publish ownership.** Either expose a supported verifier/publish workflow or state operationally that sources are seeded by operators. The current UI can read sources but cannot create/publish them.
-9. **Add email invitations and richer organization administration.** Current “add member” requires an existing account by email; invitations, role history, and multi-organization membership are absent.
+9. **Add invitation email delivery and richer organization administration.** Link-based one-time invitations are delivered; automatic email delivery, role history, and multi-organization membership are still absent.
 10. **Decide whether scoring belongs in the hosted product.** If yes, add a retrieval/scoring endpoint with the same lifecycle, tenant, source-boundary, and transfer-authorization controls used elsewhere. If no, remove language that implies the service performs evidence selection.
 
 ### COULD

@@ -85,6 +85,7 @@ V_CONNECTOR_EVIDENCE_RPC = "20261112160000"
 V_TASK_RUN_LEDGER = "20261114210000"
 V_WORKER_LEASE_RETRY = "20261114230000"
 V_SNAPSHOT_VERIFICATION_QUEUE = "20261115023000"
+V_WORKSPACE_INVITATIONS = "20261115140000"
 
 VERSION_RE = re.compile(r"^[0-9]{14}_[a-z0-9_]+\.sql$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -595,6 +596,7 @@ def expected_catalog(versions: list[str]) -> dict:
     task_run_ledger = V_TASK_RUN_LEDGER in present
     worker_lease_retry = V_WORKER_LEASE_RETRY in present
     verification_queue = V_SNAPSHOT_VERIFICATION_QUEUE in present
+    workspace_invitations = V_WORKSPACE_INVITATIONS in present
     source = V_SOURCE_CATALOG in present
     storage = V_SNAPSHOT_STORAGE in present
     verifier = V_VERIFIER_IDENTITY in present
@@ -650,6 +652,8 @@ def expected_catalog(versions: list[str]) -> dict:
     if verification_queue:
         tables["private.snapshot_verification_worker"] = (True, True)
         tables["private.snapshot_verification_jobs"] = (True, True)
+    if workspace_invitations:
+        tables["private.workspace_invitations"] = (True, True)
 
     indexes: set[str] = set()
     if identity:
@@ -718,6 +722,12 @@ def expected_catalog(versions: list[str]) -> dict:
         })
     if worker_lease_retry:
         indexes.add("public.data_deletion_requests_claimable_idx")
+    if workspace_invitations:
+        indexes.update({
+            "private.workspace_invitations_pkey",
+            "private.workspace_invitations_token_hash_key",
+            "private.workspace_invitations_pending_idx",
+        })
     if verification_queue:
         indexes.update({
             "private.snapshot_verification_worker_pkey",
@@ -1150,6 +1160,14 @@ def expected_catalog(versions: list[str]) -> dict:
             "private.enqueue_snapshot_verification_after_insert",
         })
 
+    if workspace_invitations:
+        functions.update({
+            "public.create_workspace_invitation",
+            "public.list_workspace_invitations",
+            "public.revoke_workspace_invitation",
+            "public.accept_workspace_invitation",
+        })
+
     foreign_keys: set[tuple[str, str, str, str]] = set()
     if identity:
         foreign_keys.update({
@@ -1225,6 +1243,12 @@ def expected_catalog(versions: list[str]) -> dict:
         foreign_keys.update({
             ("task_run_ledger_workspace_id_fkey", "public.task_run_ledger", "public.workspaces", "c"),
             ("task_run_ledger_actor_user_id_fkey", "public.task_run_ledger", "auth.users", "c"),
+        })
+    if workspace_invitations:
+        foreign_keys.update({
+            ("workspace_invitations_workspace_id_fkey", "private.workspace_invitations", "public.workspaces", "c"),
+            ("workspace_invitations_created_by_fkey", "private.workspace_invitations", "auth.users", "c"),
+            ("workspace_invitations_accepted_by_fkey", "private.workspace_invitations", "auth.users", "n"),
         })
     if verification_queue:
         foreign_keys.update({

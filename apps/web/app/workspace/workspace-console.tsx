@@ -105,6 +105,10 @@ export default function WorkspaceConsole({
   const [grantPrincipalId, setGrantPrincipalId] = useState("");
   const [grantPending, setGrantPending] = useState(false);
   const [grantMessage, setGrantMessage] = useState("");
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [invitePending, setInvitePending] = useState(false);
+  const [inviteMessage, setInviteMessage] = useState("");
+  const [inviteLink, setInviteLink] = useState("");
   const [task, setTask] = useState("");
   const [expectedOutcome, setExpectedOutcome] = useState("");
   const [contextRequirements, setContextRequirements] = useState("");
@@ -489,6 +493,54 @@ export default function WorkspaceConsole({
       setStageSourceMessage("Source staging is unavailable.");
     } finally {
       setStageSourcePending(false);
+    }
+  }
+
+  async function createInvitation(event: FormEvent) {
+    event.preventDefault();
+    if (!workspaceId || !inviteEmail.trim()) return;
+    setInvitePending(true);
+    setInviteMessage("");
+    setInviteLink("");
+    try {
+      const response = await fetch(
+        `/api/evidence/workspaces/${encodeURIComponent(workspaceId)}/invitations`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: inviteEmail.trim() }),
+          cache: "no-store",
+        },
+      );
+      if (!response.ok) {
+        setInviteMessage(await readError(response, "Invitation could not be created."));
+        return;
+      }
+      const invitation = (await response.json()) as { invite_token?: unknown };
+      if (typeof invitation.invite_token !== "string" || !invitation.invite_token) {
+        setInviteMessage("The service returned an invalid invitation.");
+        return;
+      }
+      const origin = window.location.origin;
+      setInviteLink(`${origin}/invite/${invitation.invite_token}`);
+      setInviteEmail("");
+      setInviteMessage(
+        "Invitation created. Share the link now; it is shown only once.",
+      );
+    } catch {
+      setInviteMessage("Invitations are unavailable.");
+    } finally {
+      setInvitePending(false);
+    }
+  }
+
+  async function copyInviteLink() {
+    if (!inviteLink) return;
+    try {
+      await navigator.clipboard?.writeText(inviteLink);
+      setInviteMessage("Invitation link copied.");
+    } catch {
+      setInviteMessage("Copy failed. Select the link and copy it manually.");
     }
   }
 
@@ -1104,6 +1156,42 @@ export default function WorkspaceConsole({
               </form>
             )}
             {grantMessage && <p className="workspace-message" role="status">{grantMessage}</p>}
+            {selectedWorkspace.role === "owner" && (
+              <form className="workspace-form" onSubmit={createInvitation}>
+                <div>
+                  <p className="eyebrow">Invite a member</p>
+                  <p className="workspace-note">
+                    Creates a one-time, seven-day invitation link. Automatic email
+                    delivery is not enabled yet; copy the link and share it with the invitee.
+                  </p>
+                </div>
+                <label>
+                  Invitee email
+                  <input
+                    type="email"
+                    value={inviteEmail}
+                    onChange={(event) => setInviteEmail(event.target.value)}
+                    placeholder="member@example.com"
+                    maxLength={320}
+                  />
+                </label>
+                <button type="submit" disabled={invitePending || !inviteEmail.trim()}>
+                  {invitePending ? "Creating…" : "Create invitation"}
+                </button>
+                {inviteLink && (
+                  <div>
+                    <label>
+                      Invitation link
+                      <input readOnly value={inviteLink} onFocus={(event) => event.currentTarget.select()} />
+                    </label>
+                    <button type="button" onClick={() => void copyInviteLink()}>
+                      Copy link
+                    </button>
+                  </div>
+                )}
+              </form>
+            )}
+            {inviteMessage && <p className="workspace-message" role="status">{inviteMessage}</p>}
             {sourcesState === "loading" && <p role="status">Loading authorized workspace sources…</p>}
             {sourcesState === "expired" && <p role="alert">Your session needs to be verified again.</p>}
             {sourcesState === "unavailable" && (

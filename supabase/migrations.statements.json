@@ -4953,6 +4953,111 @@
       "line": 551,
       "verb": "select private",
       "rationale_ref": "catalog-assertion-call"
+    },
+    {
+      "id": "c63e64b8b360fb3d",
+      "file": "20261115140000_workspace_invitations.sql",
+      "line": 33,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "af74436916025f12",
+      "file": "20261115140000_workspace_invitations.sql",
+      "line": 34,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "8930e0badb337dd4",
+      "file": "20261115140000_workspace_invitations.sql",
+      "line": 35,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "78a499cda16d8755",
+      "file": "20261115140000_workspace_invitations.sql",
+      "line": 38,
+      "verb": "create or",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "a7a461445d2ddce2",
+      "file": "20261115140000_workspace_invitations.sql",
+      "line": 94,
+      "verb": "create or",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "828478a539b73076",
+      "file": "20261115140000_workspace_invitations.sql",
+      "line": 133,
+      "verb": "create or",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "5952f8ef55724f4c",
+      "file": "20261115140000_workspace_invitations.sql",
+      "line": 170,
+      "verb": "create or",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "90f5ec2239a2ca04",
+      "file": "20261115140000_workspace_invitations.sql",
+      "line": 217,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "8b3d815abc80abf7",
+      "file": "20261115140000_workspace_invitations.sql",
+      "line": 219,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "06b1c12351a39d8c",
+      "file": "20261115140000_workspace_invitations.sql",
+      "line": 221,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "9fde8caaee4d289a",
+      "file": "20261115140000_workspace_invitations.sql",
+      "line": 223,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "d1d69cb01b0762e9",
+      "file": "20261115140000_workspace_invitations.sql",
+      "line": 226,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "e808519bac944cd9",
+      "file": "20261115140000_workspace_invitations.sql",
+      "line": 228,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "0f2a43cf2fc62b31",
+      "file": "20261115140000_workspace_invitations.sql",
+      "line": 230,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "cd058186e93f8aad",
+      "file": "20261115140000_workspace_invitations.sql",
+      "line": 232,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
     }
   ]
 }
