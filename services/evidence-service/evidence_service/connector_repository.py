@@ -154,6 +154,30 @@ class ConnectorRepository:
         )
         return self._connection(response.json()[0], include_secrets=False)
 
+    async def list_syncable_connections(
+        self,
+        access_token: str,
+        *,
+        provider: str = "github",
+        limit: int = 100,
+    ) -> list[ConnectorConnection]:
+        response = await self._request(
+            "GET",
+            access_token,
+            "connector_connections",
+            params={
+                "select": CONNECTION_SELECT,
+                "provider": f"eq.{provider}",
+                "status": "eq.connected",
+                "order": "last_sync_at.asc.nullslast",
+                "limit": str(max(1, min(limit, 500))),
+            },
+        )
+        rows = response.json()
+        if not isinstance(rows, list):
+            raise ConnectorUnavailable
+        return [self._connection(row, include_secrets=False) for row in rows]
+
     async def list_connections(self, access_token: str) -> list[ConnectorConnection]:
         response = await self._request(
             "GET",
