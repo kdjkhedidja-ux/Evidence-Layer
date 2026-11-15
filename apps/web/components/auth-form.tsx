@@ -57,6 +57,7 @@ export default function AuthForm({
   const submitting = useRef(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
+  const [existingAccount, setExistingAccount] = useState(false);
   const [completed, setCompleted] = useState(false);
   const [sessionEstablished, setSessionEstablished] = useState(false);
   const content = CONTENT[mode];
@@ -71,6 +72,7 @@ export default function AuthForm({
     if (submitting.current || completed) return;
     setErrorMessage("");
     setStatusMessage("");
+    setExistingAccount(false);
 
     if (!hasConfiguration) {
       setErrorMessage("Authentication is not configured for this application yet.");
@@ -168,6 +170,11 @@ export default function AuthForm({
           setErrorMessage(signOutError
             ? "Email confirmation is not enabled and the session could not be cleared. Sign out before continuing."
             : "Email confirmation is required but is not enabled in the Auth project.");
+          return;
+        }
+        if (Array.isArray(data.user?.identities) && data.user.identities.length === 0) {
+          setExistingAccount(true);
+          setErrorMessage("An account with this email already exists. Sign in instead, or reset your password.");
           return;
         }
         setStatusMessage("Check your email for a confirmation link. You can sign in after confirming your address.");
@@ -296,9 +303,18 @@ export default function AuthForm({
         )}
 
         <nav className="auth-links" aria-label="Account options">
-          {mode === "login" && <Link href="/forgot-password">Forgot password?</Link>}
-          {mode === "login" && <Link href="/signup">Create an account</Link>}
-          {mode !== "login" && <Link href="/login">Back to sign in</Link>}
+          {existingAccount ? (
+            <>
+              <Link href="/login">Sign in</Link>
+              <Link href="/forgot-password">Reset your password</Link>
+            </>
+          ) : (
+            <>
+              {mode === "login" && <Link href="/forgot-password">Forgot password?</Link>}
+              {mode === "login" && <Link href="/signup">Create an account</Link>}
+              {mode !== "login" && <Link href="/login">Back to sign in</Link>}
+            </>
+          )}
         </nav>
       </div>
       <SiteFooter />

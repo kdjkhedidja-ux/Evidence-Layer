@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AuthForm from "../components/auth-form";
@@ -41,7 +41,7 @@ describe("Supabase Auth forms", () => {
       publishableKey: "sb_publishable_synthetic_test_key",
     });
     mocks.auth.signInWithPassword.mockResolvedValue({ data: { session: { access_token: "synthetic-token" } }, error: null });
-    mocks.auth.signUp.mockResolvedValue({ data: { user: { id: "synthetic-user" }, session: null }, error: null });
+    mocks.auth.signUp.mockResolvedValue({ data: { user: { id: "synthetic-user", identities: [{ provider: "email" }] }, session: null }, error: null });
     mocks.auth.resetPasswordForEmail.mockResolvedValue({ error: null });
     mocks.auth.updateUser.mockResolvedValue({ error: null });
     mocks.auth.signOut.mockResolvedValue({ error: null });
@@ -202,6 +202,25 @@ describe("Supabase Auth forms", () => {
     expect(emailRedirectTo.origin).toBe(window.location.origin);
     expect(emailRedirectTo.pathname).toBe("/auth/callback");
     expect(emailRedirectTo.searchParams.get("next")).toBe("/");
+  });
+
+  it("tells an existing account to sign in instead of asking for another confirmation", async () => {
+    mocks.auth.signUp.mockResolvedValue({
+      data: { user: { id: "synthetic-user", identities: [] }, session: null },
+      error: null,
+    });
+    const user = userEvent.setup();
+    render(<AuthForm mode="signup" />);
+    await user.type(screen.getByLabelText("Email"), "existing@example.test");
+    await user.type(screen.getByLabelText("Password", { selector: "input" }), "synthetic-password");
+    await user.type(screen.getByLabelText("Confirm password"), "synthetic-password");
+    await user.click(screen.getByRole("button", { name: "Create account" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("An account with this email already exists");
+    expect(screen.queryByText(/Check your email for a confirmation link/)).not.toBeInTheDocument();
+    const options = screen.getByRole("navigation", { name: "Account options" });
+    expect(within(options).getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/login");
+    expect(within(options).getByRole("link", { name: "Reset your password" })).toHaveAttribute("href", "/forgot-password");
   });
 
   it("does not keep a session when email confirmation appears disabled", async () => {
