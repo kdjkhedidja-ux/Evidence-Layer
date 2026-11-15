@@ -39,6 +39,7 @@ class GitHubSyncResult:
     ingested: int
     skipped: int
     next_cursor: str | None
+    unchanged: int = 0
 
 
 class GitHubAppSyncService:
@@ -173,8 +174,16 @@ class GitHubAppSyncService:
                 raise GitHubAppSyncError("GitHub repositories are unavailable")
             payload = response.json()
             repositories = payload.get("repositories", []) if isinstance(payload, dict) else []
+            try:
+                known_revisions = await self._repository.document_revisions(
+                    access_token, connection.connection_id
+                )
+            except Exception:
+                known_revisions = {}
             documents: list[dict[str, Any]] = []
+            current_external_ids: set[str] = set()
             listed = 0
+            unchanged = 0
             skipped = 0
             total_bytes = 0
             had_errors = False
@@ -210,6 +219,13 @@ class GitHubAppSyncService:
                     continue
                 listed += len(page.items)
                 for item in page.items:
+                    current_external_ids.add(item.external_id)
+                    if (
+                        item.revision
+                        and known_revisions.get(item.external_id) == item.revision
+                    ):
+                        unchanged += 1
+                        continue
                     try:
                         document = await connector.fetch_document(item)
                     except ConnectorError:
@@ -301,7 +317,7 @@ class GitHubAppSyncService:
                 await self._repository.delete_stale_connector_evidence(
                     access_token,
                     connection.connection_id,
-                    {doc["external_id"] for doc in documents},
+                    current_external_ids,
                 )
             await self._repository.mark_sync(
                 access_token,
@@ -315,6 +331,7 @@ class GitHubAppSyncService:
                 ingested=len(documents),
                 skipped=skipped,
                 next_cursor=None,
+                unchanged=unchanged,
             )
         except (ConnectorDenied, ConnectorNotFound):
             await self._mark_failure(access_token, connection.connection_id, "authorization")

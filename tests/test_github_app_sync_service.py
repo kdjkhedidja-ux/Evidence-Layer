@@ -35,6 +35,7 @@ class FakeRepository:
         self.documents = None
         self.evidence_documents = None
         self.synced = False
+        self.deleted_external_ids = None
 
     async def get_connection(self, access_token, connection_id):
         return self.connection
@@ -55,7 +56,13 @@ class FakeRepository:
         self.evidence_documents = documents
 
     async def delete_stale_connector_evidence(self, access_token, connection_id, external_ids):
-        return None
+        self.deleted_external_ids = external_ids
+
+    async def document_revisions(self, access_token, connection_id):
+        return {
+            document["external_id"]: document["revision"]
+            for document in (self.documents or [])
+        }
 
 
 class GitHubAppSyncTests(unittest.IsolatedAsyncioTestCase):
@@ -95,6 +102,46 @@ class GitHubAppSyncTests(unittest.IsolatedAsyncioTestCase):
         assert repository.evidence_documents is not None
         self.assertEqual(repository.evidence_documents[0]["content"], "hello")
         self.assertEqual(repository.evidence_documents[0]["connector_external_id"], "acme/docs/README.md")
+
+    async def test_incremental_sync_skips_unchanged_documents(self):
+        calls = {"content": 0}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.url.path == "/installation/repositories":
+                return httpx.Response(200, json={"repositories": [{
+                    "name": "docs",
+                    "default_branch": "main",
+                    "owner": {"login": "acme"},
+                }]})
+            if request.url.path == "/repos/acme/docs/git/trees/main":
+                return httpx.Response(200, json={"tree": [{
+                    "path": "README.md",
+                    "type": "blob",
+                    "sha": "sha-readme",
+                    "size": 5,
+                }]})
+            if request.url.path == "/repos/acme/docs/contents/README.md":
+                calls["content"] += 1
+                return httpx.Response(200, content=b"hello", headers={"content-type": "text/markdown"})
+            return httpx.Response(404)
+
+        repository = FakeRepository()
+        service = GitHubAppSyncService(
+            repository,  # type: ignore[arg-type]
+            app_id="123",
+            private_key="unused",
+            transport=httpx.MockTransport(handler),
+        )
+        with patch.object(service, "_installation_token", AsyncMock(return_value="install-token")):
+            first = await service.sync("user-token", CONNECTION, limit=5)
+            second = await service.sync("user-token", CONNECTION, limit=5)
+        self.assertEqual(first.ingested, 1)
+        self.assertEqual(second.ingested, 0)
+        self.assertEqual(second.unchanged, 1)
+        self.assertEqual(calls["content"], 1)
+        self.assertEqual(
+            repository.deleted_external_ids, {"acme/docs/README.md"}
+        )
 
     async def test_resync_updates_changed_document_content(self):
         state = {"content": b"old body", "sha": "sha-old"}

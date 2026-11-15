@@ -297,6 +297,7 @@ class ConnectorSyncResponse(BaseModel):
     ingested: int
     skipped: int
     next_cursor: str | None
+    unchanged: int = 0
 
 
 class WorkspaceResponse(BaseModel):
@@ -2354,6 +2355,7 @@ def create_app(
             ingested=result.ingested,
             skipped=result.skipped,
             next_cursor=result.next_cursor,
+            unchanged=getattr(result, "unchanged", 0),
         )
 
     @application.get("/v1/me/api-keys", response_model=list[PersonalApiKeyResponse])
