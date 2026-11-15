@@ -196,6 +196,9 @@ export default function PrivacyPage() {
           request; shared-workspace owner-unanimity deletion is not implemented. Provider backups,
           point-in-time recovery copies, and bytes already delivered to a client are not proven
           erased. Do not treat account deletion as a full provider-backup erasure guarantee.
+          Current backups are logical dumps; provider point-in-time recovery is not enabled. A
+          restore can reintroduce deleted records, and restored access remains blocked until
+          deletion reconciliation completes.
         </p>
         <p>
           Connector users can disconnect a Google Drive source in the account panel. Disconnect
