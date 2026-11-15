@@ -15,14 +15,14 @@ describe("Evidence Layer performance planner", () => {
     const result = calculatePerformance(base);
     expect(result.requests.successful).toBeCloseTo(990, 9);
     expect(result.tokens.perRequestWithout).toBeCloseTo(1_000, 9);
-    expect(result.tokens.perRequestWith).toBeCloseTo(768.4, 9);
+    expect(result.tokens.perRequestWith).toBeCloseTo(195, 9);
     expect(result.tokens.outputPerRequest).toBeCloseTo(300, 9);
     expect(result.apiCalls.perRequestWithout).toBe(1);
     expect(result.apiCalls.perRequestWith).toBe(2);
     expect(result.apiCalls.monthlyWith).toBe(2_000);
     expect(result.cost.per1kWithout).toBeCloseTo(0.22, 9);
-    expect(result.cost.per1kWith).toBeCloseTo(0.169048, 9);
-    expect(result.cost.perSuccessfulWith).toBeCloseTo(0.169048 / 990, 12);
+    expect(result.cost.per1kWith).toBeCloseTo(0.0429, 9);
+    expect(result.cost.perSuccessfulWith).toBeCloseTo(0.0429 / 990, 12);
     expect(result.latency.generationMs).toBeCloseTo(5_000, 9);
     expect(result.latency.baselineP50Ms).toBeCloseTo(5_680, 9);
     expect(result.latency.withP50Ms).toBeCloseTo(5_800, 9);
