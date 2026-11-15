@@ -193,12 +193,21 @@ and the content-free task ledger are production-verified.
 - Acceptance: met for the pilot (end-to-end ingestion, verifier publication, and
   exact retrieve provenance).
 
-**P1.2 — Phase 8 residual gates**
-- Decide and finance C3 (owner unanimity), C5-full (provider absence proof), and
-  C7 (restore reconciliation), or keep them explicitly deferred with residual
-  risk.
-- Acceptance: each gate is either implemented and accepted or named as a public
-  limitation; Phase 8 is not described as fully closed until then.
+**P1.2 — Phase 8 residual gates (in progress)**
+- **C1 — isolated restore: CLOSED 2026-11-15.** `scripts/restore_drill.py`
+  reproducibly dumps, restores into a disposable PostgreSQL 17 target, and runs
+  the reconciliation verifier. Source/restored counts matched; verifier was
+  clean 42/42. See `docs/operations/restore-drill-c1-2026-11-15.md`.
+- **C3 — shared-workspace owner unanimity:** implement. This is a product
+  decision: no shared-workspace deletion without every active owner's approval.
+- **C5-full:** implement provider-available absence evidence and a provider
+  retention/attestation record. Copies held by the provider cannot be proven
+  absent from the current APIs alone.
+- **C7:** provider-backed restore requires enabling the Supabase PITR add-on
+  from the Dashboard and a staging/restore target; implement the restore and
+  deletion watermark reconciliation after those are available.
+- Acceptance: each gate is implemented and accepted, or its provider boundary is
+  named explicitly; Phase 8 is not described as fully closed until then.
 
 **P1.3 — Connector completion**
 - Finish Google Drive OAuth verification, run the Notion live smoke, add
