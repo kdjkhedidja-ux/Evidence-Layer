@@ -89,6 +89,7 @@ V_WORKSPACE_INVITATIONS = "20261115140000"
 V_WORKSPACE_QUOTAS = "20261115160000"
 V_SOURCE_OBJECT_CLEANUP = "20261115180000"
 V_WORKSPACE_DELETION_APPROVALS = "20261115200000"
+V_CONNECTOR_WORKER_GRANTS = "20261115220000"
 
 VERSION_RE = re.compile(r"^[0-9]{14}_[a-z0-9_]+\.sql$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -603,6 +604,7 @@ def expected_catalog(versions: list[str]) -> dict:
     workspace_quotas = V_WORKSPACE_QUOTAS in present
     source_object_cleanup = V_SOURCE_OBJECT_CLEANUP in present
     workspace_deletion_approvals = V_WORKSPACE_DELETION_APPROVALS in present
+    connector_worker_grants = V_CONNECTOR_WORKER_GRANTS in present
     source = V_SOURCE_CATALOG in present
     storage = V_SNAPSHOT_STORAGE in present
     verifier = V_VERIFIER_IDENTITY in present
@@ -1188,6 +1190,8 @@ def expected_catalog(versions: list[str]) -> dict:
 
     if workspace_quotas:
         functions.add("public.workspace_source_usage")
+    if connector_worker_grants:
+        functions.add("public.delete_stale_connector_evidence")
     if workspace_deletion_approvals:
         functions.update({
             "private.workspace_owner_set",

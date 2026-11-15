@@ -45,7 +45,7 @@ def build_worker() -> tuple[ConnectorRepository, GitHubAppSyncService, int, str]
         jwt_audience="authenticated",
         jwt_algorithms=("RS256",),
     )
-    repository = ConnectorRepository(settings)
+    repository = ConnectorRepository(settings, service_mode=True)
     service = GitHubAppSyncService(repository, app_id=app_id, private_key=private_key)
     interval = _int_env("CONNECTOR_SYNC_INTERVAL_SECONDS", 900, 60, 86400)
     return repository, service, interval, service_key
