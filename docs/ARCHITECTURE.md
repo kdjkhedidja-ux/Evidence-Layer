@@ -11,7 +11,7 @@ Explorer reads actual workspace data; it does not fall back to local fixtures.
 
 The current production boundary is recorded in
 [`docs/operations/production-verification-current.md`](operations/production-verification-current.md):
-the Vercel app, the Railway FastAPI service, the deletion worker, and 46 Supabase
+the Vercel app, the Railway FastAPI service, the deletion worker, and 47 Supabase
 migrations were verified on 2026-11-14. The repository implements verified
 identity, workspace membership, evidence and relationship CRUD, verified source
 reads, task-context, API-key retrieval, Remote MCP, personal API keys, and the
@@ -243,7 +243,7 @@ task ledger records retrieval metrics.
 
 Hosted authentication and tenant-isolation enforcement, database/RLS, the
 account/workspace/evidence/source/deletion APIs, organization workspaces,
-personal API keys, the deletion worker, hosted retrieval/scoring, and the task
+personal API keys, the deletion worker with lease/retry, hosted retrieval/scoring, and the task
 ledger are implemented. Missing: source ingestion/publish, production
 background connectors and Decisions integration, shared/group export, general
 download/CDN delivery, usage metering/billing, agent execution and task-level
@@ -373,7 +373,7 @@ Supabase:
 Railway:
 - FastAPI identity/data service at services/evidence-service (deployed)
 - hosted task-context/retrieve/Remote MCP and task ledger (deployed)
-- account-deletion worker, one replica (deployed)
+- account-deletion worker with lease/retry, one replica (deployed)
 ```
 
 Repository scaffolding for these targets lives in `apps/web`, `supabase/`, and

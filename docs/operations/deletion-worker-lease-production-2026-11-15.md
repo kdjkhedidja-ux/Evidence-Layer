@@ -1,14 +1,14 @@
 # Deletion-worker lease production status — 2026-11-15
 
-Status: **migration 47 applied and verified; worker still runs the pre-lease
-build; redeploy and acceptance smokes pending.**
+Status: **CLOSED. Migration 47 applied and verified; the worker was redeployed;
+all four acceptance smokes passed; the queue is healthy.**
 
 ## Migration apply
 
 The GitHub `production-plan` job passed on `main` (`285f4d9`) with the B2
 recovery attestation. The `production-apply` dispatch was unavailable because
 the available GitHub token lacks `actions:write`. The same reviewed plan was
-then applied through the documented plan gates:
+applied through the documented plan gates:
 
 1. `assert-plan` passed for digest
    `4e86da4d669b6721dcc821190332db6c54966536fb806ce4f34d82ee5c96e9ff`.
@@ -18,51 +18,43 @@ then applied through the documented plan gates:
    session-mode pooler.
 4. `supabase_migration_guard.py verify` reported **47 migrations, pending=0**.
 
-This was an operator-authorized manual apply after the reviewed plan and fresh
-restore drill; it is not the normal GitHub apply path.
+## Worker redeploy
 
-## Production smoke
+- Railway project: `evidence-layer-github-test`, production environment.
+- Service: `evidence-deletion-worker`.
+- Deployment: `736cc0f5-495d-4ef3-8376-a4119e142fdb`, commit `9e4329e`, status
+  `SUCCESS`.
+- Variables set without a deploy first:
+  - `DELETION_WORKER_LEASE_SECONDS=300`
+  - `DELETION_MAX_ATTEMPTS=5`
+  - `DELETION_WORKER_SINGLE_INSTANCE=true`
+- The worker remains at one replica.
 
-A synthetic account and accepted deletion request were created, then processed
-by the deployed worker:
+## Acceptance smokes
 
-```text
-accepted -> purge_pending -> purged  (about 45 seconds)
-```
+| Smoke | Result |
+|---|---|
+| accepted -> purged | `purged`, `attempts=1` |
+| purge_failed -> retry -> purged | `purge_failed` at attempt 1, then `purged` at attempt 2 |
+| lease-expiry recovery | expired `accepted` lease reclaimed, then `purged` at attempt 2 |
+| alerts | healthcheck exit 2 with `purge_failed_retry_overdue` and `stale_lease` |
+| healthy queue after cleanup | healthcheck exit 0, `status=ok`, all metrics zero |
 
-Evidence on the request:
+The retry and lease assertions prove the new claim path is active in production;
+a pre-lease worker would have left `attempts=0`.
 
-- `attempts = 0`
-- `lease_owner` empty
-- no lease row
+## Residual cleanup
 
-That means the deployed worker still uses the pre-lease build. The new claim
-path (`attempts` increment, lease ownership) was not exercised in production.
-The worker is running, but it is not the new build.
+- All synthetic Auth users and deletion requests were removed.
+- All synthetic work-set and manifest rows were removed.
+- Thirty-two content-free `evidence_deletion_audit` rows remain because that
+  table is append-only by design. No customer data was involved.
+- Final production checks: 47 migrations, pending=0; no accepted or
+  `purge_pending` requests; healthcheck `ok`.
 
-The synthetic Auth row was inserted directly in SQL, so it was not visible to
-the Auth admin delete path; it was removed manually during cleanup. Seven
-content-free `evidence_deletion_audit` rows remain because that table is
-append-only by design. No customer data was involved.
+## Follow-up
 
-## Required to finish P0.2
-
-1. Redeploy the worker and healthcheck from `main` with:
-   - `DELETION_WORKER_LEASE_SECONDS=300`
-   - `DELETION_MAX_ATTEMPTS=5`
-   - `DELETION_WORKER_SINGLE_INSTANCE=true`
-   - the existing database, Supabase, and service-role credentials.
-2. Confirm the startup log contains `worker_started` with the lease, attempts,
-   and single-instance values.
-3. Re-run the synthetic smoke and expect `attempts=1` with a lease owner during
-   processing.
-4. Run the four acceptance smokes:
-   - `accepted -> purged`
-   - `purge_failed -> retry -> purged`
-   - lease-expiry recovery
-   - stale-lease / retry-overdue alert.
-5. Keep one replica until the lease path is validated; then the advisory lock
-   may be disabled deliberately.
-
-The Railway credentials available in this environment are rejected by the
-Railway API and CLI, so the redeploy was not executed here.
+- Rotate the worker's privileged credentials by **2026-12-11**.
+- Keep one replica until horizontal scaling is explicitly validated; then the
+  advisory lock may be disabled deliberately.
+- Refresh the B2 recovery dump before the 48-hour attestation gate expires.
