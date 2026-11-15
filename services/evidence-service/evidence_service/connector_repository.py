@@ -353,6 +353,30 @@ class ConnectorRepository:
             prefer="return=minimal",
         )
 
+    async def document_revisions(
+        self, access_token: str, connection_id: UUID
+    ) -> dict[str, str]:
+        response = await self._request(
+            "GET",
+            access_token,
+            "connector_documents",
+            params={
+                "select": "external_id,revision",
+                "connection_id": f"eq.{connection_id}",
+                "limit": "1000",
+            },
+        )
+        rows = response.json()
+        revisions: dict[str, str] = {}
+        for row in rows:
+            if not isinstance(row, dict):
+                raise ConnectorUnavailable
+            external_id = row.get("external_id")
+            revision = row.get("revision")
+            if isinstance(external_id, str) and isinstance(revision, str):
+                revisions[external_id] = revision
+        return revisions
+
     async def upsert_documents(
         self, access_token: str, documents: list[dict[str, Any]]
     ) -> None:

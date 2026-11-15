@@ -88,7 +88,7 @@ Legend: **DONE** = implemented with tests or production evidence; **PARTIAL** =
 code exists but a product, schema, or operational gap remains; **MISSING** = no
 implementation.
 
-Verified baseline: 52 migrations applied in production (pending=0); 1,438
+Verified baseline: 52 migrations applied in production (pending=0); 1,439
 Python tests passing (15 skipped), 265 web tests passing, and 28 pgTAP files. Task-context, API-key retrieve, Remote MCP, JEV,
 and the content-free task ledger are production-verified.
 
@@ -212,10 +212,16 @@ and the content-free task ledger are production-verified.
 - Acceptance: each gate is implemented and accepted, or its provider boundary is
   named explicitly; Phase 8 is not described as fully closed until then.
 
-**P1.3 — Connector completion**
-- Finish Google Drive OAuth verification, run the Notion live smoke, add
-  Dropbox/Confluence OAuth, then background scheduling, ACL mapping,
-  incremental sync, and deletion propagation.
+**P1.3 — Connector completion (in progress)**
+- Delivered: GitHub incremental sync. Existing document revisions are loaded
+  before the tree walk; unchanged external IDs are skipped, their evidence is
+  preserved, and stale evidence deletion uses the complete current ID set.
+  The sync response exposes `unchanged`.
+- Delivered earlier: GitHub App and Notion personal connect/manual sync;
+  GitHub stale-evidence deletion on successful sync.
+- Remaining: background scheduling for enabled connectors, Notion live
+  connect/sync/disconnect smoke, Google Drive OAuth verification, Dropbox and
+  Confluence OAuth, ACL mapping, and deletion propagation on provider changes.
 - Acceptance: connect, scheduled incremental sync, permission change, and
   disconnect/purge are tested per enabled provider.
 
