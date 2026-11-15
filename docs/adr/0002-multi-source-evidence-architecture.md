@@ -79,16 +79,24 @@ is accessed.
 ## Implementation status and delivery boundary
 
 This ADR records accepted target architecture requirements; it does not claim
-that their production controls or services are implemented. The repository has
-a local Python evidence core, a local stdio MCP server, and a synthetic-only
-Next.js Evidence Explorer prototype deployed from `main` on Vercel. A separate
-health-only FastAPI service is deployed on Railway. The standard MCP/stdio path
-remains lexical-only; remote scoring is permitted only where a trusted,
-appropriately scoped authorization boundary explicitly allows it. The hosted
-customer-data service, hosted authentication and tenant isolation, production
-source connectors, hosted provider-transfer authorization, production
-Decisions integration, hosted database/RLS, SaaS dashboard capabilities, and
-billing are not implemented.
+that every production control or service is implemented. Current status
+(2026-11-14): the repository has a local Python evidence core, a local stdio MCP
+server, and an authenticated Next.js workspace product deployed from `main` on
+Vercel. The FastAPI service on Railway implements lifecycle-gated `/v1` routes
+backed by Supabase Auth/RLS, including workspaces, evidence/relationships,
+verified source reads, task-context, API-key retrieval, Remote MCP, personal API
+keys, deletion, account/personal export, and a content-free retrieval ledger.
+JEV is server-gated and primary when enabled, with whole-set lexical fallback.
+GitHub App and Notion personal connector slices are deployed.
+
+Still missing: source ingestion/publish, production background connectors and
+ACL/deletion propagation, shared/group export, shared-workspace deletion
+approvals, billing/metering, agent execution and task-level cost/quality
+measurement, production source routing and the Decisions client, and the
+remaining Phase 8 gates. The standard MCP/stdio path remains lexical-only;
+remote scoring is permitted only where a trusted, appropriately scoped
+authorization boundary explicitly allows it. See
+[`docs/operations/production-verification-current.md`](../operations/production-verification-current.md).
 
 The canonical roadmap's Phase 5 SaaS beta requires authentication and
 mandatory per-user tenant isolation that protects each user's data. Phase 6 adds

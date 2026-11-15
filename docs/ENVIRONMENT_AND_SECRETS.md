@@ -268,11 +268,11 @@ present.
 
 ## Status
 
-The repository now contains the local Supabase Auth frontend flow and an
-Evidence Service identity/workspace boundary backed by Supabase Postgres RLS
-migrations. The Explorer's evidence remains synthetic. This change does not
-configure or verify a hosted Supabase project, SMTP delivery, production app
-URLs, real confirmation/reset email delivery, or an authenticated hosted
-end-to-end flow. The actual sender domain, callback allowlist, and active
-Supabase JWT signing configuration must be confirmed by an authorized
-operator before hosted verification.
+The repository contains the Supabase Auth frontend flow and an Evidence Service
+identity/workspace boundary backed by Supabase Postgres RLS migrations. The
+hosted workspace reads real workspace data; it does not fall back to synthetic
+fixtures. Production deployment and the current boundary are recorded in
+[`docs/operations/production-verification-current.md`](operations/production-verification-current.md).
+Hosted email delivery, sender-domain configuration, callback allowlists, and
+active Supabase JWT signing configuration are operator-owned and must be
+re-confirmed after any environment change.

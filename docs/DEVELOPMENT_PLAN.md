@@ -5,9 +5,9 @@
 [ADR 0005: adaptive evidence selection](adr/0005-adaptive-evidence-selection.md).
 They inventory the current code, preserve the Phase 7/7B benchmarks, and specify
 candidate preparation, token-aware selection, sufficiency, and total-cost gates.
-The older status snapshot below predates the authenticated evidence/source routes
-and connected frontend documented in [Phase 8](phase8_product_integration.md).
-The new optimization pipeline is a proposed implementation, not a shipped feature.
+The status and roadmap below were updated on 2026-11-14 from a repository-wide
+implementation audit. The adaptive optimization pipeline remains a proposed
+implementation, not a shipped feature.
 
 This is the living development plan for the intended Evidence Layer SaaS. It
 distinguishes current implementation and deployments from the approved product
@@ -31,22 +31,31 @@ already present.
   the policy gates and whole-request lexical fallback. The historical
   evaluation decision in ADR 0001 is superseded as
   architecture guidance, while its measurements remain historical.
+- **Hosted SaaS foundation is implemented:** Supabase Auth (email confirmation,
+  recovery, TOTP MFA), personal and organization workspaces, workspace-scoped
+  evidence and relationship CRUD, verified source-catalogue reads, personal API
+  keys, account deletion, account/personal export, and RLS-backed FastAPI `/v1`
+  routes.
+- **Hosted retrieval is implemented and production-verified:** workspace
+  task-context, chunked API-key retrieve/get-document, and Remote MCP over
+  bounded evidence. JEV is the primary scorer when `EVIDENCE_JEV_ENABLED=true`;
+  any JEV failure recomputes the whole candidate set lexically. `use_jev=false`
+  forces the lexical path.
+- **A content-free retrieval task ledger is deployed:** token/character counts,
+  latency, selection counts, scoring provider, and fallback reason are stored;
+  task text, evidence text, answers, provider responses, and keys are not.
+- **Production connectors are partial:** GitHub App sync and Notion personal
+  OAuth/manual sync are deployed; Google Drive remains gated pending OAuth
+  verification; Dropbox and Confluence have SDK adapters only.
+- **Still missing:** source ingestion/publish UI and background scheduling,
+  billing and usage metering, shared/group export, shared-workspace deletion
+  approvals, production source routing and the Decisions client, agent
+  execution, and per-task cost/quality/citation telemetry. Full Phase 8 is not
+  closed.
 - **A local stdio MCP server is implemented** and exposes `retrieve_evidence`.
-  Hosted HTTP MCP, hosted authentication and tenant-isolation enforcement,
-  production database/RLS, hosted provider-transfer authorization, SaaS
-  dashboard capabilities, billing, production connectors, production source
-  routing, and the Decisions API client do not yet exist in this repository
-  (only a local deterministic routing library, not wired into any service). A synthetic-only
-  Next.js Evidence Explorer prototype exists at `apps/web/` and its production
-  deployment from `main` on Vercel is confirmed; it has no backend integration
-  or customer operations. Final answer generation remains with the caller's
+  It remains lexical-only, and its default source-read boundary denies before
+  opening corpus content. Final answer generation remains with the caller's
   model.
-
-`services/evidence-service/` contains a health-only FastAPI app deployed on
-Railway with a `GET /healthz` endpoint. It is separate from the implemented
-local MCP stdio server and does not provide hosted authentication, retrieval,
-customer operations, or provider integration. A persistent MCP service remains
-future work.
 
 `LocalCorpusRetriever` is implemented, but its current default source-read
 boundary denies before opening corpus content. The retrieval code is designed
@@ -56,8 +65,8 @@ default-deny boundary currently prevents that path from reading corpus records.
 The standard MCP stdio path remains lexical-only and likewise cannot read corpus
 content without a future trusted source boundary. Live JEV transfer is
 hard-denied on supported package paths, including when dependencies are
-injected. The local health-only HTTP service is not the hosted service or a
-production retrieval phase.
+injected. The hosted FastAPI service is the separate production retrieval path
+described above; the local stdio server does not use it.
 
 The test result is one evaluation on this project's held-out dataset. It is not
 evidence of production readiness, savings, or generalization to customer
@@ -66,19 +75,179 @@ workloads.
 The multi-domain product direction below is approved architecture, not a claim
 that domain-specific pipelines or evaluations are already implemented.
 
+## Audit-derived development roadmap (2026-11-14)
+
+Source: repository-wide implementation audit of commit `f68b727`, covering
+`apps/web`, `services/evidence-service`, `services/recovery-fence`,
+`services/snapshot-verifier`, `src/evidence_layer`, `supabase`, `tests`, and
+`docs`. Cross-references: [current implementation audit](IMPLEMENTATION-AUDIT-CURRENT.md),
+[current production verification](operations/production-verification-current.md),
+and [Phase 8 scope decisions](PHASE8-SCOPE-DECISIONS-2026-11-11.md).
+
+Legend: **DONE** = implemented with tests or production evidence; **PARTIAL** =
+code exists but a product, schema, or operational gap remains; **MISSING** = no
+implementation.
+
+Verified baseline: 46 migrations applied in production; 1,377 Python tests
+collected (15 skipped) and 259 web tests passing; 22 pgTAP files with 595
+planned assertions. Task-context, API-key retrieve, Remote MCP, JEV, and the
+content-free task ledger are production-verified.
+
+### Status snapshot
+
+| Area | Status | Current boundary |
+|---|---|---|
+| Auth, MFA, personal/organization workspaces | **DONE** | No invitations, no multi-organization membership, no session inventory |
+| Evidence and relationship CRUD | **DONE** | Owner/admin writes; member reads |
+| Verified source reads | **DONE** | Reads only; no hosted ingestion/publish path |
+| Hosted retrieve, task-context, Remote MCP | **DONE** | Read-only, workspace-scoped, bounded |
+| JEV scoring | **DONE** | Server-gated; whole-set lexical fallback; no provider cost returned |
+| Retrieval task ledger | **DONE** | Retrieval metrics only; no agent cost/quality |
+| Account deletion and purge worker | **DONE** | Single replica; no lease; `purge_failed` has no automatic retry |
+| Account/personal export | **DONE** | Shared/group export unavailable |
+| Connectors | **PARTIAL** | GitHub and Notion deployed; Google Drive gated; Dropbox/Confluence adapters only |
+| Source ingestion/publish | **MISSING** | Sources are read-only in the product |
+| Source routing / Decisions API | **MISSING** | Local deterministic routing library is unwired and denies by default |
+| Billing, metering, quotas | **MISSING** | Cost/performance pages are planning estimates only |
+| Agent execution and task measurement | **MISSING** | EL returns evidence; it does not run the agent |
+| Shared workspace deletion approvals | **MISSING** | Account-scope only; owner unanimity deferred |
+| Full Phase 8 (C1/C3/C5-full/C7) | **PARTIAL** | C4/C6/C8 narrowed are delivered; the rest is deferred |
+
+### P0 — Make the product truthful and operable (next)
+
+**P0.1 — Documentation and status truth (updated 2026-11-14)**
+- Keep `README.md`, `docs/ARCHITECTURE.md`, `docs/PRD.md`, the public
+  documentation page, and this plan aligned with the deployed boundary, and
+  check them against `docs/operations/production-verification-current.md` on
+  each release. The 2026-11-14 pass removed the stale prototype/health-only
+  wording and the old Vercel commit.
+- Acceptance: no current status document contradicts
+  `docs/operations/production-verification-current.md`; deployed commits, flags,
+  and the ledger boundary stay stated consistently. Historical plans and ADR
+  decision text are exempt but must be read as point-in-time records.
+
+**P0.2 — Worker operational hardening**
+- Add a lease/claim function, retry/backoff for `purge_failed`, and alerting on
+  stale `purge_pending`; record secret custody and rotation for the worker's
+  privileged credentials.
+- Acceptance: concurrent workers cannot double-process a request; a stuck
+  request raises an alert; the runbook is exercised and dated.
+
+**P0.3 — Backup, restore, and deletion reconciliation**
+- Decide PITR/managed backups and document RPO/RTO; add deletion-aware restore
+  reconciliation (C7) or publish the non-claim explicitly.
+- Acceptance: a restore drill proves that deleted accounts and workspace data
+  are not resurrected within the documented boundary, or the limitation is
+  explicit in product and legal copy.
+
+### P1 — Close the product gaps
+
+**P1.1 — Source ingestion and publish**
+- Provide an operated or user-facing ingestion/publish path for source
+  snapshots, with verifier deployment evidence and staged-object cleanup.
+- Acceptance: a workspace can add a new source version end to end, the verifier
+  marks it integrity-verified, and retrieve can cite it with exact provenance.
+
+**P1.2 — Phase 8 residual gates**
+- Decide and finance C3 (owner unanimity), C5-full (provider absence proof), and
+  C7 (restore reconciliation), or keep them explicitly deferred with residual
+  risk.
+- Acceptance: each gate is either implemented and accepted or named as a public
+  limitation; Phase 8 is not described as fully closed until then.
+
+**P1.3 — Connector completion**
+- Finish Google Drive OAuth verification, run the Notion live smoke, add
+  Dropbox/Confluence OAuth, then background scheduling, ACL mapping,
+  incremental sync, and deletion propagation.
+- Acceptance: connect, scheduled incremental sync, permission change, and
+  disconnect/purge are tested per enabled provider.
+
+**P1.4 — Shared/group export**
+- Extend the export producer and mediated download grants to shared/group scope
+  after C3 decisions.
+- Acceptance: an authorized member can export only what they may read; other
+  members' private data is excluded.
+
+**P1.5 — Phase 2 blinded comparison**
+- Run the preregistered blinded A/B/Tie/Both-bad review on a sealed,
+  previously unseen set.
+- Acceptance: at least two independent reviewers per pair, published
+  disagreement handling, and no confirmatory claim from the exposed split.
+
+### P2 — Measurement, monetization, and expansion
+
+**P2.1 — Agent task measurement**
+- Persist per-task model tokens, cost, latency, answer quality, and citation
+  correctness without storing evidence or answer text by default.
+- Acceptance: the north-star metric is computed end to end for real tasks.
+
+**P2.2 — Billing and metering**
+- Add server-enforced entitlements, usage metering, free-tier limits, Stripe
+  subscriptions and lifecycle events; keep metering separate from payment.
+- Acceptance: usage and entitlements are reconciled, auditable, and cannot be
+  bypassed by the frontend.
+
+**P2.3 — Collaboration administration**
+- Add email invitations, multi-organization membership, SSO/SCIM, advanced RBAC,
+  and permission inheritance.
+- Acceptance: membership changes are auditable and enforced server-side.
+
+**P2.4 — Comparison Lab**
+- Add a controlled "Run A/B" workspace experience over frozen configurations.
+- Acceptance: experiments record scope, provenance, and explicit limitations.
+
+**P2.5 — Production source routing and Decisions API**
+- Wire the deterministic router, add tenant-scoped catalog queries and
+  source-read reauthorization, then evaluate the Decisions client against the
+  deterministic baseline before proposing a production default.
+- Acceptance: routing cannot add sources or grant permissions; absent transfer
+  authorization stops safely.
+
+**P2.6 — Adaptive/vector selection**
+- Implement the [ADR 0005](adr/0005-adaptive-evidence-selection.md)
+  candidate-preparation and token-aware selection pipeline, and add
+  embeddings/ANN only if evaluation justifies them.
+- Acceptance: quality and total cost are reported against the lexical baseline
+  on representative data.
+
+**P2.7 — Domain pipelines**
+- Build separate support, coding, compliance, contract, and research profiles
+  with their own data, sufficiency policies, and evaluation.
+- Acceptance: results are reported per domain; pooled scores are not used to
+  hide a regression.
+
+### Sequencing and definition of done
+
+P0 items come before P1, and P1 before P2, unless an operator decision explicitly
+reorders them. An item is done only when it has: implementation, automated tests,
+production evidence or an explicit local-only boundary, and matching
+documentation. Deferred items keep a named residual risk rather than disappearing
+from the roadmap.
+
+### Explicitly deferred
+
+- External immutable deletion journal / WORM / independent forensic store
+  ([ADR 0009](adr/0009-phase8-external-journal-scope.md)).
+- Provider-level absence proof beyond the current worker path.
+- Full data-plane restore equivalence.
+- Agent execution or answer generation inside Evidence Layer.
+- Pro Plus/Enterprise BYOK and private deployment.
+- Domain-specific pipelines before their data and evaluation exist.
+
 ## Approved Target Architecture
 
 This is the intended architecture. Current deployments are identified below;
 the remaining platform components are not infrastructure already present in
 the repository:
 
-- **Vercel:** A synthetic-only Next.js Evidence Explorer prototype is
-  implemented and deployed from `main`; SaaS dashboard capabilities remain
-  planned.
-- **Supabase:** Backend services using Postgres, pgvector, Auth, and Edge
-  Functions.
-- **Railway:** The health-only Python service is deployed; a persistent MCP
-  server remains planned.
+- **Vercel:** The authenticated Next.js workspace app, public site, and
+  ROI/evaluation pages are deployed from `main`. Shared/group export,
+  comparison-lab UI, and billing UI remain planned.
+- **Supabase:** Auth, Postgres/RLS, and Storage are deployed; pgvector and
+  usage/billing schemas remain planned.
+- **Railway:** The FastAPI identity/data service, hosted task-context/retrieve/
+  Remote MCP, and the account-deletion worker are deployed. Source
+  ingestion/publish and background connector scheduling remain planned.
 - **JEV:** Intended primary TypeSafe-backed evidence-scoring and ranking
   provider only when explicitly enabled and permitted by policy. Before sending
   query or candidate text, the trusted server must separately authorize that

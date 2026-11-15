@@ -96,6 +96,54 @@ class GitHubAppSyncTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(repository.evidence_documents[0]["content"], "hello")
         self.assertEqual(repository.evidence_documents[0]["connector_external_id"], "acme/docs/README.md")
 
+    async def test_resync_updates_changed_document_content(self):
+        state = {"content": b"old body", "sha": "sha-old"}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.url.path == "/installation/repositories":
+                return httpx.Response(200, json={"repositories": [{
+                    "name": "docs",
+                    "default_branch": "main",
+                    "owner": {"login": "acme"},
+                }]})
+            if request.url.path == "/repos/acme/docs/git/trees/main":
+                return httpx.Response(200, json={"tree": [{
+                    "path": "README.md",
+                    "type": "blob",
+                    "sha": state["sha"],
+                    "size": len(state["content"]),
+                }]})
+            if request.url.path == "/repos/acme/docs/contents/README.md":
+                return httpx.Response(
+                    200,
+                    content=state["content"],
+                    headers={"content-type": "text/markdown"},
+                )
+            return httpx.Response(404)
+
+        repository = FakeRepository()
+        service = GitHubAppSyncService(
+            repository,  # type: ignore[arg-type]
+            app_id="123",
+            private_key="unused",
+            transport=httpx.MockTransport(handler),
+        )
+        with patch.object(service, "_installation_token", AsyncMock(return_value="install-token")):
+            await service.sync("user-token", CONNECTION, limit=5)
+        assert repository.evidence_documents is not None
+        self.assertEqual(repository.evidence_documents[0]["content"], "old body")
+        self.assertEqual(repository.evidence_documents[0]["connector_revision"], "sha-old")
+
+        state["content"] = b"new body"
+        state["sha"] = "sha-new"
+        with patch.object(service, "_installation_token", AsyncMock(return_value="install-token")):
+            await service.sync("user-token", CONNECTION, limit=5)
+        assert repository.evidence_documents is not None
+        self.assertEqual(repository.evidence_documents[0]["content"], "new body")
+        self.assertEqual(repository.evidence_documents[0]["connector_revision"], "sha-new")
+        assert repository.documents is not None
+        self.assertEqual(repository.documents[0]["revision"], "sha-new")
+
     async def test_sync_skips_empty_repository(self):
         def handler(request: httpx.Request) -> httpx.Response:
             if request.url.path == "/installation/repositories":
