@@ -14,16 +14,18 @@ reviewed environment.
 
 ## Current safety state
 
-As of 2026-11-15 the production project reports 46 applied migrations and one
-pending migration (`20261114230000_deletion_worker_lease_retry.sql`). Its backups
+As of 2026-11-15 the production project reports 47 applied migrations and zero
+pending migrations. Its backups
 API reports `pitr_enabled: false` and zero provider backups; the recovery gate is
 therefore met by the reviewed external attestation for
 `dumps/2026-11-15/evidence-layer.dump` in the private B2 bucket `evidence2` and
 its passing non-production restore drill. The digest is generated per reviewed
 commit and changes when the commit or attestation changes. The `Production`
 environment gates and secrets must still be verified through GitHub. The
-`production-plan` and `production-apply` jobs are enabled in the workflow; they
-still require the environment gates, a reviewer, and an explicit manual apply.
+`production-plan` and `production-apply` jobs are enabled in the workflow; the
+2026-11-15 apply was completed after the reviewed plan and a fresh restore
+drill. Future applies still require the environment gates, a reviewer, and an
+explicit manual dispatch.
 
 Historical context: an earlier 2026-10-19 inspection targeted `Evidence-test`
 (`ayrtyjgqlgtuiwuyigbz`), which had an empty history and no recovery point. That

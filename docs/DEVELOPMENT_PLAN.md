@@ -103,7 +103,7 @@ and the content-free task ledger are production-verified.
 | Hosted retrieve, task-context, Remote MCP | **DONE** | Read-only, workspace-scoped, bounded |
 | JEV scoring | **DONE** | Server-gated; whole-set lexical fallback; no provider cost returned |
 | Retrieval task ledger | **DONE** | Retrieval metrics only; no agent cost/quality |
-| Account deletion and purge worker | **PARTIAL** | Migration 47 applied and verified; worker still runs the pre-lease build; redeploy and acceptance smokes pending |
+| Account deletion and purge worker | **DONE** | Lease/retry active; migration 47 applied; four production smokes passed; single replica until scale-out validation |
 | Account/personal export | **DONE** | Shared/group export unavailable |
 | Connectors | **PARTIAL** | GitHub and Notion deployed; Google Drive gated; Dropbox/Confluence adapters only |
 | Source ingestion/publish | **MISSING** | Sources are read-only in the product |
@@ -127,19 +127,20 @@ and the content-free task ledger are production-verified.
   and the ledger boundary stay stated consistently. Historical plans and ADR
   decision text are exempt but must be read as point-in-time records.
 
-**P0.2 — Worker operational hardening (migration applied 2026-11-15; worker redeploy pending)**
+**P0.2 — Worker operational hardening (CLOSED 2026-11-15)**
 - Delivered: migration 47 lease/claim RPC, bounded retry/backoff, lease-owner
   checks, stale-lease and retry-overdue alerts, and the secret custody record.
-  Migration 47 was applied through the reviewed plan and verified (47
-  migrations, pending=0).
-- Production smoke: a synthetic accepted request reached `purged`, but
-  `attempts=0` and no lease row show that the deployed worker still runs the
-  pre-lease build. The new claim path is not active yet.
-- Remaining: redeploy the worker and healthcheck from `main` with the lease
-  environment, then run the four acceptance smokes. Worker deployment is
-  blocked on a valid Railway token.
-- Acceptance: concurrent workers cannot double-process a request; a stuck
-  request raises an alert; the runbook is exercised and dated.
+- Applied and verified: 47 migrations, pending=0. The worker was redeployed
+  from `9e4329e` with the lease environment active.
+- Production smokes passed:
+  - accepted -> purged (attempts=1);
+  - purge_failed -> retry -> purged (attempts=2);
+  - lease-expiry recovery (attempts=2);
+  - healthcheck raised `purge_failed_retry_overdue` and `stale_lease`, then
+    returned to `status=ok` after cleanup.
+- One replica remains until horizontal scaling is explicitly validated.
+- Acceptance met: lease/claim prevents duplicate ownership, expired and
+  over-due work alerts, and the runbook was exercised.
 
 **P0.3 — Backup, restore, and deletion reconciliation (CLOSED with explicit limitation, 2026-11-15)**
 - Delivered: a logical production dump in private B2 bucket `evidence2`
