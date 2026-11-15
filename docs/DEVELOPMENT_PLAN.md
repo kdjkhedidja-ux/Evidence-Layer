@@ -106,7 +106,7 @@ and the content-free task ledger are production-verified.
 | Account deletion and purge worker | **DONE** | Lease/retry active; migration 47 applied; four production smokes passed; single replica until scale-out validation |
 | Account/personal export | **DONE** | Shared/group export unavailable |
 | Connectors | **PARTIAL** | GitHub and Notion deployed; Google Drive gated; Dropbox/Confluence adapters only |
-| Source ingestion/publish | **DONE (pilot)** | Owner staging, private upload, queue, hosted verifier worker, publication, and exact provenance passed a production pilot; member grants and cleanup remain scale hardening |
+| Source ingestion/publish | **DONE (pilot)** | Owner staging, queue, hosted verifier worker, publication, exact provenance, and member read grants are delivered; cleanup, invitations, and quotas remain scale hardening |
 | Source routing / Decisions API | **MISSING** | Local deterministic routing library is unwired and denies by default |
 | Billing, metering, quotas | **MISSING** | Cost/performance pages are planning estimates only |
 | Agent execution and task measurement | **MISSING** | EL returns evidence; it does not run the agent |
@@ -168,8 +168,10 @@ and the content-free task ledger are production-verified.
   published it on the first claim (`attempts=1`). A linked evidence record was
   then returned by task-context with the exact `source_id` and
   `source_version_id`.
-- Remaining scale hardening: grants for other members, staged-object cleanup,
-  invitations/email, quotas, and a 10/100-workspace rollout.
+- Delivered: owner-managed source read grants (list/grant/revoke API and
+  workspace UI) for active members.
+- Remaining scale hardening: staged-object cleanup, invitations/email, quotas,
+  and a 10/100-workspace rollout.
 - Acceptance: met for the pilot (end-to-end ingestion, verifier publication, and
   exact retrieve provenance).
 
