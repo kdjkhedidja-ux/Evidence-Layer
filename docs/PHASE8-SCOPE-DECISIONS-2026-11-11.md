@@ -20,7 +20,7 @@ Context:
 | **C7 — provider-backed restore reconciliation** | **DEFER** | None | Fence-only recovery remains. Accepted deletion can be resurrected by an old provider backup/PITR restore; there is no provider-backed watermark/reconciliation. |
 | **C8 — acceptance** | **IMPLEMENT in Phase C** | Narrowed Phase 8 acceptance report and rerun of the deletion gate smoke. | Acceptance covers only the narrowed scope in this document, not the original C1–C8 design. |
 
-Decision rule applied: defer unless the gate is required for the narrowed Phase 8 claim or is needed to deliver a committed data-rights capability. C4/C6 are kept because account export is a product data-rights capability; C3/C7/C1 are deferred to avoid silently expanding the approval, restore, and infrastructure scope.
+Decision rule applied: defer unless the gate is required for the narrowed Phase 8 claim or is needed to deliver a committed data-rights capability. C4/C6 are kept because account export is a product data-rights capability. C1 and C3 were implemented on 2026-11-15; full C5 and C7 remain provider-dependent.
 
 ## C1 — Isolated synthetic restore environment
 
