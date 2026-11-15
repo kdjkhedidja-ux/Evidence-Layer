@@ -97,6 +97,10 @@ export default function WorkspaceConsole({
   const [sourceDigest, setSourceDigest] = useState("");
   const [sourceMessage, setSourceMessage] = useState("");
   const [sourcePending, setSourcePending] = useState(false);
+  const [stageSourceId, setStageSourceId] = useState("");
+  const [stageSourceContent, setStageSourceContent] = useState("");
+  const [stageSourcePending, setStageSourcePending] = useState(false);
+  const [stageSourceMessage, setStageSourceMessage] = useState("");
   const [task, setTask] = useState("");
   const [expectedOutcome, setExpectedOutcome] = useState("");
   const [contextRequirements, setContextRequirements] = useState("");
@@ -421,6 +425,66 @@ export default function WorkspaceConsole({
       setMessage("Evidence service is unavailable.");
     } finally {
       setPending(false);
+    }
+  }
+
+  async function stageSourceVersion(event: FormEvent) {
+    event.preventDefault();
+    if (!workspaceId || !stageSourceContent.trim()) return;
+    if (stageSourceId && !UUID.test(stageSourceId)) {
+      setStageSourceMessage("Source ID must be a UUID.");
+      return;
+    }
+    setStageSourcePending(true);
+    setStageSourceMessage("");
+    try {
+      const response = await fetch(
+        "/api/evidence/workspaces/" + encodeURIComponent(workspaceId) + "/sources",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            content: stageSourceContent,
+            ...(stageSourceId ? { source_id: stageSourceId } : {}),
+          }),
+          cache: "no-store",
+        },
+      );
+      if (!response.ok) {
+        setStageSourceMessage(await readError(response, "Source version could not be staged."));
+        return;
+      }
+      const staged = (await response.json()) as {
+        bucket?: unknown;
+        object_key?: unknown;
+      };
+      if (typeof staged.bucket !== "string" || typeof staged.object_key !== "string") {
+        setStageSourceMessage("The service returned an invalid staging response.");
+        return;
+      }
+      const upload = await createSupabaseBrowserClient()
+        .storage.from(staged.bucket)
+        .upload(
+          staged.object_key,
+          new Blob([stageSourceContent], { type: "application/octet-stream" }),
+          { upsert: false, contentType: "application/octet-stream" },
+        );
+      if (upload.error) {
+        setStageSourceMessage(
+          "Staged metadata was created, but the object upload failed. Stage a new version to retry.",
+        );
+        return;
+      }
+      setStageSourceContent("");
+      setStageSourceId("");
+      setStageSourceMessage(
+        "Source version staged and uploaded. It is pending verifier publication.",
+      );
+      await loadSources(workspaceId);
+    } catch {
+      setStageSourceMessage("Source staging is unavailable.");
+    } finally {
+      setStageSourcePending(false);
     }
   }
 
@@ -895,6 +959,42 @@ export default function WorkspaceConsole({
               current source grant before opening content and again before delivery.
               Denials and service failures return no source content.
             </p>
+            {selectedWorkspace.role === "owner" && (
+              <form className="workspace-form" onSubmit={stageSourceVersion}>
+                <div>
+                  <p className="eyebrow">Stage a new version</p>
+                  <p className="workspace-note">
+                    Only workspace owners can stage. The version stays pending until the
+                    allowlisted snapshot verifier publishes it.
+                  </p>
+                </div>
+                <label>
+                  Source ID (optional)
+                  <input
+                    value={stageSourceId}
+                    onChange={(event) => setStageSourceId(event.target.value)}
+                    placeholder="Leave blank to create a new source"
+                    maxLength={36}
+                  />
+                </label>
+                <label>
+                  Source content
+                  <textarea
+                    value={stageSourceContent}
+                    onChange={(event) => setStageSourceContent(event.target.value)}
+                    rows={6}
+                    maxLength={4_000_000}
+                  />
+                </label>
+                <button
+                  type="submit"
+                  disabled={stageSourcePending || !stageSourceContent.trim()}
+                >
+                  {stageSourcePending ? "Staging…" : "Stage version"}
+                </button>
+              </form>
+            )}
+            {stageSourceMessage && <p className="workspace-message" role="status">{stageSourceMessage}</p>}
             {sourcesState === "loading" && <p role="status">Loading authorized workspace sources…</p>}
             {sourcesState === "expired" && <p role="alert">Your session needs to be verified again.</p>}
             {sourcesState === "unavailable" && (

@@ -1420,6 +1420,81 @@ export async function proxyWorkspaceSourcesRequest({
     : json(200, versions);
 }
 
+export async function proxyStageWorkspaceSourceRequest({
+  request,
+  workspaceId,
+}: {
+  request: Request;
+  workspaceId: string;
+}): Promise<Response> {
+  if (!isUuid(workspaceId)) return json(404, { error: "Workspace not found." });
+  if (request.method !== "POST" || !sameOrigin(request)) {
+    return json(403, { error: "Request origin was not accepted." });
+  }
+  const auth = await getVerifiedAuthContext();
+  if (auth.kind === "unauthenticated") return json(401, { error: "Authentication is required." });
+  if (auth.kind === "unavailable") return json(503, { error: "Identity verification is unavailable." });
+  const blocked = await mfaBlocked(auth);
+  if (blocked) return blocked;
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return json(400, { error: "Invalid JSON body." });
+  }
+  if (!body || typeof body !== "object") return json(400, { error: "Invalid source version." });
+  const candidate = body as Record<string, unknown>;
+  const content = candidate.content;
+  const sourceId = candidate.source_id;
+  if (typeof content !== "string" || content.length === 0) {
+    return json(400, { error: "Source content is required." });
+  }
+  if (new TextEncoder().encode(content).length > 4_000_000) {
+    return json(413, { error: "Source version is too large." });
+  }
+  if (sourceId !== undefined && (typeof sourceId !== "string" || !isUuid(sourceId))) {
+    return json(400, { error: "Source ID must be a UUID." });
+  }
+
+  const serviceUrl = getEvidenceServiceBaseUrl();
+  if (!serviceUrl) return json(503, { error: "Evidence service is unavailable." });
+  let upstream: Response;
+  try {
+    upstream = await fetch(`${serviceUrl}/v1/workspaces/${workspaceId}/sources`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${auth.accessToken}`,
+      },
+      body: JSON.stringify({ content, ...(sourceId ? { source_id: sourceId } : {}) }),
+      cache: "no-store",
+      redirect: "manual",
+      signal: AbortSignal.timeout(30_000),
+    });
+  } catch {
+    return json(503, { error: "Evidence service is unavailable." });
+  }
+
+  if (upstream.status === 401) return json(401, { error: "Your session is no longer valid." });
+  if (upstream.status === 403) return json(403, { error: "Only a workspace owner can stage a source version." });
+  if (upstream.status === 404) return json(404, { error: "Workspace not found." });
+  if (upstream.status === 409) return json(409, { error: "Source version already exists." });
+  if (upstream.status === 413) return json(413, { error: "Source version is too large." });
+  if (upstream.status === 422) return json(422, { error: "Source version was rejected." });
+  if (upstream.status !== 200 && upstream.status !== 201) {
+    return json(503, { error: "Evidence service is unavailable." });
+  }
+  let payload: unknown;
+  try {
+    payload = await upstream.json();
+  } catch {
+    return json(502, { error: "Evidence service returned an invalid response." });
+  }
+  return json(201, payload);
+}
+
 type SourceContentProxyOptions = {
   workspaceId: string;
   sourceId: string;

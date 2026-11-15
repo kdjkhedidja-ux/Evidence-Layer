@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import logging
 import math
 import os
@@ -99,6 +100,13 @@ from evidence_service.remote_mcp import (
 from evidence_service.task_run_ledger_repository import (
     SupabaseTaskRunLedgerRepository,
     TaskRunLedgerUnavailable,
+)
+from evidence_service.source_staging_repository import (
+    SourceStageConflict,
+    SourceStageForbidden,
+    SourceStageRejected,
+    SourceStageUnavailable,
+    SupabaseSourceStagingRepository,
 )
 from evidence_service.recovery_fence import (
     CloudflareRecoveryFenceReader,
@@ -274,6 +282,24 @@ class SourceVersionSummary(BaseModel):
     state: Literal["staged", "published"]
     sha256: str
     size_bytes: int
+    created_at: datetime
+
+
+class SourceStageRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=False)
+
+    content: str = Field(min_length=1, max_length=4_000_000)
+    source_id: UUID | None = None
+
+
+class SourceStageResponse(BaseModel):
+    source_id: UUID
+    version_id: UUID
+    state: Literal["staged"]
+    sha256: str
+    size_bytes: int
+    bucket: Literal["source-snapshots"]
+    object_key: str
     created_at: datetime
 
 
@@ -793,6 +819,13 @@ def _snapshot_object_store(settings: SupabaseSettings):
         bucket="source-snapshots",
         publishable_key=settings.publishable_key,
     )
+
+
+def _source_staging_repository(request: Request, access_token: str):
+    factory = request.app.state.source_staging_factory
+    if factory is not None:
+        return factory(access_token)
+    return SupabaseSourceStagingRepository(_settings_for(request))
 
 
 def _source_catalog(request: Request, access_token: str):
@@ -1591,6 +1624,7 @@ def create_app(
     organization_repository=None,
     source_read_path=None,
     source_catalog_factory=None,
+    source_staging_factory=None,
     remote_mcp_enabled: bool | None = None,
     task_run_ledger_repository=None,
     task_ledger_enabled: bool | None = None,
@@ -1633,6 +1667,7 @@ def create_app(
     application.state.trusted_source_context_issuer = None
     application.state.source_read_path = source_read_path
     application.state.source_catalog_factory = source_catalog_factory
+    application.state.source_staging_factory = source_staging_factory
     application.state.remote_mcp_enabled = (
         remote_mcp_enabled
         if remote_mcp_enabled is not None
@@ -2794,6 +2829,72 @@ def create_app(
             )
             for manifest in manifests
         ]
+
+    @application.post(
+        "/v1/workspaces/{workspace_id}/sources",
+        response_model=SourceStageResponse,
+        status_code=201,
+    )
+    async def stage_workspace_source(
+        workspace_id: UUID,
+        payload: SourceStageRequest,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> SourceStageResponse:
+        context = await _resolve_workspace_or_404(request, auth, workspace_id)
+        if context.role != "owner":
+            raise HTTPException(status_code=403, detail="Workspace owner required")
+        content = payload.content.encode("utf-8")
+        from evidence_service.secure_snapshot_read import snapshot_object_key
+
+        if len(content) > 4_000_000:
+            raise HTTPException(status_code=413, detail="Source version is too large")
+        source_id = payload.source_id or uuid4()
+        version_id = uuid4()
+        object_key = snapshot_object_key(context.workspace_id, source_id, version_id)
+        digest = hashlib.sha256(content).hexdigest()
+        try:
+            staged = await _with_account_gate(
+                request,
+                auth,
+                lambda: _source_staging_repository(
+                    request, auth.access_token
+                ).stage(
+                    access_token=auth.access_token,
+                    workspace_id=context.workspace_id,
+                    source_id=source_id,
+                    version_id=version_id,
+                    object_key=object_key,
+                    sha256=digest,
+                    size_bytes=len(content),
+                ),
+            )
+        except SourceStageForbidden as exc:
+            raise HTTPException(
+                status_code=403, detail="Workspace owner required"
+            ) from exc
+        except SourceStageConflict as exc:
+            raise HTTPException(
+                status_code=409, detail="Source version already exists"
+            ) from exc
+        except SourceStageRejected as exc:
+            raise HTTPException(
+                status_code=422, detail="Source version was rejected"
+            ) from exc
+        except SourceStageUnavailable as exc:
+            raise HTTPException(
+                status_code=503, detail="Source catalog is unavailable"
+            ) from exc
+        return SourceStageResponse(
+            source_id=staged.source_id,
+            version_id=staged.version_id,
+            state="staged",
+            sha256=staged.sha256,
+            size_bytes=staged.size_bytes,
+            bucket="source-snapshots",
+            object_key=staged.object_key,
+            created_at=staged.created_at,
+        )
 
     @application.get(
         "/v1/workspaces/{workspace_id}/evidence",

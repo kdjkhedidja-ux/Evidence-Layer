@@ -106,7 +106,7 @@ and the content-free task ledger are production-verified.
 | Account deletion and purge worker | **DONE** | Lease/retry active; migration 47 applied; four production smokes passed; single replica until scale-out validation |
 | Account/personal export | **DONE** | Shared/group export unavailable |
 | Connectors | **PARTIAL** | GitHub and Notion deployed; Google Drive gated; Dropbox/Confluence adapters only |
-| Source ingestion/publish | **MISSING** | Sources are read-only in the product |
+| Source ingestion/publish | **PARTIAL** | Owner staging API/UI and private object upload are implemented; allowlisted publication/verifier deployment is pending |
 | Source routing / Decisions API | **MISSING** | Local deterministic routing library is unwired and denies by default |
 | Billing, metering, quotas | **MISSING** | Cost/performance pages are planning estimates only |
 | Agent execution and task measurement | **MISSING** | EL returns evidence; it does not run the agent |
@@ -156,9 +156,15 @@ and the content-free task ledger are production-verified.
 
 ### P1 — Close the product gaps
 
-**P1.1 — Source ingestion and publish**
-- Provide an operated or user-facing ingestion/publish path for source
-  snapshots, with verifier deployment evidence and staged-object cleanup.
+**P1.1 — Source ingestion and publish (staging implemented 2026-11-15; publication pending)**
+- Delivered: an owner-only `POST /v1/workspaces/{id}/sources` staging endpoint
+  plus the workspace form. The service computes SHA-256 and size, creates the
+  staged catalog row, and returns the private bucket/object key; the browser
+  uploads the bytes to `source-snapshots`. Staged rows are visible to the owner
+  as pending verification.
+- Remaining: allowlisted snapshot-verifier publication and deployment evidence,
+  source read grants, staged-object cleanup, and the end-to-end retrieve
+  provenance smoke.
 - Acceptance: a workspace can add a new source version end to end, the verifier
   marks it integrity-verified, and retrieve can cite it with exact provenance.
 

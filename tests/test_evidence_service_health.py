@@ -71,6 +71,7 @@ def test_service_routes_are_limited_and_docs_are_disabled() -> None:
         ("DELETE", "/v1/me/personal-workspace"),
         ("GET", "/v1/workspaces/{workspace_id}"),
         ("GET", "/v1/workspaces/{workspace_id}/sources"),
+        ("POST", "/v1/workspaces/{workspace_id}/sources"),
         ("GET", "/v1/workspaces/{workspace_id}/evidence"),
         ("POST", "/v1/workspaces/{workspace_id}/task-context"),
         ("GET", "/v1/workspaces/{workspace_id}/task-runs"),
