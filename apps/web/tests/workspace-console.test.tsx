@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   router: { replace: vi.fn(), refresh: vi.fn() },
   unsubscribe: vi.fn(),
   signOut: vi.fn(),
+  storageUpload: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -26,6 +27,9 @@ vi.mock("../lib/supabase/client", () => ({
       }),
       getSession: async () => ({ data: { session: null }, error: null }),
       signOut: mocks.signOut,
+    },
+    storage: {
+      from: () => ({ upload: mocks.storageUpload }),
     },
   }),
 }));
@@ -72,6 +76,18 @@ function mockProductFetch(
     }
     if (url.endsWith("/sources") && init?.method === undefined) {
       return Response.json([VERSION_SUMMARY]);
+    }
+    if (url.endsWith("/sources") && init?.method === "POST") {
+      return Response.json({
+        source_id: SOURCE_ID,
+        version_id: VERSION_ID,
+        state: "staged",
+        sha256: "a".repeat(64),
+        size_bytes: 5,
+        bucket: "source-snapshots",
+        object_key: `workspace/${WORKSPACE_ID}/source/${SOURCE_ID}/version/${VERSION_ID}`,
+        created_at: "2026-11-15T00:00:00Z",
+      }, { status: 201 });
     }
     if (url.endsWith("/evidence") && init?.method === undefined) {
       return Response.json([RECORD]);
@@ -155,6 +171,8 @@ describe("workspace product console", () => {
     mocks.router.refresh.mockReset();
     mocks.unsubscribe.mockReset();
     mocks.signOut.mockReset();
+    mocks.storageUpload.mockReset();
+    mocks.storageUpload.mockResolvedValue({ data: {}, error: null });
     mockProductFetch();
   });
 
@@ -236,6 +254,36 @@ describe("workspace product console", () => {
   it("links to the telemetry page from the workspace header", async () => {
     render(<WorkspaceConsole userId={USER_ID} email="reader@example.test" />);
     expect(screen.getByRole("link", { name: "Telemetry" })).toHaveAttribute("href", "/workspace/telemetry");
+  });
+
+  it("stages a source version and uploads the object as the owner", async () => {
+    const fetchMock = mockProductFetch();
+    render(<WorkspaceConsole userId={USER_ID} email="reader@example.test" />);
+    await screen.findByText("Current workspace evidence");
+
+    fireEvent.change(screen.getByLabelText("Source content"), {
+      target: { value: "hello" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Stage version" }));
+
+    await waitFor(() => expect(mocks.storageUpload).toHaveBeenCalledTimes(1));
+    const call = mocks.storageUpload.mock.calls[0] as [string, Blob, Record<string, unknown>];
+    expect(call[0]).toBe(
+      `workspace/${WORKSPACE_ID}/source/${SOURCE_ID}/version/${VERSION_ID}`,
+    );
+    expect(call[1]).toBeInstanceOf(Blob);
+    expect(call[2]).toMatchObject({
+      upsert: false,
+      contentType: "application/octet-stream",
+    });
+    const request = fetchMock.mock.calls.find(
+      ([input, init]) => String(input).endsWith("/sources") && init?.method === "POST",
+    );
+    expect(request).toBeDefined();
+    expect(request?.[1]).toMatchObject({
+      body: JSON.stringify({ content: "hello" }),
+    });
+    expect(await screen.findByText(/pending verifier publication/)).toBeInTheDocument();
   });
 
   it("offers navigation and a local sign out from the header menu", async () => {

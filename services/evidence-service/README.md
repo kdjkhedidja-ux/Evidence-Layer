@@ -25,6 +25,11 @@ The core workspace and source boundaries include:
 - `GET /v1/workspaces/{workspace_id}/sources` lists the source snapshot
   versions visible to the caller (published versions of granted sources plus
   the caller's own staged rows). Object keys are never exposed.
+- `POST /v1/workspaces/{workspace_id}/sources` stages an owner-authored source
+  version (4 MB JSON cap). The service computes SHA-256 and byte size, creates
+  the staged catalog row, and returns the private `source-snapshots` bucket and
+  object key. The browser uploads the bytes; publication remains restricted to
+  the allowlisted snapshot verifier.
 - `GET /v1/workspaces/{workspace_id}/sources/{source_id}/versions/{version_id}/content`
   delivers verified source bytes after membership, catalog, ACL, size, and
   SHA-256 digest checks, with revalidation before opening and before delivery.

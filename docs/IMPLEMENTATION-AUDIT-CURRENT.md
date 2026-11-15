@@ -115,7 +115,7 @@ Status legend:
 - **Export:** a narrowed account/personal export is deployed and production-smoke-tested; shared/group export is unavailable.
 - **Download-link control:** mediated export grants, expiry, no-store, revocation, and cleanup are deployed; production smoke passed.
 - **Shared-workspace deletion:** no owner-unanimity workflow; deletion is account-scope only, and group-workspace deletion is admin-initiated.
-- **Source ingestion/publish:** no hosted upload/publish UI; the trusted snapshot verifier exists as code but its production deployment/credentials are unconfirmed.
+- **Source ingestion/publish:** the owner staging endpoint and workspace form are implemented (private object upload, 4 MB cap); publication remains closed because the allowlisted snapshot verifier is not deployed/credentialed.
 - **Scoring in the product:** hosted retrieval and Remote MCP default to lexical scoring. An optional JEV path is request-consented, server-flagged, capped at 50 candidate snippets, and uses whole-set lexical fallback. It remains disabled unless an operator explicitly enables it; live usage/cost and task-quality measurement are not yet persisted.
 - **Billing, metering, invitations, enterprise SSO, multi-organization membership:** not implemented.
 - **Cancellation after acceptance:** explicitly unsupported.
