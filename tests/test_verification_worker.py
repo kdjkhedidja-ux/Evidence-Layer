@@ -119,6 +119,36 @@ def test_auth_session_refreshes_once_and_uses_the_rotated_token():
     assert b"initial-refresh-token" in requests[0].content
 
 
+def test_auth_session_uses_password_grant_when_configured():
+    seen: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["query"] = request.url.query.decode()
+        seen["body"] = json.loads(request.content)
+        return httpx.Response(
+            200,
+            json={
+                "access_token": _jwt("authenticated"),
+                "refresh_token": "rotated-refresh-token",
+                "expires_in": 3600,
+            },
+        )
+
+    session = SupabaseAuthSession(
+        base_url=BASE_URL,
+        publishable_key=API_KEY,
+        email="verifier@example.test",
+        password="synthetic-password",
+        transport=httpx.MockTransport(handler),
+    )
+    assert asyncio.run(session.access_token()).startswith("e30.")
+    assert seen["query"] == "grant_type=password"
+    assert seen["body"] == {
+        "email": "verifier@example.test",
+        "password": "synthetic-password",
+    }
+
+
 def test_auth_session_rejects_service_role_tokens():
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
