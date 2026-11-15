@@ -178,6 +178,7 @@ def test_repository_posts_a_staged_row_with_the_user_token():
         seen["url"] = str(request.url)
         seen["authorization"] = request.headers["authorization"]
         seen["apikey"] = request.headers["apikey"]
+        seen.setdefault("posts", []).append(str(request.url))
         seen["payload"] = request.content
         version = version_id
         return httpx.Response(
@@ -205,6 +206,7 @@ def test_repository_posts_a_staged_row_with_the_user_token():
             workspace_id=WORKSPACE,
             source_id=SOURCE,
             version_id=version_id,
+            principal_id=SUBJECT,
             object_key=object_key,
             sha256=DIGEST,
             size_bytes=5,
@@ -214,6 +216,7 @@ def test_repository_posts_a_staged_row_with_the_user_token():
     assert staged.version_id == version_id
     assert seen["method"] == "POST"
     assert seen["url"].endswith("/rest/v1/source_snapshots")
+    assert any(post.endswith("/rest/v1/source_grants") for post in seen["posts"])
     assert seen["authorization"] == f"Bearer {TOKEN}"
     assert seen["apikey"] == "sb_publishable_synthetic_test_key"
     assert b'"state":"staged"' in seen["payload"]
@@ -242,6 +245,7 @@ def test_repository_maps_failures(status: int, error: type[Exception]):
                 workspace_id=WORKSPACE,
                 source_id=SOURCE,
                 version_id=uuid4(),
+                principal_id=SUBJECT,
                 object_key=snapshot_object_key(WORKSPACE, SOURCE, uuid4()),
                 sha256=DIGEST,
                 size_bytes=5,

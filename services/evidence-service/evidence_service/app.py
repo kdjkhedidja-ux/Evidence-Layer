@@ -2864,6 +2864,7 @@ def create_app(
                     workspace_id=context.workspace_id,
                     source_id=source_id,
                     version_id=version_id,
+                    principal_id=auth.principal.subject,
                     object_key=object_key,
                     sha256=digest,
                     size_bytes=len(content),
