@@ -60,8 +60,11 @@ Environment:
 - `VERIFICATION_WORKER_SUPABASE_URL` — exact `https://<project-ref>.supabase.co`
 - `VERIFICATION_WORKER_ALLOWED_HOST` — the same `<project-ref>.supabase.co`
 - `VERIFICATION_WORKER_PUBLISHABLE_KEY` — publishable key only
-- `VERIFICATION_WORKER_REFRESH_TOKEN` — refresh token for the dedicated
-  non-human verifier identity
+- `VERIFICATION_WORKER_EMAIL` and `VERIFICATION_WORKER_PASSWORD` — preferred
+  credentials for the dedicated non-human verifier identity; the worker signs
+  in at startup and after restarts
+- `VERIFICATION_WORKER_REFRESH_TOKEN` — alternative to email/password; not
+  preferred because rotation invalidates the stored token across restarts
 - `VERIFICATION_WORKER_WORKER_ID` — optional stable worker id
 - `VERIFICATION_WORKER_POLL_SECONDS` — default 10
 - `VERIFICATION_WORKER_LEASE_SECONDS` — default 300

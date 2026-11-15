@@ -35,6 +35,8 @@ from evidence_layer.snapshot_verifier import (
 SUPABASE_URL_ENV = "VERIFICATION_WORKER_SUPABASE_URL"
 PUBLISHABLE_KEY_ENV = "VERIFICATION_WORKER_PUBLISHABLE_KEY"
 REFRESH_TOKEN_ENV = "VERIFICATION_WORKER_REFRESH_TOKEN"
+EMAIL_ENV = "VERIFICATION_WORKER_EMAIL"
+PASSWORD_ENV = "VERIFICATION_WORKER_PASSWORD"
 ALLOWED_HOST_ENV = "VERIFICATION_WORKER_ALLOWED_HOST"
 WORKER_ID_ENV = "VERIFICATION_WORKER_ID"
 POLL_SECONDS_ENV = "VERIFICATION_WORKER_POLL_SECONDS"
@@ -62,9 +64,11 @@ class WorkerUnavailable(Exception):
 class WorkerSettings:
     base_url: str
     publishable_key: str
-    refresh_token: str
-    allowed_remote_host: str
-    worker_id: str
+    refresh_token: str = ""
+    email: str = ""
+    password: str = ""
+    allowed_remote_host: str = ""
+    worker_id: str = ""
     poll_seconds: float = 10.0
     lease_seconds: int = 300
     request_timeout_seconds: float = 5.0
@@ -75,7 +79,7 @@ class WorkerSettings:
         parsed = urlsplit(self.base_url)
         if (
             not self.publishable_key
-            or not self.refresh_token
+            or not (self.refresh_token or (self.email and self.password))
             or not self.worker_id
             or parsed.scheme != "https"
             or parsed.hostname != self.allowed_remote_host
@@ -98,9 +102,13 @@ class WorkerSettings:
         base_url = values.get(SUPABASE_URL_ENV, "").strip()
         publishable_key = values.get(PUBLISHABLE_KEY_ENV, "").strip()
         refresh_token = values.get(REFRESH_TOKEN_ENV, "").strip()
+        email = values.get(EMAIL_ENV, "").strip()
+        password = values.get(PASSWORD_ENV, "").strip()
         allowed_host = values.get(ALLOWED_HOST_ENV, "").strip()
         worker_id = values.get(WORKER_ID_ENV, "").strip()
-        if not all((base_url, publishable_key, refresh_token, allowed_host)):
+        if not all((base_url, publishable_key, allowed_host)):
+            raise ValueError("verification worker credentials are missing")
+        if not refresh_token and not (email and password):
             raise ValueError("verification worker credentials are missing")
         parsed = urlsplit(base_url)
         if (
@@ -129,6 +137,8 @@ class WorkerSettings:
             base_url=base_url,
             publishable_key=publishable_key,
             refresh_token=refresh_token,
+            email=email,
+            password=password,
             allowed_remote_host=allowed_host,
             worker_id=worker_id,
             poll_seconds=poll_seconds,
@@ -144,13 +154,17 @@ class SupabaseAuthSession:
         *,
         base_url: str,
         publishable_key: str,
-        refresh_token: str,
+        refresh_token: str = "",
+        email: str = "",
+        password: str = "",
         timeout_seconds: float = 5.0,
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._key = publishable_key
         self._refresh_token = refresh_token
+        self._email = email
+        self._password = password
         self._timeout = timeout_seconds
         self._transport = transport
         self._access_token: str | None = None
@@ -164,6 +178,12 @@ class SupabaseAuthSession:
             and now < self._expires_at - timedelta(seconds=30)
         ):
             return self._access_token
+        if self._email and self._password:
+            grant = "password"
+            body = {"email": self._email, "password": self._password}
+        else:
+            grant = "refresh_token"
+            body = {"refresh_token": self._refresh_token}
         try:
             async with httpx.AsyncClient(
                 timeout=self._timeout,
@@ -172,13 +192,13 @@ class SupabaseAuthSession:
                 transport=self._transport,
             ) as client:
                 response = await client.post(
-                    f"{self._base_url}/auth/v1/token?grant_type=refresh_token",
+                    f"{self._base_url}/auth/v1/token?grant_type={grant}",
                     headers={
                         "apikey": self._key,
                         "content-type": "application/json",
                         "accept": "application/json",
                     },
-                    json={"refresh_token": self._refresh_token},
+                    json=body,
                 )
         except httpx.HTTPError as exc:
             raise WorkerUnavailable from exc
@@ -422,6 +442,8 @@ def build_worker(settings: WorkerSettings) -> VerificationWorker:
             base_url=settings.base_url,
             publishable_key=settings.publishable_key,
             refresh_token=settings.refresh_token,
+            email=settings.email,
+            password=settings.password,
             timeout_seconds=settings.request_timeout_seconds,
         ),
         queue=VerificationQueueClient(
