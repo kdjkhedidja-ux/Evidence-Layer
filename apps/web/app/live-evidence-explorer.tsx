@@ -3,8 +3,9 @@
 import Link from "next/link";
 import RelationshipCanvas from "./relationships/relationship-canvas";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import AuthAccount from "../components/auth-account";
-import ThemeToggle from "./theme-toggle";
+import PageTitle from "../components/page-title";
+import SiteFooter from "../components/site-footer";
+import SiteHeader from "../components/site-header";
 
 type Workspace = { id: string; name: string; role: "owner" | "admin" | "member" };
 type Evidence = {
@@ -16,14 +17,6 @@ type Evidence = {
   source_version_id: string | null;
   created_at: string;
   updated_at: string;
-};
-type SourceVersion = {
-  source_id: string;
-  version_id: string;
-  state: "staged" | "published";
-  sha256: string;
-  size_bytes: number;
-  created_at: string;
 };
 type Relationship = {
   id: string;
@@ -40,7 +33,6 @@ type Relationship = {
 };
 type LoadState = "loading" | "ready" | "unauthenticated" | "unavailable";
 type DataState = "idle" | "loading" | "ready" | "unavailable";
-type SourceReader = { version: SourceVersion; content: string } | null;
 
 const RELATION_LABELS: Record<Relationship["relation_type"], string> = {
   supports: "Supports",
@@ -62,12 +54,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
-function bytesLabel(size: number): string {
-  if (!Number.isSafeInteger(size) || size < 0) return "Size unavailable";
-  if (size < 1024) return `${size} bytes`;
-  return `${(size / 1024).toFixed(1)} KB`;
-}
-
 export default function LiveEvidenceExplorer({
   account,
   relationshipsOnly = false,
@@ -79,19 +65,13 @@ export default function LiveEvidenceExplorer({
   const [workspaceId, setWorkspaceId] = useState("");
   const [workspaceState, setWorkspaceState] = useState<LoadState>("loading");
   const [records, setRecords] = useState<Evidence[]>([]);
-  const [sources, setSources] = useState<SourceVersion[]>([]);
   const [relationships, setRelationships] = useState<Relationship[]>([]);
   const [recordsState, setRecordsState] = useState<DataState>("idle");
-  const [sourcesState, setSourcesState] = useState<DataState>("idle");
   const [relationshipsState, setRelationshipsState] = useState<DataState>("idle");
   const [selectedId, setSelectedId] = useState("");
   const [query, setQuery] = useState("");
   const [provenanceFilter, setProvenanceFilter] = useState<"all" | "linked" | "unlinked">("all");
-  const [sourceReader, setSourceReader] = useState<SourceReader>(null);
-  const [sourceReadState, setSourceReadState] = useState<DataState>("idle");
   const [message, setMessage] = useState("");
-  const [accountOpen, setAccountOpen] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [relationshipDraft, setRelationshipDraft] = useState({
     evidence_id_a: "",
     evidence_id_b: "",
@@ -100,6 +80,7 @@ export default function LiveEvidenceExplorer({
     provenance_note: "",
   });
   const [editingRelationship, setEditingRelationship] = useState("");
+  const [confirmDeleteRelationshipId, setConfirmDeleteRelationshipId] = useState("");
   const [editDraft, setEditDraft] = useState({
     relation_type: "contextualizes" as Relationship["relation_type"],
     rationale: "",
@@ -118,7 +99,7 @@ export default function LiveEvidenceExplorer({
           .join(" ")
           .toLocaleLowerCase()
           .includes(needle);
-      const hasLink = Boolean(record.source_id && record.source_version_id);
+      const hasLink = Boolean(record.source_label || (record.source_id && record.source_version_id));
       const matchesProvenance = provenanceFilter === "all" ||
         (provenanceFilter === "linked" ? hasLink : !hasLink);
       return matchesQuery && matchesProvenance;
@@ -133,33 +114,27 @@ export default function LiveEvidenceExplorer({
     if (activeWorkspaceRef.current !== id) {
       activeWorkspaceRef.current = id;
       setRecords([]);
-      setSources([]);
       setRelationships([]);
       setSelectedId("");
-      setSourceReader(null);
-      setSourceReadState("idle");
       setRelationshipDraft({ evidence_id_a: "", evidence_id_b: "", relation_type: "contextualizes", rationale: "", provenance_note: "" });
       setEditingRelationship("");
+      setConfirmDeleteRelationshipId("");
     }
     if (!id) {
       setRecords([]);
-      setSources([]);
       setRelationships([]);
       setRecordsState("idle");
-      setSourcesState("idle");
       setRelationshipsState("idle");
       return;
     }
     setRecordsState("loading");
-    setSourcesState("loading");
     setRelationshipsState("loading");
     setMessage("");
     const requests = [
       fetch(`/api/evidence/workspaces/${encodeURIComponent(id)}/evidence`, { cache: "no-store" }),
-      fetch(`/api/evidence/workspaces/${encodeURIComponent(id)}/sources`, { cache: "no-store" }),
       fetch(`/api/evidence/workspaces/${encodeURIComponent(id)}/relationships`, { cache: "no-store" }),
     ] as const;
-    const [evidenceResponse, sourcesResponse, relationshipsResponse] = await Promise.allSettled(requests);
+    const [evidenceResponse, relationshipsResponse] = await Promise.allSettled(requests);
     if (generation !== loadGenerationRef.current) return;
 
     if (evidenceResponse.status === "fulfilled" && evidenceResponse.value.ok) {
@@ -184,24 +159,6 @@ export default function LiveEvidenceExplorer({
       }
     }
 
-    if (sourcesResponse.status === "fulfilled" && sourcesResponse.value.ok) {
-      const payload: unknown = await sourcesResponse.value.json();
-      if (generation !== loadGenerationRef.current) return;
-      if (Array.isArray(payload) && payload.every((item) =>
-        isRecord(item) && typeof item.source_id === "string" && typeof item.version_id === "string" &&
-        (item.state === "staged" || item.state === "published") && typeof item.sha256 === "string"
-      )) {
-        setSources(payload as SourceVersion[]);
-        setSourcesState("ready");
-      } else {
-        setSources([]);
-        setSourcesState("unavailable");
-      }
-    } else {
-      setSources([]);
-      setSourcesState("unavailable");
-    }
-
     if (relationshipsResponse.status === "fulfilled" && relationshipsResponse.value.ok) {
       const payload: unknown = await relationshipsResponse.value.json();
       if (generation !== loadGenerationRef.current) return;
@@ -223,23 +180,11 @@ export default function LiveEvidenceExplorer({
   }, []);
 
   useEffect(() => {
-    if (!account) return;
-    if (new URLSearchParams(window.location.search).get("account") === "1") {
-      setAccountOpen(true);
-      setMobileMenuOpen(true);
-      requestAnimationFrame(() => {
-        document.getElementById("account-organization-title")?.scrollIntoView?.({ block: "start" });
-      });
-    }
-  }, [account]);
-
-  useEffect(() => {
     let active = true;
     async function loadMemberships() {
       setWorkspaces([]);
       setWorkspaceId("");
       setRecords([]);
-      setSources([]);
       setRelationships([]);
       if (!account) {
         setWorkspaceState("unauthenticated");
@@ -280,32 +225,6 @@ export default function LiveEvidenceExplorer({
   useEffect(() => {
     void loadWorkspaceData(workspaceId);
   }, [loadWorkspaceData, workspaceId]);
-
-  const readSource = async (version: SourceVersion) => {
-    if (!workspaceId) return;
-    const targetWorkspaceId = workspaceId;
-    setSourceReader({ version, content: "" });
-    setSourceReadState("loading");
-    try {
-      const response = await fetch(
-        `/api/evidence/workspaces/${encodeURIComponent(targetWorkspaceId)}/sources/${encodeURIComponent(version.source_id)}/versions/${encodeURIComponent(version.version_id)}/content`,
-        { cache: "no-store" },
-      );
-      if (workspaceId !== targetWorkspaceId) return;
-      if (!response.ok) {
-        setSourceReader(null);
-        setSourceReadState("unavailable");
-        setMessage(await responseError(response, "Source content could not be read."));
-        return;
-      }
-      setSourceReader({ version, content: await response.text() });
-      setSourceReadState("ready");
-    } catch {
-      setSourceReader(null);
-      setSourceReadState("unavailable");
-      setMessage("Source content could not be read.");
-    }
-  };
 
   const createRelationship = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -358,6 +277,12 @@ export default function LiveEvidenceExplorer({
   };
 
   const deleteRelationship = async (relationshipId: string) => {
+    if (confirmDeleteRelationshipId !== relationshipId) {
+      setEditingRelationship("");
+      setConfirmDeleteRelationshipId(relationshipId);
+      return;
+    }
+    setConfirmDeleteRelationshipId("");
     const targetWorkspaceId = workspaceId;
     setMutationState("loading");
     try {
@@ -379,59 +304,13 @@ export default function LiveEvidenceExplorer({
   };
 
   const evidenceById = useMemo(() => new Map(records.map((record) => [record.id, record])), [records]);
-  const sourcesForRecord = selectedRecord?.source_id
-    ? sources.filter((source) => source.source_id === selectedRecord.source_id && source.version_id === selectedRecord.source_version_id)
-    : [];
-  const navTarget = (id: string) => relationshipsOnly ? `/#${id}` : `#${id}`;
   const isLoading = workspaceState === "loading";
-  const sidebarItems = [
-    { href: "/workspace", label: "Workspace", status: selectedWorkspace ? "Connected" : isLoading ? "Pending" : "Unavailable" },
-    { href: relationshipsOnly ? "/" : "#explorer", label: "Evidence Explorer", status: recordsState === "ready" ? "Connected" : recordsState === "loading" ? "Pending" : "Unavailable" },
-    { href: relationshipsOnly ? "#relationships" : "/relationships", label: "Relationships", status: relationshipsState === "ready" ? "Connected" : relationshipsState === "loading" ? "Pending" : "Unavailable" },
-    { href: navTarget("reading-guide"), label: "Reading Guide", status: recordsState === "ready" ? "Evidence-grounded" : recordsState === "loading" ? "Pending" : "Unavailable" },
-    { href: navTarget("verification"), label: "Verification", status: sourcesState === "ready" ? "Connected" : sourcesState === "loading" ? "Pending" : "Unavailable" },
-    { href: navTarget("evaluation"), label: "Evaluation", status: "Historical" },
-    { href: "/cost-performance", label: "Cost & Performance", status: "Historical" },
-    { href: navTarget("settings-access"), label: "Settings & Access", status: selectedWorkspace ? "Partially available" : isLoading ? "Pending" : "Unavailable" },
-  ];
-
   return (
-    <div className="live-shell">
+    <>
+      <SiteHeader accountEmail={account?.email ?? null} />
+      <div className="live-shell">
       <a className="live-skip" href="#explorer">Skip to Evidence Explorer</a>
-      <div className="live-mobile-bar">
-        <Link className="live-brand" href="/">evidence<span>layer</span></Link>
-        <button type="button" className="live-menu-toggle" aria-expanded={mobileMenuOpen} onClick={() => setMobileMenuOpen((value) => !value)}>
-          {mobileMenuOpen ? "Close" : "Menu"}
-        </button>
-      </div>
-      <aside className={`live-sidebar${mobileMenuOpen ? " live-sidebar--open" : ""}`}>
-        <Link className="live-brand live-brand--sidebar" href="/">evidence<span>layer</span></Link>
-        <p className="live-sidebar-tagline">Evidence first. Conclusions remain inspectable.</p>
-        <nav aria-label="Product navigation" className="live-nav">
-          {sidebarItems.map((item) => item.href.startsWith("/") ? (
-            <Link href={item.href} key={item.label} className="live-nav-item" onClick={() => setMobileMenuOpen(false)}>
-              <span>{item.label}</span><small>{item.status}</small>
-            </Link>
-          ) : (
-            <a href={item.href} key={item.label} className="live-nav-item" onClick={() => setMobileMenuOpen(false)}>
-              <span>{item.label}</span><small>{item.status}</small>
-            </a>
-          ))}
-          <Link className="live-nav-item" href="/documentation"><span>Documentation</span></Link>
-        </nav>
-        <div className="live-sidebar-footer">
-          <Link href="/privacy">Privacy Policy</Link><Link href="/terms">Terms of Use</Link>
-          <div className="live-controls">
-            {account ? (
-              <button type="button" className="live-account-button" onClick={() => setAccountOpen((value) => !value)} aria-expanded={accountOpen}>
-                {accountOpen ? "Close account" : "Account"}
-              </button>
-            ) : <Link className="live-account-button" href="/login">Sign in</Link>}
-            <ThemeToggle />
-          </div>
-          {account && accountOpen && <AuthAccount userId={account.id} email={account.email} />}
-        </div>
-      </aside>
+
 
       <main className="live-main">
         <header className="live-topbar">
@@ -442,11 +321,19 @@ export default function LiveEvidenceExplorer({
         </header>
         <div className="live-content">
           <section className="live-intro" id="workspace">
-            <p className="live-eyebrow">Examine · compare · verify</p>
-            <h1>{relationshipsOnly ? "Evidence Relationships" : "Evidence Explorer"}</h1>
-            <p>{relationshipsOnly
-              ? "Inspect and manage explicit, workspace-scoped links with their rationale and recorded basis."
-              : "Inspect workspace evidence, its exact source version, and relationships recorded by an authorized workspace owner or admin."}</p>
+            <div className="live-intro-copy">
+              <p className="live-eyebrow">Examine · compare · verify</p>
+              <h1><PageTitle>{relationshipsOnly ? "Evidence Relationships" : "Evidence Explorer"}</PageTitle></h1>
+              <p>{relationshipsOnly
+                ? "Review and maintain the explicit evidence links that can help an agent understand how records relate."
+                : "Prepare workspace evidence for an agent, inspect its source labels, and review the relationships recorded by workspace owners and admins."}</p>
+              {!relationshipsOnly && (
+                <p className="live-boundary-note">
+                  Agents retrieve bounded evidence through API or MCP. This page does not run the agent
+                  or report task-level token use, cost, or quality yet.
+                </p>
+              )}
+            </div>
             {workspaceState === "ready" && workspaces.length > 0 && (
               <label className="live-workspace-picker">
                 Workspace
@@ -480,8 +367,8 @@ export default function LiveEvidenceExplorer({
                   <label className="live-search">Filter by source provenance
                     <select value={provenanceFilter} onChange={(event) => setProvenanceFilter(event.target.value as typeof provenanceFilter)}>
                       <option value="all">All records</option>
-                      <option value="linked">Linked to a source version</option>
-                      <option value="unlinked">No source version linked</option>
+                      <option value="linked">Has a source reference</option>
+                      <option value="unlinked">No source reference</option>
                     </select>
                   </label>
                 </div>
@@ -506,16 +393,18 @@ export default function LiveEvidenceExplorer({
                           <h3>{selectedRecord.source_label || "Untitled evidence"}</h3>
                           <blockquote>{selectedRecord.content}</blockquote>
                           <dl className="live-provenance">
-                            <div><dt>Source</dt><dd>{selectedRecord.source_id ?? "No source linked"}</dd></div>
-                            <div><dt>Exact version</dt><dd>{selectedRecord.source_version_id ?? "No version linked"}</dd></div>
+                            <div><dt>Source label</dt><dd>{selectedRecord.source_label || "No source label"}</dd></div>
+                            <div><dt>Verified snapshot</dt><dd>{selectedRecord.source_id && selectedRecord.source_version_id
+                              ? `Source ${selectedRecord.source_id} · version ${selectedRecord.source_version_id}`
+                              : "No exact verified snapshot linked"}</dd></div>
                             <div><dt>Created</dt><dd>{new Date(selectedRecord.created_at).toLocaleString()}</dd></div>
                           </dl>
-                          <p className="live-boundary-note">Interpretation and unresolved questions are not generated or inferred here; this view presents the stored record as-is.</p>
-                          {sourcesForRecord.map((version) => (
-                            <button type="button" className="live-secondary-button" key={version.version_id} onClick={() => void readSource(version)}>
-                              Read linked source · {version.state === "published" ? "verified version" : "staged, not verified"}
-                            </button>
-                          ))}
+                          <p className="live-boundary-note">
+                            A connector source label (such as a GitHub file path) is different from
+                            an exact, verified snapshot link. Open Workspace to inspect authorized
+                            source versions.
+                          </p>
+                          <Link href="/workspace#source-read-heading">Inspect verified snapshots</Link>
                         </>
                       ) : <p>Select a record to inspect its text and provenance.</p>}
                     </article>
@@ -562,9 +451,18 @@ export default function LiveEvidenceExplorer({
                         <div className="live-row-actions">
                           <button type="button" onClick={() => {
                             setEditingRelationship(relationship.id);
+                            setConfirmDeleteRelationshipId("");
                             setEditDraft({ relation_type: relationship.relation_type, rationale: relationship.rationale, provenance_note: relationship.provenance_note });
                           }}>Edit</button>
-                          <button type="button" onClick={() => void deleteRelationship(relationship.id)}>Delete</button>
+                          {confirmDeleteRelationshipId === relationship.id ? (
+                            <>
+                              <span role="alert">Delete this relationship? This cannot be undone.</span>
+                              <button type="button" onClick={() => void deleteRelationship(relationship.id)}>Confirm delete</button>
+                              <button type="button" onClick={() => setConfirmDeleteRelationshipId("")}>Cancel</button>
+                            </>
+                          ) : (
+                            <button type="button" onClick={() => void deleteRelationship(relationship.id)}>Delete</button>
+                          )}
                         </div>
                       ) : null}
                     </article>
@@ -586,68 +484,12 @@ export default function LiveEvidenceExplorer({
                 )}
               </section>
 
-              {!relationshipsOnly && (
-              <>
-              <section id="reading-guide" className="live-section live-capability">
-                <p className="live-eyebrow">Reading Guide · Evidence-grounded</p><h2>Read the record before the conclusion</h2>
-                <ol><li>Start with the exact stored evidence text above.</li><li>Follow its linked source and version when a published, authorized version is available.</li><li>Relationships are owner- or admin-authored records with a stated rationale and basis; they are not inferred by text similarity.</li></ol>
-                {selectedRecord ? (
-                  <div className="live-guide-record">
-                    <h3>Current record · {selectedRecord.source_label || selectedRecord.id}</h3>
-                    <blockquote>{selectedRecord.content}</blockquote>
-                    <p><strong>Provenance:</strong> {selectedRecord.source_id && selectedRecord.source_version_id
-                      ? `Source ${selectedRecord.source_id}, version ${selectedRecord.source_version_id}.`
-                      : "No source version is linked to this evidence record."}</p>
-                    <p><strong>Interpretation and unresolved questions:</strong> not recorded in the current data contract. No conclusions are inferred.</p>
-                  </div>
-                ) : <p>Select an evidence record to build a source-grounded reading guide.</p>}
-              </section>
-
-              <section id="verification" className="live-section">
-                <div className="live-section-heading"><div><p className="live-eyebrow">Source catalog state</p><h2>Verification</h2></div><span>{sources.length} versions</span></div>
-                {sourcesState === "loading" && <p className="live-muted">Loading source version states…</p>}
-                {sourcesState === "unavailable" && <p className="live-error">Source catalog is unavailable. Verification is not presumed.</p>}
-                {sourcesState === "ready" && sources.length === 0 && <div className="live-empty"><h3>No source versions</h3><p>There are no source versions visible to this account. Source upload and publication require the separately authorized verifier workflow.</p><Link href="/workspace">Review Workspace sources</Link></div>}
-                {sourcesState === "ready" && sources.map((source) => (
-                  <article className="live-source-row" key={`${source.source_id}:${source.version_id}`}>
-                    <div><strong>{source.source_id}</strong><small>Version {source.version_id} · {bytesLabel(source.size_bytes)} · SHA-256 {source.sha256}</small></div>
-                    <span className={source.state === "published" ? "live-state-published" : "live-state-staged"}>{source.state === "published" ? "Published · integrity verified" : "Staged · not published"}</span>
-                    <button type="button" disabled={source.state !== "published"} onClick={() => void readSource(source)}>Read authorized content</button>
-                  </article>
-                ))}
-              </section>
-
-              <section id="evaluation" className="live-section live-capability">
-                <p className="live-eyebrow">Evaluation · Historical reports</p><h2>Evaluation records are separate from live Workspace data</h2>
-                <p>No per-workspace evaluation execution or results API is configured. The published Phase 6, 7, and 7B reports are historical benchmarks, not live evaluations.</p>
-                <Link href="/cost-performance">Read historical evaluation and cost reports</Link>
-              </section>
-              <section id="settings-access" className="live-section live-capability">
-                <p className="live-eyebrow">Settings &amp; access</p><h2>{selectedWorkspace.name}</h2>
-                <p>Your verified role is <strong>{selectedWorkspace.role}</strong>. Members may inspect active workspace data; only owners and admins can create, edit, or delete documented relationships.</p>
-                <p>Organization admins manage members and roles from Account → Workspace &amp; Access; group workspaces follow organization membership. There is no email invitation flow, per-workspace permissions editor, or workspace-settings endpoint.</p>
-                <p>Personal API Keys are planned as separate credentials. They are not session JWTs, and this application has no key issuance or revocation endpoint.</p>
-                <Link href="/workspace">Open Workspace</Link>
-              </section>
-              </>
-              )}
-
-              <footer className="live-footer"><span>Evidence Layer · Evidence first. Conclusions remain inspectable.</span><nav><Link href="/documentation">Documentation</Link><Link href="/cost-performance">Cost &amp; Performance</Link><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link></nav></footer>
             </>
           )}
+          <SiteFooter />
         </div>
       </main>
-
-      {sourceReader && (
-        <div className="live-dialog-backdrop" role="presentation" onClick={() => { setSourceReader(null); setSourceReadState("idle"); }}>
-          <section className="live-source-dialog" role="dialog" aria-modal="true" aria-labelledby="source-content-heading" onClick={(event) => event.stopPropagation()}>
-            <button type="button" className="live-dialog-close" onClick={() => { setSourceReader(null); setSourceReadState("idle"); }}>Close</button>
-            <p className="live-eyebrow">Authorized source read</p><h2 id="source-content-heading">Source version content</h2>
-            <p>Source {sourceReader.version.source_id} · version {sourceReader.version.version_id}</p>
-            {sourceReadState === "loading" ? <p role="status">Reading and verifying source content…</p> : <pre>{sourceReader.content}</pre>}
-          </section>
-        </div>
-      )}
-    </div>
+      </div>
+    </>
   );
 }

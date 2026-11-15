@@ -367,7 +367,7 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
     setPending(true);
     setMessage("");
     try {
-      const { error } = await createSupabaseBrowserClient().auth.signOut();
+      const { error } = await createSupabaseBrowserClient().auth.signOut({ scope: "local" });
       if (error) {
         setMessage("Sign out could not be confirmed. Try again.");
         return;
@@ -682,8 +682,9 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
       <section className="account-deletion" aria-labelledby="account-session-title">
         <h3 id="account-session-title">Account session</h3>
         <p className="account-deletion-scope">
-          Signing out everywhere ends every session for this account. Session inventory and
-          per-device management are not available in the current service contract.
+          Signing out everywhere revokes refresh sessions for this account. Already-issued
+          access tokens may remain valid until they expire. Session inventory and per-device
+          management are not available in the current service contract.
         </p>
         <div className="account-deletion-actions">
           <button type="button" onClick={signOutEverywhere} disabled={sessionPending}>

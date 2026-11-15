@@ -120,7 +120,7 @@ export async function GET(request: Request): Promise<NextResponse> {
     const response = NextResponse.redirect(new URL(target, url.origin));
     response.headers.set("Cache-Control", "no-store");
     if (target === "/reset-password") {
-      response.cookies.set(RECOVERY_COOKIE, recoveryProof(session.access_token), {
+      response.cookies.set(RECOVERY_COOKIE, await recoveryProof(session.access_token), {
         httpOnly: true,
         sameSite: "lax",
         secure: process.env.NODE_ENV === "production",

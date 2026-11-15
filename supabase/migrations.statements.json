@@ -22,7 +22,8 @@
     "lifecycle-comment": "Documents the lifecycle relation and server-managed fields so the fail-closed state contract and retention boundary remain explicit without changing runtime privileges.",
     "personal-api-key-function-ownership": "Transfers the personal API key management and read RPCs to dedicated NOLOGIN, NOINHERIT, NOBYPASSRLS roles created in the same file. The temporary SET grants used only for ownership transfer are revoked before commit; the reader RPCs additionally require a one-use HMAC gateway proof and remain subject to forced RLS.",
     "personal-api-key-schema-ddl-window": "Temporary CREATE on schema public/private granted to the personal API key manager and reader so the same migration can transfer function ownership. The window is revoked in the same file; those roles never create tables or policies at runtime.",
-    "connector-workspace-backfill": "Backfill existing connector connections to a personal workspace selected from active owner memberships; no user input and no cross-tenant access."
+    "connector-workspace-backfill": "Backfill existing connector connections to a personal workspace selected from active owner memberships; no user input and no cross-tenant access.",
+    "task-ledger-service-role-grant": "GRANT ALL on the content-free public.task_run_ledger to service_role. service_role is server-only, never browser-reachable, and this grant is limited to the ledger relation; authenticated retains only SELECT and INSERT through membership-scoped RLS."
   },
   "entries": [
     {
@@ -4530,6 +4531,139 @@
       "id": "b8c7053d449e3785",
       "file": "20261112160000_connector_evidence_upsert_rpc.sql",
       "line": 83,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "f311700894ee9543",
+      "file": "20261114210000_task_run_ledger.sql",
+      "line": 34,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "0b93674e0ca2ac87",
+      "file": "20261114210000_task_run_ledger.sql",
+      "line": 35,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "a6336f372338d3c9",
+      "file": "20261114210000_task_run_ledger.sql",
+      "line": 37,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "d378cb65cc85ce6a",
+      "file": "20261114210000_task_run_ledger.sql",
+      "line": 38,
+      "verb": "grant select",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "bb99be44e50a1f04",
+      "file": "20261114210000_task_run_ledger.sql",
+      "line": 39,
+      "verb": "grant all",
+      "rationale_ref": "task-ledger-service-role-grant"
+    },
+    {
+      "id": "574c526ccfee8eeb",
+      "file": "20261114210000_task_run_ledger.sql",
+      "line": 41,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "3ac610a567cdd452",
+      "file": "20261114210000_task_run_ledger.sql",
+      "line": 55,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "bc75f2572ab212c3",
+      "file": "20261114230000_deletion_worker_lease_retry.sql",
+      "line": 9,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "dc05a3e6c5ed93e0",
+      "file": "20261114230000_deletion_worker_lease_retry.sql",
+      "line": 16,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "995b0e91b78a9bce",
+      "file": "20261114230000_deletion_worker_lease_retry.sql",
+      "line": 20,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "38f2dfc0951ec6d4",
+      "file": "20261114230000_deletion_worker_lease_retry.sql",
+      "line": 31,
+      "verb": "create or",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "4976f98e35b474a8",
+      "file": "20261114230000_deletion_worker_lease_retry.sql",
+      "line": 111,
+      "verb": "create or",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "7f64b6708e422c8f",
+      "file": "20261114230000_deletion_worker_lease_retry.sql",
+      "line": 145,
+      "verb": "create or",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "50dbfde5ae9e6f52",
+      "file": "20261114230000_deletion_worker_lease_retry.sql",
+      "line": 232,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "6de50e170f2afbcf",
+      "file": "20261114230000_deletion_worker_lease_retry.sql",
+      "line": 234,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "beeea57d1ba75fbb",
+      "file": "20261114230000_deletion_worker_lease_retry.sql",
+      "line": 236,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "7f7943524896e115",
+      "file": "20261114230000_deletion_worker_lease_retry.sql",
+      "line": 239,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "cca0c406ebbeba16",
+      "file": "20261114230000_deletion_worker_lease_retry.sql",
+      "line": 241,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "957f3d4304ae834d",
+      "file": "20261114230000_deletion_worker_lease_retry.sql",
+      "line": 243,
       "verb": "grant execute",
       "rationale_ref": "privilege-grant"
     }

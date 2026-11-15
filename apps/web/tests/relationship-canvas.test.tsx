@@ -24,7 +24,7 @@ const relationships = [
 describe("relationship canvas", () => {
   it("renders one card per linked evidence and one edge per relationship", () => {
     render(<RelationshipCanvas records={records} relationships={relationships} />);
-    expect(screen.getByRole("img", { name: /2 evidence records and 1 link/i })).toBeInTheDocument();
+    expect(screen.getByRole("graphics-document", { name: /2 evidence records and 1 link/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Evidence Policy A/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Evidence Policy B/i })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Unlinked record/i })).not.toBeInTheDocument();
@@ -48,7 +48,7 @@ describe("relationship canvas", () => {
         relationships={[{ ...relationships[0], evidence_id_b: "e1" }]}
       />,
     );
-    expect(screen.getByRole("img", { name: /1 evidence records and 1 link/i })).toBeInTheDocument();
+    expect(screen.getByRole("graphics-document", { name: /1 evidence records and 1 link/i })).toBeInTheDocument();
     expect(screen.getByText("1 record · 1 link")).toBeInTheDocument();
     expect(container.querySelector('path[d*="NaN"]')).toBeNull();
   });
@@ -79,6 +79,6 @@ describe("relationship canvas", () => {
         relationships={[{ ...relationships[0], evidence_id_b: "missing" }]}
       />,
     );
-    expect(screen.getByRole("img", { name: /1 evidence records and 0 links/i })).toBeInTheDocument();
+    expect(screen.getByRole("graphics-document", { name: /1 evidence records and 0 links/i })).toBeInTheDocument();
   });
 });

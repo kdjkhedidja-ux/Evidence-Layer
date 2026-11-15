@@ -1,11 +1,12 @@
 import { createServer } from "node:http";
+import { SYNTHETIC_TOKENS } from "./mock-tokens.mjs";
 
 const host = "127.0.0.1";
 const port = 54321;
 const accessTokens = new Map([
-  ["synthetic-login-access-token", "person@example.test"],
-  ["synthetic-switch-access-token", "switch@example.test"],
-  ["synthetic-recovery-access-token", "person@example.test"],
+  [SYNTHETIC_TOKENS.login, "person@example.test"],
+  [SYNTHETIC_TOKENS.switch, "switch@example.test"],
+  [SYNTHETIC_TOKENS.recovery, "person@example.test"],
 ]);
 
 function user(email = "person@example.test") {
@@ -85,7 +86,7 @@ const server = createServer(async (request, response) => {
       return;
     }
     const secondAccount = body.email === "switch@example.test";
-    const accessToken = secondAccount ? "synthetic-switch-access-token" : "synthetic-login-access-token";
+    const accessToken = secondAccount ? SYNTHETIC_TOKENS.switch : SYNTHETIC_TOKENS.login;
     sendJson(response, 200, session(accessToken, secondAccount ? "switch@example.test" : "person@example.test"));
     return;
   }
@@ -110,7 +111,7 @@ const server = createServer(async (request, response) => {
       sendJson(response, 400, { message: "Synthetic recovery link is expired or malformed.", code: "otp_expired" });
       return;
     }
-    sendJson(response, 200, session("synthetic-recovery-access-token"));
+    sendJson(response, 200, session(SYNTHETIC_TOKENS.recovery));
     return;
   }
   if (endpoint === "/user" && request.method === "PUT") {

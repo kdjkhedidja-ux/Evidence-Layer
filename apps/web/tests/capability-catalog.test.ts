@@ -11,15 +11,18 @@ const REQUIRED_FEATURES: Record<string, string[]> = {
     "Rationale",
     "Review basis",
   ],
+  "Task Context": ["Task-focused retrieval", "Relationship-aware selection"],
   "Reading Guide": ["Reading instructions", "Source inspection", "Provenance guidance"],
   Verification: ["Snapshot integrity", "Hash verification"],
   Evaluation: ["Historical reports", "Comparisons"],
-  "Cost & Performance": ["Historical estimates", "Token usage", "API calls", "Latency"],
+  "Cost & Performance": ["Cost estimates", "Token usage", "API calls", "Latency"],
   "Settings & Access": [
     "Account profile",
     "Security",
     "Authentication sessions",
     "Personal API Keys",
+    "Telemetry",
+    "Remote MCP",
   ],
 };
 
@@ -48,17 +51,20 @@ describe("workspace capability catalog contract", () => {
       "/?account=1#account-profile",
       "/?account=1#account-session-title",
       "/workspace#personal-api-keys",
+      "/workspace#remote-mcp",
       "/workspace#membership-heading",
       "/mfa",
       "/?account=1#account-organization-title",
       "/#explorer",
       "/workspace#records-heading",
-      "/#reading-guide",
       "/workspace#source-read-heading",
       "/relationships",
-      "/#verification",
+      "/evaluation",
       "/cost-performance",
-      "/#settings-access",
+      "/workspace/telemetry",
+      "/workspace#agent-connection",
+      "/workspace#task-context",
+      "/workspace#task-measurement",
     ]);
     const features = CAPABILITY_GROUPS.flatMap((group) => group.features);
     for (const feature of features) {

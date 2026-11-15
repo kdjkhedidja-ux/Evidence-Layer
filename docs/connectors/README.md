@@ -87,6 +87,7 @@ Dropbox and Notion are fast to integrate; GitHub is fast for technical teams; Co
 ## Implemented Google Drive vertical slice
 
 - OAuth start/callback: `/api/connectors/google-drive/start` and `/api/connectors/google-drive/callback` in the Next.js BFF.
+- OAuth start, callback, and shared connection storage require MFA status to be verified; an unresolved or required challenge prevents connection creation.
 - Scope requested: `https://www.googleapis.com/auth/drive.readonly`; offline access and consent are requested to obtain a refresh token.
 - Token vault: service-side AES-256-GCM encryption with `CONNECTOR_TOKEN_ENCRYPTION_KEY` (base64 32-byte key). Only ciphertext is stored.
 - Tables: `connector_connections` and `connector_documents`, forced RLS, owner-only policies, no anon/service-role table grants.
@@ -111,6 +112,7 @@ Google Cloud console: create a Web application OAuth client, add the exact callb
 
 - Public Notion OAuth connection with the page picker; no Marketplace listing required for OAuth use.
 - OAuth start/callback: `/api/connectors/notion/start` and `/api/connectors/notion/callback`.
+- OAuth start, callback, and shared connection storage require MFA status to be verified; an unresolved or required challenge prevents connection creation.
 - `NOTION_REDIRECT_URI` must be the app callback (for example
   `https://evidencelayer.dev/api/connectors/notion/callback`), not Notion's
   authorization endpoint `https://api.notion.com/v1/oauth/authorize`. The route
@@ -127,6 +129,7 @@ Google Cloud console: create a Web application OAuth client, add the exact callb
 - Required App permissions: **Contents: read**, **Metadata: read**. Installation scope can be all repositories or selected repositories.
 - Setup URL: `https://evidencelayer.dev/api/connectors/github/callback`.
 - Start URL: `/api/connectors/github/start` redirects to the App's installation page with a state cookie.
+- OAuth start, callback, and shared connection storage require MFA status to be verified; an unresolved or required challenge prevents connection creation.
 - The service stores `provider_config={"installation_id": ...}`; no user access token is persisted.
 - Sync lists the installation's repositories and ingests bounded README/code files from selected repositories (up to 5 repositories, 25 documents, 2 MiB per file).
 - UI is enabled by `NEXT_PUBLIC_GITHUB_CONNECTOR_ENABLED` in production; empty repositories and unavailable trees are skipped without failing the sync.
@@ -146,7 +149,7 @@ GitHub sync/bridge behavior: [`github-sync-and-retrieve.md`](github-sync-and-ret
 
 ## API-key retrieval and MCP
 
-See [`api-retrieval-mcp.md`](api-retrieval-mcp.md) for the enabled retrieve/get-document endpoints, MCP server, curl examples, and the token-reduction harness.
+See [`api-retrieval-mcp.md`](api-retrieval-mcp.md) for the enabled retrieve/get-document endpoints, hosted Remote MCP and client setup, the Python SDK, local stdio MCP, curl examples, the repeatable MCP smoke, and the token-reduction harness.
 
 ## Required next layer (not implemented)
 

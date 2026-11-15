@@ -24,12 +24,14 @@
 | Web app (for example Vercel) | Public project settings plus a private service URL | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, server-only `EVIDENCE_SERVICE_URL` |
 | Supabase Auth dashboard | Hosted Auth SMTP configuration only | Resend SMTP password/API key, SMTP sender address; never place these in the web app |
 | Evidence Service runtime | Server-only Supabase Data API/JWT verification settings | Existing `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_JWT_*` variables from its service `.env.example` |
-| Account-deletion worker runtime | Server-only privileged worker credentials; never attach to the web app or public service | `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `DELETION_WORKER_INTERVAL_SECONDS`, `RAILWAY_DOCKERFILE_PATH`; one-shot CLI path uses `EVIDENCE_PURGE_DATABASE_URL` |
+| Account-deletion worker runtime | Server-only privileged worker credentials; never attach to the web app or public service | `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `DELETION_WORKER_INTERVAL_SECONDS`, `DELETION_WORKER_LEASE_SECONDS`, `DELETION_WORKER_SINGLE_INSTANCE`, `DELETION_MAX_ATTEMPTS`, `RAILWAY_DOCKERFILE_PATH`; one-shot CLI path uses `EVIDENCE_PURGE_DATABASE_URL` |
 | Google Drive connector runtime | Server-only OAuth/token-vault credentials; never expose the token-encryption key or client secret to the browser | `CONNECTOR_TOKEN_ENCRYPTION_KEY`, `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` |
 | Google Drive connector web OAuth | Server-only OAuth callback credentials | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_URI` |
 | Notion connector web OAuth | Server-only Notion OAuth callback credentials | `NOTION_OAUTH_CLIENT_ID`, `NOTION_OAUTH_CLIENT_SECRET`, `NOTION_REDIRECT_URI`, `NEXT_PUBLIC_NOTION_CONNECTOR_ENABLED` |
 | GitHub connector | Server-only GitHub App credentials; installation tokens are minted on demand and not stored | Preferred: `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_SLUG`. Accepted aliases: `GIT_APP_ID`, `GIT_APP_PRIVATE_KEY`, `GIT_APP_SLUG`. Also `NEXT_PUBLIC_GITHUB_CONNECTOR_ENABLED` |
-| API-key retrieval service | Server-only feature flag for the retrieve/get-document API | `EVIDENCE_RETRIEVE_API_ENABLED` (currently `true` in production); API keys are workspace-scoped and require `evidence:read` |
+| API-key retrieval service | Server-only feature flags and optional provider credential | `EVIDENCE_RETRIEVE_API_ENABLED` (currently `true` in production); `EVIDENCE_JEV_ENABLED` is `true` in production as of 2026-11-14; `TYPESAFE_API_KEY` is a server-only secret required only for explicitly opted-in JEV scoring |
+| Remote MCP service | Server-only feature flag for the hosted Streamable HTTP MCP endpoint | `EVIDENCE_REMOTE_MCP_ENABLED` (default false; independent of connector flags) |
+| Task ledger | Server-only flag for the content-free task-run ledger | `EVIDENCE_TASK_LEDGER_ENABLED` (default false; enable after the ledger migration) |
 | GitHub Codespaces | Encrypted Codespaces secrets | provider keys used for local work |
 
 Supabase secret and service-role keys must never reach the frontend, a
@@ -106,6 +108,8 @@ local Mailpit results do not establish hosted SMTP delivery.
 | `NEXT_PUBLIC_ACCOUNT_EXPORT_ENABLED` | Public | Enables the account/personal export UI. Defaults to disabled. Production is `true` after the 2026-11-11 export/download/revoke smoke; set it to exactly `true` only after migration `20261111180000`, Evidence Service export routes, BFF routes, and that smoke are in place. |
 | `NEXT_PUBLIC_GOOGLE_DRIVE_CONNECTOR_ENABLED` | Public | Enables the Google Drive Connect UI. Defaults to disabled and displays “Coming soon”. Google Drive remains off until Google OAuth verification, deployment, and a live smoke pass. |
 | `NEXT_PUBLIC_NOTION_CONNECTOR_ENABLED` | Public | Enables the Notion Connect UI. Production is `true` after the 2026-11-11 Notion connector deployment; a live connect/sync/disconnect smoke is still required. |
+| `NEXT_PUBLIC_REMOTE_MCP_ENABLED` | Public | Enables the workspace **Remote MCP** panel. Defaults to disabled and is independent of all connector flags. |
+| `NEXT_PUBLIC_REMOTE_MCP_URL` | Public | Hosted MCP base URL, for example `https://<evidence-service>/mcp`; the UI appends `/workspaces/<workspace_id>/`. |
 
 Copy placeholders from `apps/web/.env.example`. The Resend SMTP password is
 not an application variable. The service keeps its separate required JWT and
@@ -156,8 +160,9 @@ exchange and service refresh), never in `NEXT_PUBLIC_*` variables. For Notion,
 ### Account export rollout
 
 The optional deletion health-check cron uses `DELETION_HEALTHCHECK_DATABASE_URL`
-plus `DELETION_PURGE_PENDING_WARN_MINUTES`, `DELETION_ACCEPTED_WARN_MINUTES`, and
-`DELETION_QUEUE_WARN_MINUTES` (names only; values live in the worker secret store).
+plus `DELETION_PURGE_PENDING_WARN_MINUTES`, `DELETION_ACCEPTED_WARN_MINUTES`,
+`DELETION_QUEUE_WARN_MINUTES`, `DELETION_RETRY_GRACE_MINUTES`, and
+`DELETION_MAX_ATTEMPTS` (names only; values live in the worker secret store).
 
 See `docs/operations/worker-ops-hardening-2026-11-11.md` for the alert runbook,
 single-instance rule, backup status, and secret-rotation plan.
@@ -264,11 +269,11 @@ present.
 
 ## Status
 
-The repository now contains the local Supabase Auth frontend flow and an
-Evidence Service identity/workspace boundary backed by Supabase Postgres RLS
-migrations. The Explorer's evidence remains synthetic. This change does not
-configure or verify a hosted Supabase project, SMTP delivery, production app
-URLs, real confirmation/reset email delivery, or an authenticated hosted
-end-to-end flow. The actual sender domain, callback allowlist, and active
-Supabase JWT signing configuration must be confirmed by an authorized
-operator before hosted verification.
+The repository contains the Supabase Auth frontend flow and an Evidence Service
+identity/workspace boundary backed by Supabase Postgres RLS migrations. The
+hosted workspace reads real workspace data; it does not fall back to synthetic
+fixtures. Production deployment and the current boundary are recorded in
+[`docs/operations/production-verification-current.md`](operations/production-verification-current.md).
+Hosted email delivery, sender-domain configuration, callback allowlists, and
+active Supabase JWT signing configuration are operator-owned and must be
+re-confirmed after any environment change.

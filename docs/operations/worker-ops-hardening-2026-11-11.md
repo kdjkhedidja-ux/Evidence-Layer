@@ -20,7 +20,9 @@ Alert conditions:
 
 | Alert | Meaning |
 |---|---|
-| `purge_failed` | Terminal worker failure; inspect the request and error category |
+| `purge_failed_terminal` | Verification failure or exhausted attempts; inspect the request and category |
+| `purge_failed_retry_overdue` | A retryable failure is past its `next_attempt_at` grace window; the worker is not draining retries |
+| `stale_lease` | A request has an expired lease that no worker reclaimed; the worker may be down |
 | `journal_ack_pending` | Acceptance/acknowledgement did not progress |
 | `purge_pending_age` | Oldest `purge_pending` exceeds `DELETION_PURGE_PENDING_WARN_MINUTES` (default 10) |
 | `accepted_age` | Oldest `accepted` exceeds `DELETION_ACCEPTED_WARN_MINUTES` (default 10) |
@@ -33,17 +35,25 @@ Page when the process exits `2` or fails to run for two consecutive periods.
 The worker also emits `worker_lock_unavailable` if another instance holds the
 single-instance lock; alert on that event.
 
-## 2. One replica and the no-duplicate rule
+## 2. Lease/claim, retry, and the no-duplicate rule
 
-- Keep `numReplicas=1` for the deletion worker.
-- The continuous worker now acquires a session-level PostgreSQL advisory lock
-  (`evidence-layer-deletion-worker`) with a bounded retry window before it
-  starts processing. The lock is held in production. A second replica exits
-  with `worker_lock_unavailable` rather than racing.
-- Do not increase replicas until a database lease/claim function with
-  `FOR UPDATE SKIP LOCKED`, ownership expiry, and recovery semantics is designed
-  and tested. The advisory lock protects the current single-worker design; it
-  is not a general horizontal-scaling design.
+Migration `20261114230000_deletion_worker_lease_retry.sql` adds the database
+lease/claim path. The worker now claims one request atomically with
+`FOR UPDATE SKIP LOCKED`, records a lease owner and expiry, and can reclaim a
+request only after the previous lease expires. A crashed worker therefore stops
+owning the request without manual intervention.
+
+- `DELETION_WORKER_LEASE_SECONDS` (default `300`, bounds 30-3600) controls the
+  lease. Keep it above the observed worst-case request duration.
+- `DELETION_MAX_ATTEMPTS` (default `5`, bounds 1-20) bounds retryable failures.
+- Retry backoff is 5 minutes, 15 minutes, 1 hour, then 6 hours. Verification
+  failures are terminal and are never retried.
+- Failure recording and lease release require the calling worker to still own
+  the lease. A stale worker cannot overwrite a newer claim.
+- `DELETION_WORKER_SINGLE_INSTANCE` defaults to `true` and keeps the session
+  advisory lock (`evidence-layer-deletion-worker`) as defense in depth. Set it
+  to `false` only after the migration is applied and the lease path is
+  validated; the lease, not the lock, is the duplicate-processing guard.
 - During a rolling deploy, a new worker may wait briefly for the old worker to
   release the lock. A persistent `worker_lock_unavailable` means the old
   instance is still running or the service was scaled above one.
@@ -88,12 +98,20 @@ after either change. Existing procedure:
 `docs/PRODUCTION-RESTORE-CHECKLIST-2026-11-09.md`.
 
 Restore is an incident action, not a routine release step: close the Recovery
-Fence, restore into a disposable target first, validate row/FK counts, then
+Fence, restore into a disposable target first, validate row/FK counts, run
+`python -m evidence_service.restore_reconciliation` against that target, then
 follow the incident commander's production restore and deletion-reconciliation
-procedure. Do not claim PITR/backup coverage until the provider shows a
-recovery point and the drill covers Auth/Storage.
+procedure. See
+`docs/operations/restore-deletion-reconciliation-2026-11-15.md`. Do not claim
+PITR/backup coverage until the provider shows a recovery point and the drill
+covers Auth/Storage.
 
-## 5. Worker secret rotation
+## 5. Worker secret custody and rotation
+
+Custody record: the privileged worker credentials live only in the Railway
+worker secret store. They are not committed, attached to the web app, or exposed
+to the browser. Last custody review: **2026-11-14**. Rotation is **not**
+performed by this change.
 
 Plan date: **2026-12-11** (or immediately on suspected exposure).
 
@@ -121,7 +139,9 @@ mid-flight unless the incident commander requires it.
 
 ## 6. Predictable deployment checklist
 
-1. Reviewed migration plan/apply/verify (if schema changed).
+1. Reviewed migration plan/apply/verify. P0.2 requires migration
+   `20261114230000_deletion_worker_lease_retry.sql` before the worker deploy;
+   the health-check SQL references the new lease/attempt columns.
 2. Deploy Evidence Service; verify `/healthz` 200 and export routes 401 without auth.
 3. Deploy the worker; verify one replica, `worker_started`/`worker_cycle`, and lock acquisition.
 4. Run deletion + export smokes on dedicated test accounts; verify terminal states and cleanup.
@@ -133,6 +153,10 @@ mid-flight unless the incident commander requires it.
 
 - No provider PITR or provider-listed backup; the logical dump can be stale.
 - No full Auth/Storage restore proof; no provider absence proof for deleted data.
-- The advisory lock is not a lease and does not make multiple replicas safe.
+- The lease/claim path is code-complete but has not been applied or validated in
+  production. Until migration 47 is applied, do not deploy the new worker or
+  health-check build.
+- The advisory lock remains defense in depth; horizontal scaling requires
+  explicitly setting `DELETION_WORKER_SINGLE_INSTANCE=false` after validation.
 - Health-check alerting depends on an operator-created cron/monitor; it is not yet a paging integration.
 - Canonical repository and mirror sync remain an explicit release gate.

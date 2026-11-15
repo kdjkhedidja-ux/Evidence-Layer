@@ -82,6 +82,8 @@ V_CONNECTORS = "20261111190000"
 V_API_KEY_DOCUMENT = "20261112120000"
 V_CONNECTOR_BRIDGE = "20261112140000"
 V_CONNECTOR_EVIDENCE_RPC = "20261112160000"
+V_TASK_RUN_LEDGER = "20261114210000"
+V_WORKER_LEASE_RETRY = "20261114230000"
 
 VERSION_RE = re.compile(r"^[0-9]{14}_[a-z0-9_]+\.sql$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -544,6 +546,7 @@ def expected_policy_identity(policy: str) -> str:
         ("personal_api_keys_", "public", "personal_api_keys"),
         ("connector_connections_", "public", "connector_connections"),
         ("connector_documents_", "public", "connector_documents"),
+        ("task_run_ledger_", "public", "task_run_ledger"),
     )
     for prefix, expected_schema, table in relation_prefixes:
         if name.startswith(prefix):
@@ -586,6 +589,8 @@ def expected_catalog(versions: list[str]) -> dict:
     api_key_document = V_API_KEY_DOCUMENT in present
     connector_bridge = V_CONNECTOR_BRIDGE in present
     connector_evidence_rpc = V_CONNECTOR_EVIDENCE_RPC in present
+    task_run_ledger = V_TASK_RUN_LEDGER in present
+    worker_lease_retry = V_WORKER_LEASE_RETRY in present
     source = V_SOURCE_CATALOG in present
     storage = V_SNAPSHOT_STORAGE in present
     verifier = V_VERIFIER_IDENTITY in present
@@ -636,6 +641,8 @@ def expected_catalog(versions: list[str]) -> dict:
     if connectors:
         tables["public.connector_connections"] = (True, True)
         tables["public.connector_documents"] = (True, True)
+    if task_run_ledger:
+        tables["public.task_run_ledger"] = (True, True)
 
     indexes: set[str] = set()
     if identity:
@@ -697,6 +704,13 @@ def expected_catalog(versions: list[str]) -> dict:
             "public.connector_documents_external_id_key",
             "public.evidence_records_connector_external_key",
         })
+    if task_run_ledger:
+        indexes.update({
+            "public.task_run_ledger_pkey",
+            "public.task_run_ledger_workspace_created_idx",
+        })
+    if worker_lease_retry:
+        indexes.add("public.data_deletion_requests_claimable_idx")
     if phase8_export:
         indexes.update({
             "public.data_export_jobs_pkey",
@@ -819,6 +833,11 @@ def expected_catalog(versions: list[str]) -> dict:
             "private.snapshot_verifier_allowlist_delete_manager",
             "private.snapshot_verifier_allowlist_audit_insert_owner",
             "private.snapshot_verifier_allowlist_audit_select_manager",
+        })
+    if task_run_ledger:
+        policies.update({
+            "public.task_run_ledger_select_active_member",
+            "public.task_run_ledger_insert_active_member",
         })
     if account_lifecycle:
         policies.update({
@@ -1095,6 +1114,12 @@ def expected_catalog(versions: list[str]) -> dict:
             "private.configure_personal_api_key_gateway_secret",
             "private.personal_api_key_subject",
         })
+    if worker_lease_retry:
+        functions.update({
+            "private.claim_deletion_request",
+            "private.release_deletion_claim",
+            "private.record_deletion_failure",
+        })
 
     foreign_keys: set[tuple[str, str, str, str]] = set()
     if identity:
@@ -1166,6 +1191,11 @@ def expected_catalog(versions: list[str]) -> dict:
         foreign_keys.update({
             ("personal_api_keys_user_id_fkey", "public.personal_api_keys", "auth.users", "c"),
             ("personal_api_keys_workspace_member_fkey", "public.personal_api_keys", "public.workspace_memberships", "c"),
+        })
+    if task_run_ledger:
+        foreign_keys.update({
+            ("task_run_ledger_workspace_id_fkey", "public.task_run_ledger", "public.workspaces", "c"),
+            ("task_run_ledger_actor_user_id_fkey", "public.task_run_ledger", "auth.users", "c"),
         })
     if deletion_audit and not audit_fk_drop:
         audit_fk_action = "n" if personal_deletion else "r"
@@ -1523,6 +1553,19 @@ def recovery_is_recent(backup: dict) -> bool:
 EXTERNAL_RECOVERY_PATH = ROOT / "supabase" / "recovery-attestation.json"
 RECOVERY_MAX_AGE_SECONDS = 48 * 3600
 
+# Reviewed external recovery targets. The attestation must name one of these
+# exact buckets and an endpoint matching the provider's reviewed host pattern.
+EXTERNAL_RECOVERY_TARGETS = {
+    "r2": (
+        "evidence-layer-db-backups",
+        r"https://[a-z0-9]+\.r2\.cloudflarestorage\.com",
+    ),
+    "b2": (
+        "evidence2",
+        r"https://s3\.[a-z0-9-]+\.backblazeb2\.com",
+    ),
+}
+
 
 def _is_recent(timestamp: str) -> bool:
     try:
@@ -1545,12 +1588,25 @@ def load_external_recovery(path: Path | None = None) -> dict | None:
     return data if isinstance(data, dict) else None
 
 
+def external_recovery_target_is_reviewed(attestation: dict) -> bool:
+    target = EXTERNAL_RECOVERY_TARGETS.get(attestation.get("provider"))
+    if target is None:
+        return False
+    bucket, endpoint_pattern = target
+    endpoint = attestation.get("endpoint")
+    return (
+        attestation.get("bucket") == bucket
+        and isinstance(endpoint, str)
+        and re.fullmatch(endpoint_pattern, endpoint) is not None
+    )
+
+
 def external_recovery_is_recent(attestation: dict | None) -> bool:
     """A documented substitute for Supabase PITR: an uploaded, drilled dump.
 
     The attestation is repository-reviewed, expires after 48 hours, and must
-    point at an existing drill report. It does not replace Supabase backups when
-    one is available.
+    point at an existing drill report. It accepts the reviewed R2 or Backblaze
+    B2 target. It does not replace Supabase backups when one is available.
     """
     if not isinstance(attestation, dict):
         return False
@@ -1559,12 +1615,9 @@ def external_recovery_is_recent(attestation: dict | None) -> bool:
         return False
     evidence = drill.get("evidence")
     return bool(
-        attestation.get("provider") == "r2"
-        and attestation.get("bucket") == "evidence-layer-db-backups"
+        external_recovery_target_is_reviewed(attestation)
         and isinstance(attestation.get("object_key"), str)
         and re.fullmatch(r"dumps/[0-9A-Za-z._/-]+\.dump", attestation["object_key"])
-        and isinstance(attestation.get("endpoint"), str)
-        and re.fullmatch(r"https://[a-z0-9]+\.r2\.cloudflarestorage\.com", attestation["endpoint"])
         and isinstance(attestation.get("sha256"), str)
         and re.fullmatch(r"[0-9a-f]{64}", attestation["sha256"])
         and type(attestation.get("size_bytes")) is int

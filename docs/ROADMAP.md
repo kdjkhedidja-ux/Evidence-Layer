@@ -21,7 +21,7 @@ MCP responses, logs, or browser storage.
 User-provided keys are a later Pro Plus and Enterprise capability, with strict
 encryption, isolation, rotation, and audit requirements.
 
-## 2.1 Current implementation status (2026-11-11)
+## 2.1 Current implementation status (2026-11-14)
 
 The authenticated SaaS foundation is implemented: Supabase Auth with email
 confirmation/recovery/TOTP MFA, personal and organization workspaces, evidence
@@ -31,14 +31,41 @@ routes. The account-deletion worker is deployed with one replica; personal and
 organization/snapshot smokes reached `purged`. See
 [`docs/operations/DELETION-WORKER-VERIFY-2026-11-11.md`](operations/DELETION-WORKER-VERIFY-2026-11-11.md).
 
-Hosted retrieval/scoring, source ingestion/publish, billing/metering,
-production connectors, shared-workspace deletion approvals, and the remaining
-Phase 8 gates are not complete. A narrowed account/personal export and mediated
-download path is deployed and smoke-tested; shared/group export remains
-unavailable. Phase 8 is not
-closed. Phase B decisions are recorded in
+Hosted task-context, chunked personal-key retrieval, and Remote MCP are
+deployed and production-verified. JEV is enabled server-side as of 2026-11-14
+but uses JEV as the request default when the server flag is enabled (`use_jev=false` forces lexical); agent execution,
+server-persisted per-task usage/cost/quality telemetry,
+source ingestion/publish, billing/metering, production background connectors,
+shared-workspace deletion approvals, and the remaining Phase 8 gates are not
+complete. A narrowed account/personal export and mediated download path is
+deployed and smoke-tested; shared/group export remains unavailable. Phase 8 is
+not closed. Phase B decisions are recorded in
 [`PHASE8-SCOPE-DECISIONS-2026-11-11.md`](PHASE8-SCOPE-DECISIONS-2026-11-11.md):
 C4/C6 are in Phase C, while C1/C3/full C5/C7 are deferred with residual risk.
+
+Auth recovery and protected web operations now fail closed when recovery or
+MFA verification is incomplete or unavailable. MFA is also checked before and
+after connector OAuth and at the shared connection-storage boundary. The
+2026-11-13 auth hardening release passed post-merge CI and Vercel deployment.
+
+The Phase 1 benchmark has a reproducible 40-task Real-World v1 dataset and
+historical lexical and end-to-end comparisons. Its relevance judgments remain
+developer-authored, however, and its held-out split is exposed. Phase 1 is
+therefore not independently validated.
+
+Per [`ADR 0011`](adr/0011-merge-phase1-validation-into-phase2-comparison.md),
+Phase 1 and Phase 2 are merged. Existing documented experiments are the
+retrospective evidence base; Phase 2's blinded human A/B/Tie/Both-bad
+comparison is the validation surface. Internal progress may continue after the
+retrospective audit, but confirmatory quality claims still require a new sealed
+set and independent review. See
+[`phase1-phase2-existing-evidence-2026-11-14.md`](operations/phase1-phase2-existing-evidence-2026-11-14.md). Provider/JEV evaluation remains
+closed pending the approvals in
+[`phase6-readiness-gate.md`](phase6-readiness-gate.md).
+
+The active, prioritized development backlog derived from the 2026-11-14
+repository audit is maintained in
+[`docs/DEVELOPMENT_PLAN.md`](DEVELOPMENT_PLAN.md).
 
 ## 3. Intelligence architecture
 
@@ -113,18 +140,31 @@ account-deletion worker is also deployed. Neither service is the corpus
 retrieval/scoring path.
 The MCP tool provides strict request validation and safe errors over stdio.
 
-## 7. Phase 1 — Prove evidence-selection value
+## 7. Phase 1–2 — Validation and comparison experience (merged)
 
-Phase 1 requires a benchmark comparing Evidence-Layer against strong baselines
-on 20–50 real tasks. The benchmark must measure task success, answer
-faithfulness, evidence recall, evidence precision, citation correctness, tokens
-per successful task, latency, failure rate, correct-refusal rate, and estimated
-cost.
+Phase 1 and Phase 2 are merged by
+[`ADR 0011`](adr/0011-merge-phase1-validation-into-phase2-comparison.md).
+The existing documented experiments are reused as the retrospective evidence
+base; no new provider run is required to start the comparison experience.
 
-## 8. Phase 2 — Comparison experience
+The comparison experience must measure:
 
-Phase 2 adds scripts/compare.py and side-by-side comparison with human votes:
-A, B, Tie, Both bad.
+- task success and correct refusal;
+- answer faithfulness, evidence recall, evidence precision, and citation
+  correctness;
+- tokens per successful task, latency, failure rate, and estimated cost.
+
+The comparison surface is a blinded side-by-side review with human votes:
+**A, B, Tie, Both bad**. At least two independent reviewers vote per pair;
+disagreements use a third reviewer or panel without averaging. Route, provider,
+and model labels are hidden and order is randomized. Existing usage data
+supplies token/cost/latency fields; automated judge scores are secondary
+context.
+
+Retrospective results may guide internal product decisions. Any confirmatory
+quality or superiority claim requires a new, previously unseen sealed set,
+preregistered metrics, and independent adjudication. The exposed Real-World v1
+held-out split is never that sealed set.
 
 ## 9. Phase 3 — Multi-source evidence architecture
 
@@ -166,8 +206,8 @@ and production rollout remain planned.
 The hosted auth, RLS-backed tenant isolation, personal/organization workspaces,
 evidence/relationship/source-catalogue operations, personal API keys, and
 account-deletion path are implemented. Local-file upload, Google Drive
-connection, a hosted MCP HTTP endpoint, usage metering/monitoring, free-tier
-limits, and billing remain planned. Usage metering and safety limits do not
+connection, usage metering/monitoring, free-tier limits, and billing remain
+planned. Hosted Remote MCP and task-context are already deployed. Usage metering and safety limits do not
 imply payment collection; billing is deferred to Phase 6 after beta reliability
 and usage economics are validated.
 
@@ -196,15 +236,18 @@ User query
 → Caller’s model (final answer generation)
 ```
 
-JEV is the intended primary evidence-scoring and ranking provider only when
-explicitly enabled and permitted by policy. Before transferring query or
-candidate text to JEV, the trusted server must separately authorize that
-provider transfer and minimize the data sent. Source access does not authorize
-the transfer; if transfer authorization is absent or unclear, do not send the
-data. On any JEV failure—including provider errors, timeouts, missing,
-malformed, invalid, or incomplete scores, or output that fails validation—
-recompute the entire candidate set lexically. Never mix JEV and lexical scores
-or rankings. The final answer remains the caller model's responsibility.
+The hosted retrieval service now has a distinct, opt-in JEV scoring path.
+Transfer requires both an explicit per-request `use_jev: true` and the
+server-side `EVIDENCE_JEV_ENABLED=true` gate (code default false; production
+open). The trusted service binds a short-lived, one-use permit to its verified principal,
+workspace, query, and complete batch of at most 50 bounded candidate snippets;
+the Typesafe key remains server-side and SDK retries are disabled. Source
+access alone does not authorize transfer. On any provider, timeout, dependency,
+or score-validation failure, the service discards every JEV score and
+recomputes the complete candidate set lexically. It never mixes JEV and lexical
+rankings. No live provider request was made while developing or testing this
+path. Persistent per-task usage/cost and quality measurement remain
+unimplemented. The final answer remains the caller model's responsibility.
 
 OpenAI Decisions API is the required routing-intelligence component for
 complex source-routing decisions; the future routing policy may use

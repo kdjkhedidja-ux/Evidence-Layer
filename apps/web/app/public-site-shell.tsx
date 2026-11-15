@@ -1,14 +1,7 @@
-import Link from "next/link";
+import PageTitle from "../components/page-title";
+import SiteFooter from "../components/site-footer";
+import SiteHeader from "../components/site-header";
 import type { ReactNode } from "react";
-
-const PUBLIC_LINKS = [
-  { href: "/workspace", label: "Workspace" },
-  { href: "/documentation", label: "Documentation" },
-  { href: "/cost-performance", label: "Cost & Performance" },
-  { href: "/privacy", label: "Privacy Policy" },
-  { href: "/terms", label: "Terms of Use" },
-  { href: "/data-deletion", label: "Data Deletion" },
-] as const;
 
 export function PublicSiteShell({
   currentPath,
@@ -26,40 +19,18 @@ export function PublicSiteShell({
   return (
     <div className="public-site">
       <a className="public-skip-link" href="#main-content">Skip to content</a>
-      <header className="public-header">
-        <Link className="public-brand" href="/" aria-label="Evidence Layer home">
-          evidence<span>layer</span>
-        </Link>
-        <nav aria-label="Main navigation" className="public-navigation">
-          {PUBLIC_LINKS.map((item) => (
-            <Link
-              aria-current={currentPath === item.href ? "page" : undefined}
-              href={item.href}
-              key={item.href}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-      </header>
+      <SiteHeader />
 
       <main className="public-main" id="main-content">
         <div className="public-hero">
           <p className="public-eyebrow">{eyebrow}</p>
-          <h1>{title}</h1>
+          <h1><PageTitle>{title}</PageTitle></h1>
           <p className="public-lede">{description}</p>
         </div>
         <div className="public-body">{children}</div>
       </main>
 
-      <footer className="public-footer">
-        <p>Evidence Layer · Evidence selection with traceable sources.</p>
-        <nav aria-label="Legal and product information">
-          {PUBLIC_LINKS.map((item) => (
-            <Link href={item.href} key={item.href}>{item.label}</Link>
-          ))}
-        </nav>
-      </footer>
+      <SiteFooter currentPath={currentPath} />
     </div>
   );
 }

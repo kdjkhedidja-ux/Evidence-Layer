@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { createGoogleDriveConnection } from "../../../../../lib/connector-api";
+import {
+  connectorMfaFailurePath,
+  connectorMfaRedirectPath,
+  connectorMfaStatus,
+  createGoogleDriveConnection,
+} from "../../../../../lib/connector-api";
 import { getVerifiedAuthContext } from "../../../../../lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -32,6 +37,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const auth = await getVerifiedAuthContext();
   if (auth.kind !== "authenticated") {
     return redirect(request, "/login?next=/workspace");
+  }
+  const mfaStatus = await connectorMfaStatus(auth);
+  if (mfaStatus !== "not-required") {
+    return redirect(request, connectorMfaRedirectPath("google_drive", mfaStatus));
   }
 
   const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
@@ -88,13 +97,15 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return redirect(request, "/workspace?connector=google_drive&status=token");
   }
 
-  const stored = await createGoogleDriveConnection(auth.accessToken, {
+  const stored = await createGoogleDriveConnection(auth, {
     access_token: accessToken,
     refresh_token: refreshToken,
     expires_at: expiresAt,
     scopes,
     account_email: email,
   });
+  const mfaFailure = await connectorMfaFailurePath("google_drive", stored);
+  if (mfaFailure) return redirect(request, mfaFailure);
   if (!stored.ok) return redirect(request, "/workspace?connector=google_drive&status=store");
   return redirect(request, "/workspace?connector=google_drive&status=connected");
 }

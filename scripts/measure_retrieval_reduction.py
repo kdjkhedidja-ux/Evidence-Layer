@@ -67,12 +67,25 @@ def local_retrieve(
         "used_chars": result.used_chars,
         "selected_count": len(result.selected),
         "candidate_count": result.candidate_count,
+        "chunk_count": result.chunk_count,
+        "matched_chunk_count": result.matched_chunk_count,
         "token_estimator": result.token_estimator,
+        "selected_paths": [
+            item.path or item.record.source_label or str(item.record.id)
+            for item in result.selected
+        ],
     }
 
 
 def api_retrieve(
-    base_url: str, api_key: str, workspace_id: str, query: str, top_k: int, max_tokens: int, max_chars: int
+    base_url: str,
+    api_key: str,
+    workspace_id: str,
+    query: str,
+    top_k: int,
+    max_tokens: int,
+    max_chars: int,
+    candidate_limit: int,
 ) -> dict:
     with httpx.Client(timeout=30.0) as client:
         response = client.post(
@@ -83,6 +96,7 @@ def api_retrieve(
                 "top_k": top_k,
                 "max_tokens": max_tokens,
                 "max_chars": max_chars,
+                "candidate_limit": candidate_limit,
             },
         )
     response.raise_for_status()
@@ -99,6 +113,7 @@ def main() -> int:
     parser.add_argument("--top-k", type=int, default=5)
     parser.add_argument("--max-tokens", type=int, default=1200)
     parser.add_argument("--max-chars", type=int, default=6000)
+    parser.add_argument("--candidate-limit", type=int, default=100)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
 
@@ -122,12 +137,20 @@ def main() -> int:
         if api_mode:
             result = api_retrieve(
                 args.api_url, args.api_key, args.workspace_id, query,
-                args.top_k, args.max_tokens, args.max_chars,
+                args.top_k, args.max_tokens, args.max_chars, args.candidate_limit,
             )
         else:
             result = local_retrieve(
                 corpus, workspace, query, args.top_k, args.max_tokens, args.max_chars
             )
+        selected = result.get("evidence") or result.get("selected") or []
+        selected_paths = list(result.get("selected_paths") or [])
+        if not selected_paths and isinstance(selected, list):
+            selected_paths = [
+                str(item.get("path") or item.get("source_label") or item.get("evidence_id") or "?")
+                for item in selected
+                if isinstance(item, dict)
+            ]
         rows.append({
             "query": query,
             "status": result.get("status", "error"),
@@ -136,6 +159,9 @@ def main() -> int:
             "selected_chars": int(result.get("used_chars", 0)),
             "selected_count": int(result.get("selected_count", 0)),
             "candidate_count": int(result.get("candidate_count", len(corpus))),
+            "chunk_count": int(result.get("chunk_count", 0)),
+            "matched_chunk_count": int(result.get("matched_chunk_count", 0)),
+            "selected_paths": selected_paths,
         })
 
     output = args.output or Path("reports") / f"retrieval-token-reduction-{datetime.now(timezone.utc):%Y-%m-%d}.md"
@@ -146,11 +172,11 @@ def main() -> int:
         f"Generated: {datetime.now(timezone.utc).isoformat()}",
         f"Mode: {'Evidence Layer API' if api_mode else 'local lexical selection'}",
         f"Corpus documents: {len(corpus)}; queries: {len(rows)}",
-        f"Baseline: all corpus documents; selected: top_k={args.top_k}, max_tokens={args.max_tokens}, max_chars={args.max_chars}",
+        f"Baseline: all corpus documents; selected: top_k={args.top_k}, max_tokens={args.max_tokens}, max_chars={args.max_chars}, candidate_limit={args.candidate_limit}",
         f"Token estimator: {estimator}",
         "",
-        "| Query | Status | Baseline tokens | Selected tokens | Reduction | Selected docs |",
-        "|---|---:|---:|---:|---:|---:|",
+        "| Query | Status | Baseline tokens | Selected tokens | Reduction | Selected chunks | Top selected paths |",
+        "|---|---:|---:|---:|---:|---:|---|",
     ]
     reductions = []
     for row in rows:
@@ -161,7 +187,8 @@ def main() -> int:
         reductions.append(reduction)
         lines.append(
             f"| {row['query']} | {row['status']} | {row['baseline_tokens']} | "
-            f"{row['selected_tokens']} | {reduction:.1f}% | {row['selected_count']} |"
+            f"{row['selected_tokens']} | {reduction:.1f}% | {row['selected_count']} | "
+            f"{'; '.join(row['selected_paths'][:4]) or '—'} |"
         )
     lines += [
         "",

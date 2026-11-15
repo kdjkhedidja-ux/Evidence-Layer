@@ -27,7 +27,16 @@ const AUTHENTICATED = {
   kind: "authenticated",
   user: { id: USER_ID },
   accessToken: TOKEN,
-  client: {},
+  client: {
+    auth: {
+      mfa: {
+        getAuthenticatorAssuranceLevel: async () => ({
+          data: { currentLevel: "aal1", nextLevel: "aal1" },
+          error: null,
+        }),
+      },
+    },
+  },
 };
 const RECORD = {
   id: EVIDENCE_ID,
@@ -226,6 +235,25 @@ describe("workspace evidence and verified source Next.js boundary", () => {
         SOURCE_ID + "/versions/" + VERSION_ID + "/content",
     );
     expect(new Headers(init?.headers).get("Authorization")).toBe(`Bearer ${TOKEN}`);
+  });
+
+  it("accepts verified source content up to the backend's 8 MiB limit", async () => {
+    const bytes = new Uint8Array(5 * 1024 * 1024);
+    vi.mocked(fetch).mockResolvedValue(new Response(bytes, {
+      status: 200,
+      headers: {
+        "Content-Type": "application/octet-stream",
+        "Content-Length": String(bytes.byteLength),
+      },
+    }));
+
+    const response = await getSourceContent(
+      request("/api/source"),
+      params({ workspaceId: WORKSPACE_ID, sourceId: SOURCE_ID, versionId: VERSION_ID }),
+    );
+
+    expect(response.status).toBe(200);
+    expect((await response.arrayBuffer()).byteLength).toBe(bytes.byteLength);
   });
 
   it("returns no content when the service denies the source grant or is unavailable", async () => {

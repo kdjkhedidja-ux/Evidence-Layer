@@ -1,8 +1,11 @@
 import Link from "next/link";
+import PageTitle from "../../components/page-title";
+import SiteFooter from "../../components/site-footer";
+import SiteHeader from "../../components/site-header";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import WorkspaceConsole from "./workspace-console";
-import { mfaChallengeRequired } from "../../lib/supabase/mfa";
+import { getMfaChallengeStatus } from "../../lib/supabase/mfa";
 import { getVerifiedAuthContext } from "../../lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -30,8 +33,17 @@ export default async function WorkspacePage() {
       />
     );
   }
-  if (auth.kind === "authenticated" && await mfaChallengeRequired(auth.client)) {
-    redirect("/mfa?next=%2Fworkspace");
+  if (auth.kind === "authenticated") {
+    const mfaStatus = await getMfaChallengeStatus(auth.client);
+    if (mfaStatus === "unavailable") {
+      return (
+        <WorkspaceGate
+          title="Security check is unavailable"
+          description="Two-factor authentication could not be verified. No workspace data was loaded. Try again later."
+        />
+      );
+    }
+    if (mfaStatus === "required") redirect("/mfa?next=%2Fworkspace");
   }
   return (
     <WorkspaceConsole
@@ -52,16 +64,14 @@ function WorkspaceGate({
 }) {
   return (
     <main className="workspace-page workspace-page--gate">
-      <header className="workspace-header">
-        <Link className="workspace-brand" href="/">evidence<span>layer</span></Link>
-        <Link href="/">Open Explorer</Link>
-      </header>
+      <SiteHeader />
       <section aria-labelledby="workspace-gate-title" className="workspace-gate">
         <p className="eyebrow">Evidence Layer · Workspace</p>
-        <h1 id="workspace-gate-title">{title}</h1>
+        <h1 id="workspace-gate-title"><PageTitle>{title}</PageTitle></h1>
         <p>{description}</p>
         {action}
       </section>
+      <SiteFooter />
     </main>
   );
 }

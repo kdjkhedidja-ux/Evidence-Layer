@@ -16,53 +16,59 @@ whether the agent should **answer**, **abstain**, or **escalate**.
 
 ## Current Status
 
-The approved target architecture makes JEV the intended primary evidence
-scorer only when explicitly enabled and permitted by policy. On any JEV failure
-or invalid/incomplete score, the entire candidate set is recomputed lexically;
-JEV and lexical rankings are never mixed. The service provider-selection and
-MCP/stdio paths remain lexical-only. A separate one-run benchmark host can
-score only the complete, fingerprint-verified public Real-World v1 set under a
-one-use permit; it does not enable production provider transfers. Its
-exploratory results and scientific limits are recorded in
+JEV is the primary hosted scorer when `EVIDENCE_JEV_ENABLED` is open. On any
+JEV failure or invalid/incomplete score, the entire candidate set is recomputed
+lexically; JEV and lexical rankings are never mixed. The hosted task-context,
+API-key retrieve, Python SDK, and Remote MCP paths use JEV by default when the
+server gate is open; `use_jev=false` forces the lexical fallback. The local
+stdio path remains lexical-only. Production activation and the synthetic smoke
+are recorded in
+[`docs/operations/provider-jev-activation-2026-11-14.md`](docs/operations/provider-jev-activation-2026-11-14.md).
+A separate one-run benchmark host scores only the complete, fingerprint-verified
+public Real-World v1 set under a one-use permit; its exploratory results and
+scientific limits are recorded in
 [`docs/phase6_real_world_jev_report.md`](docs/phase6_real_world_jev_report.md).
-The current corpus retriever also denies source reads by default, so it does
-not return corpus evidence without a future trusted source boundary. The
-historical held-out comparison was **Inconclusive**.
+The local corpus retriever denies source reads by default; the hosted service
+uses workspace/RLS/API-key boundaries. The historical held-out comparison was
+**Inconclusive**.
 
 A local stdio MCP server (`retrieve_evidence`) is implemented. The repository
 also contains an authenticated Next.js workspace product in `apps/web/` and a
 FastAPI identity/data service in `services/evidence-service/`. The web app
 covers Supabase Auth (email confirmation, recovery, TOTP MFA), personal and
 organization workspaces, evidence and relationship CRUD, verified
-source-catalogue reads, workspace-scoped read-only personal API keys, account
-deletion, and the public ROI/evaluation pages. The service exposes lifecycle-
+source-catalogue reads, task-context preparation, a Telemetry page backed by a
+content-free server ledger, workspace-scoped read-only personal API keys,
+account deletion, and the public ROI/evaluation pages. The service exposes lifecycle-
 gated `/v1` account, workspace, evidence, source, deletion, and narrowed
 export routes backed by Supabase RLS. The dedicated account-deletion worker is deployed on Railway with
 one replica; the current operational record is
 [`docs/operations/DELETION-WORKER-VERIFY-2026-11-11.md`](docs/operations/DELETION-WORKER-VERIFY-2026-11-11.md).
 
-The hosted retrieval/scoring path is not yet wired into the product. The
-JEV/lexical scoring core remains a library and evaluation path, and the FastAPI
-service does not perform retrieval or scoring. A narrowed account/personal export and mediated download path is deployed to
-production and was enabled after a create/download/revoke smoke. Shared/group
-export remains unavailable. A read-only connector SDK for Google Drive,
-GitHub, Dropbox, Confluence, and Notion exists under
-`src/evidence_layer/connectors/`. Google Drive also has a personal-only vertical slice: OAuth connect/callback,
-server-side encrypted token storage, a manual bounded sync into owner-only
-`connector_documents`, and a minimal account UI. It remains **Coming soon**
-until Google OAuth verification. Notion has the same OAuth/manual-sync slice and
-is enabled for personal production use; a live smoke remains pending. GitHub App installation-based read-only sync is deployed and smoke-tested;
-empty repositories are skipped. The API-key retrieval endpoint and HTTP MCP
-server are implemented; see `docs/connectors/api-retrieval-mcp.md`. Background
-scheduling, ACL mapping, source-snapshot verification, deletion propagation,
-and production deployment are not implemented. Still absent
-are a hosted retrieval/scoring endpoint, source ingestion/publish UI, full
-shared/group export, general-purpose download/CDN delivery, billing/metering,
-production connectors, and shared-workspace deletion approvals. Phase 8 is not closed. The planned target architecture is
-Vercel/Next.js for the frontend, Supabase for backend services, Railway for the
-persistent HTTP MCP/worker services, JEV as the core evidence-scoring and
-ranking provider when explicitly authorized, and Lexical as its supporting
-fallback.
+The hosted FastAPI service exposes workspace task-context, personal API-key
+retrieve/get-document, and hosted Remote MCP over bounded, chunked evidence.
+JEV is the primary scorer when the server-side `EVIDENCE_JEV_ENABLED` flag is
+open; `use_jev=false` forces lexical fallback. The agent API-key and MCP paths
+are read-only workspace-scoped access, not agent execution; see
+`docs/connectors/api-retrieval-mcp.md`. A narrowed
+account/personal export and mediated download path is deployed to production
+after a create/download/revoke smoke. Shared/group export remains unavailable.
+A read-only connector SDK for Google Drive, GitHub, Dropbox, Confluence, and
+Notion exists under `src/evidence_layer/connectors/`. Google Drive has a
+personal-only OAuth/manual-sync slice and remains **Coming soon** until Google
+OAuth verification. Notion has the same OAuth/manual-sync slice and is enabled
+for personal production use; a live smoke remains pending. GitHub App
+installation-based read-only sync is deployed and smoke-tested; empty
+repositories are skipped. Background connector scheduling, ACL mapping,
+source-snapshot verification, and deletion propagation are not implemented.
+A content-free server-side retrieval task ledger exists; agent execution and
+agent-reported tokens/cost/latency/quality remain absent. Still absent are
+source ingestion/publish UI, full shared/group export,
+general-purpose download/CDN delivery, billing/metering, production background
+connectors, and shared-workspace deletion approvals. Phase 8 is not closed. The
+target architecture is Vercel/Next.js for the frontend, Supabase for backend
+services, Railway for the hosted service/MCP and worker, JEV as the primary
+scorer when enabled, and Lexical as the fail-closed fallback.
 A local deterministic routing foundation (source contract, catalog filter,
 deterministic router, and output validator in
 `src/evidence_layer/routing/`) exists as an unwired library with no allowing
@@ -385,11 +391,12 @@ recall@k and context-reduction versus the current no-op baseline.
   unique task IDs, non-empty queries/passages, valid gold IDs, required facts,
   distribution, and no dev/test overlap.
 - `pytest` passes with no failures.
-- The standard MCP path constructs `LocalCorpusRetriever()` without an injected
-  JEV policy. The retriever's default source-read boundary denies before corpus
-  content is opened, and live JEV transfer is hard-denied before credential
-  lookup, SDK loading, payload construction, or provider calls. Injected JEV
-  dependencies do not enable live transfer in the current implementation.
+- The local stdio MCP path constructs `LocalCorpusRetriever()` without an
+  injected JEV policy. The local retriever's default source-read boundary denies
+  before corpus content is opened, and local live JEV transfer is hard-denied
+  before credential lookup, SDK loading, payload construction, or provider
+  calls. The hosted task-context/API-key/Remote MCP paths use the separate
+  server-gated JEV scorer described below.
 
 **PROPOSAL**
 
@@ -526,15 +533,24 @@ verified during development. It is an alias and may resolve to a changing
 underlying model; this does not provide pinned-model reproducibility. Callers
 can select another model explicitly with `JevEvidenceScorer(model="...")`.
 
-The TypeSafe SDK is pinned at `typesafe-sdk==0.7.2`. The ordinary
-provider-selection policy remains lexical-only. The dedicated Real-World v1
-runner requires `--run-authorized`, verifies the fixed 40-case/200-candidate
-inputs and the synthetic freeze fingerprints, then issues a one-use scope for
-those exact query/candidate pairs. It uses the official System One endpoint,
+The TypeSafe SDK is pinned at `typesafe-sdk==0.7.2`. The ordinary library
+provider-selection policy remains lexical-only by default. The hosted JEV path
+is separately gated and fail-closed. The dedicated
+Real-World v1 runner requires `--run-authorized`, verifies the fixed
+40-case/200-candidate inputs and the synthetic freeze fingerprints, then issues
+a one-use scope for those exact query/candidate pairs. It uses the official System One endpoint,
 `TYPESAFE_API_KEY` Bearer authentication, zero SDK retries, and records safe
 scores and metadata without request bodies or credentials. The completed run
 and its offline verifier are documented in
 [`docs/phase6_real_world_jev_report.md`](docs/phase6_real_world_jev_report.md).
 That evaluation is exploratory: the judgments were developer-authored and the
 exposed held-out split is not blind. It does not change the production
-provider-selection policy, `/retrieve`, Egress, Supabase, or Railway.
+provider-selection policy module, Egress, Supabase, or Railway.
+
+Hosted evidence retrieval uses JEV by default when the service operator has set
+`EVIDENCE_JEV_ENABLED=true`. Clients can force the lexical fallback with
+`use_jev=false`. Production has the server gate open.
+Only the bounded candidate snippets and query for that request are sent;
+provider failure discards the complete JEV score set and reruns lexical
+selection. This path does not yet persist task-level model usage, cost, or
+quality measurements.

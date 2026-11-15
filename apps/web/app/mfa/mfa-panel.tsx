@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
 import { useRouter } from "next/navigation";
 import type { Factor } from "@supabase/supabase-js";
 import { createSupabaseBrowserClient } from "../../lib/supabase/client";
+import PageTitle from "../../components/page-title";
 
 type Enrollment = { factorId: string; qrCode: string; secret: string };
 
@@ -152,7 +153,7 @@ export default function MfaPanel({ next }: { next: string }) {
     return (
       <section className="workspace-panel mfa-panel" aria-live="polite">
         <p className="eyebrow">Account security</p>
-        <h1>Two-factor authentication</h1>
+        <h1><PageTitle>Two-factor authentication</PageTitle></h1>
         <p>Checking this account&apos;s authenticators…</p>
       </section>
     );
@@ -161,14 +162,15 @@ export default function MfaPanel({ next }: { next: string }) {
   return (
     <section className="workspace-panel mfa-panel" aria-labelledby="mfa-title">
       <p className="eyebrow">Account security</p>
-      <h1 id="mfa-title">Two-factor authentication</h1>
+      <h1 id="mfa-title"><PageTitle>Two-factor authentication</PageTitle></h1>
 
       {state === "verified" && (
         <>
           <p className="mfa-status mfa-status--verified">Verified for this session</p>
           <p>
             This session completed the authenticator challenge. Removing an authenticator does
-            not revoke existing access tokens; sign out everywhere after a security change.
+            not revoke existing access tokens. Signing out everywhere revokes refresh sessions,
+            but existing access tokens may remain valid until they expire.
           </p>
           <ul className="mfa-factors">
             {factors.filter((factor) => factor.status === "verified").map((factor) => (

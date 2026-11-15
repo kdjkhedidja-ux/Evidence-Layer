@@ -8,6 +8,8 @@ export type VerifiedAuthContext =
   | { kind: "unauthenticated" }
   | { kind: "unavailable" };
 
+export type AuthenticatedAuthContext = Extract<VerifiedAuthContext, { kind: "authenticated" }>;
+
 export async function createSupabaseServerClient(): Promise<SupabaseClient> {
   const config = getSupabasePublicConfig();
   if (!config) throw new SupabaseConfigurationError();

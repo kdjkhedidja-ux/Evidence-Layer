@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { createGitHubConnection } from "../../../../../lib/connector-api";
+import {
+  connectorMfaFailurePath,
+  connectorMfaRedirectPath,
+  connectorMfaStatus,
+  createGitHubConnection,
+} from "../../../../../lib/connector-api";
 import { getVerifiedAuthContext } from "../../../../../lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +34,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
   const auth = await getVerifiedAuthContext();
   if (auth.kind !== "authenticated") return redirect(request, "/login?next=/workspace");
-  const stored = await createGitHubConnection(auth.accessToken, installationId);
+  const mfaStatus = await connectorMfaStatus(auth);
+  if (mfaStatus !== "not-required") {
+    return redirect(request, connectorMfaRedirectPath("github", mfaStatus));
+  }
+  const stored = await createGitHubConnection(auth, installationId);
+  const mfaFailure = await connectorMfaFailurePath("github", stored);
+  if (mfaFailure) return redirect(request, mfaFailure);
   if (!stored.ok) return redirect(request, "/workspace?connector=github&status=store");
   return redirect(request, "/workspace?connector=github&status=connected");
 }

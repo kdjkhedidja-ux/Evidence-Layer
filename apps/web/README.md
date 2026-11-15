@@ -44,6 +44,11 @@ The web app uses the values in `.env.example`; copy them to an ignored local
 confirmation enabled in Supabase Auth. The app deliberately signs a user out
 if sign-up unexpectedly returns an active session, rather than bypassing email
 verification.
+Protected workspace pages and API operations fail closed if the user's MFA
+assurance level cannot be verified. Connector OAuth start/callback routes and
+the shared connection-storage boundary also require a verified MFA state.
+Signing out everywhere revokes refresh sessions, but already-issued access
+tokens may remain valid until they expire.
 
 ## Checks
 
@@ -62,7 +67,9 @@ Password recovery requests use an isolated implicit-flow client because the
 default hosted `{{ .ConfirmationURL }}` template redirects into the browser that
 opens the email. The callback receives recovery tokens in the URL fragment,
 removes that fragment, and establishes a verified, short-lived recovery session
-before opening `/reset-password`. Other Auth flows remain PKCE. When a custom
+before opening `/reset-password`. The server validates the signed token's
+recovery authentication method before issuing the recovery cookie. Other Auth
+flows remain PKCE. When a custom
 SMTP provider permits editing the recovery template, it can instead link to
 `/auth/recovery?token_hash={{ .TokenHash }}` on the app origin. That page waits
 for a button press before verifying the token hash, which also limits link

@@ -59,6 +59,15 @@ describe("browser-side Supabase callback error fragments", () => {
     expect(screen.getByText(/could not prepare your personal workspace/)).toBeInTheDocument();
   });
 
+  it("explains that security verification is temporarily unavailable", () => {
+    window.history.replaceState({}, "", "/auth/error?reason=mfa-unavailable");
+
+    render(<AuthErrorMessage initialReason="mfa-unavailable" />);
+
+    expect(screen.getByRole("heading", { name: "Security verification is unavailable" })).toBeInTheDocument();
+    expect(screen.getByText(/No protected data was loaded/)).toBeInTheDocument();
+  });
+
   it("treats missing or malformed error details safely and never adopts token fragments as a session", async () => {
     window.history.replaceState({}, "", "/auth/error#%E0%A4%A&access_token=synthetic-token");
 

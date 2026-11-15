@@ -9,19 +9,19 @@ scripts, dataset artifacts, a JEV scorer, a local stdio MCP server
 Explorer code backed by Supabase Auth/RLS and the Evidence Service. The root
 Explorer reads actual workspace data; it does not fall back to local fixtures.
 
-The currently observed Vercel Production deployment is still on main commit
-`0bf0c2b2` and predates the later Phase 8 feature-branch work. No Production
-deployment or database migration is made by this branch's local changes. The
-Railway Production health endpoint returned HTTP 200, but service version,
-identity configuration, and protected routes have not been verified against
-the hosted Production environment. The repository service code separately
-implements verified identity, workspace membership, evidence CRUD,
-relationships, and verified source reads using user-scoped Supabase tokens.
+The current production boundary is recorded in
+[`docs/operations/production-verification-current.md`](operations/production-verification-current.md):
+the Vercel app, the Railway FastAPI service, the deletion worker, and 47 Supabase
+migrations were verified on 2026-11-14. The repository implements verified
+identity, workspace membership, evidence and relationship CRUD, verified source
+reads, task-context, API-key retrieval, Remote MCP, personal API keys, and the
+content-free task ledger using user-scoped Supabase tokens and RLS.
 
-The repository does not contain a production source router, a Decisions API
-client, or the SaaS backend described below; it has only a local deterministic
-routing library (`src/evidence_layer/routing/`) that is not wired into any
-service.
+The repository does not contain a production source router or a Decisions API
+client; it has only a local deterministic routing library
+(`src/evidence_layer/routing/`) that is not wired into any service. Source
+ingestion/publish, production background connectors, billing/metering, and the
+remaining Phase 8 gates are also not implemented.
 
 Delivery phasing follows the canonical [Product Roadmap](ROADMAP.md): Phase 5
 requires mandatory per-user tenant isolation that protects each user's data;
@@ -78,15 +78,23 @@ document data or scorer behavior.
   not currently return corpus evidence without a future trusted source boundary.
 - The FastAPI identity/data service at `services/evidence-service/` exposes
   lifecycle-gated `/v1` account, workspace, evidence, relationship, source, and
-  deletion routes backed by Supabase Auth and RLS. It is deployed on Railway and
-  has no retrieval or scoring endpoint.
-- A persistent Railway HTTP MCP/retrieval service is planned; it will host the
-  `retrieve_evidence` tool behind authenticated tenant context.
-- The future customer-facing service must authenticate/authorize the caller
-  and establish tenant context.
-- It must validate requests, invoke retrieval and scoring, enforce usage limits,
-  and return sanitized results.
-- It must keep secrets server-side and emit request-level operational metadata.
+  deletion routes backed by Supabase Auth and RLS. Workspace task-context,
+  personal API-key retrieval, and hosted Remote MCP share bounded,
+  relationship-aware retrieval. Lexical scoring is the default when the JEV
+  gate is closed; optional JEV scoring requires both per-request consent and
+  the server-side `EVIDENCE_JEV_ENABLED` flag (code default off, production
+  open), and is primary when enabled. The local stdio MCP policy remains
+  unchanged.
+- Railway hosts the FastAPI service with workspace task-context, personal
+  API-key retrieval, and Remote MCP. The production task-context smoke and the
+  API-key/MCP checks are recorded in `docs/operations/`.
+- The hosted service authenticates and authorizes the caller, establishes
+  tenant context, validates requests, invokes bounded retrieval/scoring, and
+  returns sanitized results.
+- It keeps secrets server-side and applies lifecycle, membership, RLS, and
+  rate-limit gates. The content-free task ledger persists retrieval latency,
+  selected tokens/characters, selection counts, scoring provider, and fallback
+  reason. Agent model, cost, and answer-quality telemetry is not yet persisted.
 
 ### Supabase backend (implemented core; broader schemas planned)
 
@@ -228,17 +236,19 @@ document data or scorer behavior.
 Account, workspace, evidence, relationship, source-catalogue, and deletion
 operations are implemented in the hosted web/service path. A narrowed
 account/personal export and mediated download path is deployed with a
-`private, no-store` grant flow. Retrieval, scoring, provider-transfer
-enforcement, connectors, shared/group export, general download/CDN delivery,
-usage metering, and billing remain target capabilities or partial work.
+`private, no-store` grant flow. Workspace task-context, personal API-key
+retrieve/get-document, Remote MCP, and request-gated JEV scoring are deployed;
+JEV failures recompute the complete candidate set lexically. The content-free
+task ledger records retrieval metrics.
 
 Hosted authentication and tenant-isolation enforcement, database/RLS, the
 account/workspace/evidence/source/deletion APIs, organization workspaces,
-personal API keys, and the deletion worker are implemented. Missing: a hosted
-retrieval/scoring endpoint, hosted provider-transfer authorization, production
-source connectors and Decisions integration, source ingestion/publish,
-shared/group export, general download/CDN delivery, usage metering/billing,
-shared-workspace deletion approvals, and the remaining Phase 8 gates.
+personal API keys, the deletion worker with lease/retry, hosted retrieval/scoring, and the task
+ledger are implemented. Missing: source ingestion/publish, production
+background connectors and Decisions integration, shared/group export, general
+download/CDN delivery, usage metering/billing, agent execution and task-level
+quality measurement, shared-workspace deletion approvals, and the remaining
+Phase 8 gates.
 
 ## Initial Data Concepts
 
@@ -315,17 +325,18 @@ administration beyond the current RLS model are not implemented.
 - Vercel: authenticated Next.js workspace app, public site, and ROI/evaluation
   pages.
 - Supabase: hosted Auth, Postgres/RLS, Storage, and reviewed migrations.
-- Railway: FastAPI identity/data service and the account-deletion worker; the
-  persistent MCP/retrieval service remains planned.
+- Railway: FastAPI identity/data service, hosted task-context/retrieve/Remote
+  MCP, and the account-deletion worker.
 - TypeSafe: external JEV evidence-scoring API.
 - OpenAI Decisions API: experimental source-routing option for complex
   queries, evaluated against the deterministic baseline before any proposed
   production-default change; not a scorer or answer generator.
 
 Vercel currently hosts the authenticated workspace app from `main`; Railway
-hosts the FastAPI identity/data service and the deletion worker. These
-deployments do not mean that hosted retrieval/scoring, connectors, shared/group
-export, billing, or full Phase 8 are complete.
+hosts the FastAPI identity/data service, hosted retrieval/scoring, and the
+deletion worker. These deployments do not mean that source ingestion/publish,
+background connectors, shared/group export, billing, or full Phase 8 are
+complete.
 
 ## Open Architecture Decisions
 
@@ -344,11 +355,11 @@ export, billing, or full Phase 8 are complete.
 
 ## Platform Deployment Target
 
-This separates the existing deployments from the target retrieval
-architecture. The authenticated workspace app is deployed from `main` on
-Vercel; the FastAPI identity/data service and deletion worker are deployed on
-Railway. They provide account/workspace/evidence/source/deletion operations but
-not hosted retrieval or scoring.
+This separates the existing deployments from the target architecture. The
+authenticated workspace app is deployed from `main` on Vercel; the FastAPI
+identity/data service, hosted retrieval/scoring, and the deletion worker are
+deployed on Railway. Source ingestion/publish, production background
+connectors, billing, and the Decisions router remain target capabilities.
 
 ```text
 Vercel:
@@ -361,8 +372,8 @@ Supabase:
 
 Railway:
 - FastAPI identity/data service at services/evidence-service (deployed)
-- account-deletion worker, one replica (deployed)
-- persistent MCP/HTTP retrieval service remains future work
+- hosted task-context/retrieve/Remote MCP and task ledger (deployed)
+- account-deletion worker with lease/retry, one replica (deployed)
 ```
 
 Repository scaffolding for these targets lives in `apps/web`, `supabase/`, and

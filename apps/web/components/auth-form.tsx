@@ -1,6 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import PageTitle from "./page-title";
+import SiteFooter from "./site-footer";
+import SiteHeader from "./site-header";
 import { useRouter } from "next/navigation";
 import { useRef, useState, type FormEvent } from "react";
 import { createSupabaseBrowserClient } from "../lib/supabase/client";
@@ -225,12 +228,10 @@ export default function AuthForm({
 
   return (
     <main className="auth-page">
+      <SiteHeader />
       <div className="auth-card">
-        <Link className="auth-brand" href="/login" aria-label="Evidence Layer sign in">
-          <span className="brand-name">evidence<span>layer</span></span>
-        </Link>
         <p className="eyebrow">{content.eyebrow}</p>
-        <h1>{content.title}</h1>
+        <h1><PageTitle>{content.title}</PageTitle></h1>
         <p className="auth-description">{content.description}</p>
 
         {notice && <p className="auth-notice" role="status">{notice}</p>}
@@ -300,6 +301,7 @@ export default function AuthForm({
           {mode !== "login" && <Link href="/login">Back to sign in</Link>}
         </nav>
       </div>
+      <SiteFooter />
     </main>
   );
 }

@@ -72,6 +72,8 @@ def test_service_routes_are_limited_and_docs_are_disabled() -> None:
         ("GET", "/v1/workspaces/{workspace_id}"),
         ("GET", "/v1/workspaces/{workspace_id}/sources"),
         ("GET", "/v1/workspaces/{workspace_id}/evidence"),
+        ("POST", "/v1/workspaces/{workspace_id}/task-context"),
+        ("GET", "/v1/workspaces/{workspace_id}/task-runs"),
         ("POST", "/v1/workspaces/{workspace_id}/evidence"),
         ("GET", "/v1/workspaces/{workspace_id}/evidence/{evidence_id}"),
         ("PATCH", "/v1/workspaces/{workspace_id}/evidence/{evidence_id}"),

@@ -8,6 +8,14 @@ records when a service is unavailable or a workspace is empty. The old
 synthetic component is not routed from the product navigation. /workspace
 remains the source/evidence management screen.
 
+The primary workspace UI is organized around connecting and syncing sources,
+reviewing evidence, defining a task, preparing bounded evidence context,
+connecting an agent over API/MCP, and reviewing recorded relationships.
+Historical benchmark and planning pages remain available as secondary
+references. Evidence Layer prepares the task brief and evidence bundle; the
+connected agent still performs the task. Live model usage/cost and task-quality
+tracking are not connected to a workspace.
+
 ## Connected paths
 
 | UI capability | Existing service contract | Current behavior |
@@ -17,11 +25,13 @@ remains the source/evidence management screen.
 | Personal workspace setup | PUT /v1/me/personal-workspace | Same-origin only; the service derives the account identity and returns the result. |
 | Workspace membership | GET /v1/workspaces/{workspace_id} and workspace-scoped evidence routes | The service resolves membership on each request; unknown or unauthorized workspaces are not disclosed. |
 | Evidence records | GET, POST, PATCH, and DELETE /v1/workspaces/{workspace_id}/evidence... | The BFF validates UUIDs and response shape, allow-lists mutation fields, disables caching, and forwards the user token so Supabase RLS remains in force. |
+| Task-focused evidence context | POST /v1/workspaces/{workspace_id}/task-context | Uses the task, expected outcome, and optional context requirements as one retrieval query; retrieves bounded lexical evidence and prioritizes up to three directly linked records from persisted workspace relationships. Only relationships whose two evidence records are in the selected context are returned with rationale and provenance. |
+| Task-context browser boundary | POST /api/evidence/workspaces/{workspace_id}/task-context | Same-origin, verified-session and MFA-gated BFF; validates input and response, applies token/character bounds, and forwards the user's bearer token. No API key is exposed to the browser. |
 | Verified source content | GET /v1/workspaces/{workspace_id}/sources/{source_id}/versions/{version_id}/content | The BFF does not read Storage directly. The service rechecks membership and the exact source grant before opening the pinned verified version and before returning bytes. The UI displays the service's SHA-256 Content-Digest when supplied. |
 | Workspace source index | GET /v1/workspaces/{workspace_id}/sources | The service lists the snapshot versions visible to the caller under RLS (published versions of granted sources plus the caller's own staged rows) without exposing object keys. The UI groups versions by source and reads published versions from the list; no manually typed UUIDs are needed. |
 | Evidence provenance links | source_id + source_version_id on the evidence routes | An evidence record may pin the exact published source version it was derived from. The service accepts a link only after the caller's own token resolves that version through the RLS-protected catalog; the database enforces the all-or-nothing pair and the same-workspace foreign key. |
 | Evidence relationships | GET/POST/PATCH/DELETE /v1/workspaces/{workspace_id}/relationships | An additive RLS-protected table links two evidence records in the same workspace and records type, rationale, provenance note, creator, and last updater. Members read; active owners mutate. |
-| Reading guide | Live stored evidence and source links | The guide describes how to inspect stored text and source provenance; it does not manufacture interpretations or unresolved facts. |
+| Evidence provenance | Stored evidence labels and optional source/version links | The Explorer distinguishes a connector source label (such as a GitHub path) from an exact verified snapshot link. It does not manufacture interpretations or unresolved facts. |
 | Verification state | Published/staged source catalog state and verified source reader | Published rows are constrained to successful integrity verification. A separate attempt-by-attempt verification history is not available. |
 
 The API routes are a same-origin browser boundary around existing endpoints;
@@ -38,8 +48,9 @@ returns no content. The UI has no fallback to the synthetic fixture or raw
 Storage.
 
 The source index route covers listing only; there is still no source-metadata
-detail route beyond the index fields. This frontend does not invoke JEV or a
-retrieval endpoint.
+detail route beyond the index fields. Task-context retrieval uses deterministic
+lexical ranking and persisted explicit relationships; it does not invoke JEV,
+run an agent, persist task runs, or measure agent usage, cost, or quality.
 
 The service now selects its Supabase Storage adapter from the configured
 project origin: plain HTTP on loopback uses the disposable local-stack

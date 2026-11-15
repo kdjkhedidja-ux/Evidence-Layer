@@ -1,14 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import PageTitle from "../../../components/page-title";
 
-type ErrorReason = "expired-link" | "invalid-link" | "configuration" | "workspace-provisioning";
+type ErrorReason = "expired-link" | "invalid-link" | "configuration" | "workspace-provisioning" | "mfa-unavailable";
 
 function normalizeReason(reason: string | undefined): ErrorReason {
   if (
     reason === "expired-link" ||
     reason === "configuration" ||
-    reason === "workspace-provisioning"
+    reason === "workspace-provisioning" ||
+    reason === "mfa-unavailable"
   ) {
     return reason;
   }
@@ -51,6 +53,11 @@ function contentFor(reason: ErrorReason): { title: string; description: string }
         title: "Your account is confirmed, but setup is incomplete",
         description: "We could not prepare your personal workspace. Please try signing in again later.",
       };
+    case "mfa-unavailable":
+      return {
+        title: "Security verification is unavailable",
+        description: "We could not verify your two-factor authentication status. No protected data was loaded. Try again later.",
+      };
     default:
       return {
         title: "This link could not be verified",
@@ -77,7 +84,7 @@ export default function AuthErrorMessage({ initialReason }: { initialReason?: st
   const content = contentFor(reason);
   return (
     <>
-      <h1 id="auth-error-title">{content.title}</h1>
+      <h1 id="auth-error-title"><PageTitle>{content.title}</PageTitle></h1>
       <p className="auth-description">{content.description}</p>
     </>
   );

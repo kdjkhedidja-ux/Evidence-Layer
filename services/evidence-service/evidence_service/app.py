@@ -3,15 +3,20 @@
 from __future__ import annotations
 
 import base64
+import logging
+import math
 import os
+from time import perf_counter
 from collections.abc import Awaitable, Callable
+from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Literal, TypeVar
-from uuid import UUID
+from typing import TYPE_CHECKING, Literal, TypeVar
+from uuid import UUID, uuid4
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+from starlette.concurrency import run_in_threadpool
 
 from evidence_service.account_lifecycle import (
     AccountLifecycleReader,
@@ -27,6 +32,8 @@ from evidence_service.auth import (
     AuthenticatedRequest,
     AuthenticationRejected,
     AuthenticationUnavailable,
+    MFAFactorVerifier,
+    SupabaseMFAFactorVerifier,
     SupabaseTokenVerifier,
     TokenVerifier,
     VerifiedTokenVerifier,
@@ -78,10 +85,20 @@ from evidence_service.personal_api_key_repository import (
     PersonalApiKeyAccessDenied,
     PersonalApiKeyDataUnavailable,
     PersonalApiKeyLimitReached,
+    PersonalApiKeyPage,
     PersonalApiKeyRateLimited,
     SupabasePersonalApiKeyRepository,
     decode_personal_api_key_cursor,
     parse_personal_api_key,
+)
+from evidence_service.remote_mcp import (
+    REMOTE_MCP_PATH,
+    RemoteMcpPrincipal,
+    create_remote_mcp_runtime,
+)
+from evidence_service.task_run_ledger_repository import (
+    SupabaseTaskRunLedgerRepository,
+    TaskRunLedgerUnavailable,
 )
 from evidence_service.recovery_fence import (
     CloudflareRecoveryFenceReader,
@@ -106,6 +123,11 @@ from evidence_service.tenant_context import (
     WorkspaceDirectory,
     resolve_workspace_context,
 )
+
+logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from evidence_layer.scoring.jev_request import JevRequestScorer
 
 
 class WorkspaceSummary(BaseModel):
@@ -406,6 +428,7 @@ class PersonalApiKeyRetrieveRequest(BaseModel):
     max_tokens: int = Field(default=1200, ge=1, le=8000)
     max_chars: int = Field(default=6000, ge=1, le=40000)
     candidate_limit: int = Field(default=50, ge=1, le=100)
+    use_jev: bool = Field(default=True, strict=True)
 
 
 class PersonalApiKeyRetrievedItem(BaseModel):
@@ -417,6 +440,12 @@ class PersonalApiKeyRetrievedItem(BaseModel):
     score: float
     token_count: int
     char_count: int
+    chunk_id: str
+    chunk_index: int
+    chunk_start: int
+    chunk_end: int
+    path: str | None
+    title: str | None
 
 
 class PersonalApiKeyRetrieveResponse(BaseModel):
@@ -427,12 +456,91 @@ class PersonalApiKeyRetrieveResponse(BaseModel):
     max_tokens: int
     max_chars: int
     candidate_count: int
+    chunk_count: int
+    matched_chunk_count: int
     selected_count: int
     used_tokens: int
     used_chars: int
     token_estimator: str
     scoring_provider: str
+    scoring_fallback_reason: str | None = None
+    chunking: str
     evidence: list[PersonalApiKeyRetrievedItem]
+    relationships: list[TaskContextRelationship] = Field(default_factory=list)
+
+
+def _evidence_page_items(page: PersonalApiKeyPage) -> list[EvidenceRecord]:
+    if not all(isinstance(item, EvidenceRecord) for item in page.items):
+        raise PersonalApiKeyDataUnavailable
+    return [item for item in page.items if isinstance(item, EvidenceRecord)]
+
+
+def _relationship_page_items(page: PersonalApiKeyPage) -> list[EvidenceRelationship]:
+    if not all(isinstance(item, EvidenceRelationship) for item in page.items):
+        raise PersonalApiKeyDataUnavailable
+    return [item for item in page.items if isinstance(item, EvidenceRelationship)]
+
+
+class WorkspaceTaskContextRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    task: str = Field(min_length=1, max_length=2000)
+    expected_outcome: str = Field(min_length=1, max_length=2000)
+    context_requirements: str = Field(default="", max_length=2000)
+    top_k: int = Field(default=5, ge=1, le=20)
+    max_tokens: int = Field(default=1200, ge=1, le=8000)
+    max_chars: int = Field(default=6000, ge=1, le=40000)
+    use_jev: bool = Field(default=True, strict=True)
+
+    def retrieval_query(self) -> str:
+        return "\n".join(
+            value
+            for value in (self.task, self.expected_outcome, self.context_requirements)
+            if value
+        )
+
+
+class TaskContextRelationship(BaseModel):
+    id: UUID
+    evidence_id_a: UUID
+    evidence_id_b: UUID
+    relation_type: Literal["supports", "contradicts", "contextualizes", "derived_from"]
+    rationale: str
+    provenance_note: str
+
+
+class WorkspaceTaskContextResponse(BaseModel):
+    task: str
+    expected_outcome: str
+    context_requirements: str
+    retrieval: PersonalApiKeyRetrieveResponse
+    relationships: list[TaskContextRelationship]
+
+
+class TaskRunLedgerItem(BaseModel):
+    run_id: UUID
+    workspace_id: UUID
+    run_type: str
+    status: str
+    created_at: datetime
+    retrieval_latency_ms: int
+    retrieval_tokens: int
+    retrieval_chars: int
+    selected_count: int
+    chunk_count: int
+    relationship_count: int
+    scoring_provider: str
+    fallback_reason: str | None
+    use_jev: bool
+    agent_provider: str | None
+    agent_model: str | None
+    agent_input_tokens: int | None
+    agent_output_tokens: int | None
+    agent_total_tokens: int | None
+    agent_cost_usd: float | None
+    agent_latency_ms: int | None
+    quality_status: str | None
+    quality_score: float | None
 
 
 class PersonalApiKeyEvidencePage(BaseModel):
@@ -495,6 +603,45 @@ def _token_verifier(request: Request) -> TokenVerifier:
         verifier = SupabaseTokenVerifier(_settings_for(request))
         request.app.state.token_verifier = verifier
     return verifier
+
+
+def _mfa_factor_verifier(request: Request) -> MFAFactorVerifier:
+    verifier = request.app.state.mfa_factor_verifier
+    if verifier is None:
+        verifier = SupabaseMFAFactorVerifier(_settings_for(request))
+        request.app.state.mfa_factor_verifier = verifier
+    return verifier
+
+
+async def _require_mfa_assurance(
+    request: Request, authenticated_request: AuthenticatedRequest
+) -> None:
+    assurance_level = authenticated_request.principal.assurance_level
+    if assurance_level == "aal2":
+        return
+    if assurance_level != "aal1":
+        raise HTTPException(
+            status_code=503, detail="Two-factor authentication status is unavailable"
+        )
+    try:
+        has_verified_factor = await _mfa_factor_verifier(request).has_verified_factor(
+            authenticated_request.access_token,
+            authenticated_request.principal.subject,
+        )
+    except AuthenticationRejected as exc:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid bearer access token",
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from exc
+    except AuthenticationUnavailable as exc:
+        raise HTTPException(
+            status_code=503, detail="Two-factor authentication status is unavailable"
+        ) from exc
+    if has_verified_factor:
+        raise HTTPException(
+            status_code=403, detail="Two-factor authentication is required"
+        )
 
 
 def _account_lifecycle_reader(request: Request) -> AccountLifecycleReader:
@@ -772,6 +919,7 @@ async def require_authenticated_request(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
 ) -> AuthenticatedRequest:
     authenticated_request = await _verify_bearer(request, credentials)
+    await _require_mfa_assurance(request, authenticated_request)
     await _require_protected_access(request, authenticated_request)
     return authenticated_request
 
@@ -780,13 +928,15 @@ async def require_control_request(
     request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
 ) -> AuthenticatedRequest:
-    """Authenticate only: deletion status and acceptance replay stay reachable.
+    """Skip lifecycle gates while retaining verified identity and MFA checks.
 
     These two control operations must remain callable while a revocation is
     pending, otherwise the owner cannot observe status or replay an accepted
     request. The repository query is still requester-scoped and RLS-bound.
     """
-    return await _verify_bearer(request, credentials)
+    authenticated_request = await _verify_bearer(request, credentials)
+    await _require_mfa_assurance(request, authenticated_request)
+    return authenticated_request
 
 
 async def require_personal_api_key(
@@ -839,6 +989,14 @@ def _relationship_repository(request: Request) -> RelationshipRepository:
     if repository is None:
         repository = SupabaseRelationshipRepository(_settings_for(request))
         request.app.state.relationship_repository = repository
+    return repository
+
+
+def _task_run_ledger_repository(request: Request) -> SupabaseTaskRunLedgerRepository:
+    repository = request.app.state.task_run_ledger_repository
+    if repository is None:
+        repository = SupabaseTaskRunLedgerRepository(_settings_for(request))
+        request.app.state.task_run_ledger_repository = repository
     return repository
 
 
@@ -1004,10 +1162,416 @@ def _source_read_error(exc) -> HTTPException:
     return HTTPException(status_code=403, detail="Source read is not authorized")
 
 
+async def _retrieval_response(
+    page: PersonalApiKeyPage,
+    workspace_id: UUID,
+    payload: PersonalApiKeyRetrieveRequest | WorkspaceTaskContextRequest,
+    *,
+    seed_record_ids: set[UUID] | None = None,
+    related_record_scores: dict[UUID, float] | None = None,
+    relationships: list[EvidenceRelationship] | None = None,
+    jev_enabled: bool = False,
+    jev_scorer: JevRequestScorer | None = None,
+    jev_principal_id: str | None = None,
+) -> PersonalApiKeyRetrieveResponse:
+    records = [item for item in page.items if hasattr(item, "content")]
+    query = (
+        payload.query
+        if isinstance(payload, PersonalApiKeyRetrieveRequest)
+        else payload.retrieval_query()
+    )
+    result: RetrievalSelection = select_evidence(
+        records,
+        query=query,
+        top_k=payload.top_k,
+        max_tokens=payload.max_tokens,
+        max_chars=payload.max_chars,
+        seed_record_ids=seed_record_ids,
+        related_record_scores=related_record_scores,
+    )
+    scoring_provider = "lexical_stopword_filtered"
+    scoring_fallback_reason: str | None = None
+    if payload.use_jev:
+        if not jev_enabled:
+            scoring_fallback_reason = "jev_disabled"
+        elif jev_principal_id is None:
+            scoring_fallback_reason = "jev_unavailable"
+        else:
+            candidate_selection = select_evidence(
+                records,
+                query=query,
+                top_k=50,
+                max_tokens=payload.max_tokens,
+                max_chars=payload.max_chars,
+                seed_record_ids=seed_record_ids,
+                related_record_scores=related_record_scores,
+            )
+            if candidate_selection.selected:
+                try:
+                    from evidence_layer.scoring.jev_request import (
+                        JevRequestCandidate,
+                        JevRequestScorer,
+                        JevResponseError,
+                        JevScorerError,
+                        _issue_jev_request_transfer_permit,
+                    )
+                except ImportError:
+                    scoring_fallback_reason = "dependency_missing"
+                else:
+                    candidates = [
+                        JevRequestCandidate(
+                            candidate_id=item.chunk_id,
+                            source_id=str(item.record.source_id or workspace_id),
+                            text=item.content,
+                        )
+                        for item in candidate_selection.selected
+                    ]
+                    try:
+                        permit = _issue_jev_request_transfer_permit(
+                            request_id=str(uuid4()),
+                            principal_id=jev_principal_id,
+                            tenant_id=str(workspace_id),
+                            query=query,
+                            candidates=candidates,
+                            server_enabled=jev_enabled,
+                            permitted_by_request=payload.use_jev,
+                        )
+                        scorer = jev_scorer or JevRequestScorer()
+                        scores = await run_in_threadpool(
+                            scorer.score_candidates,
+                            query,
+                            candidates,
+                            transfer_permit=permit,
+                        )
+                        if len(scores) != len(candidates):
+                            raise JevScorerError(
+                                "JEV returned an incomplete score batch."
+                            )
+                        if any(
+                            isinstance(score, bool)
+                            or not isinstance(score, (int, float))
+                            or not math.isfinite(score)
+                            or not 0 <= score <= 1
+                            for score in scores
+                        ):
+                            raise JevResponseError(
+                                "JEV returned an invalid score batch."
+                            )
+                    except JevScorerError as exc:
+                        scoring_fallback_reason = exc.category
+                    except Exception:
+                        scoring_fallback_reason = "provider_failure"
+                    else:
+                        score_overrides = {
+                            item.candidate_id: score
+                            for item, score in zip(candidates, scores, strict=True)
+                        }
+                        result = select_evidence(
+                            records,
+                            query=query,
+                            top_k=payload.top_k,
+                            max_tokens=payload.max_tokens,
+                            max_chars=payload.max_chars,
+                            seed_record_ids=(
+                                seed_record_ids if related_record_scores else None
+                            ),
+                            related_record_scores=related_record_scores,
+                            score_overrides=score_overrides,
+                        )
+                        scoring_provider = "jev"
+    selected_ids = {item.record.id for item in result.selected}
+    selected_relationships = [
+        TaskContextRelationship(
+            id=relationship.id,
+            evidence_id_a=relationship.evidence_id_a,
+            evidence_id_b=relationship.evidence_id_b,
+            relation_type=relationship.relation_type,
+            rationale=relationship.rationale,
+            provenance_note=relationship.provenance_note,
+        )
+        for relationship in relationships or []
+        if relationship.workspace_id == workspace_id
+        and relationship.evidence_id_a in selected_ids
+        and relationship.evidence_id_b in selected_ids
+    ]
+    return PersonalApiKeyRetrieveResponse(
+        status=result.status,
+        query=query,
+        workspace_id=workspace_id,
+        top_k=payload.top_k,
+        max_tokens=payload.max_tokens,
+        max_chars=payload.max_chars,
+        candidate_count=result.candidate_count,
+        chunk_count=result.chunk_count,
+        matched_chunk_count=result.matched_chunk_count,
+        selected_count=len(result.selected),
+        used_tokens=result.used_tokens,
+        used_chars=result.used_chars,
+        token_estimator=result.token_estimator,
+        scoring_provider=scoring_provider,
+        scoring_fallback_reason=scoring_fallback_reason,
+        chunking=result.chunking,
+        evidence=[
+            PersonalApiKeyRetrievedItem(
+                evidence_id=item.record.id,
+                content=item.content,
+                source_label=item.record.source_label,
+                source_id=item.record.source_id,
+                source_version_id=item.record.source_version_id,
+                score=item.score,
+                token_count=item.token_count,
+                char_count=item.char_count,
+                chunk_id=item.chunk_id,
+                chunk_index=item.chunk_index,
+                chunk_start=item.chunk_start,
+                chunk_end=item.chunk_end,
+                path=item.path,
+                title=item.title,
+            )
+            for item in result.selected
+        ],
+        relationships=selected_relationships,
+    )
+
+
+def _relationship_expansion(
+    records: list[EvidenceRecord],
+    relationships: list[EvidenceRelationship],
+    workspace_id: UUID,
+    query: str,
+    *,
+    top_k: int,
+    max_tokens: int,
+    max_chars: int,
+) -> tuple[set[UUID], dict[UUID, float]]:
+    seed = select_evidence(
+        records,
+        query=query,
+        top_k=max(1, top_k - 1),
+        max_tokens=max_tokens,
+        max_chars=max_chars,
+    )
+    seed_scores: dict[UUID, float] = {}
+    for item in seed.selected:
+        seed_scores[item.record.id] = max(seed_scores.get(item.record.id, 0), item.score)
+
+    record_ids = {record.id for record in records}
+    related_candidates: dict[UUID, float] = {}
+    if seed_scores and top_k > 1:
+        for relationship in relationships:
+            if relationship.workspace_id != workspace_id:
+                continue
+            if relationship.evidence_id_a in seed_scores:
+                related_id = relationship.evidence_id_b
+                anchor_id = relationship.evidence_id_a
+            elif relationship.evidence_id_b in seed_scores:
+                related_id = relationship.evidence_id_a
+                anchor_id = relationship.evidence_id_b
+            else:
+                continue
+            if related_id not in record_ids or related_id in seed_scores:
+                continue
+            related_candidates[related_id] = max(
+                related_candidates.get(related_id, 0),
+                seed_scores[anchor_id] * 0.8,
+            )
+    related_ids = sorted(
+        related_candidates,
+        key=lambda record_id: (-related_candidates[record_id], str(record_id)),
+    )[: min(3, top_k - 1)]
+    return set(seed_scores), {
+        record_id: related_candidates[record_id] for record_id in related_ids
+    }
+
+
+async def _workspace_task_context_response(
+    records: list[EvidenceRecord],
+    relationships: list[EvidenceRelationship],
+    workspace_id: UUID,
+    payload: WorkspaceTaskContextRequest,
+    *,
+    jev_enabled: bool = False,
+    jev_scorer: JevRequestScorer | None = None,
+    jev_principal_id: str | None = None,
+) -> WorkspaceTaskContextResponse:
+    query = payload.retrieval_query()
+    seed_ids, related_record_scores = _relationship_expansion(
+        records,
+        relationships,
+        workspace_id,
+        query=query,
+        top_k=payload.top_k,
+        max_tokens=payload.max_tokens,
+        max_chars=payload.max_chars,
+    )
+
+    retrieval = await _retrieval_response(
+        PersonalApiKeyPage(items=records, next_cursor=None),
+        workspace_id,
+        payload,
+        seed_record_ids=seed_ids,
+        related_record_scores=related_record_scores,
+        relationships=relationships,
+        jev_enabled=jev_enabled,
+        jev_scorer=jev_scorer,
+        jev_principal_id=jev_principal_id,
+    )
+    return WorkspaceTaskContextResponse(
+        task=payload.task,
+        expected_outcome=payload.expected_outcome,
+        context_requirements=payload.context_requirements,
+        retrieval=retrieval,
+        relationships=retrieval.relationships,
+    )
+
+
+class _AppStateRequest:
+    def __init__(self, application: FastAPI) -> None:
+        self.app = application
+
+
+def _remote_mcp_error(code: str, message: str) -> dict:
+    return {"error": {"code": code, "message": message}}
+
+
+class _HostedRemoteMcpBackend:
+    def __init__(self, application: FastAPI) -> None:
+        self._application = application
+        self._state_request = _AppStateRequest(application)
+
+    async def _guard(self) -> dict | None:
+        if not self._application.state.retrieval_enabled:
+            return _remote_mcp_error("unavailable", "Retrieval API is not enabled")
+        try:
+            await _require_recovery_fence_open(self._state_request)
+        except HTTPException:
+            return _remote_mcp_error("unavailable", "Service is unavailable")
+        return None
+
+    async def retrieve(
+        self,
+        principal: RemoteMcpPrincipal,
+        *,
+        query: str,
+        top_k: int,
+        max_tokens: int,
+        max_chars: int,
+        use_jev: bool,
+    ) -> dict:
+        blocked = await self._guard()
+        if blocked is not None:
+            return blocked
+        try:
+            payload = PersonalApiKeyRetrieveRequest(
+                query=query,
+                top_k=top_k,
+                max_tokens=max_tokens,
+                max_chars=max_chars,
+                use_jev=use_jev,
+            )
+        except ValueError:
+            return _remote_mcp_error("invalid_argument", "Invalid retrieve arguments")
+        try:
+            page = await _personal_api_key_repository(self._state_request).read_evidence(
+                key_id=principal.key_id,
+                key_hash=principal.key_hash,
+                workspace_id=principal.workspace_id,
+                limit=payload.candidate_limit,
+                cursor_created_at=None,
+                cursor_id=None,
+            )
+        except PersonalApiKeyAccessDenied:
+            return _remote_mcp_error("unauthorized", "Personal API key is invalid or revoked")
+        except PersonalApiKeyRateLimited:
+            return _remote_mcp_error("rate_limited", "Personal API key rate limit exceeded")
+        except PersonalApiKeyDataUnavailable:
+            return _remote_mcp_error("unavailable", "Personal API key service is unavailable")
+        except Exception:
+            return _remote_mcp_error("internal_error", "retrieve_evidence failed")
+        relationship_page = PersonalApiKeyPage(items=[], next_cursor=None)
+        if payload.top_k > 1:
+            try:
+                relationship_page = await _personal_api_key_repository(
+                    self._state_request
+                ).read_relationships(
+                    key_id=principal.key_id,
+                    key_hash=principal.key_hash,
+                    workspace_id=principal.workspace_id,
+                    limit=100,
+                    cursor_created_at=None,
+                    cursor_id=None,
+                )
+            except PersonalApiKeyAccessDenied:
+                return _remote_mcp_error("unauthorized", "Personal API key is invalid or revoked")
+            except PersonalApiKeyRateLimited:
+                return _remote_mcp_error("rate_limited", "Personal API key rate limit exceeded")
+            except PersonalApiKeyDataUnavailable:
+                return _remote_mcp_error("unavailable", "Personal API key service is unavailable")
+            except Exception:
+                return _remote_mcp_error("internal_error", "retrieve_evidence failed")
+        try:
+            records = _evidence_page_items(page)
+            relationships = _relationship_page_items(relationship_page)
+            seed_ids, related_scores = _relationship_expansion(
+                records,
+                relationships,
+                principal.workspace_id,
+                payload.query,
+                top_k=payload.top_k,
+                max_tokens=payload.max_tokens,
+                max_chars=payload.max_chars,
+            )
+            return (await _retrieval_response(
+                page,
+                principal.workspace_id,
+                payload,
+                seed_record_ids=seed_ids,
+                related_record_scores=related_scores,
+                relationships=relationships,
+                jev_enabled=self._application.state.jev_enabled,
+                jev_scorer=self._application.state.jev_scorer,
+                jev_principal_id=str(principal.key_id),
+            )).model_dump(mode="json")
+        except PersonalApiKeyDataUnavailable:
+            return _remote_mcp_error("unavailable", "Personal API key service is unavailable")
+        except Exception:
+            return _remote_mcp_error("internal_error", "retrieve_evidence failed")
+
+    async def get_document(self, principal: RemoteMcpPrincipal, evidence_id: str) -> dict:
+        blocked = await self._guard()
+        if blocked is not None:
+            return blocked
+        try:
+            document_id = UUID(evidence_id)
+        except (TypeError, ValueError):
+            return _remote_mcp_error("invalid_argument", "evidence_id must be a UUID")
+        try:
+            record = await _personal_api_key_repository(
+                self._state_request
+            ).read_evidence_document(
+                key_id=principal.key_id,
+                key_hash=principal.key_hash,
+                workspace_id=principal.workspace_id,
+                evidence_id=document_id,
+            )
+        except PersonalApiKeyAccessDenied:
+            return _remote_mcp_error("unauthorized", "Personal API key is invalid or revoked")
+        except PersonalApiKeyRateLimited:
+            return _remote_mcp_error("rate_limited", "Personal API key rate limit exceeded")
+        except PersonalApiKeyDataUnavailable:
+            return _remote_mcp_error("unavailable", "Personal API key service is unavailable")
+        except Exception:
+            return _remote_mcp_error("internal_error", "get_document failed")
+        if record is None:
+            return _remote_mcp_error("not_found", "Evidence document not found")
+        return EvidenceResponse.model_validate(record).model_dump(mode="json")
+
+
 def create_app(
     settings: SupabaseSettings | None = None,
     *,
     token_verifier: TokenVerifier | None = None,
+    mfa_factor_verifier: MFAFactorVerifier | None = None,
     account_lifecycle_reader: AccountLifecycleReader | None = None,
     recovery_fence_reader: RecoveryFenceReader | None = None,
     workspace_directory: WorkspaceDirectory | None = None,
@@ -1015,6 +1579,8 @@ def create_app(
     relationship_repository: RelationshipRepository | None = None,
     personal_api_key_repository: SupabasePersonalApiKeyRepository | None = None,
     retrieval_enabled: bool | None = None,
+    jev_enabled: bool | None = None,
+    jev_scorer: JevRequestScorer | None = None,
     deletion_repository: DeletionRepository | None = None,
     export_repository: SupabaseExportRepository | None = None,
     connector_repository: ConnectorRepository | None = None,
@@ -1025,6 +1591,9 @@ def create_app(
     organization_repository=None,
     source_read_path=None,
     source_catalog_factory=None,
+    remote_mcp_enabled: bool | None = None,
+    task_run_ledger_repository=None,
+    task_ledger_enabled: bool | None = None,
 ) -> FastAPI:
     """Create the service app; optional integrations are initialized on demand."""
     application = FastAPI(
@@ -1035,6 +1604,7 @@ def create_app(
     )
     application.state.supabase_settings = settings
     application.state.token_verifier = token_verifier
+    application.state.mfa_factor_verifier = mfa_factor_verifier
     application.state.account_lifecycle_reader = account_lifecycle_reader
     application.state.recovery_fence_reader = recovery_fence_reader
     application.state.workspace_directory = workspace_directory
@@ -1046,6 +1616,12 @@ def create_app(
         if retrieval_enabled is not None
         else os.environ.get("EVIDENCE_RETRIEVE_API_ENABLED") == "true"
     )
+    application.state.jev_enabled = (
+        jev_enabled
+        if jev_enabled is not None
+        else os.environ.get("EVIDENCE_JEV_ENABLED") == "true"
+    )
+    application.state.jev_scorer = jev_scorer
     application.state.deletion_repository = deletion_repository
     application.state.export_repository = export_repository
     application.state.connector_repository = connector_repository
@@ -1057,6 +1633,17 @@ def create_app(
     application.state.trusted_source_context_issuer = None
     application.state.source_read_path = source_read_path
     application.state.source_catalog_factory = source_catalog_factory
+    application.state.remote_mcp_enabled = (
+        remote_mcp_enabled
+        if remote_mcp_enabled is not None
+        else os.environ.get("EVIDENCE_REMOTE_MCP_ENABLED") == "true"
+    )
+    application.state.task_run_ledger_repository = task_run_ledger_repository
+    application.state.task_ledger_enabled = (
+        task_ledger_enabled
+        if task_ledger_enabled is not None
+        else os.environ.get("EVIDENCE_TASK_LEDGER_ENABLED") == "true"
+    )
 
     @application.api_route(
         "/healthz", methods=["GET"], status_code=200, include_in_schema=False
@@ -1564,7 +2151,7 @@ def create_app(
         connection_id: UUID,
         request: Request,
         auth: AuthenticatedRequest = Depends(require_authenticated_request),
-        limit: int = Query(default=100, ge=1, le=200),
+        limit: int = Query(default=25, ge=1, le=25),
     ) -> ConnectorSyncResponse:
         try:
             connection = await _with_account_gate(
@@ -1814,40 +2401,52 @@ def create_app(
         except PersonalApiKeyDataUnavailable as exc:
             raise HTTPException(status_code=503, detail="Personal API key service is unavailable") from exc
 
-        records = [item for item in page.items if hasattr(item, "content")]
-        result: RetrievalSelection = select_evidence(
+        relationship_page = PersonalApiKeyPage(items=[], next_cursor=None)
+        if payload.top_k > 1:
+            try:
+                relationship_page = await _personal_api_key_repository(request).read_relationships(
+                    key_id=key_id,
+                    key_hash=key_hash,
+                    workspace_id=workspace_id,
+                    limit=100,
+                    cursor_created_at=None,
+                    cursor_id=None,
+                )
+            except PersonalApiKeyAccessDenied as exc:
+                raise HTTPException(status_code=401, detail="Personal API key is invalid or revoked") from exc
+            except PersonalApiKeyRateLimited as exc:
+                raise HTTPException(
+                    status_code=429,
+                    detail="Personal API key rate limit exceeded",
+                    headers={"Retry-After": "60"},
+                ) from exc
+            except PersonalApiKeyDataUnavailable as exc:
+                raise HTTPException(status_code=503, detail="Personal API key service is unavailable") from exc
+
+        try:
+            records = _evidence_page_items(page)
+            relationships = _relationship_page_items(relationship_page)
+        except PersonalApiKeyDataUnavailable as exc:
+            raise HTTPException(status_code=503, detail="Personal API key service is unavailable") from exc
+        seed_ids, related_scores = _relationship_expansion(
             records,
-            query=payload.query,
+            relationships,
+            workspace_id,
+            payload.query,
             top_k=payload.top_k,
             max_tokens=payload.max_tokens,
             max_chars=payload.max_chars,
         )
-        return PersonalApiKeyRetrieveResponse(
-            status=result.status,
-            query=payload.query,
-            workspace_id=workspace_id,
-            top_k=payload.top_k,
-            max_tokens=payload.max_tokens,
-            max_chars=payload.max_chars,
-            candidate_count=result.candidate_count,
-            selected_count=len(result.selected),
-            used_tokens=result.used_tokens,
-            used_chars=result.used_chars,
-            token_estimator=result.token_estimator,
-            scoring_provider="lexical_stopword_filtered",
-            evidence=[
-                PersonalApiKeyRetrievedItem(
-                    evidence_id=item.record.id,
-                    content=item.record.content,
-                    source_label=item.record.source_label,
-                    source_id=item.record.source_id,
-                    source_version_id=item.record.source_version_id,
-                    score=item.score,
-                    token_count=item.token_count,
-                    char_count=item.char_count,
-                )
-                for item in result.selected
-            ],
+        return await _retrieval_response(
+            page,
+            workspace_id,
+            payload,
+            seed_record_ids=seed_ids,
+            related_record_scores=related_scores,
+            relationships=relationships,
+            jev_enabled=request.app.state.jev_enabled,
+            jev_scorer=request.app.state.jev_scorer,
+            jev_principal_id=str(key_id),
         )
 
     @application.get(
@@ -2220,6 +2819,105 @@ def create_app(
             raise _evidence_data_error(exc) from exc
 
     @application.post(
+        "/v1/workspaces/{workspace_id}/task-context",
+        response_model=WorkspaceTaskContextResponse,
+    )
+    async def prepare_workspace_task_context(
+        workspace_id: UUID,
+        payload: WorkspaceTaskContextRequest,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> WorkspaceTaskContextResponse:
+        if not request.app.state.retrieval_enabled:
+            raise HTTPException(status_code=404, detail="Retrieval API is not enabled")
+        started_at = perf_counter()
+        await _require_recovery_fence_open(request)
+        context = await _resolve_workspace_or_404(request, auth, workspace_id)
+        try:
+            records = await _with_account_gate(
+                request,
+                auth,
+                lambda: _evidence_repository(request).list_records(
+                    auth.access_token, context.workspace_id
+                ),
+            )
+            relationships = (
+                await _with_account_gate(
+                    request,
+                    auth,
+                    lambda: _relationship_repository(request).list_relationships(
+                        auth.access_token, context.workspace_id
+                    ),
+                )
+                if payload.top_k > 1
+                else []
+            )
+        except EvidenceAccessDenied as exc:
+            raise _evidence_access_error(exc) from exc
+        except EvidenceDataUnavailable as exc:
+            raise _evidence_data_error(exc) from exc
+        except RelationshipAccessDenied as exc:
+            raise HTTPException(status_code=404, detail="Workspace not found") from exc
+        except RelationshipDataUnavailable as exc:
+            raise _relationship_data_error(exc) from exc
+        response = await _workspace_task_context_response(
+            records,
+            relationships,
+            context.workspace_id,
+            payload,
+            jev_enabled=request.app.state.jev_enabled,
+            jev_scorer=request.app.state.jev_scorer,
+            jev_principal_id=str(auth.principal.subject),
+        )
+        if request.app.state.task_ledger_enabled:
+            try:
+                await _task_run_ledger_repository(request).record(
+                    auth.access_token,
+                    workspace_id=context.workspace_id,
+                    actor_user_id=auth.principal.subject,
+                    metrics={
+                        "run_type": "task_context",
+                        "status": response.retrieval.status,
+                        "retrieval_latency_ms": max(0, round((perf_counter() - started_at) * 1000)),
+                        "retrieval_tokens": response.retrieval.used_tokens,
+                        "retrieval_chars": response.retrieval.used_chars,
+                        "selected_count": response.retrieval.selected_count,
+                        "chunk_count": response.retrieval.chunk_count,
+                        "relationship_count": len(response.relationships),
+                        "scoring_provider": response.retrieval.scoring_provider,
+                        "fallback_reason": response.retrieval.scoring_fallback_reason,
+                        "use_jev": payload.use_jev,
+                    },
+                )
+            except TaskRunLedgerUnavailable:
+                logger.warning("task-context ledger write failed")
+        return response
+
+    @application.get(
+        "/v1/workspaces/{workspace_id}/task-runs",
+        response_model=list[TaskRunLedgerItem],
+    )
+    async def list_workspace_task_runs(
+        workspace_id: UUID,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> list[TaskRunLedgerItem]:
+        if not request.app.state.task_ledger_enabled:
+            raise HTTPException(status_code=404, detail="Task ledger is not enabled")
+        context = await _resolve_workspace_or_404(request, auth, workspace_id)
+        try:
+            rows = await _with_account_gate(
+                request,
+                auth,
+                lambda: _task_run_ledger_repository(request).list_runs(
+                    auth.access_token, workspace_id=context.workspace_id, limit=100
+                ),
+            )
+        except TaskRunLedgerUnavailable as exc:
+            raise HTTPException(status_code=503, detail="Task ledger is unavailable") from exc
+        return [TaskRunLedgerItem.model_validate(row) for row in rows]
+
+    @application.post(
         "/v1/workspaces/{workspace_id}/evidence",
         response_model=EvidenceResponse,
         status_code=201,
@@ -2515,6 +3213,20 @@ def create_app(
             media_type="application/octet-stream",
             headers={"Content-Digest": f"sha-256=:{snapshot.manifest.sha256}:"},
         )
+
+    if application.state.remote_mcp_enabled:
+        runtime = create_remote_mcp_runtime(_HostedRemoteMcpBackend(application), enabled=True)
+        application.state.remote_mcp = runtime
+        application.mount(REMOTE_MCP_PATH, runtime.app)
+        previous_lifespan = application.router.lifespan_context
+
+        @asynccontextmanager
+        async def lifespan(app: FastAPI):
+            async with runtime.server.session_manager.run():
+                async with previous_lifespan(app) as state:
+                    yield state
+
+        application.router.lifespan_context = lifespan
 
     return application
 

@@ -1,4 +1,5 @@
 import contextlib
+from datetime import datetime, timezone
 import hashlib
 import io
 import json
@@ -60,12 +61,24 @@ class MigrationGuardTests(unittest.TestCase):
                 guard.build_plan(FakeProject(), self.inventory, require_recovery=True)
 
     def test_reviewed_external_recovery_attestation_satisfies_the_gate(self):
-        with patch.dict(os.environ, {"GITHUB_SHA": self.sha}):
-            plan = guard.build_plan(FakeProject(), self.inventory, require_recovery=True)
-        self.assertIsNotNone(plan["external_recovery"])
         attestation = json.loads(
             (guard.ROOT / "supabase" / "recovery-attestation.json").read_text(encoding="utf-8")
         )
+        now = datetime.now(timezone.utc).isoformat()
+        attestation["uploaded_at"] = now
+        attestation["drill"]["completed_at"] = now
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as handle:
+            json.dump(attestation, handle)
+            path = handle.name
+        try:
+            with patch.dict(os.environ, {
+                "GITHUB_SHA": self.sha,
+                "SUPABASE_EXTERNAL_RECOVERY_ATTESTATION": path,
+            }):
+                plan = guard.build_plan(FakeProject(), self.inventory, require_recovery=True)
+        finally:
+            os.unlink(path)
+        self.assertIsNotNone(plan["external_recovery"])
         self.assertEqual(plan["external_recovery"]["object_key"], attestation["object_key"])
 
     def test_stale_or_invalid_external_attestation_is_rejected(self):
@@ -93,6 +106,18 @@ class MigrationGuardTests(unittest.TestCase):
             {**base, "drill": {**base["drill"], "status": "FAIL"}},
             {**base, "object_key": "dumps/2026-11-07/evidence-layer.sql"},
             {**base, "provider": "s3"},
+            {
+                **base,
+                "provider": "b2",
+                "bucket": "wrong-bucket",
+                "endpoint": "https://s3.eu-central-003.backblazeb2.com",
+            },
+            {
+                **base,
+                "provider": "b2",
+                "bucket": "evidence2",
+                "endpoint": "https://s3.eu-central-003.backblazeb2.com.evil.test",
+            },
         ]
         for payload in invalid:
             with self.subTest(payload=payload):
@@ -108,6 +133,38 @@ class MigrationGuardTests(unittest.TestCase):
                             guard.build_plan(FakeProject(), self.inventory, require_recovery=True)
                 finally:
                     os.unlink(path)
+
+    def test_b2_external_recovery_attestation_satisfies_the_gate(self):
+        now = datetime.now(timezone.utc).isoformat()
+        attestation = {
+            "provider": "b2",
+            "bucket": "evidence2",
+            "object_key": "dumps/2026-11-14/evidence-layer.dump",
+            "endpoint": "https://s3.eu-central-003.backblazeb2.com",
+            "sha256": "a" * 64,
+            "size_bytes": 123,
+            "uploaded_at": now,
+            "drill": {
+                "status": "PASS",
+                "completed_at": now,
+                "target": "disposable PostgreSQL 17 (non-prod)",
+                "evidence": "docs/PRODUCTION-RESTORE-CHECKLIST-2026-11-11.md",
+            },
+            "attested_by": "test",
+        }
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as handle:
+            json.dump(attestation, handle)
+            path = handle.name
+        try:
+            with patch.dict(os.environ, {
+                "GITHUB_SHA": self.sha,
+                "SUPABASE_EXTERNAL_RECOVERY_ATTESTATION": path,
+            }):
+                plan = guard.build_plan(FakeProject(), self.inventory, require_recovery=True)
+        finally:
+            os.unlink(path)
+        self.assertEqual(plan["external_recovery"]["provider"], "b2")
+        self.assertEqual(plan["external_recovery"]["bucket"], "evidence2")
 
     def test_history_claiming_uncreated_schema_blocks_release(self):
         with patch.dict(os.environ, {"GITHUB_SHA": self.sha}):
@@ -592,7 +649,7 @@ class ValidateMessageTests(unittest.TestCase):
         self.assertIn("static sql analysis", message)
         self.assertIn("separate", message)
         self.assertNotIn("no destructive statements detected", message)
-        self.assertIn("45 files", message)
+        self.assertIn("47 files", message)
 
 
 class StatementLexerTests(unittest.TestCase):
@@ -771,8 +828,8 @@ class ApprovalLedgerTests(unittest.TestCase):
 
     def test_reviewed_inventory_lexes_and_classifies_without_ambiguity(self):
         self.assertEqual(self.findings, [])
-        self.assertEqual(len(self.records), 750)
-        self.assertEqual(len({record["file"] for record in self.records}), 45)
+        self.assertEqual(len(self.records), 773)
+        self.assertEqual(len({record["file"] for record in self.records}), 47)
 
     def test_no_reviewed_statement_is_hard_denied(self):
         denied = [r for r in self.records if r["tier"] == sql_statement.TIER_HARD_DENY]
@@ -783,7 +840,7 @@ class ApprovalLedgerTests(unittest.TestCase):
 
     def test_every_ledger_entry_resolves_to_a_written_rationale(self):
         ledger = guard.load_ledger()
-        self.assertEqual(len(ledger["entries"]), 644)
+        self.assertEqual(len(ledger["entries"]), 663)
         for entry in ledger["entries"]:
             self.assertTrue(ledger["rationales"][entry["rationale_ref"]].strip())
             self.assertTrue(entry["file"].endswith(".sql"))
@@ -900,7 +957,7 @@ class ClassifyCommandTests(unittest.TestCase):
         with patch.object(sys, "argv", ["guard", "classify"]), contextlib.redirect_stdout(buffer):
             self.assertEqual(guard.main(), 0)
         self.assertIn("Static analysis passed", buffer.getvalue())
-        self.assertIn("644 registry-approved", buffer.getvalue())
+        self.assertIn("663 registry-approved", buffer.getvalue())
 
     def test_hard_denied_statement_blocks(self):
         temporary, migrations, manifest = self.build_probe(

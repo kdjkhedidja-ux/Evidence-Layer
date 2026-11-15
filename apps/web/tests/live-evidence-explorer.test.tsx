@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { AnchorHTMLAttributes } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import LiveEvidenceExplorer from "../app/live-evidence-explorer";
@@ -51,7 +51,6 @@ describe("live Evidence Explorer", () => {
         return Response.json({ user_id: USER_ID, workspaces: [WORKSPACE] });
       }
       if (url.endsWith("/evidence")) return Response.json([RECORD_A, RECORD_B]);
-      if (url.endsWith("/sources")) return Response.json([]);
       if (url.endsWith("/relationships")) return Response.json([]);
       return Response.json({ error: "missing test response" }, { status: 404 });
     }));
@@ -59,92 +58,61 @@ describe("live Evidence Explorer", () => {
 
   it("uses only authenticated workspace records and filters their actual contents", async () => {
     render(<LiveEvidenceExplorer account={{ id: USER_ID, email: "reader@example.test" }} />);
-    expect(await screen.findAllByText("Stored source claim alpha.")).toHaveLength(3);
+    const heading = await screen.findByRole("heading", { name: "Evidence Explorer" });
+    expect(heading.querySelector(".page-title-accent")).toHaveTextContent("Explorer");
+    expect(await screen.findAllByText("Stored source claim alpha.")).toHaveLength(2);
     expect(screen.getByText("Stored source claim beta.")).toBeInTheDocument();
     expect(screen.queryByText(/Cedar pilot|EV-SYN|Synthetic sample/i)).not.toBeInTheDocument();
-    expect(screen.getByText(/Interpretation and unresolved questions are not generated/)).toBeInTheDocument();
+    expect(screen.getByText(/does not run the agent/)).toBeInTheDocument();
+    expect(screen.getByText("Source label")).toBeInTheDocument();
+    expect(screen.getByText("No exact verified snapshot linked")).toBeInTheDocument();
 
     fireEvent.change(screen.getByRole("searchbox", { name: "Search actual evidence records" }), {
       target: { value: "beta" },
     });
     expect(screen.queryByText("Stored source claim alpha.")).not.toBeInTheDocument();
-    expect(screen.getAllByText("Stored source claim beta.")).toHaveLength(3);
+    expect(screen.getAllByText("Stored source claim beta.")).toHaveLength(2);
   });
 
-  it("keeps one primary navigation destination for every existing product page and section", async () => {
+  it("renders Explorer content without the old product sidebar", async () => {
     render(<LiveEvidenceExplorer account={{ id: USER_ID, email: "reader@example.test" }} />);
     await screen.findAllByText("Stored source claim alpha.");
-
-    const navigationRoot = screen.getByRole("navigation", { name: "Product navigation" });
-    const navigation = within(navigationRoot);
-    const links = navigation.getAllByRole("link");
-    const destinations = links.map((link) => link.getAttribute("href"));
-    expect(new Set(destinations).size).toBe(destinations.length);
-    expect(links.map((link) => link.querySelector("span")?.textContent)).toEqual([
-      "Workspace",
-      "Evidence Explorer",
-      "Relationships",
-      "Reading Guide",
-      "Verification",
-      "Evaluation",
-      "Cost & Performance",
-      "Settings & Access",
-      "Documentation",
-    ]);
-    expect(destinations).toEqual([
-      "/workspace",
-      "#explorer",
-      "/relationships",
-      "#reading-guide",
-      "#verification",
-      "#evaluation",
-      "/cost-performance",
-      "#settings-access",
-      "/documentation",
-    ]);
-    for (const destination of destinations) {
-      if (destination?.startsWith("#")) {
-        expect(document.getElementById(destination.slice(1))).not.toBeNull();
-      }
-    }
-    const validStatuses = new Set([
-      "Connected",
-      "Partially available",
-      "Evidence-grounded",
-      "Historical",
-      "Pending",
-      "Unavailable",
-      "Limited / Read only",
-    ]);
-    for (const status of navigationRoot.querySelectorAll("small")) {
-      expect(validStatuses.has(status.textContent ?? "")).toBe(true);
-    }
+    expect(screen.queryByRole("navigation", { name: "Product navigation" })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Evidence Explorer" })).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Legal and product information" })).toBeInTheDocument();
   });
 
-  it("keeps relationship-page links pointed at the single existing destinations", async () => {
+  it("keeps the relationship-page heading and content", async () => {
     render(
       <LiveEvidenceExplorer
         relationshipsOnly
         account={{ id: USER_ID, email: "reader@example.test" }}
       />,
     );
-    expect(await screen.findByRole("heading", { name: "Evidence Relationships" })).toBeInTheDocument();
+    const heading = await screen.findByRole("heading", { name: "Evidence Relationships" });
+    expect(heading).toHaveTextContent("Evidence Relationships");
+    expect(heading.querySelector(".page-title-accent")).toHaveTextContent("Relationships");
+  });
 
-    const navigation = within(screen.getByRole("navigation", { name: "Product navigation" }));
-    const links = navigation.getAllByRole("link");
-    const destinations = links.map((link) => link.getAttribute("href"));
-    expect(new Set(destinations).size).toBe(destinations.length);
-    expect(destinations).toEqual([
-      "/workspace",
-      "/",
-      "#relationships",
-      "/#reading-guide",
-      "/#verification",
-      "/#evaluation",
-      "/cost-performance",
-      "/#settings-access",
-      "/documentation",
-    ]);
+  it("points users to the agent connection workflow", async () => {
+    render(<LiveEvidenceExplorer account={{ id: USER_ID, email: "reader@example.test" }} />);
+    const agentLink = await screen.findByRole("link", { name: "Connect an agent" });
+    expect(agentLink).toHaveAttribute("href", "/workspace#agent-connection");
+    expect(screen.queryByText(/API Keys are planned/i)).not.toBeInTheDocument();
+  });
+
+  it("makes the mobile navigation controllable and dismissible by keyboard", async () => {
+    render(<LiveEvidenceExplorer account={{ id: USER_ID, email: "reader@example.test" }} />);
+    const toggle = screen.getByRole("button", { name: "Menu" });
+    expect(toggle).toHaveAttribute("aria-controls", "site-menu");
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(toggle);
+    expect(screen.getByRole("button", { name: "Close" })).toHaveAttribute("aria-expanded", "true");
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(toggle).toHaveFocus();
   });
 
   it("fails closed when evidence service is unavailable instead of using synthetic fixtures", async () => {
@@ -152,7 +120,6 @@ describe("live Evidence Explorer", () => {
       const url = String(input);
       if (url === "/api/evidence/me") return Response.json({ user_id: USER_ID, workspaces: [WORKSPACE] });
       if (url.endsWith("/evidence")) return Response.json({ error: "private details" }, { status: 503 });
-      if (url.endsWith("/sources")) return Response.json([]);
       if (url.endsWith("/relationships")) return Response.json([]);
       return Response.json({}, { status: 404 });
     });
@@ -166,7 +133,6 @@ describe("live Evidence Explorer", () => {
       const url = String(input);
       if (url === "/api/evidence/me") return Response.json({ user_id: USER_ID, workspaces: [WORKSPACE] });
       if (url.endsWith("/evidence")) return Response.json([]);
-      if (url.endsWith("/sources")) return Response.json([]);
       if (url.endsWith("/relationships")) return Response.json([]);
       return Response.json({}, { status: 404 });
     });
@@ -204,6 +170,31 @@ describe("live Evidence Explorer", () => {
     });
   });
 
+  it("requires confirmation before deleting a relationship", async () => {
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/api/evidence/me") return Response.json({ user_id: USER_ID, workspaces: [WORKSPACE] });
+      if (url.endsWith("/evidence")) return Response.json([RECORD_A, RECORD_B]);
+      if (url.endsWith("/sources")) return Response.json([]);
+      if (url.endsWith("/relationships") && init?.method === "DELETE") return new Response(null, { status: 204 });
+      if (url.endsWith("/relationships")) return Response.json([liveRelationship()]);
+      return Response.json({}, { status: 404 });
+    });
+
+    render(<LiveEvidenceExplorer account={{ id: USER_ID, email: "reader@example.test" }} />);
+    expect(await screen.findByText("The two stored claims disagree.")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("This cannot be undone.");
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === "DELETE")).toBe(false);
+
+    fireEvent.click(screen.getByRole("button", { name: "Confirm delete" }));
+    await waitFor(() => {
+      expect(fetchMock.mock.calls.some(([, init]) => init?.method === "DELETE")).toBe(true);
+    });
+  });
+
   it("keeps an organization admin group workspace and its write controls", async () => {
     vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
       const url = String(input);
@@ -223,14 +214,6 @@ describe("live Evidence Explorer", () => {
     expect(screen.getByRole("combobox", { name: "Workspace" })).toHaveValue(WORKSPACE_ID);
     expect(screen.getByRole("option", { name: "Group workspace · admin" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Document a relationship" })).toBeInTheDocument();
-  });
-
-  it("opens the account panel from the organization management link", async () => {
-    window.history.replaceState({}, "", "/?account=1");
-    render(<LiveEvidenceExplorer account={{ id: USER_ID, email: "reader@example.test" }} />);
-    expect(await screen.findByRole("button", { name: "Close account" })).toBeInTheDocument();
-    expect(screen.getByText("Account settings")).toBeInTheDocument();
-    window.history.replaceState({}, "", "/");
   });
 
   it("requires authentication before displaying any workspace data", async () => {

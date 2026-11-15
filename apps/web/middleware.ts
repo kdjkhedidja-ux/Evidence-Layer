@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabasePublicConfig } from "./lib/supabase/config";
+import { hasRecoveryProof, RECOVERY_COOKIE } from "./lib/supabase/recovery";
 
 function redirectTo(request: NextRequest, path: string, source?: NextResponse): NextResponse {
   const redirected = NextResponse.redirect(new URL(path, request.url));
@@ -52,10 +53,18 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 
   let user = null;
   let verificationFailed = false;
+  let accessToken: string | null = null;
   try {
     const result = await supabase.auth.getUser();
     user = result.error ? null : result.data.user;
     verificationFailed = Boolean(result.error?.name === "AuthRetryableFetchError");
+    if (user) {
+      const sessionResult = await supabase.auth.getSession();
+      accessToken = sessionResult.error ? null : sessionResult.data.session?.access_token ?? null;
+      if (sessionResult.error?.name === "AuthRetryableFetchError") {
+        verificationFailed = true;
+      }
+    }
   } catch {
     verificationFailed = true;
   }
@@ -63,6 +72,14 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   if (protectedReset && !user) {
     return redirectTo(request, verificationFailed
       ? "/auth/error?reason=configuration" : "/auth/error?reason=expired-link", response);
+  }
+
+  if (protectedReset && user) {
+    const recoveryCookie = request.cookies.get(RECOVERY_COOKIE)?.value;
+    if (!accessToken || !(await hasRecoveryProof(recoveryCookie, accessToken))) {
+      return redirectTo(request, verificationFailed
+        ? "/auth/error?reason=configuration" : "/auth/error?reason=invalid-link", response);
+    }
   }
 
   if (user) response.headers.set("Cache-Control", "private, no-store");

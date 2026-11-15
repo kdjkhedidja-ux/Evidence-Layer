@@ -67,10 +67,31 @@ Evidence writes use the authenticated user and existing evidence RLS; no service
 
 A synthetic installation sync on 2026-11-13 listed 50 documents and ingested 49 (one skipped), then `POST /v1/personal-api-keys/workspaces/{id}/retrieve` returned evidence from the bridged personal workspace. The test account was purged afterward.
 
+Retrieval-only validation of the chunk/path selector against the same 49-document synced corpus and the 15-question fixture, with `top_k=8`, `max_tokens=3500`, `max_chars=14000`:
+
+- mean selected context: **3,446 tokens** (7.27 chunks per question; max 3,499);
+- no single parent supplied more than **25%** of the selected chunks;
+- 11 questions hit `budget_exhausted` after 7 chunks and 4 returned `ok` with 8 chunks; no question exceeded the budget;
+- product, architecture, deletion/worker, API/MCP, and Phase 8 questions selected the expected README/architecture/deletion/API/Phase 8 paths.
+
+This was a retrieval-only check (no DeepSeek call, no JEV). Re-run the same protocol with `scripts/measure_retrieval_reduction.py` and `tests/fixtures/retrieval_harness/ab_questions.jsonl`. The post-deploy DeepSeek A/B is recorded in [`el-vs-baseline-deepseek-chunked-2026-11-13.md`](../operations/el-vs-baseline-deepseek-chunked-2026-11-13.md).
+
+## Retrieve chunking and priority
+
+Chunking is performed at retrieve time, not ingest time, so existing bridged rows need no migration and **no re-sync**:
+
+- target 2,400 characters per chunk, 240-character overlap, maximum 48 chunks per evidence;
+- chunks are ranked with Lexical scoring and packed into `top_k` / `max_tokens` / `max_chars`;
+- packing prefers one chunk per parent path, then a second chunk, before filling from a single large file;
+- `README*`, `docs/ARCHITECTURE*`, product/design docs, and other `docs/**` Markdown receive deterministic boosts; query hits on path or first heading receive a light extra boost;
+- closure/verification/smoke/checklist paths receive a soft penalty only when the query contains no ops terms, preserving legitimate ops answers.
+
+The retrieve response includes the parent `evidence_id` plus `chunk_id`, `chunk_start`, `chunk_end`, `path`, and `title` for agent-side provenance.
+
 ## Limits
 
 - Only text documents are bridged; binary files remain in `connector_documents` as base64 and are not evidence.
 - The 100-document cap is not a full repository clone.
-- Selection is lexical; no JEV.
+- JEV is the primary scorer when `EVIDENCE_JEV_ENABLED=true` and the request leaves `use_jev` at its default; setting `use_jev=false` forces lexical. Connector sync itself does not send documents to JEV. Chunking and path boosts are deterministic and in-process.
 - Only the current sync set is guaranteed; partial failures retain old evidence until a successful re-sync.
 - Group/shared workspace bridging is out of scope.

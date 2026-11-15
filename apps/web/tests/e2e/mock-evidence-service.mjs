@@ -1,10 +1,11 @@
 import { createServer } from "node:http";
+import { SYNTHETIC_TOKENS } from "./mock-tokens.mjs";
 
 const host = "127.0.0.1";
 // Keep this fixture away from Supabase's default local Postgres port (54322).
 const port = 54329;
 const accounts = new Map([
-  ["synthetic-login-access-token", {
+  [SYNTHETIC_TOKENS.login, {
     userId: "synthetic-ui-user",
     workspace: {
       id: "10000000-0000-4000-8000-000000000002",
@@ -12,7 +13,7 @@ const accounts = new Map([
       role: "owner",
     },
   }],
-  ["synthetic-switch-access-token", {
+  [SYNTHETIC_TOKENS.switch, {
     userId: "synthetic-ui-user-two",
     workspace: {
       id: "10000000-0000-4000-8000-000000000004",
@@ -20,7 +21,7 @@ const accounts = new Map([
       role: "owner",
     },
   }],
-  ["synthetic-recovery-access-token", {
+  [SYNTHETIC_TOKENS.recovery, {
     userId: "synthetic-ui-user",
     workspace: {
       id: "10000000-0000-4000-8000-000000000002",

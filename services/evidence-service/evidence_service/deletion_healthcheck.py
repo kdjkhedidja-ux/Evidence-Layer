@@ -16,6 +16,29 @@ from typing import Any
 HEALTH_SQL = """
 select
     count(*) filter (where status = 'purge_failed')::int as purge_failed,
+    count(*) filter (
+        where status = 'purge_failed'
+          and (
+              purge_error_category = 'verification_failed'
+              or attempts >= %s
+          )
+    )::int as purge_failed_terminal,
+    count(*) filter (
+        where status = 'purge_failed'
+          and purge_error_category is distinct from 'verification_failed'
+          and attempts < %s
+    )::int as purge_failed_retryable,
+    count(*) filter (
+        where status = 'purge_failed'
+          and purge_error_category is distinct from 'verification_failed'
+          and attempts < %s
+          and next_attempt_at is not null
+          and next_attempt_at < now() - make_interval(mins => %s)
+    )::int as retry_overdue,
+    count(*) filter (
+        where lease_expires_at is not null
+          and lease_expires_at < now()
+    )::int as stale_leases,
     count(*) filter (where status = 'purge_pending')::int as purge_pending,
     coalesce(
         extract(epoch from now() - min(created_at) filter (where status = 'purge_pending')),
@@ -56,23 +79,36 @@ def read_deletion_health(connection: Any) -> dict[str, Any]:
     queue_minutes = _int_env("DELETION_QUEUE_WARN_MINUTES", 30)
     pending_minutes = _int_env("DELETION_PURGE_PENDING_WARN_MINUTES", 10)
     accepted_minutes = _int_env("DELETION_ACCEPTED_WARN_MINUTES", 10)
+    retry_grace_minutes = _int_env("DELETION_RETRY_GRACE_MINUTES", 10)
+    max_attempts = _int_env("DELETION_MAX_ATTEMPTS", 5)
     with connection.cursor() as cursor:
-        cursor.execute(HEALTH_SQL, (queue_minutes,))
+        cursor.execute(
+            HEALTH_SQL,
+            (max_attempts, max_attempts, max_attempts, retry_grace_minutes, queue_minutes),
+        )
         row = cursor.fetchone()
     if not row:
         raise RuntimeError("deletion health query returned no row")
     metrics = {
         "purge_failed": int(row[0]),
-        "purge_pending": int(row[1]),
-        "oldest_purge_pending_seconds": int(row[2]),
-        "accepted": int(row[3]),
-        "oldest_accepted_seconds": int(row[4]),
-        "journal_ack_pending": int(row[5]),
-        "stale_storage_queue": int(row[6]),
+        "purge_failed_terminal": int(row[1]),
+        "purge_failed_retryable": int(row[2]),
+        "retry_overdue": int(row[3]),
+        "stale_leases": int(row[4]),
+        "purge_pending": int(row[5]),
+        "oldest_purge_pending_seconds": int(row[6]),
+        "accepted": int(row[7]),
+        "oldest_accepted_seconds": int(row[8]),
+        "journal_ack_pending": int(row[9]),
+        "stale_storage_queue": int(row[10]),
     }
     alerts: list[str] = []
-    if metrics["purge_failed"] > 0:
-        alerts.append("purge_failed")
+    if metrics["purge_failed_terminal"] > 0:
+        alerts.append("purge_failed_terminal")
+    if metrics["retry_overdue"] > 0:
+        alerts.append("purge_failed_retry_overdue")
+    if metrics["stale_leases"] > 0:
+        alerts.append("stale_lease")
     if metrics["journal_ack_pending"] > 0:
         alerts.append("journal_ack_pending")
     if metrics["oldest_purge_pending_seconds"] > pending_minutes * 60:
@@ -90,6 +126,8 @@ def read_deletion_health(connection: Any) -> dict[str, Any]:
         "thresholds": {
             "purge_pending_minutes": pending_minutes,
             "accepted_minutes": accepted_minutes,
+            "retry_grace_minutes": retry_grace_minutes,
+            "max_attempts": max_attempts,
             "storage_queue_minutes": queue_minutes,
         },
     }
