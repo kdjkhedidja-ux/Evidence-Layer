@@ -44,8 +44,8 @@ outage. Use a real deliverable address.
 ## Vercel verification
 
 - Production domain `evidencelayer.dev` and `www.evidencelayer.dev` are verified.
-- Production deployment is READY at `a3d6108` (latest web code; later commits
-  are backend/docs only).
+- Production was `a3d6108` when the SMTP check ran; the current production
+  deployment is `dpl_5jMmurkis8RvZjawEHoELBqiBsMk` from `a0ba8df` (PR #256).
 - `NEXT_PUBLIC_SUPABASE_URL` points to the same production project
   (`slxfsjnsrvfkdtxayiud.supabase.co`).
 - `NEXT_PUBLIC_NOTION_CONNECTOR_ENABLED=true`, Notion redirect URI is
@@ -53,11 +53,25 @@ outage. Use a real deliverable address.
   `EVIDENCE_SERVICE_URL` points to the Railway production service.
 - `/`, `/signup`, and `/login` return `200`; unauthenticated
   `/api/evidence/me` returns `401`.
+- Vercel's Git branch lookup for `main` returned `git_branch_not_found` on
+  2026-11-15. Production was deployed with the Vercel CLI from the repository
+  root, which uploads the checked-out `main` source. PR previews still deploy.
+  Inspect or reconnect the Git integration before relying on automatic
+  production deployments.
+
+## Signup existing-account message
+
+PR #256 detects Supabase's empty-`identities` duplicate-signup response and
+shows: "An account with this email already exists. Sign in instead, or reset
+your password." The message replaces the form links with `/login` and
+`/forgot-password`. A production Playwright check using a confirmed test
+account returned the message and both links. This is a deliberate signup
+enumeration tradeoff; password recovery remains non-enumerating.
 
 ## Residual
 
-- Confirm the confirmation email arrives in the recipient inbox.
-- A browser-level signup → confirm → sign-in → MFA smoke is still useful after
-  the SMTP change.
+- The confirmation email now arrives and the link completes signup; a
+  browser-level signup → confirm → sign-in → MFA smoke remains useful after
+  future auth changes.
 - No repository secret was added; the SMTP password lives in the Auth provider
   configuration.
