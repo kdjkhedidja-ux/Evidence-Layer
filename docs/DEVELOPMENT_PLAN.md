@@ -173,7 +173,10 @@ and the content-free task ledger are production-verified.
 - Delivered and applied: one-time hashed workspace invitations (create/list/
   revoke/accept APIs, owner form, invite link, and accept page). A production
   test invited a new user, accepted the link, and confirmed an active member
-  membership. Email delivery is not enabled yet; the owner shares the link.
+  membership.
+- Delivered: Resend invitation email delivery from the verified
+  `evidencelayer.dev` domain, with `email_sent` surfaced to the owner and a
+  link fallback. The service env now holds the send-only Resend key.
 - Remaining scale hardening: invitation email delivery, staged-object cleanup,
   quotas, and a 10/100-workspace rollout.
 - Acceptance: met for the pilot (end-to-end ingestion, verifier publication, and

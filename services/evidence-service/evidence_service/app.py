@@ -123,6 +123,7 @@ from evidence_service.workspace_invitation_repository import (
     InvitationUnavailable,
     SupabaseWorkspaceInvitationRepository,
 )
+from evidence_service.resend_email import send_invitation_email
 from evidence_service.recovery_fence import (
     CloudflareRecoveryFenceReader,
     RecoveryFenceConfigurationError,
@@ -349,6 +350,7 @@ class WorkspaceInvitationCreateRequest(BaseModel):
 
 class WorkspaceInvitationCreateResponse(WorkspaceInvitationSummary):
     invite_token: str
+    email_sent: bool
 
 
 class WorkspaceInvitationAcceptRequest(BaseModel):
@@ -3014,6 +3016,13 @@ def create_app(
             raise HTTPException(status_code=422, detail="Invitation was rejected") from exc
         except InvitationUnavailable as exc:
             raise HTTPException(status_code=503, detail="Invitations are unavailable") from exc
+        email_sent = await send_invitation_email(
+            api_key=os.environ.get("RESEND_API_KEY", ""),
+            from_email=os.environ.get("INVITATION_FROM_EMAIL", ""),
+            base_url=os.environ.get("INVITATION_BASE_URL", ""),
+            to_email=invitation.email,
+            token=token,
+        )
         return WorkspaceInvitationCreateResponse(
             invitation_id=invitation.invitation_id,
             email=invitation.email,
@@ -3023,6 +3032,7 @@ def create_app(
             accepted_at=None,
             revoked_at=None,
             invite_token=token,
+            email_sent=email_sent,
         )
 
     @application.get(
