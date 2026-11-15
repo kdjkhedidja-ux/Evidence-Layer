@@ -78,6 +78,16 @@ function mockProductFetch(
     if (url.endsWith("/sources") && init?.method === undefined) {
       return Response.json([VERSION_SUMMARY]);
     }
+    if (url.endsWith("/invitations") && init?.method === "POST") {
+      return Response.json({
+        invitation_id: "10000000-0000-4000-8000-000000000007",
+        email: "member@example.test",
+        role: "member",
+        created_at: "2026-11-15T00:00:00Z",
+        expires_at: "2026-11-22T00:00:00Z",
+        invite_token: "synthetic-invite-token-value-1234",
+      }, { status: 201 });
+    }
     if (url.endsWith(`/sources/${SOURCE_ID}/grants`) && init?.method === "POST") {
       const body = JSON.parse(String(init.body)) as { principal_id: string };
       return Response.json({
@@ -259,6 +269,30 @@ describe("workspace product console", () => {
       expect(taskRequests[1]?.[1]?.body).toContain('"use_jev":false');
     });
 
+  });
+
+  it("creates a one-time invitation link", async () => {
+    const fetchMock = mockProductFetch();
+    render(<WorkspaceConsole userId={USER_ID} email="reader@example.test" />);
+    await screen.findByLabelText("Invitee email");
+
+    fireEvent.change(screen.getByLabelText("Invitee email"), {
+      target: { value: "member@example.test" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create invitation" }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/invitations"),
+        expect.objectContaining({ method: "POST" }),
+      ),
+    );
+    expect(
+      await screen.findByDisplayValue(/synthetic-invite-token-value-1234/),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Share the link now/),
+    ).toBeInTheDocument();
   });
 
   it("grants read access to a workspace member", async () => {

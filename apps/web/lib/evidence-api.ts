@@ -1495,6 +1495,176 @@ export async function proxyStageWorkspaceSourceRequest({
   return json(201, payload);
 }
 
+export async function proxyWorkspaceInvitationsRequest({
+  request,
+  workspaceId,
+}: {
+  request: Request;
+  workspaceId: string;
+}): Promise<Response> {
+  if (!isUuid(workspaceId)) return json(404, { error: "Workspace not found." });
+  if (!sameOrigin(request)) return json(403, { error: "Request origin was not accepted." });
+  const auth = await getVerifiedAuthContext();
+  if (auth.kind === "unauthenticated") return json(401, { error: "Authentication is required." });
+  if (auth.kind === "unavailable") return json(503, { error: "Identity verification is unavailable." });
+  const blocked = await mfaBlocked(auth);
+  if (blocked) return blocked;
+  const serviceUrl = getEvidenceServiceBaseUrl();
+  if (!serviceUrl) return json(503, { error: "Evidence service is unavailable." });
+
+  let body: string | undefined;
+  if (request.method === "POST") {
+    let payload: unknown;
+    try {
+      payload = await request.json();
+    } catch {
+      return json(400, { error: "Invalid JSON body." });
+    }
+    const email = payload && typeof payload === "object"
+      ? (payload as Record<string, unknown>).email
+      : undefined;
+    if (typeof email !== "string" || email.trim().length < 3) {
+      return json(400, { error: "A valid email is required." });
+    }
+    body = JSON.stringify({ email: email.trim() });
+  }
+
+  let upstream: Response;
+  try {
+    upstream = await fetch(`${serviceUrl}/v1/workspaces/${workspaceId}/invitations`, {
+      method: request.method,
+      headers: {
+        Accept: "application/json",
+        ...(body ? { "Content-Type": "application/json" } : {}),
+        Authorization: `Bearer ${auth.accessToken}`,
+      },
+      body,
+      cache: "no-store",
+      redirect: "manual",
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch {
+    return json(503, { error: "Evidence service is unavailable." });
+  }
+  if (upstream.status === 401) return json(401, { error: "Your session is no longer valid." });
+  if (upstream.status === 403) return json(403, { error: "Only a workspace owner can invite members." });
+  if (upstream.status === 422) return json(422, { error: "The invitation was rejected." });
+  if (upstream.status !== 200 && upstream.status !== 201) {
+    return json(503, { error: "Evidence service is unavailable." });
+  }
+  let payload: unknown;
+  try {
+    payload = await upstream.json();
+  } catch {
+    return json(502, { error: "Evidence service returned an invalid response." });
+  }
+  return json(upstream.status, payload);
+}
+
+export async function proxyWorkspaceInvitationRevokeRequest({
+  request,
+  workspaceId,
+  invitationId,
+}: {
+  request: Request;
+  workspaceId: string;
+  invitationId: string;
+}): Promise<Response> {
+  if (!isUuid(workspaceId) || !isUuid(invitationId)) {
+    return json(404, { error: "Invitation not found." });
+  }
+  if (request.method !== "DELETE" || !sameOrigin(request)) {
+    return json(403, { error: "Request origin was not accepted." });
+  }
+  const auth = await getVerifiedAuthContext();
+  if (auth.kind === "unauthenticated") return json(401, { error: "Authentication is required." });
+  if (auth.kind === "unavailable") return json(503, { error: "Identity verification is unavailable." });
+  const blocked = await mfaBlocked(auth);
+  if (blocked) return blocked;
+  const serviceUrl = getEvidenceServiceBaseUrl();
+  if (!serviceUrl) return json(503, { error: "Evidence service is unavailable." });
+  let upstream: Response;
+  try {
+    upstream = await fetch(
+      `${serviceUrl}/v1/workspaces/${workspaceId}/invitations/${invitationId}`,
+      {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${auth.accessToken}` },
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(15_000),
+      },
+    );
+  } catch {
+    return json(503, { error: "Evidence service is unavailable." });
+  }
+  if (upstream.status === 401) return json(401, { error: "Your session is no longer valid." });
+  if (upstream.status === 403) return json(403, { error: "Only a workspace owner can revoke invitations." });
+  if (upstream.status === 404) return json(404, { error: "Invitation not found." });
+  if (upstream.status !== 204 && upstream.status !== 200) {
+    return json(503, { error: "Evidence service is unavailable." });
+  }
+  return new Response(null, { status: 204 });
+}
+
+export async function proxyAcceptWorkspaceInvitationRequest({
+  request,
+}: {
+  request: Request;
+}): Promise<Response> {
+  if (request.method !== "POST" || !sameOrigin(request)) {
+    return json(403, { error: "Request origin was not accepted." });
+  }
+  const auth = await getVerifiedAuthContext();
+  if (auth.kind === "unauthenticated") return json(401, { error: "Authentication is required." });
+  if (auth.kind === "unavailable") return json(503, { error: "Identity verification is unavailable." });
+  const blocked = await mfaBlocked(auth);
+  if (blocked) return blocked;
+  let payload: unknown;
+  try {
+    payload = await request.json();
+  } catch {
+    return json(400, { error: "Invalid JSON body." });
+  }
+  const token = payload && typeof payload === "object"
+    ? (payload as Record<string, unknown>).token
+    : undefined;
+  if (typeof token !== "string" || token.length < 20) {
+    return json(400, { error: "Invitation token is required." });
+  }
+  const serviceUrl = getEvidenceServiceBaseUrl();
+  if (!serviceUrl) return json(503, { error: "Evidence service is unavailable." });
+  let upstream: Response;
+  try {
+    upstream = await fetch(`${serviceUrl}/v1/invitations/accept`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${auth.accessToken}`,
+      },
+      body: JSON.stringify({ token }),
+      cache: "no-store",
+      redirect: "manual",
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch {
+    return json(503, { error: "Evidence service is unavailable." });
+  }
+  if (upstream.status === 401) return json(401, { error: "Your session is no longer valid." });
+  if (upstream.status === 403 || upstream.status === 422) {
+    return json(422, { error: "This invitation is no longer available." });
+  }
+  if (upstream.status !== 200) return json(503, { error: "Evidence service is unavailable." });
+  let responsePayload: unknown;
+  try {
+    responsePayload = await upstream.json();
+  } catch {
+    return json(502, { error: "Evidence service returned an invalid response." });
+  }
+  return json(200, responsePayload);
+}
+
 export async function proxyWorkspaceSourceGrantsRequest({
   request,
   workspaceId,

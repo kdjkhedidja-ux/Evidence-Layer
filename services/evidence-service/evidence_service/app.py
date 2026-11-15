@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import secrets
+import re
 import logging
 import math
 import os
 from time import perf_counter
 from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Literal, TypeVar
 from uuid import UUID, uuid4
 
@@ -114,6 +116,12 @@ from evidence_service.source_grant_repository import (
     SourceGrantRejected,
     SourceGrantUnavailable,
     SupabaseSourceGrantRepository,
+)
+from evidence_service.workspace_invitation_repository import (
+    InvitationForbidden,
+    InvitationRejected,
+    InvitationUnavailable,
+    SupabaseWorkspaceInvitationRepository,
 )
 from evidence_service.recovery_fence import (
     CloudflareRecoveryFenceReader,
@@ -321,6 +329,37 @@ class SourceGrantCreateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     principal_id: UUID
+
+
+class WorkspaceInvitationSummary(BaseModel):
+    invitation_id: UUID
+    email: str
+    role: Literal["owner", "member"]
+    created_at: datetime
+    expires_at: datetime
+    accepted_at: datetime | None = None
+    revoked_at: datetime | None = None
+
+
+class WorkspaceInvitationCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    email: str = Field(min_length=3, max_length=320)
+
+
+class WorkspaceInvitationCreateResponse(WorkspaceInvitationSummary):
+    invite_token: str
+
+
+class WorkspaceInvitationAcceptRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    token: str = Field(min_length=20, max_length=256)
+
+
+class WorkspaceInvitationAcceptResponse(BaseModel):
+    workspace_id: UUID
+    role: Literal["owner", "member"]
 
 
 class SourceLinkFields(BaseModel):
@@ -839,6 +878,13 @@ def _snapshot_object_store(settings: SupabaseSettings):
         bucket="source-snapshots",
         publishable_key=settings.publishable_key,
     )
+
+
+def _workspace_invitation_repository(request: Request, access_token: str):
+    factory = request.app.state.workspace_invitation_factory
+    if factory is not None:
+        return factory(access_token)
+    return SupabaseWorkspaceInvitationRepository(_settings_for(request))
 
 
 def _source_grant_repository(request: Request, access_token: str):
@@ -1653,6 +1699,7 @@ def create_app(
     source_catalog_factory=None,
     source_staging_factory=None,
     source_grant_factory=None,
+    workspace_invitation_factory=None,
     remote_mcp_enabled: bool | None = None,
     task_run_ledger_repository=None,
     task_ledger_enabled: bool | None = None,
@@ -1697,6 +1744,7 @@ def create_app(
     application.state.source_catalog_factory = source_catalog_factory
     application.state.source_staging_factory = source_staging_factory
     application.state.source_grant_factory = source_grant_factory
+    application.state.workspace_invitation_factory = workspace_invitation_factory
     application.state.remote_mcp_enabled = (
         remote_mcp_enabled
         if remote_mcp_enabled is not None
@@ -2925,6 +2973,149 @@ def create_app(
             object_key=staged.object_key,
             created_at=staged.created_at,
         )
+
+    @application.post(
+        "/v1/workspaces/{workspace_id}/invitations",
+        response_model=WorkspaceInvitationCreateResponse,
+        status_code=201,
+    )
+    async def create_workspace_invitation(
+        workspace_id: UUID,
+        payload: WorkspaceInvitationCreateRequest,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> WorkspaceInvitationCreateResponse:
+        context = await _resolve_workspace_or_404(request, auth, workspace_id)
+        if context.role != "owner":
+            raise HTTPException(status_code=403, detail="Workspace owner required")
+        email = payload.email.strip().lower()
+        if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+            raise HTTPException(status_code=422, detail="A valid email is required")
+        token = secrets.token_urlsafe(32)
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+        try:
+            invitation = await _with_account_gate(
+                request,
+                auth,
+                lambda: _workspace_invitation_repository(
+                    request, auth.access_token
+                ).create(
+                    auth.access_token,
+                    workspace_id=context.workspace_id,
+                    email=email,
+                    token_hash=token_hash,
+                    expires_at=expires_at,
+                ),
+            )
+        except InvitationForbidden as exc:
+            raise HTTPException(status_code=403, detail="Workspace owner required") from exc
+        except InvitationRejected as exc:
+            raise HTTPException(status_code=422, detail="Invitation was rejected") from exc
+        except InvitationUnavailable as exc:
+            raise HTTPException(status_code=503, detail="Invitations are unavailable") from exc
+        return WorkspaceInvitationCreateResponse(
+            invitation_id=invitation.invitation_id,
+            email=invitation.email,
+            role=invitation.role,
+            created_at=invitation.created_at,
+            expires_at=invitation.expires_at,
+            accepted_at=None,
+            revoked_at=None,
+            invite_token=token,
+        )
+
+    @application.get(
+        "/v1/workspaces/{workspace_id}/invitations",
+        response_model=list[WorkspaceInvitationSummary],
+    )
+    async def list_workspace_invitations(
+        workspace_id: UUID,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> list[WorkspaceInvitationSummary]:
+        context = await _resolve_workspace_or_404(request, auth, workspace_id)
+        if context.role != "owner":
+            raise HTTPException(status_code=403, detail="Workspace owner required")
+        try:
+            invitations = await _with_account_gate(
+                request,
+                auth,
+                lambda: _workspace_invitation_repository(
+                    request, auth.access_token
+                ).list(auth.access_token, workspace_id=context.workspace_id),
+            )
+        except InvitationForbidden as exc:
+            raise HTTPException(status_code=403, detail="Workspace owner required") from exc
+        except InvitationUnavailable as exc:
+            raise HTTPException(status_code=503, detail="Invitations are unavailable") from exc
+        return [
+            WorkspaceInvitationSummary(
+                invitation_id=invitation.invitation_id,
+                email=invitation.email,
+                role=invitation.role,
+                created_at=invitation.created_at,
+                expires_at=invitation.expires_at,
+                accepted_at=invitation.accepted_at,
+                revoked_at=invitation.revoked_at,
+            )
+            for invitation in invitations
+        ]
+
+    @application.delete(
+        "/v1/workspaces/{workspace_id}/invitations/{invitation_id}",
+        status_code=204,
+    )
+    async def revoke_workspace_invitation(
+        workspace_id: UUID,
+        invitation_id: UUID,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> Response:
+        context = await _resolve_workspace_or_404(request, auth, workspace_id)
+        if context.role != "owner":
+            raise HTTPException(status_code=403, detail="Workspace owner required")
+        try:
+            await _with_account_gate(
+                request,
+                auth,
+                lambda: _workspace_invitation_repository(
+                    request, auth.access_token
+                ).revoke(auth.access_token, invitation_id=invitation_id),
+            )
+        except InvitationForbidden as exc:
+            raise HTTPException(status_code=403, detail="Workspace owner required") from exc
+        except InvitationRejected as exc:
+            raise HTTPException(status_code=404, detail="Invitation not found") from exc
+        except InvitationUnavailable as exc:
+            raise HTTPException(status_code=503, detail="Invitations are unavailable") from exc
+        return Response(status_code=204)
+
+    @application.post(
+        "/v1/invitations/accept",
+        response_model=WorkspaceInvitationAcceptResponse,
+    )
+    async def accept_workspace_invitation(
+        payload: WorkspaceInvitationAcceptRequest,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> WorkspaceInvitationAcceptResponse:
+        token_hash = hashlib.sha256(payload.token.encode()).hexdigest()
+        try:
+            workspace_id, role = await _with_account_gate(
+                request,
+                auth,
+                lambda: _workspace_invitation_repository(
+                    request, auth.access_token
+                ).accept(auth.access_token, token_hash=token_hash),
+            )
+        except InvitationForbidden as exc:
+            raise HTTPException(status_code=403, detail="Invitation is not available") from exc
+        except InvitationRejected as exc:
+            raise HTTPException(status_code=422, detail="Invitation is not available") from exc
+        except InvitationUnavailable as exc:
+            raise HTTPException(status_code=503, detail="Invitations are unavailable") from exc
+        return WorkspaceInvitationAcceptResponse(workspace_id=workspace_id, role=role)
 
     @application.get(
         "/v1/workspaces/{workspace_id}/sources/{source_id}/grants",

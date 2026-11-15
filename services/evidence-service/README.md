@@ -35,6 +35,11 @@ The core workspace and source boundaries include:
 - `GET|POST /v1/workspaces/{workspace_id}/sources/{source_id}/grants` and
   `DELETE .../grants/{principal_id}` let an active owner manage member read
   grants for a source. The principal must be a workspace member.
+- `GET|POST /v1/workspaces/{workspace_id}/invitations`,
+  `DELETE .../invitations/{invitation_id}`, and `POST /v1/invitations/accept`
+  implement one-time hashed invitations. The raw token is returned once; only
+  the SHA-256 hash is stored. Delivery is link-based until an email worker is
+  added.
 - `GET /v1/workspaces/{workspace_id}/sources/{source_id}/versions/{version_id}/content`
   delivers verified source bytes after membership, catalog, ACL, size, and
   SHA-256 digest checks, with revalidation before opening and before delivery.

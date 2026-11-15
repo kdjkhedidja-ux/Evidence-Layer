@@ -97,7 +97,7 @@ and the content-free task ledger are production-verified.
 
 | Area | Status | Current boundary |
 |---|---|---|
-| Auth, MFA, personal/organization workspaces | **DONE** | No invitations, no multi-organization membership, no session inventory |
+| Auth, MFA, personal/organization workspaces | **DONE** | Link-based invitations delivered; email delivery, multi-organization membership, and session inventory remain |
 | Evidence and relationship CRUD | **DONE** | Owner/admin writes; member reads |
 | Verified source reads | **DONE** | Reads only; no hosted ingestion/publish path |
 | Hosted retrieve, task-context, Remote MCP | **DONE** | Read-only, workspace-scoped, bounded |
@@ -106,7 +106,7 @@ and the content-free task ledger are production-verified.
 | Account deletion and purge worker | **DONE** | Lease/retry active; migration 47 applied; four production smokes passed; single replica until scale-out validation |
 | Account/personal export | **DONE** | Shared/group export unavailable |
 | Connectors | **PARTIAL** | GitHub and Notion deployed; Google Drive gated; Dropbox/Confluence adapters only |
-| Source ingestion/publish | **DONE (pilot)** | Owner staging, queue, hosted verifier worker, publication, exact provenance, and member read grants are delivered; cleanup, invitations, and quotas remain scale hardening |
+| Source ingestion/publish | **DONE (pilot)** | Owner staging, queue, hosted verifier worker, publication, exact provenance, member read grants, and link-based invitations are delivered; email delivery, cleanup, and quotas remain scale hardening |
 | Source routing / Decisions API | **MISSING** | Local deterministic routing library is unwired and denies by default |
 | Billing, metering, quotas | **MISSING** | Cost/performance pages are planning estimates only |
 | Agent execution and task measurement | **MISSING** | EL returns evidence; it does not run the agent |
@@ -170,8 +170,11 @@ and the content-free task ledger are production-verified.
   `source_version_id`.
 - Delivered: owner-managed source read grants (list/grant/revoke API and
   workspace UI) for active members.
-- Remaining scale hardening: staged-object cleanup, invitations/email, quotas,
-  and a 10/100-workspace rollout.
+- Delivered: one-time hashed workspace invitations (create/list/revoke/accept
+  APIs, owner form, invite link, and accept page). Email delivery is not enabled
+  yet; the owner shares the one-time link.
+- Remaining scale hardening: invitation email delivery, staged-object cleanup,
+  quotas, and a 10/100-workspace rollout.
 - Acceptance: met for the pilot (end-to-end ingestion, verifier publication, and
   exact retrieve provenance).
 
