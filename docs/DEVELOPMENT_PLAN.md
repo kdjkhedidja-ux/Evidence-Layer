@@ -88,9 +88,8 @@ Legend: **DONE** = implemented with tests or production evidence; **PARTIAL** =
 code exists but a product, schema, or operational gap remains; **MISSING** = no
 implementation.
 
-Verified baseline: 52 migrations reviewed (51 applied, migration 52 pending);
-1,438 Python tests passing (15 skipped), 265 web tests passing, and 28 pgTAP
-files. Task-context, API-key retrieve, Remote MCP, JEV,
+Verified baseline: 52 migrations applied in production (pending=0); 1,438
+Python tests passing (15 skipped), 265 web tests passing, and 28 pgTAP files. Task-context, API-key retrieve, Remote MCP, JEV,
 and the content-free task ledger are production-verified.
 
 ### Status snapshot
@@ -199,12 +198,11 @@ and the content-free task ledger are production-verified.
   reproducibly dumps, restores into a disposable PostgreSQL 17 target, and runs
   the reconciliation verifier. Source/restored counts matched; verifier was
   clean 42/42. See `docs/operations/restore-drill-c1-2026-11-15.md`.
-- **C3 — shared-workspace owner unanimity: IMPLEMENTED 2026-11-15.**
-  Migration 52 adds revision-bound deletion requests and per-admin approvals;
-  all active organization admins must approve. Direct
-  `delete_group_workspace` is closed. Approved requests execute after a 24-hour
-  withdrawal window through the privileged deletion worker. API and
-  organization UI are included.
+- **C3 — shared-workspace owner unanimity: CLOSED 2026-11-15.**
+  Migration 52 is applied and verified. Two synthetic organization admins
+  approved unanimously; the privileged worker deleted the workspace after the
+  withdrawal window and wrote the `workspace_deleted` audit event. Direct
+  `delete_group_workspace` is closed.
 - **C5-full:** implement provider-available absence evidence and a provider
   retention/attestation record. Copies held by the provider cannot be proven
   absent from the current APIs alone.
