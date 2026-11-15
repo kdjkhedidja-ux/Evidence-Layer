@@ -284,6 +284,12 @@
       "version": "20261114230000",
       "sha256": "f4814fcccb064f8aef87b8d581591d0bddfdcf4300424a89866a97a0e6f7cd53",
       "provenance": "P0.2 deletion-worker lease/claim RPC, bounded retry with backoff, lease-ownership checks, and stale-lease health signals. Reviewed in the P0.2 pull request; not applied to production by this change."
+    },
+    {
+      "file": "20261115023000_snapshot_verification_queue.sql",
+      "version": "20261115023000",
+      "sha256": "633fb180b7bf1b559de869c920308539a44977038a66a05c12b44ac24f595444",
+      "provenance": "PR 1 of the multi-tenant publication plan: automatic staging enqueue, lease-based claim, auto per-workspace verifier authorization, and bounded retry. Publication remains closed until a worker is registered and deployed."
     }
   ]
 }
