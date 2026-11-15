@@ -42,3 +42,11 @@ Password-reset recovery sessions are exempt from the current-password check in S
 - Web tests: 181 passed (including MFA helper, enrollment, and challenge tests).
 - `npm run typecheck`, `npm run lint` (one pre-existing warning), and production build pass.
 - Existing production account password login still succeeds after the policy change.
+
+
+## 2026-11-15 follow-up
+
+Supabase Auth SMTP is now configured through Resend (`smtp.resend.com:465`,
+sender `noreply@evidencelayer.dev`). A production signup returned `200` with
+`confirmation_sent_at`, and TOTP enroll/challenge/verify returned an `aal2`
+session. See `docs/operations/auth-smtp-mfa-verification-2026-11-15.md`.
