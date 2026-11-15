@@ -29,6 +29,14 @@ const DELETION_STATUS_LABELS: Record<DeletionRequestView["status"], string> = {
   purged: "Purged",
 };
 
+type WorkspaceDeletionState = {
+  workspaceId: string;
+  requestId: string;
+  status: string;
+  ownerCount: number;
+  approvedCount: number;
+};
+
 export default function AuthAccount({ userId, email }: { userId: string; email: string }) {
   const router = useRouter();
   const [state, setState] = useState<PanelState>("loading");
@@ -62,6 +70,7 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
   const [workspaceName, setWorkspaceName] = useState("");
   const [workspacePending, setWorkspacePending] = useState(false);
   const [workspaceActionPending, setWorkspaceActionPending] = useState<string | null>(null);
+  const [workspaceDeletion, setWorkspaceDeletion] = useState<WorkspaceDeletionState | null>(null);
   const deletionRequestsEnabled = resolveDeletionRequestsEnabled({
     flag: process.env.NEXT_PUBLIC_DELETION_REQUESTS_ENABLED,
   });
@@ -245,24 +254,93 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
     }
   }, [loadOrganization]);
 
-  const deleteGroupWorkspace = useCallback(async (workspaceId: string, name: string) => {
-    if (!window.confirm(`Delete the group workspace "${name}" and all of its data?`)) return;
+  const loadWorkspaceDeletion = useCallback(async (workspaceId: string) => {
+    const response = await fetch(
+      `/api/evidence/workspaces/${encodeURIComponent(workspaceId)}/deletion-request`,
+      { cache: "no-store" },
+    );
+    if (response.status === 401) { setState("expired"); return; }
+    if (response.status === 404 || response.status === 204) {
+      setWorkspaceDeletion(null);
+      return;
+    }
+    if (!response.ok) {
+      setOrganizationError("Workspace deletion status is unavailable.");
+      return;
+    }
+    const payload = (await response.json()) as {
+      request_id?: unknown; status?: unknown; owner_count?: unknown;
+      approved_count?: unknown; workspace_id?: unknown;
+    } | null;
+    if (!payload || typeof payload.request_id !== "string") {
+      setWorkspaceDeletion(null);
+      return;
+    }
+    setWorkspaceDeletion({
+      workspaceId,
+      requestId: payload.request_id,
+      status: typeof payload.status === "string" ? payload.status : "pending",
+      ownerCount: typeof payload.owner_count === "number" ? payload.owner_count : 0,
+      approvedCount: typeof payload.approved_count === "number" ? payload.approved_count : 0,
+    });
+  }, []);
+
+  const requestGroupWorkspaceDeletion = useCallback(async (workspaceId: string, name: string) => {
+    if (!window.confirm(
+      `Request deletion of the group workspace "${name}"? Every active owner must approve. The deletion runs 24 hours after the last approval, and owners can withdraw before then.`,
+    )) return;
     setWorkspaceActionPending(workspaceId);
     setOrganizationError("");
     try {
-      const response = await fetch(`/api/evidence/organization/workspaces/${encodeURIComponent(workspaceId)}`, {
-        method: "DELETE",
-        cache: "no-store",
-      });
+      const response = await fetch(
+        `/api/evidence/workspaces/${encodeURIComponent(workspaceId)}/deletion-request`,
+        { method: "POST", cache: "no-store" },
+      );
       if (response.status === 401) { setState("expired"); return; }
-      if (!response.ok) { setOrganizationError("Group workspace could not be deleted."); return; }
-      await loadOrganization();
+      if (!response.ok) {
+        setOrganizationError("Workspace deletion request could not be created.");
+        return;
+      }
+      setOrganizationMessage("Deletion request created. Every active owner must approve.");
+      await loadWorkspaceDeletion(workspaceId);
     } catch {
-      setOrganizationError("Group workspace could not be deleted.");
+      setOrganizationError("Workspace deletion request could not be created.");
     } finally {
       setWorkspaceActionPending(null);
     }
-  }, [loadOrganization]);
+  }, [loadWorkspaceDeletion]);
+
+  const runWorkspaceDeletionAction = useCallback(async (
+    workspaceId: string,
+    requestId: string,
+    action: "approve" | "withdraw" | "cancel",
+  ) => {
+    setWorkspaceActionPending(workspaceId);
+    setOrganizationError("");
+    try {
+      const response = await fetch(
+        `/api/evidence/workspaces/${encodeURIComponent(workspaceId)}/deletion-request/${encodeURIComponent(requestId)}/${action}`,
+        { method: "POST", cache: "no-store" },
+      );
+      if (response.status === 401) { setState("expired"); return; }
+      if (!response.ok) {
+        setOrganizationError("Workspace deletion request could not be updated.");
+        return;
+      }
+      setOrganizationMessage(
+        action === "approve"
+          ? "Approval recorded."
+          : action === "withdraw"
+            ? "Approval withdrawn; deletion is blocked until every owner approves again."
+            : "Deletion request cancelled.",
+      );
+      await loadWorkspaceDeletion(workspaceId);
+    } catch {
+      setOrganizationError("Workspace deletion request could not be updated.");
+    } finally {
+      setWorkspaceActionPending(null);
+    }
+  }, [loadWorkspaceDeletion]);
 
   const createGroupWorkspace = useCallback(async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -810,13 +888,63 @@ export default function AuthAccount({ userId, email }: { userId: string; email: 
                           <button
                             type="button"
                             disabled={workspaceActionPending === workspace.id}
-                            onClick={() => void deleteGroupWorkspace(workspace.id, workspace.name)}
+                            onClick={() => void requestGroupWorkspaceDeletion(workspace.id, workspace.name)}
                           >
-                            Delete
+                            Request deletion
                           </button>
                         </li>
                       ))}
                     </ul>
+                    {workspaceDeletion && (
+                      <div className="account-organization-deletion">
+                        <p>
+                          Deletion request: {workspaceDeletion.status} · approvals{" "}
+                          {workspaceDeletion.approvedCount}/{workspaceDeletion.ownerCount}.
+                          {workspaceDeletion.status === "approved"
+                            ? " Execution is scheduled 24 hours after the last approval; withdraw before then to block it."
+                            : " Every active owner must approve."}
+                        </p>
+                        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                          {workspaceDeletion.status === "pending" && (
+                            <button
+                              type="button"
+                              disabled={workspaceActionPending === workspaceDeletion.workspaceId}
+                              onClick={() => void runWorkspaceDeletionAction(
+                                workspaceDeletion.workspaceId,
+                                workspaceDeletion.requestId,
+                                "approve",
+                              )}
+                            >
+                              Approve deletion
+                            </button>
+                          )}
+                          {workspaceDeletion.status === "approved" && (
+                            <button
+                              type="button"
+                              disabled={workspaceActionPending === workspaceDeletion.workspaceId}
+                              onClick={() => void runWorkspaceDeletionAction(
+                                workspaceDeletion.workspaceId,
+                                workspaceDeletion.requestId,
+                                "withdraw",
+                              )}
+                            >
+                              Withdraw approval
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            disabled={workspaceActionPending === workspaceDeletion.workspaceId}
+                            onClick={() => void runWorkspaceDeletionAction(
+                              workspaceDeletion.workspaceId,
+                              workspaceDeletion.requestId,
+                              "cancel",
+                            )}
+                          >
+                            Cancel request
+                          </button>
+                        </div>
+                      </div>
+                    )}
                     <form className="account-organization-form" onSubmit={(event) => void createGroupWorkspace(event)}>
                       <label htmlFor="organization-workspace-name">Group workspace name</label>
                       <input

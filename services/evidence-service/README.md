@@ -46,6 +46,10 @@ The core workspace and source boundaries include:
 - `public.workspace_source_usage(uuid)` is an owner-only, content-free counter
   used before staging and invitation creation. Limits: 100 source versions,
   100 MiB of source bytes, and 50 pending invitations per workspace.
+- `POST|GET /v1/workspaces/{workspace_id}/deletion-request` and the
+  approve/withdraw/cancel subroutes implement C3. Every active organization
+  admin must approve; direct group-workspace deletion is closed; approved
+  requests execute after a 24-hour withdrawal window.
 - The deletion worker also runs source-object cleanup. Staged versions older
   than `SOURCE_CLEANUP_AGE_DAYS` (default 14) without an active verification job
   are marked abandoned, hidden, excluded from quotas, and their private Storage

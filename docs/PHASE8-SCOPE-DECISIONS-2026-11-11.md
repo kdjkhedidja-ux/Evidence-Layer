@@ -1,6 +1,6 @@
 # Phase 8 Scope Decisions — 2026-11-11
 
-Status: product-scope decision record for the remaining Phase 8 gates. Phase C implemented C6/C4 and closed C8 for the narrowed scope; the account/personal export is deployed to production and the export UI flag is enabled after a passing smoke. Full Phase 8 is **not closed** because C1/C3/full C5/C7 remain deferred.
+Status: product-scope decision record for the remaining Phase 8 gates. **2026-11-15 update:** C1 isolated restore drill is closed; C3 unanimous shared-workspace deletion approvals are implemented (migration 52). Full Phase 8 is **not closed** because full C5 and C7 remain provider-dependent.
 
 Context:
 
@@ -12,8 +12,8 @@ Context:
 
 | Gate | Decision | Phase C work | Residual risk / limit |
 |---|---|---|---|
-| **C1 — isolated synthetic restore environment** | **DEFER** | None | No full isolated restore-environment acceptance. Existing local/preflight/fence evidence is retained; do not claim a restore drill. |
-| **C3 — shared-workspace owner unanimity** | **DEFER** | None | Account-scope deletion remains the supported path. Shared-workspace members have no unanimous-consent workflow; an organization owner's deletion can remove group-workspace content. |
+| **C1 — isolated synthetic restore environment** | **CLOSED 2026-11-15** | Reproducible restore drill implemented and verified | Provider data-plane/Auth/Storage restore remains out of scope. |
+| **C3 — shared-workspace owner unanimity** | **IMPLEMENTED 2026-11-15** | Migration 52 requests/approvals plus worker execution | Direct deletion closed; approved requests execute after a 24-hour withdrawal window. |
 | **C4 — mediated download links / cache / revocation** | **IMPLEMENT in Phase C** | Account/personal export download grants, `private, no-store` behavior, expiry and revocation; no direct signed Storage URL. | Shared-workspace export download is deferred with C3. Already-delivered client bytes remain outside recall. |
 | **C5 — full Storage/snapshot absence proof and terminal claims** | **DEFER beyond current evidence** | None | The accepted Phase 8 claim is limited to the current worker path: DB cleanup, snapshot/Storage queue drain, Auth 404, and terminal `purged` audit for a synthetic smoke. No provider backup, version-history, or object-version absence proof. |
 | **C6 — account/workspace export** | **IMPLEMENT in Phase C (account/personal scope only)** | Account and personal-workspace export producer with manifest/checksums and expiry cleanup. Shared/group workspace export is deferred with C3. | No full shared-workspace export; no export of other members' private data. |
@@ -24,7 +24,7 @@ Decision rule applied: defer unless the gate is required for the narrowed Phase 
 
 ## C1 — Isolated synthetic restore environment
 
-**Decision: DEFER; not a Phase 8 exit gate.**
+**Decision: CLOSED 2026-11-15 via the reproducible isolated restore drill.**
 
 Rationale: the existing isolation/preflight and recovery-fence evidence is sufficient for the current narrowed claim. Standing up and proving a full isolated restore environment is infrastructure work that belongs with a future restore/PITR program, not this product increment.
 
@@ -32,7 +32,7 @@ Residual risk: no end-to-end restore drill, no provider-level data-plane restore
 
 ## C3 — Shared-workspace owner unanimity
 
-**Decision: DEFER; account-scope only remains supported.**
+**Decision: IMPLEMENTED 2026-11-15; unanimous organization-admin approval is required.**
 
 Rationale: the current product deletion scopes are personal/account and organization-owner group-workspace cleanup. A revision-bound, unanimous-owner approval workflow requires new approval tables, owner-set revision locking, withdrawal/replay handling, and UI/API work. It is not required to keep the current account-scope deletion truthful.
 

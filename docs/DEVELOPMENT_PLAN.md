@@ -88,8 +88,9 @@ Legend: **DONE** = implemented with tests or production evidence; **PARTIAL** =
 code exists but a product, schema, or operational gap remains; **MISSING** = no
 implementation.
 
-Verified baseline: 51 migrations applied in production (pending=0); 1,431
-Python tests passing (15 skipped), 265 web tests passing, and 27 pgTAP files. Task-context, API-key retrieve, Remote MCP, JEV,
+Verified baseline: 52 migrations reviewed (51 applied, migration 52 pending);
+1,438 Python tests passing (15 skipped), 265 web tests passing, and 28 pgTAP
+files. Task-context, API-key retrieve, Remote MCP, JEV,
 and the content-free task ledger are production-verified.
 
 ### Status snapshot
@@ -111,7 +112,7 @@ and the content-free task ledger are production-verified.
 | Agent execution and task measurement | **MISSING** | EL returns evidence; it does not run the agent |
 | Shared workspace deletion approvals | **MISSING** | Account-scope only; owner unanimity deferred |
 | Backup and recovery | **PARTIAL** | Logical B2 dump plus passing restore drill and verifier; PITR disabled; Auth/Storage outside the dump |
-| Full Phase 8 (C1/C3/C5-full/C7) | **PARTIAL** | C4/C6/C8 narrowed are delivered; the rest is deferred |
+| Full Phase 8 (C1/C3/C5-full/C7) | **PARTIAL** | C1 restore drill and C3 unanimous deletion approvals are implemented; full C5 provider proof and C7 provider restore remain |
 
 ### P0 — Make the product truthful and operable (next)
 
@@ -198,8 +199,12 @@ and the content-free task ledger are production-verified.
   reproducibly dumps, restores into a disposable PostgreSQL 17 target, and runs
   the reconciliation verifier. Source/restored counts matched; verifier was
   clean 42/42. See `docs/operations/restore-drill-c1-2026-11-15.md`.
-- **C3 — shared-workspace owner unanimity:** implement. This is a product
-  decision: no shared-workspace deletion without every active owner's approval.
+- **C3 — shared-workspace owner unanimity: IMPLEMENTED 2026-11-15.**
+  Migration 52 adds revision-bound deletion requests and per-admin approvals;
+  all active organization admins must approve. Direct
+  `delete_group_workspace` is closed. Approved requests execute after a 24-hour
+  withdrawal window through the privileged deletion worker. API and
+  organization UI are included.
 - **C5-full:** implement provider-available absence evidence and a provider
   retention/attestation record. Copies held by the provider cannot be proven
   absent from the current APIs alone.

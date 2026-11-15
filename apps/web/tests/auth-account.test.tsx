@@ -365,12 +365,14 @@ describe("organization account gating", () => {
       if (url === "/api/evidence/organization/workspaces" && init?.method === "POST") {
         return Response.json({ workspace_id: newGroupId, name: "Group B" });
       }
-      if (url === `/api/evidence/organization/workspaces/${groupId}` && init?.method === "DELETE") {
+      if (url === `/api/evidence/workspaces/${groupId}/deletion-request`) {
         return Response.json({
+          request_id: "60000000-0000-4000-8000-000000000001",
           workspace_id: groupId,
-          workspace_deleted: true,
-          snapshots_deleted: 0,
-          storage_cleanup_queued: 0,
+          status: "pending",
+          owner_count: 2,
+          approved_count: 1,
+          owners: [],
         });
       }
       return new Response(null, { status: 404 });
@@ -399,10 +401,10 @@ describe("organization account gating", () => {
     ));
 
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
-    await user.click(screen.getByRole("button", { name: "Delete" }));
+    await user.click(screen.getByRole("button", { name: "Request deletion" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
-      `/api/evidence/organization/workspaces/${groupId}`,
-      expect.objectContaining({ method: "DELETE" }),
+      `/api/evidence/workspaces/${groupId}/deletion-request`,
+      expect.objectContaining({ method: "POST" }),
     ));
     confirmSpy.mockRestore();
   });

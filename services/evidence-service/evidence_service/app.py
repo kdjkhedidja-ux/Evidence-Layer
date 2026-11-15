@@ -129,6 +129,11 @@ from evidence_service.workspace_usage_repository import (
     WorkspaceUsageForbidden,
     WorkspaceUsageUnavailable,
 )
+from evidence_service.workspace_deletion_repository import (
+    SupabaseWorkspaceDeletionRepository,
+    WorkspaceDeletionForbidden,
+    WorkspaceDeletionUnavailable,
+)
 from evidence_service.recovery_fence import (
     CloudflareRecoveryFenceReader,
     RecoveryFenceConfigurationError,
@@ -888,6 +893,13 @@ def _snapshot_object_store(settings: SupabaseSettings):
         bucket="source-snapshots",
         publishable_key=settings.publishable_key,
     )
+
+
+def _workspace_deletion_repository(request: Request, access_token: str):
+    factory = request.app.state.workspace_deletion_factory
+    if factory is not None:
+        return factory(access_token)
+    return SupabaseWorkspaceDeletionRepository(_settings_for(request))
 
 
 def _workspace_usage_repository(request: Request, access_token: str):
@@ -1718,6 +1730,7 @@ def create_app(
     source_grant_factory=None,
     workspace_invitation_factory=None,
     workspace_usage_factory=None,
+    workspace_deletion_factory=None,
     remote_mcp_enabled: bool | None = None,
     task_run_ledger_repository=None,
     task_ledger_enabled: bool | None = None,
@@ -1764,6 +1777,7 @@ def create_app(
     application.state.source_grant_factory = source_grant_factory
     application.state.workspace_invitation_factory = workspace_invitation_factory
     application.state.workspace_usage_factory = workspace_usage_factory
+    application.state.workspace_deletion_factory = workspace_deletion_factory
     application.state.remote_mcp_enabled = (
         remote_mcp_enabled
         if remote_mcp_enabled is not None
@@ -3009,6 +3023,124 @@ def create_app(
             object_key=staged.object_key,
             created_at=staged.created_at,
         )
+
+    @application.post(
+        "/v1/workspaces/{workspace_id}/deletion-request",
+    )
+    async def request_workspace_deletion(
+        workspace_id: UUID,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> dict:
+        context = await _resolve_workspace_or_404(request, auth, workspace_id)
+        if context.role != "owner":
+            raise HTTPException(status_code=403, detail="Workspace owner required")
+        try:
+            return await _with_account_gate(
+                request, auth,
+                lambda: _workspace_deletion_repository(
+                    request, auth.access_token
+                ).request(auth.access_token, workspace_id=context.workspace_id),
+            )
+        except WorkspaceDeletionForbidden as exc:
+            raise HTTPException(status_code=403, detail="Workspace owner required") from exc
+        except WorkspaceDeletionUnavailable as exc:
+            raise HTTPException(status_code=503, detail="Workspace deletion is unavailable") from exc
+
+    @application.get(
+        "/v1/workspaces/{workspace_id}/deletion-request",
+    )
+    async def get_workspace_deletion_status(
+        workspace_id: UUID,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> dict | None:
+        context = await _resolve_workspace_or_404(request, auth, workspace_id)
+        if context.role != "owner":
+            raise HTTPException(status_code=403, detail="Workspace owner required")
+        try:
+            return await _with_account_gate(
+                request, auth,
+                lambda: _workspace_deletion_repository(
+                    request, auth.access_token
+                ).status(auth.access_token, workspace_id=context.workspace_id),
+            )
+        except WorkspaceDeletionForbidden as exc:
+            raise HTTPException(status_code=403, detail="Workspace owner required") from exc
+        except WorkspaceDeletionUnavailable as exc:
+            raise HTTPException(status_code=503, detail="Workspace deletion is unavailable") from exc
+
+    @application.post(
+        "/v1/workspaces/{workspace_id}/deletion-request/{request_id}/approve",
+    )
+    async def approve_workspace_deletion(
+        workspace_id: UUID,
+        request_id: UUID,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> dict:
+        context = await _resolve_workspace_or_404(request, auth, workspace_id)
+        if context.role != "owner":
+            raise HTTPException(status_code=403, detail="Workspace owner required")
+        try:
+            return await _with_account_gate(
+                request, auth,
+                lambda: _workspace_deletion_repository(
+                    request, auth.access_token
+                ).approve(auth.access_token, request_id=request_id),
+            )
+        except WorkspaceDeletionForbidden as exc:
+            raise HTTPException(status_code=403, detail="Workspace owner required") from exc
+        except WorkspaceDeletionUnavailable as exc:
+            raise HTTPException(status_code=503, detail="Workspace deletion is unavailable") from exc
+
+    @application.post(
+        "/v1/workspaces/{workspace_id}/deletion-request/{request_id}/withdraw",
+    )
+    async def withdraw_workspace_deletion(
+        workspace_id: UUID,
+        request_id: UUID,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> dict:
+        context = await _resolve_workspace_or_404(request, auth, workspace_id)
+        if context.role != "owner":
+            raise HTTPException(status_code=403, detail="Workspace owner required")
+        try:
+            return await _with_account_gate(
+                request, auth,
+                lambda: _workspace_deletion_repository(
+                    request, auth.access_token
+                ).withdraw(auth.access_token, request_id=request_id),
+            )
+        except WorkspaceDeletionForbidden as exc:
+            raise HTTPException(status_code=403, detail="Workspace owner required") from exc
+        except WorkspaceDeletionUnavailable as exc:
+            raise HTTPException(status_code=503, detail="Workspace deletion is unavailable") from exc
+
+    @application.post(
+        "/v1/workspaces/{workspace_id}/deletion-request/{request_id}/cancel",
+    )
+    async def cancel_workspace_deletion(
+        workspace_id: UUID,
+        request_id: UUID,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> dict:
+        context = await _resolve_workspace_or_404(request, auth, workspace_id)
+        if context.role != "owner":
+            raise HTTPException(status_code=403, detail="Workspace owner required")
+        try:
+            return await _with_account_gate(
+                request, auth,
+                lambda: _workspace_deletion_repository(
+                    request, auth.access_token
+                ).cancel(auth.access_token, request_id=request_id),
+            )
+        except WorkspaceDeletionForbidden as exc:
+            raise HTTPException(status_code=403, detail="Workspace owner required") from exc
+        except WorkspaceDeletionUnavailable as exc:
+            raise HTTPException(status_code=503, detail="Workspace deletion is unavailable") from exc
 
     @application.post(
         "/v1/workspaces/{workspace_id}/invitations",

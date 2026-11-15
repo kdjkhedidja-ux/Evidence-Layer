@@ -5,7 +5,7 @@ set local search_path = public, extensions;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(19);
+select plan(21);
 
 insert into auth.users (id, aud, role, email) values
     ('e1000000-0000-4000-8000-000000000001', 'authenticated', 'authenticated', 'org-admin@example.test'),
@@ -70,8 +70,29 @@ select is((select role from public.workspace_memberships
 select set_config('request.jwt.claim.sub', 'e1000000-0000-4000-8000-000000000001', true);
 select set_config('request.jwt.claims',
     json_build_object('sub', 'e1000000-0000-4000-8000-000000000001')::text, true);
-select is((public.delete_group_workspace(:'group_workspace_id'::uuid) ->> 'workspace_deleted')::boolean,
-    true, 'the admin deletes the group workspace');
+select (public.request_workspace_deletion(:'group_workspace_id'::uuid) ->> 'request_id') as c3_request_id
+\gset
+select is((public.request_workspace_deletion(:'group_workspace_id'::uuid) ->> 'status'), 'pending',
+    'the first admin opens a pending deletion request');
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub', 'e1000000-0000-4000-8000-000000000002', true);
+select set_config('request.jwt.claims',
+    json_build_object('sub', 'e1000000-0000-4000-8000-000000000002')::text, true);
+select is((public.approve_workspace_deletion(:'c3_request_id'::uuid) ->> 'status'), 'approved',
+    'the second admin completes unanimous approval');
+
+set local role postgres;
+update private.workspace_deletion_requests
+set execute_after = clock_timestamp() - interval '1 second'
+where request_id = :'c3_request_id'::uuid;
+select is((private.execute_workspace_deletion(:'c3_request_id'::uuid) ->> 'status'), 'executed',
+    'the approved workspace deletion executes');
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub', 'e1000000-0000-4000-8000-000000000001', true);
+select set_config('request.jwt.claims',
+    json_build_object('sub', 'e1000000-0000-4000-8000-000000000001')::text, true);
 select is((select count(*)::integer from public.workspaces
     where id = :'group_workspace_id'::uuid), 0,
     'the group workspace is removed');
