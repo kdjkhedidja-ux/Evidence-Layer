@@ -42,3 +42,36 @@ credentials, and it does not establish Storage's `id`/`version` semantics.
 The loopback restriction is an intentional safety gate; a later deployment
 review must decide and verify remote runtime networking and secret injection
 before Railway configuration or deployment.
+
+
+## Hosted queue worker
+
+`python -m snapshot_verifier_service.worker` is a separate hosted worker. It
+claims queued verification jobs with a lease, downloads the staged object,
+recomputes SHA-256 and size, calls the existing allowlisted publication RPCs,
+and marks the job published or failed.
+
+The one-shot CLI above remains loopback-only. The worker pins one exact HTTPS
+Supabase host and rejects other hosts, ports, paths, redirects, proxies,
+`service_role` tokens, and compressed responses.
+
+Environment:
+
+- `VERIFICATION_WORKER_SUPABASE_URL` — exact `https://<project-ref>.supabase.co`
+- `VERIFICATION_WORKER_ALLOWED_HOST` — the same `<project-ref>.supabase.co`
+- `VERIFICATION_WORKER_PUBLISHABLE_KEY` — publishable key only
+- `VERIFICATION_WORKER_REFRESH_TOKEN` — refresh token for the dedicated
+  non-human verifier identity
+- `VERIFICATION_WORKER_WORKER_ID` — optional stable worker id
+- `VERIFICATION_WORKER_POLL_SECONDS` — default 10
+- `VERIFICATION_WORKER_LEASE_SECONDS` — default 300
+
+One-time bootstrap, no per-workspace step:
+
+1. Create the dedicated Auth user through the Supabase Admin API.
+2. Insert its user id into `private.snapshot_verification_worker`.
+3. Store the user's refresh token in the worker secret store.
+4. Run the worker. Its first claim auto-authorizes that identity for the job
+   workspace through the allowlist manager.
+
+The worker is content-free in logs: it records job id and failure category only.

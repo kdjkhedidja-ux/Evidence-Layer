@@ -134,6 +134,39 @@ def _is_loopback_host(host: str | None) -> bool:
         return False
 
 
+def _valid_base_url(base_url: object, allowed_remote_host: str | None) -> bool:
+    """Validate the verifier target.
+
+    The default remains loopback-only. A hosted worker must supply one exact
+    HTTPS host; ports, credentials, paths, queries, fragments, and redirects
+    stay rejected.
+    """
+    if not isinstance(base_url, str):
+        return False
+    parsed = urlsplit(base_url)
+    if (
+        parsed.username
+        or parsed.password
+        or parsed.query
+        or parsed.fragment
+        or parsed.path not in {"", "/"}
+    ):
+        return False
+    if allowed_remote_host is None:
+        return parsed.scheme == "http" and _is_loopback_host(parsed.hostname)
+    if (
+        not isinstance(allowed_remote_host, str)
+        or not re.fullmatch(r"[a-z0-9.-]+", allowed_remote_host)
+        or allowed_remote_host != allowed_remote_host.lower()
+    ):
+        return False
+    return (
+        parsed.scheme == "https"
+        and parsed.hostname == allowed_remote_host
+        and parsed.port in {None, 443}
+    )
+
+
 def _is_service_role_token(token: str) -> bool:
     """Refuse a service_role JWT. The payload is decoded unverified and only to
     refuse; it is never used to accept or to establish identity."""
@@ -285,17 +318,11 @@ class LocalSupabaseVerificationGateway:
         publishable_key: str,
         timeout_seconds: float = 5.0,
         total_timeout_seconds: float = 10.0,
+        allowed_remote_host: str | None = None,
         client: httpx.AsyncClient | None = None,
     ) -> None:
-        parsed = urlsplit(base_url)
         if (
-            parsed.scheme != "http"
-            or not _is_loopback_host(parsed.hostname)
-            or parsed.path not in {"", "/"}
-            or parsed.username
-            or parsed.password
-            or parsed.query
-            or parsed.fragment
+            not _valid_base_url(base_url, allowed_remote_host)
             or not _is_public_api_key(publishable_key)
             or not 0 < timeout_seconds <= 30
             or not _valid_seconds(total_timeout_seconds)
@@ -424,17 +451,11 @@ class SupabaseStorageSnapshotReader:
         max_snapshot_bytes: int = DEFAULT_MAX_SNAPSHOT_BYTES,
         timeout_seconds: float = 5.0,
         total_timeout_seconds: float = DEFAULT_MAX_VERIFY_SECONDS,
+        allowed_remote_host: str | None = None,
         client: httpx.AsyncClient | None = None,
     ) -> None:
-        parsed = urlsplit(base_url)
         if (
-            parsed.scheme != "http"
-            or not _is_loopback_host(parsed.hostname)
-            or parsed.path not in {"", "/"}
-            or parsed.username
-            or parsed.password
-            or parsed.query
-            or parsed.fragment
+            not _valid_base_url(base_url, allowed_remote_host)
             or not _is_public_api_key(publishable_key)
             or type(max_snapshot_bytes) is not int
             or max_snapshot_bytes <= 0
