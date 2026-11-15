@@ -106,7 +106,7 @@ and the content-free task ledger are production-verified.
 | Account deletion and purge worker | **DONE** | Lease/retry active; migration 47 applied; four production smokes passed; single replica until scale-out validation |
 | Account/personal export | **DONE** | Shared/group export unavailable |
 | Connectors | **PARTIAL** | GitHub and Notion deployed; Google Drive gated; Dropbox/Confluence adapters only |
-| Source ingestion/publish | **PARTIAL** | Owner staging API/UI and private object upload are implemented; allowlisted publication/verifier deployment is pending |
+| Source ingestion/publish | **PARTIAL** | Owner staging, private upload, and an automatic multi-tenant verification queue are implemented; the verifier worker and publication deployment are pending |
 | Source routing / Decisions API | **MISSING** | Local deterministic routing library is unwired and denies by default |
 | Billing, metering, quotas | **MISSING** | Cost/performance pages are planning estimates only |
 | Agent execution and task measurement | **MISSING** | EL returns evidence; it does not run the agent |
@@ -159,12 +159,15 @@ and the content-free task ledger are production-verified.
 **P1.1 — Source ingestion and publish (staging implemented 2026-11-15; publication pending)**
 - Delivered: an owner-only `POST /v1/workspaces/{id}/sources` staging endpoint
   plus the workspace form. The service computes SHA-256 and size, creates the
-  staged catalog row, and returns the private bucket/object key; the browser
-  uploads the bytes to `source-snapshots`. Staged rows are visible to the owner
-  as pending verification.
-- Remaining: allowlisted snapshot-verifier publication and deployment evidence,
-  source read grants, staged-object cleanup, and the end-to-end retrieve
-  provenance smoke.
+  staged catalog row, inserts the owner's read grant, and returns the private
+  bucket/object key; the browser uploads the bytes to `source-snapshots`.
+- Delivered: migration 48 adds the multi-tenant verification queue. Staging
+  enqueues automatically; workers claim with a lease; the worker is auto-added
+  to the per-workspace verifier allowlist at claim time; transient failures
+  back off and verification mismatches are terminal.
+- Remaining: the verifier worker, its private HTTPS mode/identity, publication
+  deployment evidence, grants for other members, staged-object cleanup, and the
+  end-to-end retrieve provenance smoke.
 - Acceptance: a workspace can add a new source version end to end, the verifier
   marks it integrity-verified, and retrieve can cite it with exact provenance.
 

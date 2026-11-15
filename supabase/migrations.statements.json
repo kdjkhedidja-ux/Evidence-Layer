@@ -4666,6 +4666,293 @@
       "line": 243,
       "verb": "grant execute",
       "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "c541dfb47790f542",
+      "file": "20261115023000_snapshot_verification_queue.sql",
+      "line": 15,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "b50eff242cd2872b",
+      "file": "20261115023000_snapshot_verification_queue.sql",
+      "line": 16,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "54e2813a48c6ec5f",
+      "file": "20261115023000_snapshot_verification_queue.sql",
+      "line": 17,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "97f052eec92f4ecc",
+      "file": "20261115023000_snapshot_verification_queue.sql",
+      "line": 45,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "90fee188fe6add53",
+      "file": "20261115023000_snapshot_verification_queue.sql",
+      "line": 46,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "7fed761c76d119c7",
+      "file": "20261115023000_snapshot_verification_queue.sql",
+      "line": 47,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "66424f12d108639c",
+      "file": "20261115023000_snapshot_verification_queue.sql",
+      "line": 52,
+      "verb": "create or",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "9fadde5e79383227",
+      "file": "20261115023000_snapshot_verification_queue.sql",
+      "line": 66,
+      "verb": "create or",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "3c017e3c7084a997",
+      "file": "20261115023000_snapshot_verification_queue.sql",
+      "line": 135,
+      "verb": "create or",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "e124cdd4aab3f437",
+      "file": "20261115023000_snapshot_verification_queue.sql",
+      "line": 191,
+      "verb": "create or",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "e42bee833409da5a",
+      "file": "20261115023000_snapshot_verification_queue.sql",
+      "line": 259,
+      "verb": "create or",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "791197e9516fe595",
+      "file": "20261115023000_snapshot_verification_queue.sql",
+      "line": 291,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "4ef6ca4b2bcb4de3",
+      "file": "20261115023000_snapshot_verification_queue.sql",
+      "line": 293,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "7432a871cb78b33b",
+      "file": "20261115023000_snapshot_verification_queue.sql",
+      "line": 296,
+      "verb": "drop trigger",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "fdf968749b84a2a6",
+      "file": "20261115023000_snapshot_verification_queue.sql",
+      "line": 301,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "613c89476a10f774",
+      "file": "20261115023000_snapshot_verification_queue.sql",
+      "line": 303,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "b30f5337925bbb15",
+      "file": "20261115023000_snapshot_verification_queue.sql",
+      "line": 305,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "af5475cc0ea00d86",
+      "file": "20261115023000_snapshot_verification_queue.sql",
+      "line": 308,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "f25e18d5a3a1703d",
+      "file": "20261115023000_snapshot_verification_queue.sql",
+      "line": 310,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "f072b38bbf7472c7",
+      "file": "20261115023000_snapshot_verification_queue.sql",
+      "line": 312,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "366cf15f447c6df1",
+      "file": "20261115023000_snapshot_verification_queue.sql",
+      "line": 314,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "f99c24af68ee9c0d",
+      "file": "20261115023000_snapshot_verification_queue.sql",
+      "line": 317,
+      "verb": "grant select",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "2e41602f169c1731",
+      "file": "20261115023000_snapshot_verification_queue.sql",
+      "line": 319,
+      "verb": "grant select",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "11e3973f2f728a63",
+      "file": "20261115023000_snapshot_verification_queue.sql",
+      "line": 322,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "4b6fc06b97999026",
+      "file": "20261115023000_snapshot_verification_queue.sql",
+      "line": 329,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "32ad11d85010eded",
+      "file": "20261115023000_snapshot_verification_queue.sql",
+      "line": 338,
+      "verb": "grant create",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "e90517f46f32f916",
+      "file": "20261115023000_snapshot_verification_queue.sql",
+      "line": 339,
+      "verb": "grant create",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "f22f4b1a8b7688db",
+      "file": "20261115023000_snapshot_verification_queue.sql",
+      "line": 340,
+      "verb": "grant create",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "e926501dc893d791",
+      "file": "20261115023000_snapshot_verification_queue.sql",
+      "line": 342,
+      "verb": "do",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "444dc3045394de85",
+      "file": "20261115023000_snapshot_verification_queue.sql",
+      "line": 355,
+      "verb": "alter function",
+      "rationale_ref": "function-ownership"
+    },
+    {
+      "id": "39f8304b8b5b62d3",
+      "file": "20261115023000_snapshot_verification_queue.sql",
+      "line": 357,
+      "verb": "alter function",
+      "rationale_ref": "function-ownership"
+    },
+    {
+      "id": "5de1ac175bb71aad",
+      "file": "20261115023000_snapshot_verification_queue.sql",
+      "line": 359,
+      "verb": "alter function",
+      "rationale_ref": "function-ownership"
+    },
+    {
+      "id": "60b32ab4ee0b92bb",
+      "file": "20261115023000_snapshot_verification_queue.sql",
+      "line": 361,
+      "verb": "alter function",
+      "rationale_ref": "function-ownership"
+    },
+    {
+      "id": "67a490168e10ab2c",
+      "file": "20261115023000_snapshot_verification_queue.sql",
+      "line": 363,
+      "verb": "alter function",
+      "rationale_ref": "function-ownership"
+    },
+    {
+      "id": "026cfbcdf00af8bc",
+      "file": "20261115023000_snapshot_verification_queue.sql",
+      "line": 366,
+      "verb": "revoke create",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "e92ef1cdb63f7b05",
+      "file": "20261115023000_snapshot_verification_queue.sql",
+      "line": 367,
+      "verb": "revoke create",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "ef5731a86cd67089",
+      "file": "20261115023000_snapshot_verification_queue.sql",
+      "line": 368,
+      "verb": "revoke create",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "d1be82545ecb6856",
+      "file": "20261115023000_snapshot_verification_queue.sql",
+      "line": 370,
+      "verb": "do",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "562456857a4729a4",
+      "file": "20261115023000_snapshot_verification_queue.sql",
+      "line": 390,
+      "verb": "create or",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "cc560798d7e465d9",
+      "file": "20261115023000_snapshot_verification_queue.sql",
+      "line": 549,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "e98f70c52ec51f78",
+      "file": "20261115023000_snapshot_verification_queue.sql",
+      "line": 551,
+      "verb": "select private",
+      "rationale_ref": "catalog-assertion-call"
     }
   ]
 }

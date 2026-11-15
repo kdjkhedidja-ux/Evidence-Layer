@@ -84,6 +84,7 @@ V_CONNECTOR_BRIDGE = "20261112140000"
 V_CONNECTOR_EVIDENCE_RPC = "20261112160000"
 V_TASK_RUN_LEDGER = "20261114210000"
 V_WORKER_LEASE_RETRY = "20261114230000"
+V_SNAPSHOT_VERIFICATION_QUEUE = "20261115023000"
 
 VERSION_RE = re.compile(r"^[0-9]{14}_[a-z0-9_]+\.sql$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -539,6 +540,8 @@ def expected_policy_identity(policy: str) -> str:
         ("data_deletion_manifest_", "public", "data_deletion_manifest"),
         ("data_deletion_work_set_", "public", "data_deletion_work_set"),
         ("data_deletion_storage_queue_", "public", "data_deletion_storage_queue"),
+        ("snapshot_verification_jobs_", "private", "snapshot_verification_jobs"),
+        ("snapshot_verification_worker_", "private", "snapshot_verification_worker"),
         ("snapshot_verifier_allowlist_audit_", "private", "snapshot_verifier_allowlist_audit"),
         ("snapshot_verifier_allowlist_", "private", "snapshot_verifier_allowlist"),
         ("personal_api_key_gateway_secrets_", "private", "personal_api_key_gateway_secrets"),
@@ -591,6 +594,7 @@ def expected_catalog(versions: list[str]) -> dict:
     connector_evidence_rpc = V_CONNECTOR_EVIDENCE_RPC in present
     task_run_ledger = V_TASK_RUN_LEDGER in present
     worker_lease_retry = V_WORKER_LEASE_RETRY in present
+    verification_queue = V_SNAPSHOT_VERIFICATION_QUEUE in present
     source = V_SOURCE_CATALOG in present
     storage = V_SNAPSHOT_STORAGE in present
     verifier = V_VERIFIER_IDENTITY in present
@@ -643,6 +647,9 @@ def expected_catalog(versions: list[str]) -> dict:
         tables["public.connector_documents"] = (True, True)
     if task_run_ledger:
         tables["public.task_run_ledger"] = (True, True)
+    if verification_queue:
+        tables["private.snapshot_verification_worker"] = (True, True)
+        tables["private.snapshot_verification_jobs"] = (True, True)
 
     indexes: set[str] = set()
     if identity:
@@ -711,6 +718,13 @@ def expected_catalog(versions: list[str]) -> dict:
         })
     if worker_lease_retry:
         indexes.add("public.data_deletion_requests_claimable_idx")
+    if verification_queue:
+        indexes.update({
+            "private.snapshot_verification_worker_pkey",
+            "private.snapshot_verification_jobs_pkey",
+            "private.snapshot_verification_jobs_claimable_idx",
+            "private.snapshot_verification_jobs_workspace_idx",
+        })
     if phase8_export:
         indexes.update({
             "public.data_export_jobs_pkey",
@@ -950,6 +964,8 @@ def expected_catalog(versions: list[str]) -> dict:
         triggers.add("public.source_snapshots_require_stored_object")
     if verifier:
         triggers.add("public.source_snapshots_require_verification_binding")
+    if verification_queue:
+        triggers.add("public.source_snapshots_enqueue_verification")
     if admin:
         triggers.add("private.snapshot_verifier_allowlist_audit_changes")
     if account_lifecycle:
@@ -1120,6 +1136,18 @@ def expected_catalog(versions: list[str]) -> dict:
             "private.release_deletion_claim",
             "private.record_deletion_failure",
         })
+    if verification_queue:
+        policies.update({
+            "private.snapshot_verification_jobs_publisher_owner",
+            "private.snapshot_verification_worker_publisher_owner_select",
+        })
+        functions.update({
+            "public.claim_snapshot_verification",
+            "public.complete_snapshot_verification",
+            "public.fail_snapshot_verification",
+            "private.add_snapshot_verifier_allowlist",
+            "private.enqueue_snapshot_verification_after_insert",
+        })
 
     foreign_keys: set[tuple[str, str, str, str]] = set()
     if identity:
@@ -1196,6 +1224,12 @@ def expected_catalog(versions: list[str]) -> dict:
         foreign_keys.update({
             ("task_run_ledger_workspace_id_fkey", "public.task_run_ledger", "public.workspaces", "c"),
             ("task_run_ledger_actor_user_id_fkey", "public.task_run_ledger", "auth.users", "c"),
+        })
+    if verification_queue:
+        foreign_keys.update({
+            ("snapshot_verification_worker_user_id_fkey", "private.snapshot_verification_worker", "auth.users", "c"),
+            ("snapshot_verification_jobs_workspace_id_fkey", "private.snapshot_verification_jobs", "public.workspaces", "c"),
+            ("snapshot_verification_jobs_lease_user_id_fkey", "private.snapshot_verification_jobs", "auth.users", "n"),
         })
     if deletion_audit and not audit_fk_drop:
         audit_fk_action = "n" if personal_deletion else "r"
