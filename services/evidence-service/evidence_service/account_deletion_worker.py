@@ -104,6 +104,10 @@ def run_account_deletion(
                         if isinstance(slice_result, dict) else "failed",
                         "subject_id": subject_id,
                         "stage": "scoped_slice",
+                        "failure_category": (
+                            slice_result or {}
+                        ).get("failure_category")
+                        if isinstance(slice_result, dict) else None,
                     }
 
             cursor.execute("set local role account_deletion_worker")

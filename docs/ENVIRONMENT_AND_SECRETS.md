@@ -24,7 +24,7 @@
 | Web app (for example Vercel) | Public project settings plus a private service URL | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, server-only `EVIDENCE_SERVICE_URL` |
 | Supabase Auth dashboard | Hosted Auth SMTP configuration only | Resend SMTP password/API key, SMTP sender address; never place these in the web app |
 | Evidence Service runtime | Server-only Supabase Data API/JWT verification settings | Existing `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_JWT_*` variables from its service `.env.example` |
-| Account-deletion worker runtime | Server-only privileged worker credentials; never attach to the web app or public service | `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `DELETION_WORKER_INTERVAL_SECONDS`, `RAILWAY_DOCKERFILE_PATH`; one-shot CLI path uses `EVIDENCE_PURGE_DATABASE_URL` |
+| Account-deletion worker runtime | Server-only privileged worker credentials; never attach to the web app or public service | `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `DELETION_WORKER_INTERVAL_SECONDS`, `DELETION_WORKER_LEASE_SECONDS`, `DELETION_WORKER_SINGLE_INSTANCE`, `DELETION_MAX_ATTEMPTS`, `RAILWAY_DOCKERFILE_PATH`; one-shot CLI path uses `EVIDENCE_PURGE_DATABASE_URL` |
 | Google Drive connector runtime | Server-only OAuth/token-vault credentials; never expose the token-encryption key or client secret to the browser | `CONNECTOR_TOKEN_ENCRYPTION_KEY`, `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` |
 | Google Drive connector web OAuth | Server-only OAuth callback credentials | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_URI` |
 | Notion connector web OAuth | Server-only Notion OAuth callback credentials | `NOTION_OAUTH_CLIENT_ID`, `NOTION_OAUTH_CLIENT_SECRET`, `NOTION_REDIRECT_URI`, `NEXT_PUBLIC_NOTION_CONNECTOR_ENABLED` |
@@ -160,8 +160,9 @@ exchange and service refresh), never in `NEXT_PUBLIC_*` variables. For Notion,
 ### Account export rollout
 
 The optional deletion health-check cron uses `DELETION_HEALTHCHECK_DATABASE_URL`
-plus `DELETION_PURGE_PENDING_WARN_MINUTES`, `DELETION_ACCEPTED_WARN_MINUTES`, and
-`DELETION_QUEUE_WARN_MINUTES` (names only; values live in the worker secret store).
+plus `DELETION_PURGE_PENDING_WARN_MINUTES`, `DELETION_ACCEPTED_WARN_MINUTES`,
+`DELETION_QUEUE_WARN_MINUTES`, `DELETION_RETRY_GRACE_MINUTES`, and
+`DELETION_MAX_ATTEMPTS` (names only; values live in the worker secret store).
 
 See `docs/operations/worker-ops-hardening-2026-11-11.md` for the alert runbook,
 single-instance rule, backup status, and secret-rotation plan.

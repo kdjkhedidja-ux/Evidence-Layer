@@ -278,6 +278,12 @@
       "version": "20261114210000",
       "sha256": "d92e4c8050b2d5abdd28b50d382087cd88d36946ab51edb38f5a78296e926df7",
       "provenance": "Server-side content-free task-run ledger with workspace-member RLS for task-context retrieval metrics."
+    },
+    {
+      "file": "20261114230000_deletion_worker_lease_retry.sql",
+      "version": "20261114230000",
+      "sha256": "f4814fcccb064f8aef87b8d581591d0bddfdcf4300424a89866a97a0e6f7cd53",
+      "provenance": "P0.2 deletion-worker lease/claim RPC, bounded retry with backoff, lease-ownership checks, and stale-lease health signals. Reviewed in the P0.2 pull request; not applied to production by this change."
     }
   ]
 }
