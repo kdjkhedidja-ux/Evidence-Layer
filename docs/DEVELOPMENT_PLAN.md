@@ -105,7 +105,7 @@ and the content-free task ledger are production-verified.
 | Account deletion and purge worker | **DONE** | Lease/retry active; migration 47 applied; four production smokes passed; single replica until scale-out validation |
 | Account/personal export | **DONE** | Shared/group export unavailable |
 | Connectors | **PARTIAL** | GitHub and Notion deployed; Google Drive gated; Dropbox/Confluence adapters only |
-| Source ingestion/publish | **DONE (two-replica pilot)** | Owner staging, queue, 2-replica verifier worker, publication, provenance, member grants, invitations + Resend, quotas, and automatic staged-object cleanup are delivered; the 100-workspace pilot remains |
+| Source ingestion/publish | **DONE (100-workspace pilot)** | Owner staging, queue, 2-replica verifier worker, publication, provenance, member grants, invitations + Resend, quotas, cleanup, and a 100-workspace pilot are delivered |
 | Source routing / Decisions API | **MISSING** | Local deterministic routing library is unwired and denies by default |
 | Billing, metering, quotas | **MISSING** | Cost/performance pages are planning estimates only |
 | Agent execution and task measurement | **MISSING** | EL returns evidence; it does not run the agent |
@@ -181,11 +181,15 @@ and the content-free task ledger are production-verified.
 - Pilot: 10 synthetic workspaces published 10/10 with one worker, average job
   latency 7.15 seconds, no retries. A second pilot at two worker replicas
   published 10/10 new versions with no duplicate claims, average 6.89 seconds.
+- Pilot: 100 workspaces published 100/100 with two replicas in a 162-second
+  completion window, `attempts=1`, zero failures after correcting a harness
+  upload that initially created zero-byte objects.
 - Delivered: automatic staged-object cleanup. Staged versions older than 14
   days without an active verification job are marked abandoned (hidden and
   excluded from quotas), queued, and their private Storage object is deleted by
-  the privileged deletion worker. Catalog rows remain immutable. The
-  100-workspace pilot remains.
+  the privileged deletion worker. Catalog rows remain immutable.
+- Scale hardening is complete: 100-workspace pilot, two replicas, cleanup,
+  quotas, invitations/email, grants, and provenance.
 - Acceptance: met for the pilot (end-to-end ingestion, verifier publication, and
   exact retrieve provenance).
 
