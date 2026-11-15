@@ -5380,6 +5380,48 @@
       "line": 502,
       "verb": "revoke execute",
       "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "03811c2ce4533315",
+      "file": "20261115220000_connector_worker_grants.sql",
+      "line": 5,
+      "verb": "grant select",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "590a34053f6f2f6f",
+      "file": "20261115220000_connector_worker_grants.sql",
+      "line": 6,
+      "verb": "grant select",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "b29827eee3ef5df0",
+      "file": "20261115220000_connector_worker_grants.sql",
+      "line": 7,
+      "verb": "create or",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "fae33f5677a83758",
+      "file": "20261115220000_connector_worker_grants.sql",
+      "line": 30,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "2d072ee49e99d354",
+      "file": "20261115220000_connector_worker_grants.sql",
+      "line": 32,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "cfde8a78c773b186",
+      "file": "20261115220000_connector_worker_grants.sql",
+      "line": 34,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
     }
   ]
 }

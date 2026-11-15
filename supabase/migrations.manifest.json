@@ -314,6 +314,12 @@
       "version": "20261115200000",
       "sha256": "9c3b88b1307bcd04c979275310af62fca59c770666112f2c68bcf584c70f5574",
       "provenance": "C3: revision-bound unanimous owner approval for shared-workspace deletion; direct group workspace deletion is closed and execution is reserved for the privileged deletion worker."
+    },
+    {
+      "file": "20261115220000_connector_worker_grants.sql",
+      "version": "20261115220000",
+      "sha256": "b0bcff6e5dd6040faff2301999669d5967d9c6f59942b8eddde092315ac8b256",
+      "provenance": "P1.3: server-only grants for the isolated background GitHub connector sync worker."
     }
   ]
 }

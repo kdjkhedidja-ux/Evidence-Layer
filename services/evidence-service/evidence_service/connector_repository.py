@@ -67,9 +67,11 @@ class ConnectorRepository:
         settings: SupabaseSettings,
         *,
         transport: httpx.AsyncBaseTransport | None = None,
+        service_mode: bool = False,
     ) -> None:
         self._settings = settings
         self._transport = transport
+        self._service_mode = service_mode
 
     def _headers(self, access_token: str, *, prefer: str | None = None) -> dict[str, str]:
         headers = {
@@ -349,6 +351,17 @@ class ConnectorRepository:
     async def delete_stale_connector_evidence(
         self, access_token: str, connection_id: UUID, current_external_ids: set[str]
     ) -> None:
+        if self._service_mode:
+            await self._request(
+                "POST",
+                access_token,
+                "rpc/delete_stale_connector_evidence",
+                body={
+                    "p_connection_id": str(connection_id),
+                    "p_current_external_ids": sorted(current_external_ids),
+                },
+            )
+            return
         response = await self._request(
             "GET",
             access_token,
