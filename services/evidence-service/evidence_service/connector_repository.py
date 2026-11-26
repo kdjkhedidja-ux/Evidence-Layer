@@ -9,6 +9,8 @@ from uuid import UUID
 
 import httpx
 
+from evidence_service.connector_parts import not_indexed_reason
+
 from evidence_service.config import SupabaseSettings
 
 CONNECTION_SELECT = (
@@ -450,6 +452,47 @@ class ConnectorRepository:
             if len(rows) < page_size:
                 break
         return states
+
+    async def list_not_indexed(
+        self, access_token: str, connection_id: UUID
+    ) -> list[dict[str, Any]]:
+        """Synced files without evidence for the signed-in owner (RLS-scoped).
+
+        Rows recorded by the current sync carry the reason in ``mime_type``;
+        older rows stored before reasons existed are binary (base64) or empty.
+        """
+        response = await self._request(
+            "GET",
+            access_token,
+            "connector_documents",
+            params={
+                "select": "external_id,mime_type,size_bytes,content_text",
+                "connection_id": f"eq.{connection_id}",
+                "or": "(content_text.is.null,content_text.eq.)",
+                "order": "external_id.asc",
+                "limit": "1000",
+            },
+        )
+        rows = response.json()
+        if not isinstance(rows, list):
+            raise ConnectorUnavailable
+        result: list[dict[str, Any]] = []
+        for row in rows:
+            if not isinstance(row, dict) or not isinstance(row.get("external_id"), str):
+                raise ConnectorUnavailable
+            owner, _, rest = row["external_id"].partition("/")
+            repo, _, path = rest.partition("/")
+            reason = not_indexed_reason(row.get("mime_type"))
+            if reason is None:
+                reason = "binary" if row.get("content_text") is None else "empty"
+            size = row.get("size_bytes")
+            result.append({
+                "repository": f"{owner}/{repo}",
+                "path": path or row["external_id"],
+                "reason": reason,
+                "size_bytes": size if isinstance(size, int) and size >= 0 else 0,
+            })
+        return result
 
     async def upsert_documents(
         self, access_token: str, documents: list[dict[str, Any]]

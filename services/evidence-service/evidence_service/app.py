@@ -303,6 +303,16 @@ class ConnectorSyncResponse(BaseModel):
     skipped: int
     next_cursor: str | None
     unchanged: int = 0
+    not_indexed: int = 0
+
+
+class ConnectorNotIndexedFile(BaseModel):
+    """A synced file that has no evidence, with the reason. Owner-only (RLS)."""
+
+    repository: str
+    path: str
+    reason: Literal["too_large", "binary", "fetch_error", "empty", "too_many_parts"]
+    size_bytes: int
 
 
 class WorkspaceResponse(BaseModel):
@@ -2448,7 +2458,35 @@ def create_app(
             skipped=result.skipped,
             next_cursor=result.next_cursor,
             unchanged=getattr(result, "unchanged", 0),
+            not_indexed=getattr(result, "not_indexed", 0),
         )
+
+    @application.get(
+        "/v1/connectors/{connection_id}/not-indexed",
+        response_model=list[ConnectorNotIndexedFile],
+    )
+    async def list_not_indexed_connector_files(
+        connection_id: UUID,
+        request: Request,
+        auth: AuthenticatedRequest = Depends(require_authenticated_request),
+    ) -> list[ConnectorNotIndexedFile]:
+        try:
+            rows = await _with_account_gate(
+                request,
+                auth,
+                lambda: _connector_repository(request).list_not_indexed(
+                    auth.access_token, connection_id
+                ),
+            )
+        except ConnectorNotFound as exc:
+            raise HTTPException(status_code=404, detail="Connector not found") from exc
+        except ConnectorDenied as exc:
+            raise HTTPException(status_code=403, detail="Connector is not authorized") from exc
+        except ConnectorUnavailable as exc:
+            raise HTTPException(
+                status_code=503, detail="Connector service is unavailable"
+            ) from exc
+        return [ConnectorNotIndexedFile(**row) for row in rows]
 
     @application.get("/v1/me/api-keys", response_model=list[PersonalApiKeyResponse])
     async def list_personal_api_keys(

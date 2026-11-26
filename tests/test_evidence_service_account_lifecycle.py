@@ -662,8 +662,9 @@ def test_new_v1_routes_must_bind_the_lifecycle_dependency_and_healthz_is_public(
     # organization management routes, 3 personal API key management routes,
     # 2 personal API key read routes, and 3 narrowed export routes. All require
     # a verified credential; the read routes use the dedicated personal-key
-    # dependency plus the DB gate.
-    assert len(protected) == 58
+    # dependency plus the DB gate. Plus the owner-only connector
+    # "not indexed" listing (RLS-scoped connector_documents read).
+    assert len(protected) == 59
     assert all(has_auth_dependency(route.dependant) for route in protected)
     assert [(route.path, route.methods) for route in public] == [
         ("/healthz", {"GET"})

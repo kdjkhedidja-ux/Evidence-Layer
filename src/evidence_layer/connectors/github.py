@@ -106,8 +106,19 @@ class GitHubConnector:
         return headers
 
     async def list_items(
-        self, *, cursor: str | None = None, limit: int = 100
+        self,
+        *,
+        cursor: str | None = None,
+        limit: int = 100,
+        include_oversized: bool = False,
     ) -> ConnectorPage:
+        """List indexable files of the repository tree.
+
+        Files over ``max_file_bytes`` are dropped unless ``include_oversized``
+        is true; then they are listed with ``metadata["not_indexed"] =
+        "too_large"`` so the caller can record them instead of silently
+        excluding them. They are never fetched.
+        """
         if cursor:
             raise ValueError("GitHub tree listing does not paginate through this connector")
         ref = quote(self._config.ref, safe="")
@@ -130,7 +141,8 @@ class GitHubConnector:
             if priority is None:
                 continue
             size = entry.get("size")
-            if isinstance(size, int) and size > self._config.max_file_bytes:
+            oversized = isinstance(size, int) and size > self._config.max_file_bytes
+            if oversized and not include_oversized:
                 continue
             mime = _mime_type(path)
             item = ConnectorItem(
@@ -145,7 +157,12 @@ class GitHubConnector:
                     f"/blob/{quote(self._config.ref, safe='/')}/{quote(path, safe='/')}"
                 ),
                 size_bytes=size if isinstance(size, int) else None,
-                metadata={"path": path, "ref": self._config.ref, "priority": priority},
+                metadata={
+                    "path": path,
+                    "ref": self._config.ref,
+                    "priority": priority,
+                    **({"not_indexed": "too_large"} if oversized else {}),
+                },
             )
             candidate_pairs.append((priority, path, item))
         candidate_pairs.sort(key=lambda pair: (pair[0], pair[1]))

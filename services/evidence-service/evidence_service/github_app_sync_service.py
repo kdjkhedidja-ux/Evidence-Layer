@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import base64
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
@@ -13,6 +12,18 @@ import jwt
 
 from evidence_layer.connectors import ConnectorError, GitHubConfig, GitHubConnector
 
+from evidence_service.connector_parts import (
+    EMPTY_SHA256,
+    MAX_PARTS,
+    SINGLE_RECORD_MAX_CHARS,
+    log_path_hash,
+    not_indexed_mime,
+    not_indexed_reason,
+    part_external_id,
+    part_label,
+    possible_part_ids,
+    split_parts,
+)
 from evidence_service.connector_repository import (
     ConnectorConnection,
     ConnectorDenied,
@@ -25,10 +36,15 @@ MAX_DOCUMENT_BYTES = 2 * 1024 * 1024
 MAX_SYNC_ITEMS = 100
 MAX_REPOSITORIES = 5
 MAX_TOTAL_BYTES = 12 * 1024 * 1024
-MAX_EVIDENCE_CHARS = 65_536
 
 
 MAX_TREE_ITEMS = 10_000
+# Evidence upsert batches keep one RPC body well under the gateway limit now
+# that one large file can produce dozens of part records.
+EVIDENCE_BATCH_RECORDS = 50
+EVIDENCE_BATCH_CHARS = 2_000_000
+NOT_INDEXED_LOG_LIMIT = 20
+_TEXT_CONTENT_TYPES = {"application/json", "application/xml", "application/xhtml+xml"}
 MAX_USER_INSTALLATION_PAGES = 10
 
 
@@ -53,6 +69,10 @@ class GitHubSyncResult:
     next_cursor: str | None
     unchanged: int = 0
     pending: int = 0
+    not_indexed: int = 0
+    # (truncated path hash, reason) for files recorded as not indexed in this
+    # run; plain paths are never logged.
+    not_indexed_files: tuple[tuple[str, str], ...] = ()
 
 
 class GitHubAppSyncService:
@@ -294,6 +314,10 @@ class GitHubAppSyncService:
             except Exception:
                 known_states = {}
             documents: list[dict[str, Any]] = []
+            evidence_documents: list[dict[str, Any]] = []
+            not_indexed: list[tuple[str, str]] = []
+            fetched = 0
+            indexed = 0
             current_external_ids: set[str] = set()
             listed = 0
             unchanged = 0
@@ -325,7 +349,9 @@ class GitHubAppSyncService:
                     transport=self._transport,
                 )
                 try:
-                    page = await connector.list_items(limit=MAX_TREE_ITEMS)
+                    page = await connector.list_items(
+                        limit=MAX_TREE_ITEMS, include_oversized=True
+                    )
                 except ConnectorError:
                     skipped += 1
                     had_errors = True
@@ -334,49 +360,92 @@ class GitHubAppSyncService:
                     listing_complete = False
                 listed += len(page.items)
                 for item in page.items:
+                    path = str(item.metadata.get("path") or item.external_id)
                     current_external_ids.add(item.external_id)
+                    # Existing parts of a possibly large file are kept unless
+                    # this run re-indexes the file (handled below).
+                    may_have_parts = (
+                        not isinstance(item.size_bytes, int)
+                        or item.size_bytes > SINGLE_RECORD_MAX_CHARS
+                    )
+                    if may_have_parts:
+                        current_external_ids.update(possible_part_ids(item.external_id))
                     known = known_states.get(item.external_id)
                     if (
                         item.revision
                         and known is not None
                         and known[0] == item.revision
-                        and (item.mime_type is None or known[1] == item.mime_type)
+                        and (
+                            not_indexed_reason(known[1]) is not None
+                            or item.mime_type is None
+                            or known[1] == item.mime_type
+                        )
                     ):
+                        # Same revision: either already indexed with the right
+                        # type, or already recorded as not indexed.
                         unchanged += 1
                         continue
-                    if len(documents) >= MAX_SYNC_ITEMS:
+                    if item.metadata.get("not_indexed") == "too_large":
+                        documents.append(self._not_indexed_document(
+                            connection, item, "too_large"
+                        ))
+                        not_indexed.append((log_path_hash(connection.connection_id, path), "too_large"))
+                        continue
+                    if fetched >= MAX_SYNC_ITEMS:
                         # Fetched on a later run; its current evidence is kept.
                         pending += 1
                         continue
                     try:
                         document = await connector.fetch_document(item)
                     except ConnectorError:
-                        skipped += 1
+                        fetched += 1
                         had_errors = True
+                        documents.append(self._not_indexed_document(
+                            connection, item, "fetch_error"
+                        ))
+                        not_indexed.append((log_path_hash(connection.connection_id, path), "fetch_error"))
                         continue
-                    if (
-                        len(document.content) > MAX_DOCUMENT_BYTES
-                        or total_bytes + len(document.content) > MAX_TOTAL_BYTES
-                    ):
-                        skipped += 1
+                    if total_bytes + len(document.content) > MAX_TOTAL_BYTES:
+                        # Per-run byte budget: not an exclusion, fetched later.
+                        pending += 1
                         continue
+                    fetched += 1
                     total_bytes += len(document.content)
-                    content_type = document.content_type.split(";")[0].strip().lower()
-                    if content_type.startswith("text/") or content_type in {
-                        "application/json", "application/xml", "application/xhtml+xml"
-                    }:
-                        content_text = document.content.decode("utf-8", errors="replace")
-                        content_base64 = None
+                    if len(document.content) > MAX_DOCUMENT_BYTES:
+                        reason = "too_large"
                     else:
-                        content_text = None
-                        content_base64 = base64.b64encode(document.content).decode("ascii")
-                    if (
-                        content_text is not None
-                        and len(content_text) > MAX_EVIDENCE_CHARS
-                    ):
-                        skipped += 1
+                        content_type = document.content_type.split(";")[0].strip().lower()
+                        is_text = (
+                            content_type.startswith("text/") or content_type in _TEXT_CONTENT_TYPES
+                        ) and b"\x00" not in document.content  # NUL: binary (and invalid in Postgres text)
+                        content_text = (
+                            document.content.decode("utf-8", errors="replace") if is_text else None
+                        )
+                        if content_text is None:
+                            reason = "binary"
+                        elif not content_text.strip():
+                            reason = "empty"
+                        elif len(split_parts(content_text)) > MAX_PARTS:
+                            reason = "too_many_parts"
+                        else:
+                            reason = None
+                    if reason is not None:
+                        # The file was read and is not indexable now: drop any
+                        # evidence it had (a fetch error above keeps it).
+                        current_external_ids.difference_update(possible_part_ids(item.external_id))
+                        current_external_ids.discard(item.external_id)
+                        documents.append(self._not_indexed_document(connection, item, reason))
+                        not_indexed.append((log_path_hash(connection.connection_id, path), reason))
                         continue
                     revision = document.revision or item.revision or document.sha256
+                    # This file is re-indexed now: keep exactly its new ids so
+                    # obsolete parts (or a former single record) are removed.
+                    current_external_ids.difference_update(possible_part_ids(item.external_id))
+                    current_external_ids.discard(item.external_id)
+                    records = self._evidence_records(item.external_id, content_text, revision)
+                    current_external_ids.update(record["connector_external_id"] for record in records)
+                    evidence_documents.extend(records)
+                    indexed += 1
                     documents.append({
                         "user_id": str(connection.user_id),
                         "connection_id": str(connection.connection_id),
@@ -387,7 +456,7 @@ class GitHubAppSyncService:
                         "revision": revision,
                         "source_url": item.url,
                         "content_text": content_text,
-                        "content_base64": content_base64,
+                        "content_base64": None,
                         "content_sha256": document.sha256,
                         "size_bytes": len(document.content),
                         "provider_updated_at": None,
@@ -414,22 +483,13 @@ class GitHubAppSyncService:
                     provider_config=connection.provider_config,
                     workspace_id=workspace_id,
                 )
-            evidence_documents = [
-                {
-                    "content": doc["content_text"],
-                    "source_label": f"GitHub: {doc['external_id']}"[:512],
-                    "connector_external_id": doc["external_id"],
-                    "connector_revision": doc["revision"],
-                }
-                for doc in documents
-                if doc.get("content_text")
-            ]
-            await self._repository.upsert_evidence_documents(
-                access_token,
-                workspace_id=connection.workspace_id,
-                connection_id=connection.connection_id,
-                documents=evidence_documents,
-            )
+            for batch in self._evidence_batches(evidence_documents):
+                await self._repository.upsert_evidence_documents(
+                    access_token,
+                    workspace_id=connection.workspace_id,
+                    connection_id=connection.connection_id,
+                    documents=batch,
+                )
             # Revisions are recorded only after the evidence write succeeded.
             # They drive the "unchanged" shortcut, so recording them first would
             # leave evidence permanently stale whenever the evidence write fails.
@@ -449,11 +509,13 @@ class GitHubAppSyncService:
             return GitHubSyncResult(
                 connection_id=str(connection.connection_id),
                 listed=listed,
-                ingested=len(documents),
+                ingested=indexed,
                 skipped=skipped,
                 next_cursor=None,
                 unchanged=unchanged,
                 pending=pending,
+                not_indexed=len(not_indexed),
+                not_indexed_files=tuple(not_indexed[:NOT_INDEXED_LOG_LIMIT]),
             )
         except (ConnectorDenied, ConnectorNotFound):
             await self._mark_failure(access_token, connection.connection_id, "authorization")
@@ -463,6 +525,71 @@ class GitHubAppSyncService:
             if isinstance(exc, GitHubAppSyncError):
                 raise
             raise GitHubAppSyncError("GitHub sync failed") from exc
+
+    @staticmethod
+    def _evidence_records(external_id: str, text: str, revision: str) -> list[dict[str, Any]]:
+        """One record for a normal file; labelled, offset-carrying parts for a large one."""
+        base_label = f"GitHub: {external_id}"
+        ranges = split_parts(text)
+        if len(ranges) == 1:
+            return [{
+                "content": text,
+                "source_label": base_label[:512],
+                "connector_external_id": external_id,
+                "connector_revision": revision,
+            }]
+        records = []
+        for index, (start, end) in enumerate(ranges, start=1):
+            content = text[start:end]
+            if not content.strip():
+                continue
+            label = part_label(base_label, index, len(ranges), start, end)
+            if len(label) > 512:
+                # Keep the offsets: shorten the path, never the part suffix.
+                suffix = label[len(base_label):]
+                label = base_label[: 512 - len(suffix)] + suffix
+            records.append({
+                "content": content,
+                "source_label": label,
+                "connector_external_id": part_external_id(external_id, index),
+                "connector_revision": revision,
+            })
+        return records
+
+    @staticmethod
+    def _evidence_batches(records: list[dict[str, Any]]):
+        batch: list[dict[str, Any]] = []
+        chars = 0
+        for record in records:
+            size = len(record["content"])
+            if batch and (len(batch) >= EVIDENCE_BATCH_RECORDS or chars + size > EVIDENCE_BATCH_CHARS):
+                yield batch
+                batch, chars = [], 0
+            batch.append(record)
+            chars += size
+        if batch:
+            yield batch
+
+    @staticmethod
+    def _not_indexed_document(connection: ConnectorConnection, item: Any, reason: str) -> dict[str, Any]:
+        """Record a file that is not indexed: revision and reason, no content."""
+        return {
+            "user_id": str(connection.user_id),
+            "connection_id": str(connection.connection_id),
+            "provider": "github",
+            "external_id": item.external_id,
+            "name": item.name,
+            "mime_type": not_indexed_mime(reason),
+            "revision": item.revision or f"unversioned:{reason}",
+            "source_url": item.url,
+            "content_text": None,
+            # Satisfies connector_documents_content_present without storing
+            # any of the file: the row is a revision + reason marker.
+            "content_base64": "",
+            "content_sha256": EMPTY_SHA256,
+            "size_bytes": item.size_bytes if isinstance(item.size_bytes, int) else 0,
+            "provider_updated_at": None,
+        }
 
     async def disconnect(self, access_token: str, connection_id: Any) -> None:
         await self._repository.delete_connection(access_token, connection_id)
