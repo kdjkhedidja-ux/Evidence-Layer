@@ -5664,6 +5664,20 @@
       "rationale_ref": "privilege-revoke"
     },
     {
+      "id": "1b7292108c143e8d",
+      "file": "20261127110000_connector_stale_evidence_audit_actor.sql",
+      "line": 17,
+      "verb": "create or",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "bbdfe812a43a8166",
+      "file": "20261127110000_connector_stale_evidence_audit_actor.sql",
+      "line": 62,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
       "id": "3f904ecc928cffba",
       "file": "20261127120000_evidence_search_prefilter.sql",
       "line": 42,
