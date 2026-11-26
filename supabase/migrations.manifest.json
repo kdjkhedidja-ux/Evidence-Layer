@@ -338,6 +338,12 @@
       "version": "20261126140000",
       "sha256": "dad032a3f6fb70b760c712b4b992a67768c9376349d71b1495ea592f1150ad6c",
       "provenance": "PR #260 follow-up: refuse connector evidence writes and worker syncs for accounts whose deletion is accepted (lifecycle not available)."
+    },
+    {
+      "file": "20261127110000_connector_stale_evidence_audit_actor.sql",
+      "version": "20261127110000",
+      "sha256": "c9d50083460166f6288a147a8f66e46316a9ecad834610bdf539f4bd7cd4dd34",
+      "provenance": "Connector worker stale-evidence deletion: the evidence delete audit accepts the connection owner as actor for a service-role delete of connector evidence (was 42501, blocking every stale removal)."
     }
   ]
 }
