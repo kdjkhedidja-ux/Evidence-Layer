@@ -51,6 +51,14 @@ describe("SiteHeader", () => {
     expect(mocks.signOut).toHaveBeenCalledWith({ scope: "local" });
   });
 
+  it("marks only the most specific destination as the current page", () => {
+    window.history.replaceState({}, "", "/workspace/telemetry");
+    render(<SiteHeader accountEmail={null} />);
+    const nav = screen.getByRole("navigation", { name: "Main navigation" });
+    const current = within(nav).getAllByRole("link").filter((link) => link.getAttribute("aria-current") === "page");
+    expect(current.map((link) => link.textContent)).toEqual(["Telemetry"]);
+  });
+
   it("does not call Supabase when the account is provided by the page", () => {
     render(<SiteHeader accountEmail="known@example.test" />);
     expect(mocks.getSession).not.toHaveBeenCalled();
