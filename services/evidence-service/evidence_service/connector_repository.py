@@ -351,6 +351,22 @@ class ConnectorRepository:
             },
         )
 
+    async def sync_allowed(self, access_token: str, connection_id: UUID) -> bool:
+        """Whether the connection owner's account is still available.
+
+        Only the service-role worker needs this: signed-in requests already go
+        through the account gate, which refuses accounts being deleted.
+        """
+        if not self._service_mode:
+            return True
+        response = await self._request(
+            "POST",
+            access_token,
+            "rpc/connector_sync_allowed",
+            body={"p_connection_id": str(connection_id)},
+        )
+        return response.json() is True
+
     async def delete_stale_connector_evidence(
         self, access_token: str, connection_id: UUID, current_external_ids: set[str]
     ) -> None:

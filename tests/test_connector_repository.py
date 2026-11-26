@@ -117,3 +117,28 @@ class ConnectorRepositoryTests(unittest.IsolatedAsyncioTestCase):
             "size_bytes": 5,
         }])
         self.assertTrue(any(method == "POST" for method, _, _ in seen))
+
+
+class ConnectorSyncGateTests(unittest.IsolatedAsyncioTestCase):
+    async def test_service_mode_asks_the_database_whether_the_owner_is_available(self):
+        calls: list[tuple[str, dict]] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            calls.append((request.url.path, json.loads(request.content)))
+            return httpx.Response(200, json=False)
+
+        repository = ConnectorRepository(
+            SETTINGS, transport=httpx.MockTransport(handler), service_mode=True
+        )
+        self.assertFalse(await repository.sync_allowed("service-role", CONNECTION))
+        self.assertEqual(
+            calls,
+            [("/rest/v1/rpc/connector_sync_allowed", {"p_connection_id": str(CONNECTION)})],
+        )
+
+    async def test_user_mode_relies_on_the_account_gate(self):
+        def handler(request: httpx.Request) -> httpx.Response:
+            raise AssertionError("no request expected")
+
+        repository = ConnectorRepository(SETTINGS, transport=httpx.MockTransport(handler))
+        self.assertTrue(await repository.sync_allowed("user-token", CONNECTION))

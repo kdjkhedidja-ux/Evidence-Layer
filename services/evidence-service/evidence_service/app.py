@@ -6,6 +6,7 @@ import base64
 import hashlib
 import secrets
 import re
+import json
 import logging
 import math
 import os
@@ -532,6 +533,15 @@ RETRIEVAL_CANDIDATE_LIMIT = 1000
 LEGACY_RETRIEVAL_CANDIDATE_LIMIT = 100
 
 
+def _log_retrieval_timing(event: str, **fields: object) -> None:
+    """One content-free JSON line per retrieval step, for latency tracking.
+
+    Only counts, durations and flags are written: never queries, evidence,
+    key material or workspace identifiers.
+    """
+    print(json.dumps({"event": event, **fields}, sort_keys=True), flush=True)
+
+
 async def _read_retrieval_candidates(
     repository: SupabasePersonalApiKeyRepository,
     *,
@@ -540,8 +550,10 @@ async def _read_retrieval_candidates(
     workspace_id: UUID,
     limit: int,
 ) -> PersonalApiKeyPage:
+    started = perf_counter()
+    fallback = False
     try:
-        return await repository.read_evidence(
+        page = await repository.read_evidence(
             key_id=key_id,
             key_hash=key_hash,
             workspace_id=workspace_id,
@@ -552,18 +564,27 @@ async def _read_retrieval_candidates(
     except PersonalApiKeyAccessDenied:
         if limit <= LEGACY_RETRIEVAL_CANDIDATE_LIMIT:
             raise
-    # A database that has not applied 20261126130000 yet rejects reads above
-    # 100 records exactly like a bad key. Retry once inside the old bound so the
-    # service can be deployed before the migration; a genuinely invalid key is
-    # still refused by this second read.
-    return await repository.read_evidence(
-        key_id=key_id,
-        key_hash=key_hash,
-        workspace_id=workspace_id,
-        limit=LEGACY_RETRIEVAL_CANDIDATE_LIMIT,
-        cursor_created_at=None,
-        cursor_id=None,
+        # A database that has not applied 20261126130000 yet rejects reads
+        # above 100 records exactly like a bad key. Retry once inside the old
+        # bound so the service can be deployed before the migration; a
+        # genuinely invalid key is still refused by this second read.
+        fallback = True
+        page = await repository.read_evidence(
+            key_id=key_id,
+            key_hash=key_hash,
+            workspace_id=workspace_id,
+            limit=LEGACY_RETRIEVAL_CANDIDATE_LIMIT,
+            cursor_created_at=None,
+            cursor_id=None,
+        )
+    _log_retrieval_timing(
+        "retrieval_candidates_read",
+        limit=limit,
+        records=len(page.items),
+        legacy_fallback=fallback,
+        read_ms=round((perf_counter() - started) * 1000, 1),
     )
+    return page
 
 
 class PersonalApiKeyRetrieveRequest(BaseModel):
@@ -1365,6 +1386,7 @@ async def _retrieval_response(
     jev_scorer: JevRequestScorer | None = None,
     jev_principal_id: str | None = None,
 ) -> PersonalApiKeyRetrieveResponse:
+    ranking_started = perf_counter()
     records = [item for item in page.items if hasattr(item, "content")]
     query = (
         payload.query
@@ -1485,6 +1507,14 @@ async def _retrieval_response(
         and relationship.evidence_id_a in selected_ids
         and relationship.evidence_id_b in selected_ids
     ]
+    _log_retrieval_timing(
+        "retrieval_ranked",
+        records=len(records),
+        candidate_chunks=result.chunk_count,
+        selected=len(result.selected),
+        scoring_provider=scoring_provider,
+        rank_ms=round((perf_counter() - ranking_started) * 1000, 1),
+    )
     return PersonalApiKeyRetrieveResponse(
         status=result.status,
         query=query,
