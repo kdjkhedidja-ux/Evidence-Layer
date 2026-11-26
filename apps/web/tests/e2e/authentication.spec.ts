@@ -494,7 +494,14 @@ for (const viewport of [
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
     await page.goto("/");
 
-    await page.getByRole("button", { name: "Menu" }).click();
+    const menuButton = page.getByRole("button", { name: "Menu" });
+    if (viewport.name === "mobile") {
+      await menuButton.click();
+    } else {
+      // The desktop sidebar keeps navigation open; the toggle is mobile-only.
+      await expect(menuButton).toBeHidden();
+      await expect(page.locator("#site-menu")).toBeVisible();
+    }
     await page.locator("#site-menu").getByRole("link", { name: "Sign in" }).click();
     await expect(page).toHaveURL(/\/login$/, { timeout: 15_000 });
     await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
@@ -516,9 +523,21 @@ for (const viewport of [
     await page.keyboard.press("Tab");
     await expect(page.getByRole("link", { name: "Evidence Layer home" })).toBeFocused();
     await page.keyboard.press("Tab");
-    await expect(page.getByRole("button", { name: "Menu" })).toBeFocused();
+    // The theme switch sits beside the menu button in the top bar.
+    await expect(page.getByRole("button", { name: /Switch to (dark|light) mode/ })).toBeFocused();
     await page.keyboard.press("Tab");
     const emailInput = page.getByLabel("Email");
+    if (viewport.name === "mobile") {
+      await expect(page.getByRole("button", { name: "Menu" })).toBeFocused();
+      await page.keyboard.press("Tab");
+    } else {
+      // Desktop: the always-open sidebar links come next, in navigation order.
+      await expect(page.getByRole("link", { name: "Workspace" })).toBeFocused();
+      for (let step = 0; step < 20; step += 1) {
+        if (await emailInput.evaluate((element) => element === document.activeElement)) break;
+        await page.keyboard.press("Tab");
+      }
+    }
     await expect(emailInput).toBeFocused();
     await expect(emailInput).toHaveCSS("outline-style", "solid");
 
