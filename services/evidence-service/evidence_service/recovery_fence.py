@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
 import hmac
@@ -22,6 +23,21 @@ class RecoveryFenceConfigurationError(ValueError):
 
 class RecoveryFenceUnavailable(RuntimeError):
     """The external Recovery Fence could not prove the current serving state."""
+
+
+class RecoveryFenceTransientError(RecoveryFenceUnavailable):
+    """No authoritative answer arrived (network error, timeout, 429 or 5xx).
+
+    Only this failure is retried. A delivered answer, even an invalid or
+    unverified one, is never retried, so retrying cannot turn a closed or
+    suspicious fence into an open one.
+    """
+
+
+# One extra attempt absorbs a single dropped connection or cold start without
+# hiding a real outage; each attempt still uses its own nonce and signature.
+RECOVERY_FENCE_MAX_ATTEMPTS = 2
+RECOVERY_FENCE_RETRY_DELAY_SECONDS = 0.2
 
 
 class RecoveryFenceReader(Protocol):
@@ -101,6 +117,16 @@ class CloudflareRecoveryFenceReader:
         return cls(RecoveryFenceSettings.from_environment(environment), client=client)
 
     async def is_open(self) -> bool:
+        for attempt in range(1, RECOVERY_FENCE_MAX_ATTEMPTS + 1):
+            try:
+                return await self._read_once()
+            except RecoveryFenceTransientError:
+                if attempt == RECOVERY_FENCE_MAX_ATTEMPTS:
+                    raise
+                await asyncio.sleep(RECOVERY_FENCE_RETRY_DELAY_SECONDS)
+        raise RecoveryFenceUnavailable("Recovery Fence is unavailable")  # pragma: no cover
+
+    async def _read_once(self) -> bool:
         timestamp = int(time.time())
         nonce = secrets.token_urlsafe(32)
         path = "/v1/recovery"
@@ -136,11 +162,16 @@ class CloudflareRecoveryFenceReader:
                     response = await client.get(
                         f"{self._settings.url}{path}", headers=headers
                     )
-            if response.status_code != 200:
-                raise RecoveryFenceUnavailable("Recovery Fence did not return an authoritative status")
+        except httpx.HTTPError as exc:
+            raise RecoveryFenceTransientError("Recovery Fence is unavailable") from exc
+        if response.status_code == 429 or response.status_code >= 500:
+            raise RecoveryFenceTransientError("Recovery Fence is temporarily unavailable")
+        if response.status_code != 200:
+            raise RecoveryFenceUnavailable("Recovery Fence did not return an authoritative status")
+        try:
             payload = response.json()
-        except (httpx.HTTPError, ValueError) as exc:
-            raise RecoveryFenceUnavailable("Recovery Fence is unavailable") from exc
+        except ValueError as exc:
+            raise RecoveryFenceUnavailable("Recovery Fence response is invalid") from exc
 
         if not isinstance(payload, dict):
             raise RecoveryFenceUnavailable("Recovery Fence response is invalid")
