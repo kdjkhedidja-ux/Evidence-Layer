@@ -61,6 +61,7 @@ from evidence_service.notion_sync_service import (
 from evidence_service.github_app_sync_service import (
     GitHubAppSyncError,
     GitHubAppSyncService,
+    GitHubInstallationNotOwned,
 )
 from evidence_service.export_repository import (
     ExportAccessDenied,
@@ -278,6 +279,9 @@ class ConnectorGitHubConnectionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     installation_id: int = Field(gt=0)
+    # One-time code GitHub issues when the App requests user authorization
+    # during installation; it proves the caller can access the installation.
+    oauth_code: str = Field(min_length=1, max_length=512)
 
 
 class ConnectorConnectionResponse(BaseModel):
@@ -521,6 +525,47 @@ class PersonalApiKeyRevocationResponse(BaseModel):
 
 
 
+# Retrieval ranks up to this many of the workspace's evidence records (newest
+# first), matching what the signed-in web app reads. Before migration
+# 20261126130000 the signed read RPC accepted at most 100 records.
+RETRIEVAL_CANDIDATE_LIMIT = 1000
+LEGACY_RETRIEVAL_CANDIDATE_LIMIT = 100
+
+
+async def _read_retrieval_candidates(
+    repository: SupabasePersonalApiKeyRepository,
+    *,
+    key_id: UUID,
+    key_hash: str,
+    workspace_id: UUID,
+    limit: int,
+) -> PersonalApiKeyPage:
+    try:
+        return await repository.read_evidence(
+            key_id=key_id,
+            key_hash=key_hash,
+            workspace_id=workspace_id,
+            limit=limit,
+            cursor_created_at=None,
+            cursor_id=None,
+        )
+    except PersonalApiKeyAccessDenied:
+        if limit <= LEGACY_RETRIEVAL_CANDIDATE_LIMIT:
+            raise
+    # A database that has not applied 20261126130000 yet rejects reads above
+    # 100 records exactly like a bad key. Retry once inside the old bound so the
+    # service can be deployed before the migration; a genuinely invalid key is
+    # still refused by this second read.
+    return await repository.read_evidence(
+        key_id=key_id,
+        key_hash=key_hash,
+        workspace_id=workspace_id,
+        limit=LEGACY_RETRIEVAL_CANDIDATE_LIMIT,
+        cursor_created_at=None,
+        cursor_id=None,
+    )
+
+
 class PersonalApiKeyRetrieveRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
@@ -528,7 +573,9 @@ class PersonalApiKeyRetrieveRequest(BaseModel):
     top_k: int = Field(default=5, ge=1, le=20)
     max_tokens: int = Field(default=1200, ge=1, le=8000)
     max_chars: int = Field(default=6000, ge=1, le=40000)
-    candidate_limit: int = Field(default=50, ge=1, le=100)
+    candidate_limit: int = Field(
+        default=RETRIEVAL_CANDIDATE_LIMIT, ge=1, le=RETRIEVAL_CANDIDATE_LIMIT
+    )
     use_jev: bool = Field(default=True, strict=True)
 
 
@@ -1179,6 +1226,14 @@ def _github_app_sync_service(request: Request) -> GitHubAppSyncService:
                 os.environ.get("GITHUB_APP_PRIVATE_KEY")
                 or os.environ.get("GIT_APP_PRIVATE_KEY", "")
             ),
+            client_id=(
+                os.environ.get("GITHUB_APP_CLIENT_ID")
+                or os.environ.get("GIT_APP_CLIENT_ID", "")
+            ),
+            client_secret=(
+                os.environ.get("GITHUB_APP_CLIENT_SECRET")
+                or os.environ.get("GIT_APP_CLIENT_SECRET", "")
+            ),
         )
         request.app.state.github_sync_service = service
     return service
@@ -1608,13 +1663,12 @@ class _HostedRemoteMcpBackend:
         except ValueError:
             return _remote_mcp_error("invalid_argument", "Invalid retrieve arguments")
         try:
-            page = await _personal_api_key_repository(self._state_request).read_evidence(
+            page = await _read_retrieval_candidates(
+                _personal_api_key_repository(self._state_request),
                 key_id=principal.key_id,
                 key_hash=principal.key_hash,
                 workspace_id=principal.workspace_id,
                 limit=payload.candidate_limit,
-                cursor_created_at=None,
-                cursor_id=None,
             )
         except PersonalApiKeyAccessDenied:
             return _remote_mcp_error("unauthorized", "Personal API key is invalid or revoked")
@@ -2162,8 +2216,13 @@ def create_app(
                     auth.access_token,
                     user_id=auth.principal.subject,
                     installation_id=payload.installation_id,
+                    oauth_code=payload.oauth_code,
                 ),
             )
+        except GitHubInstallationNotOwned as exc:
+            raise HTTPException(
+                status_code=403, detail="GitHub installation is not authorized"
+            ) from exc
         except GitHubAppSyncError as exc:
             raise HTTPException(
                 status_code=503, detail="GitHub connector is unavailable"
@@ -2529,13 +2588,12 @@ def create_app(
         await _require_recovery_fence_open(request)
         key_id, key_hash = parsed_key
         try:
-            page = await _personal_api_key_repository(request).read_evidence(
+            page = await _read_retrieval_candidates(
+                _personal_api_key_repository(request),
                 key_id=key_id,
                 key_hash=key_hash,
                 workspace_id=workspace_id,
                 limit=payload.candidate_limit,
-                cursor_created_at=None,
-                cursor_id=None,
             )
         except PersonalApiKeyAccessDenied as exc:
             raise HTTPException(status_code=401, detail="Personal API key is invalid or revoked") from exc

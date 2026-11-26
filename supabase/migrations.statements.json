@@ -23,7 +23,8 @@
     "personal-api-key-function-ownership": "Transfers the personal API key management and read RPCs to dedicated NOLOGIN, NOINHERIT, NOBYPASSRLS roles created in the same file. The temporary SET grants used only for ownership transfer are revoked before commit; the reader RPCs additionally require a one-use HMAC gateway proof and remain subject to forced RLS.",
     "personal-api-key-schema-ddl-window": "Temporary CREATE on schema public/private granted to the personal API key manager and reader so the same migration can transfer function ownership. The window is revoked in the same file; those roles never create tables or policies at runtime.",
     "connector-workspace-backfill": "Backfill existing connector connections to a personal workspace selected from active owner memberships; no user input and no cross-tenant access.",
-    "task-ledger-service-role-grant": "GRANT ALL on the content-free public.task_run_ledger to service_role. service_role is server-only, never browser-reachable, and this grant is limited to the ledger relation; authenticated retains only SELECT and INSERT through membership-scoped RLS."
+    "task-ledger-service-role-grant": "GRANT ALL on the content-free public.task_run_ledger to service_role. service_role is server-only, never browser-reachable, and this grant is limited to the ledger relation; authenticated retains only SELECT and INSERT through membership-scoped RLS.",
+    "personal-api-key-reader-replace-window": "Temporary INHERIT (no SET) membership of the migration role in personal_api_key_reader, granted only so CREATE OR REPLACE can update a reader-owned RPC in place (ownership and ACL are kept), and revoked in the same file before commit. No session role switch is used."
   },
   "entries": [
     {
@@ -5422,6 +5423,48 @@
       "line": 34,
       "verb": "grant execute",
       "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "b8a7d3544693dd03",
+      "file": "20261126120000_connector_evidence_service_role.sql",
+      "line": 10,
+      "verb": "create or",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "4986e1e9ec19323e",
+      "file": "20261126120000_connector_evidence_service_role.sql",
+      "line": 98,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "9e88644e38b6a287",
+      "file": "20261126120000_connector_evidence_service_role.sql",
+      "line": 100,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "b32c0b8ce7831550",
+      "file": "20261126130000_personal_api_key_evidence_limit.sql",
+      "line": 17,
+      "verb": "grant personal_api_key_reader",
+      "rationale_ref": "personal-api-key-reader-replace-window"
+    },
+    {
+      "id": "87c4077d83fa33c8",
+      "file": "20261126130000_personal_api_key_evidence_limit.sql",
+      "line": 19,
+      "verb": "create or",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "011065276eb965df",
+      "file": "20261126130000_personal_api_key_evidence_limit.sql",
+      "line": 184,
+      "verb": "revoke personal_api_key_reader",
+      "rationale_ref": "personal-api-key-reader-replace-window"
     }
   ]
 }

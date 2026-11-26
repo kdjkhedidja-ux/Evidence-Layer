@@ -28,8 +28,16 @@ MAX_TOTAL_BYTES = 12 * 1024 * 1024
 MAX_EVIDENCE_CHARS = 65_536
 
 
+MAX_TREE_ITEMS = 10_000
+MAX_USER_INSTALLATION_PAGES = 10
+
+
 class GitHubAppSyncError(Exception):
     pass
+
+
+class GitHubInstallationNotOwned(GitHubAppSyncError):
+    """The signed-in GitHub user cannot access the requested installation."""
 
 
 @dataclass(frozen=True)
@@ -40,6 +48,7 @@ class GitHubSyncResult:
     skipped: int
     next_cursor: str | None
     unchanged: int = 0
+    pending: int = 0
 
 
 class GitHubAppSyncService:
@@ -51,13 +60,19 @@ class GitHubAppSyncService:
         *,
         app_id: str,
         private_key: str,
+        client_id: str = "",
+        client_secret: str = "",
         api_base: str = "https://api.github.com",
+        oauth_base: str = "https://github.com",
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         self._repository = repository
         self._app_id = app_id
         self._private_key = private_key.replace("\\n", "\n")
+        self._client_id = client_id
+        self._client_secret = client_secret
         self._api_base = api_base.rstrip("/")
+        self._oauth_base = oauth_base.rstrip("/")
         self._transport = transport
 
     def _app_jwt(self) -> str:
@@ -120,10 +135,91 @@ class GitHubAppSyncService:
             raise GitHubAppSyncError("GitHub installation token is invalid")
         return token
 
-    async def connect(
-        self, access_token: str, *, user_id: UUID, installation_id: int
-    ) -> ConnectorConnection:
+    async def _user_token(self, oauth_code: str) -> str:
+        if not self._client_id or not self._client_secret:
+            raise GitHubAppSyncError("GitHub user authorization is not configured")
         try:
+            async with httpx.AsyncClient(
+                timeout=20.0, transport=self._transport
+            ) as client:
+                response = await client.post(
+                    f"{self._oauth_base}/login/oauth/access_token",
+                    headers={
+                        "Accept": "application/json",
+                        "User-Agent": "evidence-layer-connector/0.1",
+                    },
+                    data={
+                        "client_id": self._client_id,
+                        "client_secret": self._client_secret,
+                        "code": oauth_code,
+                    },
+                )
+        except httpx.HTTPError as exc:
+            raise GitHubAppSyncError("GitHub user authorization failed") from exc
+        if response.status_code >= 300:
+            raise GitHubInstallationNotOwned("GitHub user authorization was refused")
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise GitHubAppSyncError("GitHub user authorization failed") from exc
+        token = payload.get("access_token") if isinstance(payload, dict) else None
+        if not isinstance(token, str) or not token:
+            # GitHub answers 200 with {"error": "bad_verification_code"} for
+            # expired, reused or forged codes.
+            raise GitHubInstallationNotOwned("GitHub user authorization was refused")
+        return token
+
+    async def _user_can_access_installation(
+        self, user_token: str, installation_id: int
+    ) -> bool:
+        for page in range(1, MAX_USER_INSTALLATION_PAGES + 1):
+            response = await self._request(
+                "GET",
+                "/user/installations",
+                token=user_token,
+                params={"per_page": "100", "page": str(page)},
+            )
+            if response.status_code in (401, 403):
+                return False
+            if response.status_code >= 300:
+                raise GitHubAppSyncError("GitHub installations are unavailable")
+            payload = response.json()
+            installations = (
+                payload.get("installations") if isinstance(payload, dict) else None
+            )
+            if not isinstance(installations, list):
+                raise GitHubAppSyncError("GitHub installations are unavailable")
+            for installation in installations:
+                if isinstance(installation, dict) and installation.get("id") == installation_id:
+                    return True
+            if len(installations) < 100:
+                return False
+        return False
+
+    async def connect(
+        self,
+        access_token: str,
+        *,
+        user_id: UUID,
+        installation_id: int,
+        oauth_code: str,
+    ) -> ConnectorConnection:
+        """Link an installation only after proving the GitHub user can access it.
+
+        The installation id arrives through a browser redirect and can be
+        edited by anyone, so it is never trusted on its own: the one-time
+        OAuth code GitHub issues during installation is exchanged for a
+        user-to-server token, and the installation must appear in that user's
+        ``/user/installations`` list.
+        """
+        try:
+            if not oauth_code:
+                raise GitHubInstallationNotOwned("GitHub user authorization is required")
+            user_token = await self._user_token(oauth_code)
+            if not await self._user_can_access_installation(user_token, installation_id):
+                raise GitHubInstallationNotOwned(
+                    "GitHub installation is not accessible to this user"
+                )
             account_login = await self._installation_account(installation_id)
             workspace_id = await self._repository.personal_workspace_id(
                 access_token, user_id
@@ -174,6 +270,17 @@ class GitHubAppSyncService:
                 raise GitHubAppSyncError("GitHub repositories are unavailable")
             payload = response.json()
             repositories = payload.get("repositories", []) if isinstance(payload, dict) else []
+            if not isinstance(repositories, list):
+                raise GitHubAppSyncError("GitHub repositories are unavailable")
+            considered = repositories[:MAX_REPOSITORIES]
+            total_count = payload.get("total_count") if isinstance(payload, dict) else None
+            # Stale evidence may only be removed when every repository and every
+            # file of the installation was listed in this run. Anything less
+            # (more repositories than we read, a truncated tree, a listing error)
+            # would make unlisted files look deleted.
+            listing_complete = not (
+                isinstance(total_count, int) and total_count > len(considered)
+            )
             try:
                 known_revisions = await self._repository.document_revisions(
                     access_token, connection.connection_id
@@ -185,15 +292,18 @@ class GitHubAppSyncService:
             listed = 0
             unchanged = 0
             skipped = 0
+            pending = 0
             total_bytes = 0
             had_errors = False
-            for repository in repositories[:MAX_REPOSITORIES]:
+            for repository in considered:
                 if not isinstance(repository, dict):
+                    listing_complete = False
                     continue
                 owner = (repository.get("owner") or {}).get("login")
                 name = repository.get("name")
                 branch = repository.get("default_branch") or "main"
                 if not owner or not name:
+                    listing_complete = False
                     continue
                 if repository.get("size") == 0:
                     skipped += 1
@@ -208,15 +318,14 @@ class GitHubAppSyncService:
                     ),
                     transport=self._transport,
                 )
-                remaining = MAX_SYNC_ITEMS - len(documents)
-                if remaining <= 0:
-                    break
                 try:
-                    page = await connector.list_items(limit=min(50, remaining))
+                    page = await connector.list_items(limit=MAX_TREE_ITEMS)
                 except ConnectorError:
                     skipped += 1
                     had_errors = True
                     continue
+                if not page.complete:
+                    listing_complete = False
                 listed += len(page.items)
                 for item in page.items:
                     current_external_ids.add(item.external_id)
@@ -225,6 +334,10 @@ class GitHubAppSyncService:
                         and known_revisions.get(item.external_id) == item.revision
                     ):
                         unchanged += 1
+                        continue
+                    if len(documents) >= MAX_SYNC_ITEMS:
+                        # Fetched on a later run; its current evidence is kept.
+                        pending += 1
                         continue
                     try:
                         document = await connector.fetch_document(item)
@@ -270,11 +383,6 @@ class GitHubAppSyncService:
                         "size_bytes": len(document.content),
                         "provider_updated_at": None,
                     })
-                    if len(documents) >= MAX_SYNC_ITEMS:
-                        break
-                if len(documents) >= MAX_SYNC_ITEMS:
-                    break
-            await self._repository.upsert_documents(access_token, documents)
             if connection.workspace_id is None:
                 workspace_id = await self._repository.personal_workspace_id(
                     access_token, connection.user_id
@@ -313,7 +421,11 @@ class GitHubAppSyncService:
                 connection_id=connection.connection_id,
                 documents=evidence_documents,
             )
-            if not had_errors:
+            # Revisions are recorded only after the evidence write succeeded.
+            # They drive the "unchanged" shortcut, so recording them first would
+            # leave evidence permanently stale whenever the evidence write fails.
+            await self._repository.upsert_documents(access_token, documents)
+            if not had_errors and listing_complete:
                 await self._repository.delete_stale_connector_evidence(
                     access_token,
                     connection.connection_id,
@@ -332,6 +444,7 @@ class GitHubAppSyncService:
                 skipped=skipped,
                 next_cursor=None,
                 unchanged=unchanged,
+                pending=pending,
             )
         except (ConnectorDenied, ConnectorNotFound):
             await self._mark_failure(access_token, connection.connection_id, "authorization")

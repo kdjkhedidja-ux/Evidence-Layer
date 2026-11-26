@@ -480,3 +480,57 @@ def test_remote_mcp_requires_a_personal_key_and_feature_flag():
             json={"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
         )
         assert response.status_code == 404
+
+
+class LimitRecordingRepository(FakeRepository):
+    def __init__(self, *, max_limit: int | None = None, denied: bool = False):
+        super().__init__()
+        self.limits: list[int] = []
+        self.max_limit = max_limit
+        self.denied = denied
+
+    async def read_evidence(self, **kwargs):
+        from evidence_service.personal_api_key_repository import PersonalApiKeyAccessDenied
+
+        self.limits.append(kwargs["limit"])
+        if self.denied or (self.max_limit is not None and kwargs["limit"] > self.max_limit):
+            raise PersonalApiKeyAccessDenied
+        return PersonalApiKeyPage(items=self.records, next_cursor=None)
+
+
+def _retrieve(client):
+    return client.post(
+        f"/v1/personal-api-keys/workspaces/{WORKSPACE}/retrieve",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        json={"query": "lexical retrieval", "top_k": 1, "max_tokens": 100, "max_chars": 1000},
+    )
+
+
+def test_retrieval_ranks_a_1000_record_window_in_one_read():
+    repository = LimitRecordingRepository()
+    response = _retrieve(make_client(repository=repository))
+    assert response.status_code == 200
+    assert repository.limits == [1000]
+
+
+def test_retrieval_falls_back_to_100_records_before_the_migration():
+    repository = LimitRecordingRepository(max_limit=100)
+    response = _retrieve(make_client(repository=repository))
+    assert response.status_code == 200
+    assert repository.limits == [1000, 100]
+
+
+def test_retrieval_still_refuses_an_invalid_key_after_the_fallback():
+    repository = LimitRecordingRepository(denied=True)
+    response = _retrieve(make_client(repository=repository))
+    assert response.status_code == 401
+    assert repository.limits == [1000, 100]
+
+
+def test_retrieval_rejects_a_window_above_1000():
+    response = make_client().post(
+        f"/v1/personal-api-keys/workspaces/{WORKSPACE}/retrieve",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        json={"query": "q", "candidate_limit": 1001},
+    )
+    assert response.status_code == 422

@@ -320,6 +320,18 @@
       "version": "20261115220000",
       "sha256": "b0bcff6e5dd6040faff2301999669d5967d9c6f59942b8eddde092315ac8b256",
       "provenance": "P1.3: server-only grants for the isolated background GitHub connector sync worker."
+    },
+    {
+      "file": "20261126120000_connector_evidence_service_role.sql",
+      "version": "20261126120000",
+      "sha256": "84eeb7983d23f532989d948539a0363f2119b752d71fcfe0f2e5655beef7ca07",
+      "provenance": "Phase 1 urgences: let the service-role connector worker write connector evidence (acting user taken from the connection row)."
+    },
+    {
+      "file": "20261126130000_personal_api_key_evidence_limit.sql",
+      "version": "20261126130000",
+      "sha256": "1ea575e539321e78d4a4193dbd29113d36549acd06b09bd15d635a9b9dd5f518",
+      "provenance": "Phase 1 urgences: raise the signed API-key evidence read bound from 101 to 1001 so retrieval ranks up to 1000 records."
     }
   ]
 }

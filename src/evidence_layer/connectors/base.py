@@ -51,6 +51,9 @@ class ConnectorItem:
 class ConnectorPage:
     items: tuple[ConnectorItem, ...]
     next_cursor: str | None = None
+    # False when the provider listing was cut short (size cap or provider
+    # truncation), so callers must not treat missing items as deleted.
+    complete: bool = True
 
 
 @dataclass(frozen=True)
