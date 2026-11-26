@@ -841,8 +841,11 @@ async def _require_recovery_fence_open(request: Request) -> None:
     try:
         is_open = await reader.is_open()
     except Exception as exc:
+        # Content-free: the error class only, never the URL, key or payload.
+        logger.warning("recovery_fence_unavailable error_type=%s", type(exc).__name__)
         raise HTTPException(status_code=503, detail="Service is unavailable") from exc
     if is_open is not True:
+        logger.warning("recovery_fence_not_open")
         raise HTTPException(status_code=503, detail="Service is unavailable")
 
 
