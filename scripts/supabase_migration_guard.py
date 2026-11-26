@@ -91,6 +91,7 @@ V_SOURCE_OBJECT_CLEANUP = "20261115180000"
 V_WORKSPACE_DELETION_APPROVALS = "20261115200000"
 V_CONNECTOR_WORKER_GRANTS = "20261115220000"
 V_CONNECTOR_SYNC_ACCOUNT_GATE = "20261126140000"
+V_EVIDENCE_SEARCH_PREFILTER = "20261127120000"
 
 VERSION_RE = re.compile(r"^[0-9]{14}_[a-z0-9_]+\.sql$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -607,6 +608,7 @@ def expected_catalog(versions: list[str]) -> dict:
     workspace_deletion_approvals = V_WORKSPACE_DELETION_APPROVALS in present
     connector_worker_grants = V_CONNECTOR_WORKER_GRANTS in present
     connector_sync_account_gate = V_CONNECTOR_SYNC_ACCOUNT_GATE in present
+    evidence_search_prefilter = V_EVIDENCE_SEARCH_PREFILTER in present
     source = V_SOURCE_CATALOG in present
     storage = V_SNAPSHOT_STORAGE in present
     verifier = V_VERIFIER_IDENTITY in present
@@ -731,6 +733,8 @@ def expected_catalog(versions: list[str]) -> dict:
             "public.connector_documents_external_id_key",
             "public.evidence_records_connector_external_key",
         })
+    if evidence_search_prefilter:
+        indexes.add("public.evidence_records_search_idx")
     if task_run_ledger:
         indexes.update({
             "public.task_run_ledger_pkey",
@@ -1196,6 +1200,12 @@ def expected_catalog(versions: list[str]) -> dict:
         functions.add("public.delete_stale_connector_evidence")
     if connector_sync_account_gate:
         functions.add("public.connector_sync_allowed")
+    if evidence_search_prefilter:
+        functions.update({
+            "private.evidence_search_query",
+            "public.search_workspace_evidence",
+            "public.read_personal_api_key_evidence_candidates",
+        })
     if workspace_deletion_approvals:
         functions.update({
             "private.workspace_owner_set",
@@ -1659,6 +1669,23 @@ def assert_grants(api: Supabase, versions: list[str]) -> None:
                 "owner_audit_denied": bool,
             })
         require(len(rows) == 1 and all(value is True for value in rows[0].values()), "Snapshot allowlist administration grants differ from the migration manifest")
+    if V_EVIDENCE_SEARCH_PREFILTER in present:
+        rows = api.query("select "
+            "pg_catalog.has_function_privilege('authenticated','public.search_workspace_evidence(uuid,text,integer)','EXECUTE') as session_search, "
+            "not pg_catalog.has_function_privilege('anon','public.search_workspace_evidence(uuid,text,integer)','EXECUTE') as anon_session_search_denied, "
+            "pg_catalog.has_function_privilege('anon','public.read_personal_api_key_evidence_candidates(uuid,uuid,integer,text,integer)','EXECUTE') as signed_candidates, "
+            "not pg_catalog.has_function_privilege('authenticated','public.read_personal_api_key_evidence_candidates(uuid,uuid,integer,text,integer)','EXECUTE') as authenticated_signed_denied, "
+            "not pg_catalog.has_function_privilege('service_role','public.read_personal_api_key_evidence_candidates(uuid,uuid,integer,text,integer)','EXECUTE') as service_signed_denied, "
+            "not pg_catalog.has_schema_privilege('personal_api_key_reader','public','CREATE') as reader_schema_create_denied",
+            {
+                "session_search": bool,
+                "anon_session_search_denied": bool,
+                "signed_candidates": bool,
+                "authenticated_signed_denied": bool,
+                "service_signed_denied": bool,
+                "reader_schema_create_denied": bool,
+            })
+        require(len(rows) == 1 and all(value is True for value in rows[0].values()), "Evidence search grants differ from the migration manifest")
 
 
 def recovery_is_recent(backup: dict) -> bool:

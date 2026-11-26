@@ -5507,6 +5507,90 @@
       "line": 133,
       "verb": "grant execute",
       "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "3f904ecc928cffba",
+      "file": "20261127120000_evidence_search_prefilter.sql",
+      "line": 42,
+      "verb": "create function",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "bc17762e35a487d5",
+      "file": "20261127120000_evidence_search_prefilter.sql",
+      "line": 66,
+      "verb": "create function",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "8ae6b385b9cc06c7",
+      "file": "20261127120000_evidence_search_prefilter.sql",
+      "line": 122,
+      "verb": "create function",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "fecbd68c2f801414",
+      "file": "20261127120000_evidence_search_prefilter.sql",
+      "line": 198,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "7133f776fdba4dab",
+      "file": "20261127120000_evidence_search_prefilter.sql",
+      "line": 199,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "d90c8d557c5ab06c",
+      "file": "20261127120000_evidence_search_prefilter.sql",
+      "line": 201,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "abe36c5d3f52c404",
+      "file": "20261127120000_evidence_search_prefilter.sql",
+      "line": 203,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "6f5c457e04e3627e",
+      "file": "20261127120000_evidence_search_prefilter.sql",
+      "line": 205,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "ccaff965498ea97d",
+      "file": "20261127120000_evidence_search_prefilter.sql",
+      "line": 207,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "2af123042ce20b6e",
+      "file": "20261127120000_evidence_search_prefilter.sql",
+      "line": 214,
+      "verb": "grant create",
+      "rationale_ref": "personal-api-key-schema-ddl-window"
+    },
+    {
+      "id": "e03e9236c3a5806d",
+      "file": "20261127120000_evidence_search_prefilter.sql",
+      "line": 216,
+      "verb": "do",
+      "rationale_ref": "procedural-block"
+    },
+    {
+      "id": "f10b97b61e7584f3",
+      "file": "20261127120000_evidence_search_prefilter.sql",
+      "line": 228,
+      "verb": "revoke create",
+      "rationale_ref": "privilege-revoke"
     }
   ]
 }

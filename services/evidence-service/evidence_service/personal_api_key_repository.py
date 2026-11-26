@@ -17,7 +17,11 @@ from uuid import UUID, uuid4
 import httpx
 
 from evidence_service.config import SupabaseSettings
-from evidence_service.evidence_repository import EvidenceRecord, SupabaseEvidenceRepository
+from evidence_service.evidence_repository import (
+    SEARCH_CANDIDATE_LIMIT,
+    EvidenceRecord,
+    SupabaseEvidenceRepository,
+)
 from evidence_service.relationship_repository import (
     EvidenceRelationship,
     SupabaseRelationshipRepository,
@@ -38,6 +42,14 @@ class PersonalApiKeyAccessDenied(Exception):
 
 class PersonalApiKeyRateLimited(Exception):
     """The per-key database rate limit was reached."""
+
+
+class PersonalApiKeySearchUnavailable(PersonalApiKeyDataUnavailable):
+    """The database has no whole-workspace candidate read yet (before 20261127120000).
+
+    PostgREST answers PGRST202 without running anything, so the read is not
+    counted against the key's rate limit and the caller can fall back.
+    """
 
 
 class PersonalApiKeyLimitReached(Exception):
@@ -257,6 +269,61 @@ class SupabasePersonalApiKeyRepository:
         items, next_cursor = self._page(records, limit)
         return PersonalApiKeyPage(items=items, next_cursor=next_cursor)
 
+    async def read_evidence_candidates(
+        self,
+        *,
+        key_id: UUID,
+        key_hash: str,
+        workspace_id: UUID,
+        limit: int,
+        query: str,
+        search_limit: int = SEARCH_CANDIDATE_LIMIT,
+    ) -> list[EvidenceRecord]:
+        """Newest ``limit`` records plus up to ``search_limit`` full-text matches
+        from the whole workspace, in ONE signed call (one rate-limit count).
+
+        The proof is the unchanged evidence read proof (no cursor); the query
+        only narrows rows the key may already read.
+        """
+        secret = self._settings.personal_api_key_gateway_secret
+        if secret is None:
+            raise PersonalApiKeyDataUnavailable
+        timestamp = int(time.time())
+        nonce = uuid4()
+        proof = gateway_signature(
+            secret,
+            resource="evidence",
+            key_id=key_id,
+            workspace_id=workspace_id,
+            key_hash=key_hash,
+            timestamp=timestamp,
+            nonce=nonce,
+            limit=limit,
+            cursor_created_at=None,
+            cursor_id=None,
+        )
+        response = await self._request(
+            "POST",
+            "rpc/read_personal_api_key_evidence_candidates",
+            json={
+                "p_key_id": str(key_id),
+                "p_workspace_id": str(workspace_id),
+                "p_limit": limit,
+                "p_query": query[:2000],
+                "p_search_limit": search_limit,
+            },
+            headers={
+                "x-evidence-api-key-hash": key_hash,
+                "x-evidence-api-key-gateway-timestamp": str(timestamp),
+                "x-evidence-api-key-gateway-nonce": str(nonce),
+                "x-evidence-api-key-gateway-proof": proof,
+            },
+        )
+        payload = self._json_list(response)
+        return SupabaseEvidenceRepository._parse_rows(
+            httpx.Response(200, json=payload), workspace_id
+        )
+
     async def read_evidence_document(
         self,
         *,
@@ -424,6 +491,9 @@ class SupabasePersonalApiKeyRepository:
                 code = error.get("code") if isinstance(error, dict) else None
             except (ValueError, TypeError):
                 code = None
+            if code == "PGRST202":
+                # Function not in the schema cache: nothing ran.
+                raise PersonalApiKeySearchUnavailable
             if code == "P4290":
                 raise PersonalApiKeyRateLimited
             if code == "P4291":
