@@ -124,13 +124,13 @@ export default function TermsPage() {
         </p>
         <p>
           <strong>Account deletion requests.</strong> A signed-in person may request deletion of the
-          account data this service manages. Accepting a request blocks access immediately and is
-          not reversible in the current implementation. The implemented slice removes source grants,
-          member workspace memberships, and evidence and relationships in workspaces where the
-          account is the sole active owner with no other active members. Workspaces, owner
-          memberships, shared-workspace content, the source catalogue, snapshots, stored objects, and
-          the authentication identity are retained. The interface therefore does not represent
-          complete erasure, and stored files and published snapshots are not deleted.
+          account from the account panel. Accepting a request blocks access immediately and is not
+          reversible in the current implementation. The deletion worker then removes the account&apos;s
+          personal workspace data, verified source snapshots, queued Storage objects, and the
+          authentication identity, and records a terminal <code>purged</code> state. Shared-workspace
+          data and other members&apos; records are not deleted by an account-scoped request, and
+          provider backups and point-in-time recovery copies are not proven erased. See the privacy
+          notice for the full scope.
         </p>
       </section>
 
