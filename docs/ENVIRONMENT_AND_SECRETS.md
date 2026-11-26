@@ -36,6 +36,7 @@
 | Invitation email delivery | Server-only Resend send key and verified sender | `RESEND_API_KEY` (send-only), `INVITATION_FROM_EMAIL=noreply@evidencelayer.dev`, `INVITATION_BASE_URL=https://evidencelayer.dev` |
 | API-key retrieval service | Server-only feature flags and optional provider credential | `EVIDENCE_RETRIEVE_API_ENABLED` (currently `true` in production); `EVIDENCE_JEV_ENABLED` is `true` in production as of 2026-11-14; `TYPESAFE_API_KEY` is a server-only secret required only for explicitly opted-in JEV scoring |
 | Remote MCP service | Server-only feature flag for the hosted Streamable HTTP MCP endpoint | `EVIDENCE_REMOTE_MCP_ENABLED` (default false; independent of connector flags) |
+| Per-user usage caps | Server-only, non-secret limits for task-context, API retrieve and Remote MCP (see `docs/connectors/api-retrieval-mcp.md`, "Per-user usage caps") | `EVIDENCE_USAGE_CAPS_ENABLED` (default `false`; set `true` only after migration `20261127100000` is applied), `EVIDENCE_USER_RETRIEVAL_PER_MINUTE` (default `30`), `EVIDENCE_USER_RETRIEVAL_PER_DAY` (default `500`), `EVIDENCE_USER_JEV_PER_DAY` (default `200`); `0` disables one cap, invalid values fall back to the default |
 | Task ledger | Server-only flag for the content-free task-run ledger | `EVIDENCE_TASK_LEDGER_ENABLED` (default false; enable after the ledger migration) |
 | GitHub Codespaces | Encrypted Codespaces secrets | provider keys used for local work |
 

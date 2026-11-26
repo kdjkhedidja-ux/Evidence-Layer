@@ -91,6 +91,7 @@ V_SOURCE_OBJECT_CLEANUP = "20261115180000"
 V_WORKSPACE_DELETION_APPROVALS = "20261115200000"
 V_CONNECTOR_WORKER_GRANTS = "20261115220000"
 V_CONNECTOR_SYNC_ACCOUNT_GATE = "20261126140000"
+V_USER_USAGE_CAPS = "20261127100000"
 
 VERSION_RE = re.compile(r"^[0-9]{14}_[a-z0-9_]+\.sql$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -416,7 +417,8 @@ class Supabase:
                 "rolcreatedb as createdb,rolreplication as replication "
                 "from pg_catalog.pg_roles where rolname like 'snapshot\\_%' "
                 "or rolname like 'account\\_%' "
-                "or rolname like 'personal\\_api\\_key\\_%' order by rolname",
+                "or rolname like 'personal\\_api\\_key\\_%' "
+                "or rolname like 'usage\\_counter\\_%' order by rolname",
                 {
                     "name": str,
                     "canlogin": bool,
@@ -450,6 +452,7 @@ class Supabase:
                 "on membership.roleid=role_row.oid or membership.member=role_row.oid "
                 "where role_row.rolname like 'snapshot\\_%' or role_row.rolname like 'account\\_%' "
                 "or role_row.rolname like 'personal\\_api\\_key\\_%' "
+                "or role_row.rolname like 'usage\\_counter\\_%' "
                 "group by role_row.oid,role_row.rolname order by role_row.rolname",
                 {
                     "name": str,
@@ -513,6 +516,8 @@ def expected_roles(versions: list[str]) -> set[str]:
         roles.add("account_deletion_worker")
     if V_PERSONAL_API_KEYS in present:
         roles.update({"personal_api_key_manager", "personal_api_key_reader"})
+    if V_USER_USAGE_CAPS in present:
+        roles.add("usage_counter_writer")
     return roles
 
 
@@ -556,6 +561,7 @@ def expected_policy_identity(policy: str) -> str:
         ("connector_connections_", "public", "connector_connections"),
         ("connector_documents_", "public", "connector_documents"),
         ("task_run_ledger_", "public", "task_run_ledger"),
+        ("user_usage_counters_", "private", "user_usage_counters"),
     )
     for prefix, expected_schema, table in relation_prefixes:
         if name.startswith(prefix):
@@ -607,6 +613,7 @@ def expected_catalog(versions: list[str]) -> dict:
     workspace_deletion_approvals = V_WORKSPACE_DELETION_APPROVALS in present
     connector_worker_grants = V_CONNECTOR_WORKER_GRANTS in present
     connector_sync_account_gate = V_CONNECTOR_SYNC_ACCOUNT_GATE in present
+    user_usage_caps = V_USER_USAGE_CAPS in present
     source = V_SOURCE_CATALOG in present
     storage = V_SNAPSHOT_STORAGE in present
     verifier = V_VERIFIER_IDENTITY in present
@@ -659,6 +666,8 @@ def expected_catalog(versions: list[str]) -> dict:
         tables["public.connector_documents"] = (True, True)
     if task_run_ledger:
         tables["public.task_run_ledger"] = (True, True)
+    if user_usage_caps:
+        tables["private.user_usage_counters"] = (True, True)
     if verification_queue:
         tables["private.snapshot_verification_worker"] = (True, True)
         tables["private.snapshot_verification_jobs"] = (True, True)
@@ -736,6 +745,8 @@ def expected_catalog(versions: list[str]) -> dict:
             "public.task_run_ledger_pkey",
             "public.task_run_ledger_workspace_created_idx",
         })
+    if user_usage_caps:
+        indexes.add("private.user_usage_counters_pkey")
     if worker_lease_retry:
         indexes.add("public.data_deletion_requests_claimable_idx")
     if workspace_deletion_approvals:
@@ -893,6 +904,12 @@ def expected_catalog(versions: list[str]) -> dict:
         policies.update({
             "public.task_run_ledger_select_active_member",
             "public.task_run_ledger_insert_active_member",
+        })
+    if user_usage_caps:
+        policies.update({
+            "private.user_usage_counters_writer_select",
+            "private.user_usage_counters_writer_insert",
+            "private.user_usage_counters_writer_update",
         })
     if account_lifecycle:
         policies.update({
@@ -1196,6 +1213,12 @@ def expected_catalog(versions: list[str]) -> dict:
         functions.add("public.delete_stale_connector_evidence")
     if connector_sync_account_gate:
         functions.add("public.connector_sync_allowed")
+    if user_usage_caps:
+        functions.update({
+            "private.consume_usage",
+            "public.consume_user_usage",
+            "public.consume_personal_api_key_usage",
+        })
     if workspace_deletion_approvals:
         functions.update({
             "private.workspace_owner_set",
@@ -1297,6 +1320,10 @@ def expected_catalog(versions: list[str]) -> dict:
             ("task_run_ledger_workspace_id_fkey", "public.task_run_ledger", "public.workspaces", "c"),
             ("task_run_ledger_actor_user_id_fkey", "public.task_run_ledger", "auth.users", "c"),
         })
+    if user_usage_caps:
+        foreign_keys.add(
+            ("user_usage_counters_user_id_fkey", "private.user_usage_counters", "auth.users", "c")
+        )
     if workspace_deletion_approvals:
         foreign_keys.update({
             ("workspace_deletion_requests_workspace_id_fkey", "private.workspace_deletion_requests", "public.workspaces", "c"),
@@ -1659,6 +1686,35 @@ def assert_grants(api: Supabase, versions: list[str]) -> None:
                 "owner_audit_denied": bool,
             })
         require(len(rows) == 1 and all(value is True for value in rows[0].values()), "Snapshot allowlist administration grants differ from the migration manifest")
+    if V_USER_USAGE_CAPS in present:
+        rows = api.query("select "
+            "pg_catalog.has_function_privilege('authenticated','public.consume_user_usage(text,integer,integer)','EXECUTE') as session_rpc, "
+            "not pg_catalog.has_function_privilege('anon','public.consume_user_usage(text,integer,integer)','EXECUTE') as anon_session_rpc_denied, "
+            "pg_catalog.has_function_privilege('anon','public.consume_personal_api_key_usage(uuid,uuid,text,integer,integer)','EXECUTE') as signed_rpc, "
+            "not pg_catalog.has_function_privilege('authenticated','public.consume_personal_api_key_usage(uuid,uuid,text,integer,integer)','EXECUTE') as authenticated_signed_rpc_denied, "
+            "not pg_catalog.has_function_privilege('authenticated','private.consume_usage(uuid,text,integer,integer)','EXECUTE') as authenticated_counter_denied, "
+            "not pg_catalog.has_function_privilege('anon','private.consume_usage(uuid,text,integer,integer)','EXECUTE') as anon_counter_denied, "
+            "not pg_catalog.has_function_privilege('service_role','private.consume_usage(uuid,text,integer,integer)','EXECUTE') as service_counter_denied, "
+            "pg_catalog.has_table_privilege('usage_counter_writer','private.user_usage_counters','UPDATE') as writer_update, "
+            "not pg_catalog.has_table_privilege('usage_counter_writer','private.user_usage_counters','DELETE') as writer_delete_denied, "
+            "not pg_catalog.has_table_privilege('authenticated','private.user_usage_counters','SELECT') as authenticated_counters_denied, "
+            "not pg_catalog.has_table_privilege('service_role','private.user_usage_counters','SELECT') as service_counters_denied, "
+            "not pg_catalog.has_schema_privilege('usage_counter_writer','private','CREATE') as writer_schema_create_denied",
+            {
+                "session_rpc": bool,
+                "anon_session_rpc_denied": bool,
+                "signed_rpc": bool,
+                "authenticated_signed_rpc_denied": bool,
+                "authenticated_counter_denied": bool,
+                "anon_counter_denied": bool,
+                "service_counter_denied": bool,
+                "writer_update": bool,
+                "writer_delete_denied": bool,
+                "authenticated_counters_denied": bool,
+                "service_counters_denied": bool,
+                "writer_schema_create_denied": bool,
+            })
+        require(len(rows) == 1 and all(value is True for value in rows[0].values()), "Usage cap grants differ from the migration manifest")
 
 
 def recovery_is_recent(backup: dict) -> bool:

@@ -123,6 +123,24 @@ function json(status: number, payload: unknown): Response {
   });
 }
 
+/**
+ * Per-user retrieval cap reached (service code `user_rate_limited`). Only a
+ * plain integer Retry-After is trusted; anything else becomes "shortly".
+ */
+export function taskContextRateLimited(retryAfter: string | null): Response {
+  const seconds = retryAfter && /^\d{1,6}$/.test(retryAfter) ? Number(retryAfter) : null;
+  let wait = "shortly";
+  if (seconds !== null) {
+    if (seconds < 120) wait = `in ${seconds} seconds`;
+    else if (seconds < 7200) wait = `in about ${Math.ceil(seconds / 60)} minutes`;
+    else wait = `in about ${Math.ceil(seconds / 3600)} hours`;
+  }
+  return json(429, {
+    error: `You reached your evidence retrieval limit. Try again ${wait}.`,
+    ...(seconds !== null ? { retry_after_seconds: seconds } : {}),
+  });
+}
+
 function safeWorkspace(value: unknown): WorkspaceSummary | null {
   if (!value || typeof value !== "object") return null;
   const candidate = value as Record<string, unknown>;
@@ -1274,6 +1292,7 @@ export async function proxyWorkspaceTaskContextRequest({
   if (upstream.status === 403) return json(403, { error: "This action is not available for this account." });
   if (upstream.status === 404) return json(404, { error: "Workspace or retrieval service not found." });
   if (upstream.status === 422) return json(400, { error: "Task context input was not accepted." });
+  if (upstream.status === 429) return taskContextRateLimited(upstream.headers.get("Retry-After"));
   if (upstream.status >= 500 || upstream.status >= 300) {
     return json(503, { error: "Evidence service is unavailable." });
   }

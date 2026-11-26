@@ -415,6 +415,55 @@ A/B token reports: [`first run`](../operations/el-vs-baseline-deepseek-tokens-20
 - Logs must not contain API keys or returned document content.
 
 
+## Per-user usage caps
+
+Status: **implemented, not yet enabled in production** (migration
+`20261127100000_user_usage_caps.sql` must be applied first).
+
+Each signed-in user has one retrieval budget shared by the web task-context,
+the API-key `retrieve` endpoint and Remote MCP `retrieve_evidence`, plus a
+daily JEV budget. Counters live in `private.user_usage_counters`, per user (not
+per key or workspace), in fixed UTC windows (one minute, one calendar day). A
+refused call is not counted. `get_document` is not capped by these limits (the
+per-key 60/minute read limit still applies).
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `EVIDENCE_USAGE_CAPS_ENABLED` | `false` | `true` enforces the caps. Leave `false` until the migration is applied. |
+| `EVIDENCE_USER_RETRIEVAL_PER_MINUTE` | `30` | Retrievals per user per minute (task-context + API + MCP). |
+| `EVIDENCE_USER_RETRIEVAL_PER_DAY` | `500` | Retrievals per user per UTC day. |
+| `EVIDENCE_USER_JEV_PER_DAY` | `200` | JEV-scored retrievals per user per UTC day. |
+
+`0` disables one cap. A missing, non-numeric or out-of-range value falls back
+to the default (the conservative choice) and is logged.
+
+**Retrieval cap exceeded** (`429`, `Retry-After` header):
+
+```json
+{"detail": {"code": "user_rate_limited", "window": "minute",
+            "retry_after_seconds": 30,
+            "message": "Per-user retrieval limit reached for this minute."}}
+```
+
+Remote MCP returns the same object as `{"error": {...}}` with
+`code: "user_rate_limited"`. If the counter cannot be read, the call fails
+closed with `503 {"detail": "Usage limits are unavailable"}`.
+
+**JEV budget exhausted:** no error. The response keeps the complete lexical
+ranking (JEV and lexical scores are never mixed) and reports
+`scoring_provider: "lexical_stopword_filtered"` with
+`scoring_fallback_reason: "jev_budget_exceeded"`
+(`"jev_budget_unavailable"` if the budget could not be checked). The JEV
+budget is spent only when JEV would actually run (opted in, server gate open,
+at least one candidate).
+
+On the API-key/MCP path the caps are sent to
+`public.consume_personal_api_key_usage` inside an HMAC gateway proof
+(`v1-usage` message, single-use nonce, 30-second window), verified like the
+signed reads; this check does not spend the per-key read rate limit. The web
+path calls `public.consume_user_usage` with the caller's own JWT, so a user can
+only count against their own account.
+
 ## Task-run ledger
 
 The authenticated workspace path records content-free retrieval telemetry when

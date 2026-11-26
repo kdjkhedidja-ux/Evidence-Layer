@@ -338,6 +338,12 @@
       "version": "20261126140000",
       "sha256": "dad032a3f6fb70b760c712b4b992a67768c9376349d71b1495ea592f1150ad6c",
       "provenance": "PR #260 follow-up: refuse connector evidence writes and worker syncs for accounts whose deletion is accepted (lifecycle not available)."
+    },
+    {
+      "file": "20261127100000_user_usage_caps.sql",
+      "version": "20261127100000",
+      "sha256": "e02803685bc070e323b432f9c3617473c4e80f59d8af39c497b0e74492cdaff0",
+      "provenance": "Public launch: per-user retrieval caps (minute/day) and daily JEV budget, counted atomically in private.user_usage_counters; API-key path verified with the signed gateway proof."
     }
   ]
 }
