@@ -16,7 +16,33 @@ SECONDARY_EXTENSIONS = {
     ".ts", ".tsx", ".js", ".jsx", ".py", ".go", ".rs", ".java", ".kt",
     ".rb", ".php", ".c", ".h", ".cpp", ".cs", ".swift", ".sh",
     ".json", ".yml", ".yaml", ".toml", ".ini", ".cfg",
+    ".sql", ".mjs", ".cjs", ".jsonl",
 }
+# Explicit text types for every allow-listed source extension. The stdlib
+# ``mimetypes`` table depends on the host: in the production image .ts, .tsx,
+# .toml, .yml and .jsonl had no type (and .ts can even resolve to a Qt
+# translation format), so those files were stored as binary and never became
+# evidence. A type listed here is always text.
+TEXT_MIME_TYPES = {
+    ".md": "text/markdown", ".mdx": "text/markdown", ".rst": "text/x-rst",
+    ".txt": "text/plain", ".ts": "text/x-typescript", ".tsx": "text/x-typescript",
+    ".js": "text/javascript", ".jsx": "text/javascript", ".mjs": "text/javascript",
+    ".cjs": "text/javascript", ".py": "text/x-python", ".go": "text/x-go",
+    ".rs": "text/x-rust", ".java": "text/x-java", ".kt": "text/x-kotlin",
+    ".rb": "text/x-ruby", ".php": "text/x-php", ".c": "text/x-c", ".h": "text/x-c",
+    ".cpp": "text/x-c++", ".cs": "text/x-csharp", ".swift": "text/x-swift",
+    ".sh": "text/x-shellscript", ".json": "application/json", ".jsonl": "text/plain",
+    ".yml": "text/yaml", ".yaml": "text/yaml", ".toml": "text/x-toml",
+    ".ini": "text/plain", ".cfg": "text/plain", ".sql": "text/x-sql",
+}
+
+
+def _mime_type(path: str) -> str | None:
+    name = path.lower().rsplit("/", 1)[-1]
+    dot = name.rfind(".")
+    if dot > 0 and name[dot:] in TEXT_MIME_TYPES:
+        return TEXT_MIME_TYPES[name[dot:]]
+    return mimetypes.guess_type(path)[0]
 SKIP_PARTS = {
     "node_modules", "vendor", "dist", "build", ".next", "coverage",
     ".git", "__pycache__",
@@ -106,7 +132,7 @@ class GitHubConnector:
             size = entry.get("size")
             if isinstance(size, int) and size > self._config.max_file_bytes:
                 continue
-            mime, _ = mimetypes.guess_type(path)
+            mime = _mime_type(path)
             item = ConnectorItem(
                 provider=self.provider,
                 external_id=f"{self._config.owner}/{self._config.repo}/{path}",
