@@ -63,6 +63,8 @@ Retrieval chunks each evidence body at read time (no schema change and no re-syn
 
 Chunks are scored individually, then packed into `top_k`, `max_tokens`, and `max_chars`. Packing prefers one chunk per parent path first, then a second pass, then remaining chunks; this avoids filling the response from one huge file when other paths match. After the first selection, a chunk below **35% of the highest selected score** is not used merely to fill an empty `top_k` slot. Explicit seed/related records are exempt. Each item preserves the parent `evidence_id` and adds `chunk_id`, `chunk_index`, `chunk_start`, `chunk_end`, `path`, and `title`.
 
+**Large-file parts.** A connector file longer than 65,536 characters is stored as several evidence records (parts, see [`README.md`](README.md)) whose `source_label` ends with `#part=i/n chars=start-end`. `path` drops that suffix, so all parts report the file's path. `chunk_start`/`chunk_end` stay relative to the part's content; the position in the original file is `start + chunk_start` to `start + chunk_end`, with `start` read from the label. Parts overlap by about 2,000 characters, and one response never returns the same file range twice: a chunk whose original-file range overlaps an already selected chunk of the same file is skipped. Only the first part of a file gets the intro-chunk boost.
+
 Deterministic path/title multipliers (applied to the Lexical score):
 
 - `README*` and `docs/ARCHITECTURE*`: **1.50×**

@@ -9,6 +9,8 @@ from uuid import UUID
 
 import httpx
 
+from evidence_service.connector_parts import not_indexed_reason
+
 from evidence_service.config import SupabaseSettings
 
 CONNECTION_SELECT = (
@@ -409,10 +411,16 @@ class ConnectorRepository:
             prefer="return=minimal",
         )
 
-    async def document_revisions(
+    async def document_states(
         self, access_token: str, connection_id: UUID
-    ) -> dict[str, str]:
-        revisions: dict[str, str] = {}
+    ) -> dict[str, tuple[str, str | None]]:
+        """Stored (revision, mime_type) per external id.
+
+        The type is part of the "unchanged" test: a file whose classification
+        changed (for example stored as binary before text types were fixed) is
+        fetched again once even when its git revision is the same.
+        """
+        states: dict[str, tuple[str, str | None]] = {}
         page_size = 1000
         for page in range(DOCUMENT_REVISION_MAX_PAGES):
             response = await self._request(
@@ -420,7 +428,7 @@ class ConnectorRepository:
                 access_token,
                 "connector_documents",
                 params={
-                    "select": "external_id,revision",
+                    "select": "external_id,revision,mime_type",
                     "connection_id": f"eq.{connection_id}",
                     "order": "external_id.asc",
                     "limit": str(page_size),
@@ -435,11 +443,56 @@ class ConnectorRepository:
                     raise ConnectorUnavailable
                 external_id = row.get("external_id")
                 revision = row.get("revision")
+                mime_type = row.get("mime_type")
                 if isinstance(external_id, str) and isinstance(revision, str):
-                    revisions[external_id] = revision
+                    states[external_id] = (
+                        revision,
+                        mime_type if isinstance(mime_type, str) else None,
+                    )
             if len(rows) < page_size:
                 break
-        return revisions
+        return states
+
+    async def list_not_indexed(
+        self, access_token: str, connection_id: UUID
+    ) -> list[dict[str, Any]]:
+        """Synced files without evidence for the signed-in owner (RLS-scoped).
+
+        Rows recorded by the current sync carry the reason in ``mime_type``;
+        older rows stored before reasons existed are binary (base64) or empty.
+        """
+        response = await self._request(
+            "GET",
+            access_token,
+            "connector_documents",
+            params={
+                "select": "external_id,mime_type,size_bytes,content_text",
+                "connection_id": f"eq.{connection_id}",
+                "or": "(content_text.is.null,content_text.eq.)",
+                "order": "external_id.asc",
+                "limit": "1000",
+            },
+        )
+        rows = response.json()
+        if not isinstance(rows, list):
+            raise ConnectorUnavailable
+        result: list[dict[str, Any]] = []
+        for row in rows:
+            if not isinstance(row, dict) or not isinstance(row.get("external_id"), str):
+                raise ConnectorUnavailable
+            owner, _, rest = row["external_id"].partition("/")
+            repo, _, path = rest.partition("/")
+            reason = not_indexed_reason(row.get("mime_type"))
+            if reason is None:
+                reason = "binary" if row.get("content_text") is None else "empty"
+            size = row.get("size_bytes")
+            result.append({
+                "repository": f"{owner}/{repo}",
+                "path": path or row["external_id"],
+                "reason": reason,
+                "size_bytes": size if isinstance(size, int) and size >= 0 else 0,
+            })
+        return result
 
     async def upsert_documents(
         self, access_token: str, documents: list[dict[str, Any]]

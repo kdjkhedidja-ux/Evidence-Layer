@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import re
+
+from evidence_service.connector_parts import parse_part_label
 from dataclasses import dataclass
 
 CHUNK_TARGET_CHARS = 2_400
@@ -99,6 +101,10 @@ def source_path(source_label: str | None) -> str | None:
     if not source_label:
         return None
     raw = source_label.strip()
+    location = parse_part_label(raw)
+    if location is not None:
+        # "GitHub: owner/repo/path #part=2/3 chars=a-b" -> the file's own path.
+        raw = location.base_label
     if raw.lower().startswith("github: "):
         raw = raw[8:].strip()
         parts = raw.split("/")

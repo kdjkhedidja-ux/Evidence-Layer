@@ -573,9 +573,14 @@ def test_worker_http_failure_at_real_request_boundary_blocks_protected_access() 
 
     assert response.status_code == 503
     assert response.json() == {"detail": "Service is unavailable"}
-    assert len(requests) == 2
-    assert requests[0].headers["x-recovery-nonce"] != requests[1].headers["x-recovery-nonce"]
-    assert requests[0].headers["x-recovery-signature"] != requests[1].headers["x-recovery-signature"]
+    # One open read, then a persistent 503 at the repository boundary: the
+    # reader retries that transient failure once (fresh nonce) and still
+    # fails closed.
+    assert len(requests) == 3
+    nonces = {request.headers["x-recovery-nonce"] for request in requests}
+    signatures = {request.headers["x-recovery-signature"] for request in requests}
+    assert len(nonces) == 3
+    assert len(signatures) == 3
     assert len(lifecycle.calls) == 1
     assert directory.calls == []
     assert repository.calls == []
@@ -657,8 +662,9 @@ def test_new_v1_routes_must_bind_the_lifecycle_dependency_and_healthz_is_public(
     # organization management routes, 3 personal API key management routes,
     # 2 personal API key read routes, and 3 narrowed export routes. All require
     # a verified credential; the read routes use the dedicated personal-key
-    # dependency plus the DB gate.
-    assert len(protected) == 58
+    # dependency plus the DB gate. Plus the owner-only connector
+    # "not indexed" listing (RLS-scoped connector_documents read).
+    assert len(protected) == 59
     assert all(has_auth_dependency(route.dependant) for route in protected)
     assert [(route.path, route.methods) for route in public] == [
         ("/healthz", {"GET"})

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 from types import SimpleNamespace
+
+from evidence_service.github_app_sync_service import GitHubSyncResult
 from uuid import UUID
 
 from evidence_service.connector_repository import ConnectorConnection
@@ -41,7 +43,11 @@ class FakeService:
         assert access_token == "service-role"
         if connection_id == CONNECTION_B:
             raise GitHubAppSyncError("synthetic")
-        return SimpleNamespace(listed=3, ingested=1, unchanged=2, skipped=0)
+        return GitHubSyncResult(
+            connection_id=str(connection_id), listed=3, ingested=1, skipped=0,
+            next_cursor=None, unchanged=2, pending=0, not_indexed=1,
+            not_indexed_files=(("0123456789abcdef", "too_large"),),
+        )
 
 
 def test_worker_syncs_each_connected_github_connection():
@@ -60,6 +66,10 @@ def test_worker_syncs_each_connected_github_connection():
         "ingested": 1,
         "unchanged": 2,
         "skipped": 0,
+        "pending": 0,
+        "not_indexed": 1,
+        # Hash + reason only: no plain path or content reaches the logs.
+        "not_indexed_files": [{"path_sha256": "0123456789abcdef", "reason": "too_large"}],
     }
     assert result["results"][1] == {
         "connection_id": str(CONNECTION_B),

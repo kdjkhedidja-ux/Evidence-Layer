@@ -16,7 +16,33 @@ SECONDARY_EXTENSIONS = {
     ".ts", ".tsx", ".js", ".jsx", ".py", ".go", ".rs", ".java", ".kt",
     ".rb", ".php", ".c", ".h", ".cpp", ".cs", ".swift", ".sh",
     ".json", ".yml", ".yaml", ".toml", ".ini", ".cfg",
+    ".sql", ".mjs", ".cjs", ".jsonl",
 }
+# Explicit text types for every allow-listed source extension. The stdlib
+# ``mimetypes`` table depends on the host: in the production image .ts, .tsx,
+# .toml, .yml and .jsonl had no type (and .ts can even resolve to a Qt
+# translation format), so those files were stored as binary and never became
+# evidence. A type listed here is always text.
+TEXT_MIME_TYPES = {
+    ".md": "text/markdown", ".mdx": "text/markdown", ".rst": "text/x-rst",
+    ".txt": "text/plain", ".ts": "text/x-typescript", ".tsx": "text/x-typescript",
+    ".js": "text/javascript", ".jsx": "text/javascript", ".mjs": "text/javascript",
+    ".cjs": "text/javascript", ".py": "text/x-python", ".go": "text/x-go",
+    ".rs": "text/x-rust", ".java": "text/x-java", ".kt": "text/x-kotlin",
+    ".rb": "text/x-ruby", ".php": "text/x-php", ".c": "text/x-c", ".h": "text/x-c",
+    ".cpp": "text/x-c++", ".cs": "text/x-csharp", ".swift": "text/x-swift",
+    ".sh": "text/x-shellscript", ".json": "application/json", ".jsonl": "text/plain",
+    ".yml": "text/yaml", ".yaml": "text/yaml", ".toml": "text/x-toml",
+    ".ini": "text/plain", ".cfg": "text/plain", ".sql": "text/x-sql",
+}
+
+
+def _mime_type(path: str) -> str | None:
+    name = path.lower().rsplit("/", 1)[-1]
+    dot = name.rfind(".")
+    if dot > 0 and name[dot:] in TEXT_MIME_TYPES:
+        return TEXT_MIME_TYPES[name[dot:]]
+    return mimetypes.guess_type(path)[0]
 SKIP_PARTS = {
     "node_modules", "vendor", "dist", "build", ".next", "coverage",
     ".git", "__pycache__",
@@ -80,8 +106,19 @@ class GitHubConnector:
         return headers
 
     async def list_items(
-        self, *, cursor: str | None = None, limit: int = 100
+        self,
+        *,
+        cursor: str | None = None,
+        limit: int = 100,
+        include_oversized: bool = False,
     ) -> ConnectorPage:
+        """List indexable files of the repository tree.
+
+        Files over ``max_file_bytes`` are dropped unless ``include_oversized``
+        is true; then they are listed with ``metadata["not_indexed"] =
+        "too_large"`` so the caller can record them instead of silently
+        excluding them. They are never fetched.
+        """
         if cursor:
             raise ValueError("GitHub tree listing does not paginate through this connector")
         ref = quote(self._config.ref, safe="")
@@ -104,9 +141,10 @@ class GitHubConnector:
             if priority is None:
                 continue
             size = entry.get("size")
-            if isinstance(size, int) and size > self._config.max_file_bytes:
+            oversized = isinstance(size, int) and size > self._config.max_file_bytes
+            if oversized and not include_oversized:
                 continue
-            mime, _ = mimetypes.guess_type(path)
+            mime = _mime_type(path)
             item = ConnectorItem(
                 provider=self.provider,
                 external_id=f"{self._config.owner}/{self._config.repo}/{path}",
@@ -119,7 +157,12 @@ class GitHubConnector:
                     f"/blob/{quote(self._config.ref, safe='/')}/{quote(path, safe='/')}"
                 ),
                 size_bytes=size if isinstance(size, int) else None,
-                metadata={"path": path, "ref": self._config.ref, "priority": priority},
+                metadata={
+                    "path": path,
+                    "ref": self._config.ref,
+                    "priority": priority,
+                    **({"not_indexed": "too_large"} if oversized else {}),
+                },
             )
             candidate_pairs.append((priority, path, item))
         candidate_pairs.sort(key=lambda pair: (pair[0], pair[1]))

@@ -145,6 +145,13 @@ export async function proxySyncConnector(connectionId: string, request: Request)
   });
 }
 
+export async function proxyListNotIndexed(connectionId: string): Promise<Response> {
+  if (!/^[0-9a-f-]{36}$/i.test(connectionId)) return json(404, { error: "Connector not found." });
+  const auth = await session();
+  if (auth.kind === "response") return auth.response;
+  return upstreamJson(`/v1/connectors/${encodeURIComponent(connectionId)}/not-indexed`, auth.accessToken);
+}
+
 export async function proxyDeleteConnector(connectionId: string, request: Request): Promise<Response> {
   if (!/^[0-9a-f-]{36}$/i.test(connectionId)) return json(404, { error: "Connector not found." });
   if (!sameOrigin(request)) return json(403, { error: "Request origin was not accepted." });
