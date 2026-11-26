@@ -18,6 +18,27 @@ type ConnectorConnection = {
   last_error_category: string | null;
 };
 
+type NotIndexedFile = {
+  repository: string;
+  path: string;
+  reason: "too_large" | "binary" | "fetch_error" | "empty" | "too_many_parts";
+  size_bytes: number | null;
+};
+
+type NotIndexedState =
+  | { kind: "loading" }
+  | { kind: "unavailable" }
+  | { kind: "ready"; files: NotIndexedFile[] };
+
+// Plain-language reason codes; the service never sends file content.
+const NOT_INDEXED_REASON: Record<NotIndexedFile["reason"], string> = {
+  too_large: "larger than 2 MiB",
+  binary: "not a text file",
+  fetch_error: "could not be read from the provider",
+  empty: "empty",
+  too_many_parts: "too long to split",
+};
+
 const CONNECTOR_FEEDBACK: Record<string, Record<string, string>> = {
   google_drive: {
     connected: "Google Drive is connected.",
@@ -58,6 +79,7 @@ export default function ConnectorSources() {
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState("");
   const [callbackMessage, setCallbackMessage] = useState("");
+  const [notIndexed, setNotIndexed] = useState<Record<string, NotIndexedState>>({});
   const googleDriveConnectorEnabled = resolveGoogleDriveConnectorEnabled({
     flag: process.env.NEXT_PUBLIC_GOOGLE_DRIVE_CONNECTOR_ENABLED,
   });
@@ -103,8 +125,16 @@ export default function ConnectorSources() {
         setMessage("The connector sync could not be completed.");
         return;
       }
-      const payload = (await response.json()) as { ingested?: number; skipped?: number };
-      setMessage(`Sync complete: ${payload.ingested ?? 0} documents ingested, ${payload.skipped ?? 0} skipped.`);
+      const payload = (await response.json()) as {
+        ingested?: number;
+        skipped?: number;
+        not_indexed?: number;
+      };
+      const notIndexedCount = payload.not_indexed ?? 0;
+      setMessage(
+        `Sync complete: ${payload.ingested ?? 0} documents ingested, ${payload.skipped ?? 0} skipped` +
+          (notIndexedCount > 0 ? `, ${notIndexedCount} recorded as not indexed.` : "."),
+      );
       await loadConnectors();
     } catch {
       setMessage("The connector service is unavailable.");
@@ -112,6 +142,25 @@ export default function ConnectorSources() {
       setPending(false);
     }
   }, [loadConnectors]);
+
+  const loadNotIndexed = useCallback(async (connectionId: string): Promise<void> => {
+    setNotIndexed((current) => ({ ...current, [connectionId]: { kind: "loading" } }));
+    try {
+      const response = await fetch(
+        `/api/evidence/connectors/${encodeURIComponent(connectionId)}/not-indexed`,
+        { cache: "no-store" },
+      );
+      const payload: unknown = response.ok ? await response.json() : null;
+      setNotIndexed((current) => ({
+        ...current,
+        [connectionId]: Array.isArray(payload)
+          ? { kind: "ready", files: payload as NotIndexedFile[] }
+          : { kind: "unavailable" },
+      }));
+    } catch {
+      setNotIndexed((current) => ({ ...current, [connectionId]: { kind: "unavailable" } }));
+    }
+  }, []);
 
   const disconnectConnector = useCallback(async (connectionId: string): Promise<void> => {
     setPending(true);
@@ -190,23 +239,73 @@ export default function ConnectorSources() {
         <p className="workspace-note">No source is connected.</p>
       )}
       {connectors.map((connection) => (
-        <div key={connection.connection_id} className="workspace-form-actions">
-          <span className="workspace-note">
-            {connection.provider}: {connection.status}
-            {connection.account_email ? ` (${connection.account_email})` : ""}
-            {connection.workspace_id ? ` · workspace ${connection.workspace_id}` : ""}
-            {connection.last_sync_at ? ` · last sync ${new Date(connection.last_sync_at).toLocaleString()}` : ""}
-          </span>
-          <button type="button" disabled={pending} onClick={() => void syncConnector(connection.connection_id)}>
-            Sync {connection.provider === "google_drive" ? "Drive" : connection.provider}
-          </button>
-          <button type="button" disabled={pending} onClick={() => void disconnectConnector(connection.connection_id)}>
-            Disconnect
-          </button>
+        <div key={connection.connection_id}>
+          <div className="workspace-form-actions">
+            <span className="workspace-note">
+              {connection.provider}: {connection.status}
+              {connection.account_email ? ` (${connection.account_email})` : ""}
+              {connection.workspace_id ? ` · workspace ${connection.workspace_id}` : ""}
+              {connection.last_sync_at ? ` · last sync ${new Date(connection.last_sync_at).toLocaleString()}` : ""}
+            </span>
+            <button type="button" disabled={pending} onClick={() => void syncConnector(connection.connection_id)}>
+              Sync {connection.provider === "google_drive" ? "Drive" : connection.provider}
+            </button>
+            <button type="button" disabled={pending} onClick={() => void disconnectConnector(connection.connection_id)}>
+              Disconnect
+            </button>
+            {connection.provider === "github" && (
+              <button
+                type="button"
+                disabled={notIndexed[connection.connection_id]?.kind === "loading"}
+                onClick={() => void loadNotIndexed(connection.connection_id)}
+              >
+                Files not indexed
+              </button>
+            )}
+          </div>
+          <NotIndexedFiles connectionId={connection.connection_id} state={notIndexed[connection.connection_id]} />
         </div>
       ))}
       {callbackMessage && <p className="workspace-message" role="status">{callbackMessage}</p>}
       {message && <p className="workspace-message" role="status">{message}</p>}
+    </section>
+  );
+}
+
+function NotIndexedFiles({
+  connectionId,
+  state,
+}: {
+  connectionId: string;
+  state: NotIndexedState | undefined;
+}) {
+  if (!state) return null;
+  const headingId = `not-indexed-${connectionId}`;
+  return (
+    <section className="workspace-note" aria-labelledby={headingId}>
+      <h3 id={headingId}>Files not indexed</h3>
+      {state.kind === "loading" && <p aria-live="polite">Loading files not indexed…</p>}
+      {state.kind === "unavailable" && (
+        <p role="alert">The list of files not indexed is unavailable right now.</p>
+      )}
+      {state.kind === "ready" && state.files.length === 0 && (
+        <p>Every listed file of this source is indexed.</p>
+      )}
+      {state.kind === "ready" && state.files.length > 0 && (
+        <>
+          <p>
+            These files are recorded but not searchable. Only you can see this list. A file is
+            read again when it changes.
+          </p>
+          <ul>
+            {state.files.map((file) => (
+              <li key={`${file.repository}/${file.path}`}>
+                <code>{file.repository}/{file.path}</code>: {NOT_INDEXED_REASON[file.reason] ?? file.reason}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </section>
   );
 }

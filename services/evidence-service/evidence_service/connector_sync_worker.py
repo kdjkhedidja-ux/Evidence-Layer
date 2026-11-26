@@ -77,6 +77,14 @@ async def run_once(
                 "ingested": result.ingested,
                 "unchanged": result.unchanged,
                 "skipped": result.skipped,
+                "pending": result.pending,
+                "not_indexed": result.not_indexed,
+                # Truncated path hashes and reason codes only: no plain path,
+                # no content (see evidence_service.connector_parts).
+                "not_indexed_files": [
+                    {"path_sha256": path_hash, "reason": reason}
+                    for path_hash, reason in result.not_indexed_files
+                ],
             })
         except GitHubAccountUnavailable:
             results.append({

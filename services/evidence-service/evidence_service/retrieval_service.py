@@ -18,6 +18,7 @@ from evidence_service.chunking import (
     document_title,
     source_path,
 )
+from evidence_service.connector_parts import PartLocation, parse_part_label
 from evidence_service.evidence_repository import EvidenceRecord
 
 MIN_RELATIVE_SCORE = 0.35
@@ -77,6 +78,18 @@ class _ChunkCandidate:
     token_count: int
     char_count: int
     protected: bool = False
+    part: PartLocation | None = None
+
+    @property
+    def file_range(self) -> tuple[str, int, int] | None:
+        """(file label, absolute start, absolute end) for a chunk of a part."""
+        if self.part is None:
+            return None
+        return (
+            self.part.base_label,
+            self.part.start + self.chunk.start,
+            self.part.start + self.chunk.end,
+        )
 
     @property
     def parent_key(self) -> str:
@@ -105,8 +118,12 @@ def select_evidence(
     chunk_count = 0
     matched_chunk_count = 0
     for record in records:
+        part = parse_part_label(record.source_label)
         path = source_path(record.source_label)
-        title = document_title(record.content or "", path)
+        # A later part starts mid-file: no intro boost and no title taken
+        # from a heading that is not the document's own.
+        later_part = part is not None and part.index > 1
+        title = document_title("" if later_part else (record.content or ""), path)
         for chunk in chunk_text(record.content or ""):
             chunk_count += 1
             raw_score = scorer.score(query, chunk.content)
@@ -118,7 +135,7 @@ def select_evidence(
                     title=title,
                     query_terms=query_terms,
                     query=query,
-                    chunk_index=chunk.index,
+                    chunk_index=chunk.index + (1 if later_part else 0),
                 )
                 if raw_score > 0 else 0
             )
@@ -148,6 +165,7 @@ def select_evidence(
                         (seed_record_ids and record.id in seed_record_ids)
                         or (related_record_scores and record.id in related_record_scores)
                     ),
+                    part=part,
                 )
             )
     candidates.sort(
@@ -163,6 +181,9 @@ def select_evidence(
 
     selected: list[SelectedEvidence] = []
     selected_chunks: set[str] = set()
+    # Absolute character ranges already selected per large file, so the
+    # overlap between two parts is never returned twice.
+    selected_file_ranges: dict[str, list[tuple[int, int]]] = {}
     per_parent: dict[str, int] = {}
     used_tokens = 0
     used_chars = 0
@@ -174,6 +195,12 @@ def select_evidence(
             if len(selected) >= top_k:
                 break
             if candidate.chunk_key in selected_chunks:
+                continue
+            file_range = candidate.file_range
+            if file_range is not None and any(
+                file_range[1] < end and start < file_range[2]
+                for start, end in selected_file_ranges.get(file_range[0], ())
+            ):
                 continue
             if per_parent.get(candidate.parent_key, 0) >= parent_limit:
                 continue
@@ -203,6 +230,10 @@ def select_evidence(
                 )
             )
             selected_chunks.add(candidate.chunk_key)
+            if file_range is not None:
+                selected_file_ranges.setdefault(file_range[0], []).append(
+                    (file_range[1], file_range[2])
+                )
             per_parent[candidate.parent_key] = per_parent.get(candidate.parent_key, 0) + 1
             used_tokens += candidate.token_count
             used_chars += candidate.char_count

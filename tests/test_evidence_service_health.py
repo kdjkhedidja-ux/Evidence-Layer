@@ -51,6 +51,7 @@ def test_service_routes_are_limited_and_docs_are_disabled() -> None:
         ("GET", "/v1/connectors"),
         ("DELETE", "/v1/connectors/{connection_id}"),
         ("POST", "/v1/connectors/{connection_id}/sync"),
+        ("GET", "/v1/connectors/{connection_id}/not-indexed"),
         ("GET", "/v1/me/exports/{export_id}/download"),
         ("POST", "/v1/me/exports/{export_id}/revoke"),
         ("GET", "/v1/me/api-keys"),
