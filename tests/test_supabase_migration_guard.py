@@ -353,7 +353,7 @@ class ReadOnlyManagementApiTests(unittest.TestCase):
                 [item["version"] for item in guard.local_inventory()],
             )
 
-        self.assertEqual(len(requests), 21)
+        self.assertEqual(len(requests), 22)
         for request in requests:
             self.assertTrue(request.full_url.endswith("/database/query/read-only"))
             self.assertEqual(request.get_method(), "POST")
@@ -649,7 +649,7 @@ class ValidateMessageTests(unittest.TestCase):
         self.assertIn("static sql analysis", message)
         self.assertIn("separate", message)
         self.assertNotIn("no destructive statements detected", message)
-        self.assertIn("57 files", message)
+        self.assertIn("58 files", message)
 
 
 class StatementLexerTests(unittest.TestCase):
@@ -828,8 +828,8 @@ class ApprovalLedgerTests(unittest.TestCase):
 
     def test_reviewed_inventory_lexes_and_classifies_without_ambiguity(self):
         self.assertEqual(self.findings, [])
-        self.assertEqual(len(self.records), 923)
-        self.assertEqual(len({record["file"] for record in self.records}), 57)
+        self.assertEqual(len(self.records), 948)
+        self.assertEqual(len({record["file"] for record in self.records}), 58)
 
     def test_no_reviewed_statement_is_hard_denied(self):
         denied = [r for r in self.records if r["tier"] == sql_statement.TIER_HARD_DENY]
@@ -840,7 +840,7 @@ class ApprovalLedgerTests(unittest.TestCase):
 
     def test_every_ledger_entry_resolves_to_a_written_rationale(self):
         ledger = guard.load_ledger()
-        self.assertEqual(len(ledger["entries"]), 795)
+        self.assertEqual(len(ledger["entries"]), 817)
         for entry in ledger["entries"]:
             self.assertTrue(ledger["rationales"][entry["rationale_ref"]].strip())
             self.assertTrue(entry["file"].endswith(".sql"))
@@ -957,7 +957,7 @@ class ClassifyCommandTests(unittest.TestCase):
         with patch.object(sys, "argv", ["guard", "classify"]), contextlib.redirect_stdout(buffer):
             self.assertEqual(guard.main(), 0)
         self.assertIn("Static analysis passed", buffer.getvalue())
-        self.assertIn("795 registry-approved", buffer.getvalue())
+        self.assertIn("817 registry-approved", buffer.getvalue())
 
     def test_hard_denied_statement_blocks(self):
         temporary, migrations, manifest = self.build_probe(
