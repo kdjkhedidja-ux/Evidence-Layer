@@ -2,6 +2,8 @@ import { defineConfig, devices } from "@playwright/test";
 
 const appUrl = "http://localhost:3000";
 const authUrl = "http://127.0.0.1:54321";
+// One issue time for both mock servers so their synthetic tokens match.
+const syntheticTokenIssuedAt = String(Math.floor(Date.now() / 1000));
 const syntheticConfig = {
   NEXT_PUBLIC_SUPABASE_URL: authUrl,
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_synthetic_ui_only",
@@ -26,12 +28,14 @@ export default defineConfig({
       url: `${authUrl}/health`,
       reuseExistingServer: false,
       timeout: 30_000,
+      env: { SYNTHETIC_TOKEN_ISSUED_AT: syntheticTokenIssuedAt },
     },
     {
       command: "node tests/e2e/mock-evidence-service.mjs",
       url: "http://127.0.0.1:54329/health",
       reuseExistingServer: false,
       timeout: 30_000,
+      env: { SYNTHETIC_TOKEN_ISSUED_AT: syntheticTokenIssuedAt },
     },
     {
       command: "npm run build && npm run start -- --hostname 127.0.0.1 --port 3000",
