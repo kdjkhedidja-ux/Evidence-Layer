@@ -19,7 +19,7 @@ Request:
   "top_k": 5,
   "max_tokens": 1200,
   "max_chars": 6000,
-  "candidate_limit": 50,
+  "candidate_limit": 1000,
   "use_jev": true
 }
 ```
@@ -32,8 +32,11 @@ stays lexical and reports
 `scoring_fallback_reason`. The Typesafe credential is read only by the service
 from `TYPESAFE_API_KEY`.
 
-`candidate_limit` is the newest evidence window read for the workspace, capped
-at 100. Retrieval first selects lexical seed records, then reads up to 100
+`candidate_limit` is the newest evidence window read for the workspace. It
+defaults to, and is capped at, 1000 records (the same window the signed-in web
+app ranks), read in a single signed call so one retrieval counts once against
+the key's rate limit. Until migration `20261126130000` is applied the database
+accepts at most 100, and the service falls back to that window automatically. Retrieval first selects lexical seed records, then reads up to 100
 relationship edges and expands one hop to at most three linked records. A
 linked record can be selected without a lexical match and receives 0.8 times
 the adjusted score of its strongest selected seed. Seed records rank first;
@@ -326,7 +329,7 @@ context = client.retrieve(
     top_k=5,
     max_tokens=1200,
     max_chars=6000,
-    candidate_limit=50,
+    candidate_limit=1000,
 )
 document = client.get_document(context["evidence"][0]["evidence_id"])
 ```

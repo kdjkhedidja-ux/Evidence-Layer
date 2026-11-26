@@ -182,6 +182,10 @@ export async function createNotionConnection(
 export async function createGitHubConnection(
   auth: AuthenticatedAuthContext,
   installationId: number,
+  oauthCode: string,
 ): Promise<Response> {
-  return createConnection(auth, "/v1/connectors/github/connection", { installation_id: installationId });
+  return createConnection(auth, "/v1/connectors/github/connection", {
+    installation_id: installationId,
+    oauth_code: oauthCode,
+  });
 }

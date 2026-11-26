@@ -59,7 +59,7 @@ class EvidenceApiClient:
         top_k: int = 5,
         max_tokens: int = 1200,
         max_chars: int = 6000,
-        candidate_limit: int = 50,
+        candidate_limit: int = 1000,
         use_jev: bool = True,
     ) -> dict[str, Any]:
         return self._request(

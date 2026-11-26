@@ -7,8 +7,12 @@ from uuid import UUID
 
 import httpx
 
-from evidence_service.connector_repository import ConnectorConnection
-from evidence_service.github_app_sync_service import GitHubAppSyncService
+from evidence_service.connector_repository import ConnectorConnection, ConnectorUnavailable
+from evidence_service.github_app_sync_service import (
+    GitHubAppSyncError,
+    GitHubAppSyncService,
+    GitHubInstallationNotOwned,
+)
 
 USER = UUID("11111111-1111-4111-8111-111111111111")
 CONNECTION = UUID("22222222-2222-4222-8222-222222222222")
@@ -215,7 +219,7 @@ class GitHubAppSyncTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.skipped, 1)
         self.assertTrue(repository.synced)
 
-    async def test_connect_stores_installation_config(self):
+    def _connect_service(self, handler, *, client_id="client-id", client_secret="client-secret"):
         class ConnectRepository(FakeRepository):
             def __init__(self):
                 super().__init__()
@@ -226,10 +230,211 @@ class GitHubAppSyncTests(unittest.IsolatedAsyncioTestCase):
                 return self.connection
 
         repository = ConnectRepository()
-        service = GitHubAppSyncService(repository, app_id="123", private_key="unused")
+        service = GitHubAppSyncService(
+            repository,  # type: ignore[arg-type]
+            app_id="123",
+            private_key="unused",
+            client_id=client_id,
+            client_secret=client_secret,
+            transport=httpx.MockTransport(handler),
+        )
+        return repository, service
+
+    @staticmethod
+    def _oauth_handler(installations, *, code="install-code"):
+        seen = {"token_exchange": 0}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.url.path == "/login/oauth/access_token":
+                seen["token_exchange"] += 1
+                body = dict(httpx.QueryParams(request.content.decode()))
+                if body.get("code") != code or body.get("client_secret") != "client-secret":
+                    return httpx.Response(200, json={"error": "bad_verification_code"})
+                return httpx.Response(200, json={"access_token": "ghu_user", "token_type": "bearer"})
+            if request.url.path == "/user/installations":
+                if request.headers.get("authorization") != "Bearer ghu_user":
+                    return httpx.Response(401)
+                return httpx.Response(200, json={
+                    "total_count": len(installations),
+                    "installations": [{"id": value} for value in installations],
+                })
+            return httpx.Response(404)
+
+        return handler, seen
+
+    async def test_connect_stores_installation_config_after_ownership_check(self):
+        handler, seen = self._oauth_handler([7, 123])
+        repository, service = self._connect_service(handler)
         with patch.object(service, "_installation_account", AsyncMock(return_value="acme")):
-            await service.connect("user-token", user_id=USER, installation_id=123)
+            await service.connect(
+                "user-token", user_id=USER, installation_id=123, oauth_code="install-code"
+            )
+        self.assertEqual(seen["token_exchange"], 1)
         assert repository.upserted is not None
         self.assertEqual(repository.upserted["provider"], "github")
         self.assertEqual(repository.upserted["provider_config"], {"installation_id": "123"})
         self.assertEqual(repository.upserted["workspace_id"], WORKSPACE)
+
+    async def test_connect_refuses_installation_of_another_account(self):
+        # The attacker completes their own install flow, then swaps the
+        # installation_id in the callback URL for a victim's installation.
+        handler, _ = self._oauth_handler([7])
+        repository, service = self._connect_service(handler)
+        account = AsyncMock(return_value="victim")
+        with patch.object(service, "_installation_account", account):
+            with self.assertRaises(GitHubInstallationNotOwned):
+                await service.connect(
+                    "user-token", user_id=USER, installation_id=123, oauth_code="install-code"
+                )
+        self.assertIsNone(repository.upserted)
+        account.assert_not_awaited()
+
+    async def test_connect_refuses_forged_or_reused_code(self):
+        handler, _ = self._oauth_handler([123])
+        repository, service = self._connect_service(handler)
+        with self.assertRaises(GitHubInstallationNotOwned):
+            await service.connect(
+                "user-token", user_id=USER, installation_id=123, oauth_code="forged"
+            )
+        self.assertIsNone(repository.upserted)
+
+    async def test_connect_requires_oauth_code(self):
+        handler, seen = self._oauth_handler([123])
+        repository, service = self._connect_service(handler)
+        with self.assertRaises(GitHubInstallationNotOwned):
+            await service.connect(
+                "user-token", user_id=USER, installation_id=123, oauth_code=""
+            )
+        self.assertEqual(seen["token_exchange"], 0)
+        self.assertIsNone(repository.upserted)
+
+    async def test_connect_fails_closed_without_client_credentials(self):
+        handler, seen = self._oauth_handler([123])
+        repository, service = self._connect_service(handler, client_id="", client_secret="")
+        with self.assertRaises(GitHubAppSyncError):
+            await service.connect(
+                "user-token", user_id=USER, installation_id=123, oauth_code="install-code"
+            )
+        self.assertEqual(seen["token_exchange"], 0)
+        self.assertIsNone(repository.upserted)
+
+    async def test_connect_searches_every_installation_page(self):
+        installations = list(range(1000, 1100)) + [123]
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.url.path == "/login/oauth/access_token":
+                return httpx.Response(200, json={"access_token": "ghu_user"})
+            if request.url.path == "/user/installations":
+                page = int(request.url.params.get("page", "1"))
+                chunk = installations[(page - 1) * 100 : page * 100]
+                return httpx.Response(200, json={"installations": [{"id": v} for v in chunk]})
+            return httpx.Response(404)
+
+        repository, service = self._connect_service(handler)
+        with patch.object(service, "_installation_account", AsyncMock(return_value="acme")):
+            await service.connect(
+                "user-token", user_id=USER, installation_id=123, oauth_code="install-code"
+            )
+        self.assertIsNotNone(repository.upserted)
+
+
+def _repo_handler(paths, *, truncated=False, total_count=None, content_calls=None):
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/installation/repositories":
+            payload = {"repositories": [{
+                "name": "docs",
+                "default_branch": "main",
+                "owner": {"login": "acme"},
+            }]}
+            if total_count is not None:
+                payload["total_count"] = total_count
+            return httpx.Response(200, json=payload)
+        if request.url.path == "/repos/acme/docs/git/trees/main":
+            return httpx.Response(200, json={
+                "truncated": truncated,
+                "tree": [
+                    {"path": path, "type": "blob", "sha": f"sha-{path}", "size": 4}
+                    for path in paths
+                ],
+            })
+        if request.url.path.startswith("/repos/acme/docs/contents/"):
+            if content_calls is not None:
+                content_calls.append(request.url.path)
+            return httpx.Response(200, content=b"body", headers={"content-type": "text/markdown"})
+        return httpx.Response(404)
+
+    return handler
+
+
+class GitHubSyncSafetyTests(unittest.IsolatedAsyncioTestCase):
+    def _service(self, handler, repository):
+        return GitHubAppSyncService(
+            repository,  # type: ignore[arg-type]
+            app_id="123",
+            private_key="unused",
+            transport=httpx.MockTransport(handler),
+        )
+
+    async def test_large_repository_never_deletes_unfetched_files(self):
+        paths = [f"docs/file{index:03}.md" for index in range(250)]
+        repository = FakeRepository()
+        service = self._service(_repo_handler(paths), repository)
+        with patch.object(service, "_installation_token", AsyncMock(return_value="t")):
+            first = await service.sync("token", CONNECTION, limit=5)
+        self.assertEqual(first.ingested, 100)
+        self.assertEqual(first.pending, 150)
+        self.assertEqual(first.listed, 250)
+        # The whole tree was listed, so the stale set is the full file list and
+        # nothing that still exists is removed.
+        self.assertEqual(
+            repository.deleted_external_ids, {f"acme/docs/{path}" for path in paths}
+        )
+
+    async def test_later_runs_fetch_the_remaining_files(self):
+        paths = [f"docs/file{index:03}.md" for index in range(250)]
+        repository = FakeRepository()
+        stored: dict[str, str] = {}
+
+        async def upsert_documents(access_token, documents):
+            for document in documents:
+                stored[document["external_id"]] = document["revision"]
+
+        async def document_revisions(access_token, connection_id):
+            return dict(stored)
+
+        repository.upsert_documents = upsert_documents  # type: ignore[method-assign]
+        repository.document_revisions = document_revisions  # type: ignore[method-assign]
+        service = self._service(_repo_handler(paths), repository)
+        with patch.object(service, "_installation_token", AsyncMock(return_value="t")):
+            results = [await service.sync("token", CONNECTION, limit=5) for _ in range(3)]
+        self.assertEqual([r.ingested for r in results], [100, 100, 50])
+        self.assertEqual(results[-1].pending, 0)
+        self.assertEqual(len(stored), 250)
+
+    async def test_truncated_tree_skips_stale_deletion(self):
+        repository = FakeRepository()
+        service = self._service(_repo_handler(["README.md"], truncated=True), repository)
+        with patch.object(service, "_installation_token", AsyncMock(return_value="t")):
+            await service.sync("token", CONNECTION, limit=5)
+        self.assertIsNone(repository.deleted_external_ids)
+
+    async def test_unread_repositories_skip_stale_deletion(self):
+        repository = FakeRepository()
+        service = self._service(_repo_handler(["README.md"], total_count=9), repository)
+        with patch.object(service, "_installation_token", AsyncMock(return_value="t")):
+            await service.sync("token", CONNECTION, limit=5)
+        self.assertIsNone(repository.deleted_external_ids)
+
+    async def test_failed_evidence_write_does_not_record_revisions(self):
+        repository = FakeRepository()
+        repository.upsert_evidence_documents = AsyncMock(  # type: ignore[method-assign]
+            side_effect=ConnectorUnavailable()
+        )
+        service = self._service(_repo_handler(["README.md"]), repository)
+        with patch.object(service, "_installation_token", AsyncMock(return_value="t")):
+            with self.assertRaises(GitHubAppSyncError):
+                await service.sync("token", CONNECTION, limit=5)
+        # Revisions stay unrecorded, so the next run retries the changed file
+        # instead of treating it as unchanged forever.
+        self.assertIsNone(repository.documents)
+        self.assertIsNone(repository.deleted_external_ids)

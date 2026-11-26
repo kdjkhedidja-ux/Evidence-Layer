@@ -28,7 +28,7 @@
 | Google Drive connector runtime | Server-only OAuth/token-vault credentials; never expose the token-encryption key or client secret to the browser | `CONNECTOR_TOKEN_ENCRYPTION_KEY`, `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` |
 | Google Drive connector web OAuth | Server-only OAuth callback credentials | `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_URI` |
 | Notion connector web OAuth | Server-only Notion OAuth callback credentials | `NOTION_OAUTH_CLIENT_ID`, `NOTION_OAUTH_CLIENT_SECRET`, `NOTION_REDIRECT_URI`, `NEXT_PUBLIC_NOTION_CONNECTOR_ENABLED` |
-| GitHub connector | Server-only GitHub App credentials; installation tokens are minted on demand and not stored | Preferred: `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_SLUG`. Accepted aliases: `GIT_APP_ID`, `GIT_APP_PRIVATE_KEY`, `GIT_APP_SLUG`. Also `NEXT_PUBLIC_GITHUB_CONNECTOR_ENABLED` |
+| GitHub connector | Server-only GitHub App credentials; installation tokens are minted on demand and not stored | Preferred: `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_CLIENT_ID`, `GITHUB_APP_CLIENT_SECRET`, `GITHUB_APP_SLUG`. Accepted aliases: `GIT_APP_ID`, `GIT_APP_PRIVATE_KEY`, `GIT_APP_CLIENT_ID`, `GIT_APP_CLIENT_SECRET`, `GIT_APP_SLUG`. Also `NEXT_PUBLIC_GITHUB_CONNECTOR_ENABLED` |
 | Connector sync worker | Server-only service-role credential and GitHub App key | `CONNECTOR_SYNC_INTERVAL_SECONDS` (default 900), `CONNECTOR_DOCUMENT_LIMIT` (default 10) |
 | Workspace deletion worker | Server-only bound on approved C3 executions | `WORKSPACE_DELETION_LIMIT` (default 10) |
 | Source cleanup worker | Server-only cleanup bounds on the deletion worker | `SOURCE_CLEANUP_AGE_DAYS` (default 14), `SOURCE_CLEANUP_LIMIT` (default 100) |

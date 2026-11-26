@@ -130,8 +130,9 @@ Google Cloud console: create a Web application OAuth client, add the exact callb
 - Setup URL: `https://evidencelayer.dev/api/connectors/github/callback`.
 - Start URL: `/api/connectors/github/start` redirects to the App's installation page with a state cookie.
 - OAuth start, callback, and shared connection storage require MFA status to be verified; an unresolved or required challenge prevents connection creation.
+- **Installation ownership is verified.** The App must have *Request user authorization (OAuth) during installation* enabled so GitHub appends a one-time `code` to the callback. The service exchanges it (with `GITHUB_APP_CLIENT_ID` / `GITHUB_APP_CLIENT_SECRET`) for a short-lived user token and only links the installation if it appears in that user's `GET /user/installations`. A callback without a `code`, or with an installation the user cannot access, is refused; the `installation_id` in the URL is never trusted on its own. Without the client credentials the connector fails closed.
 - The service stores `provider_config={"installation_id": ...}`; no user access token is persisted.
-- Sync lists the installation's repositories and ingests bounded README/code files from selected repositories (up to 5 repositories, 25 documents, 2 MiB per file).
+- Sync reads the full file tree of up to 5 repositories and fetches at most 100 new or changed files per run (2 MiB per file, 12 MiB per run); remaining files are fetched on the following runs. Evidence for files that disappeared is removed only when the run listed every repository and every file completely and without errors, so a capped or truncated listing never deletes evidence.
 - UI is enabled by `NEXT_PUBLIC_GITHUB_CONNECTOR_ENABLED` in production; empty repositories and unavailable trees are skipped without failing the sync.
 
 Environment names only:
@@ -140,6 +141,8 @@ Environment names only:
 GITHUB_APP_SLUG             # web; installation URL slug (alias: GIT_APP_SLUG)
 GITHUB_APP_ID               # service; App JWT issuer (alias: GIT_APP_ID)
 GITHUB_APP_PRIVATE_KEY      # service; full PEM private key (alias: GIT_APP_PRIVATE_KEY)
+GITHUB_APP_CLIENT_ID        # service; App client ID for the installation ownership check (alias: GIT_APP_CLIENT_ID)
+GITHUB_APP_CLIENT_SECRET    # service; App client secret (alias: GIT_APP_CLIENT_SECRET)
 NEXT_PUBLIC_GITHUB_CONNECTOR_ENABLED
 ```
 

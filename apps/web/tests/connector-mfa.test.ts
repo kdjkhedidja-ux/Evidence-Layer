@@ -53,7 +53,7 @@ describe("connector OAuth MFA gate", () => {
 
   it("blocks connection creation at the shared boundary when MFA is required", async () => {
     mocks.getMfaChallengeStatus.mockResolvedValue("required");
-    const response = await createGitHubConnection(auth, 42);
+    const response = await createGitHubConnection(auth, 42, "install-code");
 
     expect(response.status).toBe(403);
     expect(await response.json()).toMatchObject({ code: "mfa_required" });
@@ -64,7 +64,7 @@ describe("connector OAuth MFA gate", () => {
     mocks.getMfaChallengeStatus.mockResolvedValue("not-required");
     mocks.fetch.mockResolvedValue(Response.json({ connection_id: "connection-1" }, { status: 201 }));
 
-    const response = await createGitHubConnection(auth, 42);
+    const response = await createGitHubConnection(auth, 42, "install-code");
 
     expect(response.status).toBe(201);
     expect(mocks.fetch).toHaveBeenCalledWith(
@@ -72,7 +72,7 @@ describe("connector OAuth MFA gate", () => {
       expect.objectContaining({
         method: "POST",
         headers: expect.objectContaining({ Authorization: "Bearer synthetic-access-token" }),
-        body: JSON.stringify({ installation_id: 42 }),
+        body: JSON.stringify({ installation_id: 42, oauth_code: "install-code" }),
       }),
     );
   });

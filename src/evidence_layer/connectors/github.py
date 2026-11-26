@@ -123,9 +123,11 @@ class GitHubConnector:
             )
             candidate_pairs.append((priority, path, item))
         candidate_pairs.sort(key=lambda pair: (pair[0], pair[1]))
+        capped = max(1, limit)
         return ConnectorPage(
-            items=tuple(item for _, _, item in candidate_pairs[: max(1, limit)]),
+            items=tuple(item for _, _, item in candidate_pairs[:capped]),
             next_cursor=None,
+            complete=payload.get("truncated") is not True and len(candidate_pairs) <= capped,
         )
 
     async def fetch_document(self, item: ConnectorItem) -> ConnectorDocument:

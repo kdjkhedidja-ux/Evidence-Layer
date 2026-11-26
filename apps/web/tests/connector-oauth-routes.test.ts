@@ -62,7 +62,7 @@ const callbackRoutes = [
     "GitHub",
     githubCallback,
     "github",
-    "https://app.example/api/connectors/github/callback?installation_id=42&state=state",
+    "https://app.example/api/connectors/github/callback?installation_id=42&code=install-code&state=state",
     "github_oauth_state",
   ],
 ] as const;
@@ -110,4 +110,33 @@ describe("connector OAuth MFA routes", () => {
       expect(mocks.createGitHubConnection).not.toHaveBeenCalled();
     },
   );
+
+  it("rejects a GitHub installation callback without the user authorization code", async () => {
+    mocks.connectorMfaStatus.mockResolvedValue("not-required");
+    const request = new NextRequest(
+      "https://app.example/api/connectors/github/callback?installation_id=42&state=state",
+      { headers: { cookie: "github_oauth_state=state" } },
+    );
+    const response = await githubCallback(request);
+    expect(response.headers.get("location")).toBe(
+      "https://app.example/workspace?connector=github&status=denied",
+    );
+    expect(mocks.createGitHubConnection).not.toHaveBeenCalled();
+  });
+
+  it("forwards the GitHub authorization code and maps an ownership refusal to denied", async () => {
+    mocks.connectorMfaStatus.mockResolvedValue("not-required");
+    mocks.createGitHubConnection.mockResolvedValue(
+      Response.json({ detail: "GitHub installation is not authorized" }, { status: 403 }),
+    );
+    const request = new NextRequest(
+      "https://app.example/api/connectors/github/callback?installation_id=42&code=install-code&state=state",
+      { headers: { cookie: "github_oauth_state=state" } },
+    );
+    const response = await githubCallback(request);
+    expect(mocks.createGitHubConnection).toHaveBeenCalledWith(authenticatedContext, 42, "install-code");
+    expect(response.headers.get("location")).toBe(
+      "https://app.example/workspace?connector=github&status=denied",
+    );
+  });
 });

@@ -29,7 +29,18 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const state = url.searchParams.get("state");
   const storedState = request.cookies.get(STATE_COOKIE)?.value;
   const installationId = Number(url.searchParams.get("installation_id"));
-  if (!state || state !== storedState || !Number.isSafeInteger(installationId) || installationId <= 0) {
+  // The installation id is attacker-editable. The one-time OAuth code GitHub
+  // adds when the App requests user authorization during installation lets the
+  // evidence service prove the signed-in GitHub user can access it.
+  const oauthCode = url.searchParams.get("code");
+  if (
+    !state ||
+    state !== storedState ||
+    !Number.isSafeInteger(installationId) ||
+    installationId <= 0 ||
+    !oauthCode ||
+    oauthCode.length > 512
+  ) {
     return redirect(request, "/workspace?connector=github&status=denied");
   }
   const auth = await getVerifiedAuthContext();
@@ -38,9 +49,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   if (mfaStatus !== "not-required") {
     return redirect(request, connectorMfaRedirectPath("github", mfaStatus));
   }
-  const stored = await createGitHubConnection(auth, installationId);
+  const stored = await createGitHubConnection(auth, installationId, oauthCode);
   const mfaFailure = await connectorMfaFailurePath("github", stored);
   if (mfaFailure) return redirect(request, mfaFailure);
+  if (stored.status === 403) return redirect(request, "/workspace?connector=github&status=denied");
   if (!stored.ok) return redirect(request, "/workspace?connector=github&status=store");
   return redirect(request, "/workspace?connector=github&status=connected");
 }
