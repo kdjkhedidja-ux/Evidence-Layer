@@ -332,6 +332,12 @@
       "version": "20261126130000",
       "sha256": "1ea575e539321e78d4a4193dbd29113d36549acd06b09bd15d635a9b9dd5f518",
       "provenance": "Phase 1 urgences: raise the signed API-key evidence read bound from 101 to 1001 so retrieval ranks up to 1000 records."
+    },
+    {
+      "file": "20261126140000_connector_sync_account_gate.sql",
+      "version": "20261126140000",
+      "sha256": "dad032a3f6fb70b760c712b4b992a67768c9376349d71b1495ea592f1150ad6c",
+      "provenance": "PR #260 follow-up: refuse connector evidence writes and worker syncs for accounts whose deletion is accepted (lifecycle not available)."
     }
   ]
 }

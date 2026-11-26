@@ -36,6 +36,10 @@ class GitHubAppSyncError(Exception):
     pass
 
 
+class GitHubAccountUnavailable(GitHubAppSyncError):
+    """The connection owner's account is being deleted; nothing is synced."""
+
+
 class GitHubInstallationNotOwned(GitHubAppSyncError):
     """The signed-in GitHub user cannot access the requested installation."""
 
@@ -258,6 +262,8 @@ class GitHubAppSyncService:
             installation_id = int(installation_id_raw)
         except (TypeError, ValueError) as exc:
             raise GitHubAppSyncError("GitHub installation is unavailable") from exc
+        if not await self._repository.sync_allowed(access_token, connection.connection_id):
+            raise GitHubAccountUnavailable("connection owner account is not available")
         try:
             installation_token = await self._installation_token(installation_id)
             response = await self._request(

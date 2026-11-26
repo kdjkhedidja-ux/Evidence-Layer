@@ -9,6 +9,7 @@ import httpx
 
 from evidence_service.connector_repository import ConnectorConnection, ConnectorUnavailable
 from evidence_service.github_app_sync_service import (
+    GitHubAccountUnavailable,
     GitHubAppSyncError,
     GitHubAppSyncService,
     GitHubInstallationNotOwned,
@@ -40,9 +41,13 @@ class FakeRepository:
         self.evidence_documents = None
         self.synced = False
         self.deleted_external_ids = None
+        self.allowed = True
 
     async def get_connection(self, access_token, connection_id):
         return self.connection
+
+    async def sync_allowed(self, access_token, connection_id):
+        return self.allowed
 
     async def upsert_documents(self, access_token, documents):
         self.documents = documents
@@ -438,3 +443,23 @@ class GitHubSyncSafetyTests(unittest.IsolatedAsyncioTestCase):
         # instead of treating it as unchanged forever.
         self.assertIsNone(repository.documents)
         self.assertIsNone(repository.deleted_external_ids)
+
+    async def test_account_being_deleted_is_not_synced(self):
+        calls: list[str] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            calls.append(request.url.path)
+            return _repo_handler(["README.md"])(request)
+
+        repository = FakeRepository()
+        repository.allowed = False
+        service = self._service(handler, repository)
+        token = AsyncMock(return_value="t")
+        with patch.object(service, "_installation_token", token):
+            with self.assertRaises(GitHubAccountUnavailable):
+                await service.sync("token", CONNECTION, limit=5)
+        token.assert_not_awaited()
+        self.assertEqual(calls, [])
+        self.assertIsNone(repository.documents)
+        self.assertIsNone(repository.evidence_documents)
+        self.assertFalse(repository.synced)

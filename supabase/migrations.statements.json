@@ -5465,6 +5465,48 @@
       "line": 184,
       "verb": "revoke personal_api_key_reader",
       "rationale_ref": "personal-api-key-reader-replace-window"
+    },
+    {
+      "id": "d594feb88a333175",
+      "file": "20261126140000_connector_sync_account_gate.sql",
+      "line": 13,
+      "verb": "create or",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "67307b9a3b5328f6",
+      "file": "20261126140000_connector_sync_account_gate.sql",
+      "line": 109,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "dee2858ee3b1038f",
+      "file": "20261126140000_connector_sync_account_gate.sql",
+      "line": 111,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "ec0feb074a3e7c3a",
+      "file": "20261126140000_connector_sync_account_gate.sql",
+      "line": 114,
+      "verb": "create function",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "8e3aa8d7b2c48d02",
+      "file": "20261126140000_connector_sync_account_gate.sql",
+      "line": 131,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "8f30fd98a9a060d8",
+      "file": "20261126140000_connector_sync_account_gate.sql",
+      "line": 133,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
     }
   ]
 }

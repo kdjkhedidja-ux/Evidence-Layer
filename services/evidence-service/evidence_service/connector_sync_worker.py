@@ -15,6 +15,7 @@ import sys
 from evidence_service.config import SupabaseSettings
 from evidence_service.connector_repository import ConnectorRepository
 from evidence_service.github_app_sync_service import (
+    GitHubAccountUnavailable,
     GitHubAppSyncError,
     GitHubAppSyncService,
 )
@@ -76,6 +77,11 @@ async def run_once(
                 "ingested": result.ingested,
                 "unchanged": result.unchanged,
                 "skipped": result.skipped,
+            })
+        except GitHubAccountUnavailable:
+            results.append({
+                "connection_id": str(connection.connection_id),
+                "status": "skipped_account_unavailable",
             })
         except GitHubAppSyncError:
             results.append({

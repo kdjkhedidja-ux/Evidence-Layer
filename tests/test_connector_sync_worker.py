@@ -65,3 +65,23 @@ def test_worker_syncs_each_connected_github_connection():
         "connection_id": str(CONNECTION_B),
         "status": "error",
     }
+
+
+def test_worker_reports_accounts_being_deleted_as_skipped():
+    from evidence_service.github_app_sync_service import GitHubAccountUnavailable
+
+    class DeletingService:
+        async def sync(self, access_token, connection_id, *, limit):
+            raise GitHubAccountUnavailable("synthetic")
+
+    result = asyncio.run(
+        run_once(
+            FakeRepository(),  # type: ignore[arg-type]
+            DeletingService(),  # type: ignore[arg-type]
+            access_token="service-role",
+        )
+    )
+    assert [item["status"] for item in result["results"]] == [
+        "skipped_account_unavailable",
+        "skipped_account_unavailable",
+    ]

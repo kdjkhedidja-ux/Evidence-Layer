@@ -36,7 +36,11 @@ from `TYPESAFE_API_KEY`.
 defaults to, and is capped at, 1000 records (the same window the signed-in web
 app ranks), read in a single signed call so one retrieval counts once against
 the key's rate limit. Until migration `20261126130000` is applied the database
-accepts at most 100, and the service falls back to that window automatically. Retrieval first selects lexical seed records, then reads up to 100
+accepts at most 100, and the service falls back to that window automatically. Each retrieval writes two content-free JSON log
+lines to stdout, `retrieval_candidates_read` (`limit`, `records`,
+`legacy_fallback`, `read_ms`) and `retrieval_ranked` (`records`,
+`candidate_chunks`, `selected`, `scoring_provider`, `rank_ms`), to track the
+latency cost of the larger window. Retrieval first selects lexical seed records, then reads up to 100
 relationship edges and expands one hop to at most three linked records. A
 linked record can be selected without a lexical match and receives 0.8 times
 the adjusted score of its strongest selected seed. Seed records rank first;
