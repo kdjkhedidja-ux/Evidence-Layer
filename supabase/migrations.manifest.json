@@ -344,6 +344,12 @@
       "version": "20261127100000",
       "sha256": "e02803685bc070e323b432f9c3617473c4e80f59d8af39c497b0e74492cdaff0",
       "provenance": "Public launch: per-user retrieval caps (minute/day) and daily JEV budget, counted atomically in private.user_usage_counters; API-key path verified with the signed gateway proof."
+    },
+    {
+      "file": "20261127110000_connector_stale_evidence_audit_actor.sql",
+      "version": "20261127110000",
+      "sha256": "c9d50083460166f6288a147a8f66e46316a9ecad834610bdf539f4bd7cd4dd34",
+      "provenance": "Connector worker stale-evidence deletion: the evidence delete audit accepts the connection owner as actor for a service-role delete of connector evidence (was 42501, blocking every stale removal)."
     }
   ]
 }
