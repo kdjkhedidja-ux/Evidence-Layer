@@ -1,16 +1,16 @@
 {
   "provider": "b2",
   "bucket": "evidence2",
-  "object_key": "dumps/2026-11-15/evidence-layer.dump",
+  "object_key": "dumps/2026-11-26/evidence-layer.dump",
   "endpoint": "https://s3.eu-central-003.backblazeb2.com",
-  "sha256": "61df647210bef7d34ff082ffa23c3e892043d15d2949f8a450fd3f2d6b43db6a",
-  "size_bytes": 768160,
-  "uploaded_at": "2026-11-15T00:08:06Z",
+  "sha256": "25f577431b245aad70be479e07b65242a95bf8d3c8855b68cead1b38f50879f1",
+  "size_bytes": 925365,
+  "uploaded_at": "2026-11-26T15:05:16Z",
   "drill": {
     "status": "PASS",
-    "completed_at": "2026-11-15T00:07:46Z",
+    "completed_at": "2026-11-26T14:51:39Z",
     "target": "disposable PostgreSQL 17 (non-prod)",
-    "evidence": "docs/PRODUCTION-RESTORE-CHECKLIST-2026-11-15.md"
+    "evidence": "docs/PRODUCTION-RESTORE-CHECKLIST-2026-11-26.md"
   },
   "attested_by": "operations (Codespace agent run)",
   "reviewed_by": "pending Production environment approval"
