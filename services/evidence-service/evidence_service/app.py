@@ -141,6 +141,13 @@ from evidence_service.recovery_fence import (
     RecoveryFenceConfigurationError,
     RecoveryFenceReader,
 )
+from evidence_service.usage_caps import (
+    SupabaseUsageCapsRepository,
+    UsageCapsAccessDenied,
+    UsageCapsSettings,
+    UsageCapsUnavailable,
+    UsageDecision,
+)
 from evidence_service.organization_repository import (
     OrganizationAccessDenied,
     OrganizationDataUnavailable,
@@ -1309,6 +1316,77 @@ def _personal_api_key_repository(request: Request) -> SupabasePersonalApiKeyRepo
     return repository
 
 
+def _usage_caps_repository(request: Request) -> SupabaseUsageCapsRepository:
+    repository = request.app.state.usage_caps_repository
+    if repository is None:
+        repository = SupabaseUsageCapsRepository(_settings_for(request))
+        request.app.state.usage_caps_repository = repository
+    return repository
+
+
+USER_RATE_LIMITED_CODE = "user_rate_limited"
+
+
+def _user_rate_limited_detail(decision: UsageDecision) -> dict:
+    """Documented 429 body for the per-user retrieval caps."""
+    return {
+        "code": USER_RATE_LIMITED_CODE,
+        "window": decision.window,
+        "retry_after_seconds": decision.retry_after_seconds,
+        "message": f"Per-user retrieval limit reached for this {decision.window}.",
+    }
+
+
+def _raise_if_user_rate_limited(decision: UsageDecision) -> None:
+    if not decision.allowed:
+        raise HTTPException(
+            status_code=429,
+            detail=_user_rate_limited_detail(decision),
+            headers={"Retry-After": str(decision.retry_after_seconds)},
+        )
+
+
+async def _consume_session_usage(
+    request: Request, access_token: str, kind: str
+) -> UsageDecision | None:
+    """None when caps are disabled; raises UsageCapsUnavailable on failure."""
+    settings: UsageCapsSettings = request.app.state.usage_caps_settings
+    if not settings.enabled:
+        return None
+    per_minute, per_day = settings.limits(kind)  # type: ignore[arg-type]
+    return await _usage_caps_repository(request).consume_for_user(
+        access_token, kind, per_minute=per_minute, per_day=per_day  # type: ignore[arg-type]
+    )
+
+
+async def _consume_api_key_usage(
+    request: Request, *, key_id: UUID, key_hash: str, workspace_id: UUID, kind: str
+) -> UsageDecision | None:
+    """None when caps are disabled; raises UsageCapsUnavailable/AccessDenied."""
+    settings: UsageCapsSettings = request.app.state.usage_caps_settings
+    if not settings.enabled:
+        return None
+    per_minute, per_day = settings.limits(kind)  # type: ignore[arg-type]
+    return await _usage_caps_repository(request).consume_for_api_key(
+        key_id=key_id,
+        key_hash=key_hash,
+        workspace_id=workspace_id,
+        kind=kind,  # type: ignore[arg-type]
+        per_minute=per_minute,
+        per_day=per_day,
+    )
+
+
+def _jev_budget_for(consume: Callable[[], Awaitable[UsageDecision | None]]):
+    """Adapt a usage consumer to the ranking hook: True = JEV may run."""
+
+    async def check() -> bool:
+        decision = await consume()
+        return decision is None or decision.allowed
+
+    return check
+
+
 def _deletion_repository(request: Request) -> DeletionRepository:
     repository = request.app.state.deletion_repository
     if repository is None:
@@ -1387,6 +1465,24 @@ def _source_read_error(exc) -> HTTPException:
     return HTTPException(status_code=403, detail="Source read is not authorized")
 
 
+async def _jev_budget_refusal(
+    jev_budget: Callable[[], Awaitable[bool]] | None,
+) -> str | None:
+    """Fallback reason when the per-user JEV budget refuses, else None.
+
+    A refused or unverifiable budget keeps the lexical ranking whole: JEV and
+    lexical scores are never mixed in one result.
+    """
+    if jev_budget is None:
+        return None
+    try:
+        allowed = await jev_budget()
+    except Exception:
+        logger.warning("jev_budget_unavailable")
+        return "jev_budget_unavailable"
+    return None if allowed else "jev_budget_exceeded"
+
+
 async def _retrieval_response(
     page: PersonalApiKeyPage,
     workspace_id: UUID,
@@ -1398,6 +1494,7 @@ async def _retrieval_response(
     jev_enabled: bool = False,
     jev_scorer: JevRequestScorer | None = None,
     jev_principal_id: str | None = None,
+    jev_budget: Callable[[], Awaitable[bool]] | None = None,
 ) -> PersonalApiKeyRetrieveResponse:
     ranking_started = perf_counter()
     records = [item for item in page.items if hasattr(item, "content")]
@@ -1432,7 +1529,14 @@ async def _retrieval_response(
                 seed_record_ids=seed_record_ids,
                 related_record_scores=related_record_scores,
             )
-            if candidate_selection.selected:
+            budget_refusal = (
+                await _jev_budget_refusal(jev_budget)
+                if candidate_selection.selected
+                else None
+            )
+            if budget_refusal is not None:
+                scoring_fallback_reason = budget_refusal
+            elif candidate_selection.selected:
                 try:
                     from evidence_layer.scoring.jev_request import (
                         JevRequestCandidate,
@@ -1627,6 +1731,7 @@ async def _workspace_task_context_response(
     jev_enabled: bool = False,
     jev_scorer: JevRequestScorer | None = None,
     jev_principal_id: str | None = None,
+    jev_budget: Callable[[], Awaitable[bool]] | None = None,
 ) -> WorkspaceTaskContextResponse:
     query = payload.retrieval_query()
     seed_ids, related_record_scores = _relationship_expansion(
@@ -1649,6 +1754,7 @@ async def _workspace_task_context_response(
         jev_enabled=jev_enabled,
         jev_scorer=jev_scorer,
         jev_principal_id=jev_principal_id,
+        jev_budget=jev_budget,
     )
     return WorkspaceTaskContextResponse(
         task=payload.task,
@@ -1705,6 +1811,21 @@ class _HostedRemoteMcpBackend:
             )
         except ValueError:
             return _remote_mcp_error("invalid_argument", "Invalid retrieve arguments")
+        try:
+            decision = await _consume_api_key_usage(
+                self._state_request,  # type: ignore[arg-type]
+                key_id=principal.key_id,
+                key_hash=principal.key_hash,
+                workspace_id=principal.workspace_id,
+                kind="retrieval",
+            )
+        except UsageCapsAccessDenied:
+            return _remote_mcp_error("unauthorized", "Personal API key is invalid or revoked")
+        except UsageCapsUnavailable:
+            return _remote_mcp_error("unavailable", "Usage limits are unavailable")
+        if decision is not None and not decision.allowed:
+            detail = _user_rate_limited_detail(decision)
+            return {"error": detail}
         try:
             page = await _read_retrieval_candidates(
                 _personal_api_key_repository(self._state_request),
@@ -1764,6 +1885,15 @@ class _HostedRemoteMcpBackend:
                 jev_enabled=self._application.state.jev_enabled,
                 jev_scorer=self._application.state.jev_scorer,
                 jev_principal_id=str(principal.key_id),
+                jev_budget=_jev_budget_for(
+                    lambda: _consume_api_key_usage(
+                        self._state_request,  # type: ignore[arg-type]
+                        key_id=principal.key_id,
+                        key_hash=principal.key_hash,
+                        workspace_id=principal.workspace_id,
+                        kind="jev",
+                    )
+                ),
             )).model_dump(mode="json")
         except PersonalApiKeyDataUnavailable:
             return _remote_mcp_error("unavailable", "Personal API key service is unavailable")
@@ -1811,6 +1941,8 @@ def create_app(
     evidence_repository: EvidenceRepository | None = None,
     relationship_repository: RelationshipRepository | None = None,
     personal_api_key_repository: SupabasePersonalApiKeyRepository | None = None,
+    usage_caps_settings: UsageCapsSettings | None = None,
+    usage_caps_repository: SupabaseUsageCapsRepository | None = None,
     retrieval_enabled: bool | None = None,
     jev_enabled: bool | None = None,
     jev_scorer: JevRequestScorer | None = None,
@@ -1849,6 +1981,12 @@ def create_app(
     application.state.evidence_repository = evidence_repository
     application.state.relationship_repository = relationship_repository
     application.state.personal_api_key_repository = personal_api_key_repository
+    application.state.usage_caps_settings = (
+        usage_caps_settings
+        if usage_caps_settings is not None
+        else UsageCapsSettings.from_environment()
+    )
+    application.state.usage_caps_repository = usage_caps_repository
     application.state.retrieval_enabled = (
         retrieval_enabled
         if retrieval_enabled is not None
@@ -2659,6 +2797,20 @@ def create_app(
         await _require_recovery_fence_open(request)
         key_id, key_hash = parsed_key
         try:
+            decision = await _consume_api_key_usage(
+                request,
+                key_id=key_id,
+                key_hash=key_hash,
+                workspace_id=workspace_id,
+                kind="retrieval",
+            )
+        except UsageCapsAccessDenied as exc:
+            raise HTTPException(status_code=401, detail="Personal API key is invalid or revoked") from exc
+        except UsageCapsUnavailable as exc:
+            raise HTTPException(status_code=503, detail="Usage limits are unavailable") from exc
+        if decision is not None:
+            _raise_if_user_rate_limited(decision)
+        try:
             page = await _read_retrieval_candidates(
                 _personal_api_key_repository(request),
                 key_id=key_id,
@@ -2723,6 +2875,15 @@ def create_app(
             jev_enabled=request.app.state.jev_enabled,
             jev_scorer=request.app.state.jev_scorer,
             jev_principal_id=str(key_id),
+            jev_budget=_jev_budget_for(
+                lambda: _consume_api_key_usage(
+                    request,
+                    key_id=key_id,
+                    key_hash=key_hash,
+                    workspace_id=workspace_id,
+                    kind="jev",
+                )
+            ),
         )
 
     @application.get(
@@ -3610,6 +3771,14 @@ def create_app(
         await _require_recovery_fence_open(request)
         context = await _resolve_workspace_or_404(request, auth, workspace_id)
         try:
+            decision = await _consume_session_usage(request, auth.access_token, "retrieval")
+        except UsageCapsAccessDenied as exc:
+            raise HTTPException(status_code=401, detail="Authentication is required") from exc
+        except UsageCapsUnavailable as exc:
+            raise HTTPException(status_code=503, detail="Usage limits are unavailable") from exc
+        if decision is not None:
+            _raise_if_user_rate_limited(decision)
+        try:
             records = await _with_account_gate(
                 request,
                 auth,
@@ -3644,6 +3813,9 @@ def create_app(
             jev_enabled=request.app.state.jev_enabled,
             jev_scorer=request.app.state.jev_scorer,
             jev_principal_id=str(auth.principal.subject),
+            jev_budget=_jev_budget_for(
+                lambda: _consume_session_usage(request, auth.access_token, "jev")
+            ),
         )
         if request.app.state.task_ledger_enabled:
             try:
