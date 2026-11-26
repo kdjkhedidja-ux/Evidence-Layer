@@ -151,6 +151,41 @@ describe("same-origin Evidence Service proxy", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it("explains the per-user retrieval cap with a trusted retry delay", async () => {
+    const body = JSON.stringify({ task: "Review", expected_outcome: "Risks" });
+    const call = async (retryAfter: string | null) => {
+      vi.mocked(fetch).mockResolvedValueOnce(
+        new Response(JSON.stringify({ detail: { code: "user_rate_limited" } }), {
+          status: 429,
+          headers: retryAfter ? { "Retry-After": retryAfter } : {},
+        }),
+      );
+      const response = await prepareTaskContext(
+        request(`/api/evidence/workspaces/${WORKSPACE_ID}/task-context`, {
+          method: "POST",
+          headers: { Origin: "https://app.example", "Content-Type": "application/json" },
+          body,
+        }),
+        { params: Promise.resolve({ workspaceId: WORKSPACE_ID }) },
+      );
+      return { status: response.status, payload: await response.json() };
+    };
+
+    expect(await call("30")).toEqual({
+      status: 429,
+      payload: {
+        error: "You reached your evidence retrieval limit. Try again in 30 seconds.",
+        retry_after_seconds: 30,
+      },
+    });
+    expect((await call("7200")).payload.error).toContain("in about 2 hours");
+    expect(await call("soon<script>")).toEqual({
+      status: 429,
+      payload: { error: "You reached your evidence retrieval limit. Try again shortly." },
+    });
+    expect((await call(null)).payload.error).toContain("shortly");
+  });
+
   it("creates a personal API key and rejects malformed input", async () => {
     const key = {
       id: WORKSPACE_ID,

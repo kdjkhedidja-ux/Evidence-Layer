@@ -24,7 +24,8 @@
     "personal-api-key-schema-ddl-window": "Temporary CREATE on schema public/private granted to the personal API key manager and reader so the same migration can transfer function ownership. The window is revoked in the same file; those roles never create tables or policies at runtime.",
     "connector-workspace-backfill": "Backfill existing connector connections to a personal workspace selected from active owner memberships; no user input and no cross-tenant access.",
     "task-ledger-service-role-grant": "GRANT ALL on the content-free public.task_run_ledger to service_role. service_role is server-only, never browser-reachable, and this grant is limited to the ledger relation; authenticated retains only SELECT and INSERT through membership-scoped RLS.",
-    "personal-api-key-reader-replace-window": "Temporary INHERIT (no SET) membership of the migration role in personal_api_key_reader, granted only so CREATE OR REPLACE can update a reader-owned RPC in place (ownership and ACL are kept), and revoked in the same file before commit. No session role switch is used."
+    "personal-api-key-reader-replace-window": "Temporary INHERIT (no SET) membership of the migration role in personal_api_key_reader, granted only so CREATE OR REPLACE can update a reader-owned RPC in place (ownership and ACL are kept), and revoked in the same file before commit. No session role switch is used.",
+    "usage-counter-schema-ddl-window": "Temporary CREATE on schema public/private granted to usage_counter_writer and personal_api_key_reader so the same migration can transfer ownership of the usage-counting functions (ALTER OWNER requires CREATE on the schema for the new owner). The window is revoked in the same file; neither role creates objects at runtime."
   },
   "entries": [
     {
@@ -5507,6 +5508,160 @@
       "line": 133,
       "verb": "grant execute",
       "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "2e43925c89a01fee",
+      "file": "20261127100000_user_usage_caps.sql",
+      "line": 18,
+      "verb": "do",
+      "rationale_ref": "procedural-block"
+    },
+    {
+      "id": "dc912cd0df41e19f",
+      "file": "20261127100000_user_usage_caps.sql",
+      "line": 26,
+      "verb": "select private",
+      "rationale_ref": "catalog-assertion-call"
+    },
+    {
+      "id": "76ab4babd96e2ba1",
+      "file": "20261127100000_user_usage_caps.sql",
+      "line": 37,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "c5b62b662ae26ce3",
+      "file": "20261127100000_user_usage_caps.sql",
+      "line": 38,
+      "verb": "alter table",
+      "rationale_ref": "relation-alter"
+    },
+    {
+      "id": "658230e3b9c18cc4",
+      "file": "20261127100000_user_usage_caps.sql",
+      "line": 39,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "b340cd78f90c0202",
+      "file": "20261127100000_user_usage_caps.sql",
+      "line": 42,
+      "verb": "grant usage",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "32afdfc1f12cdd6b",
+      "file": "20261127100000_user_usage_caps.sql",
+      "line": 43,
+      "verb": "grant select",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "513cd95be7f3fa04",
+      "file": "20261127100000_user_usage_caps.sql",
+      "line": 45,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "715b4311bab15ce3",
+      "file": "20261127100000_user_usage_caps.sql",
+      "line": 47,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "d52c3929c1714915",
+      "file": "20261127100000_user_usage_caps.sql",
+      "line": 49,
+      "verb": "create policy",
+      "rationale_ref": "rls-policy-create"
+    },
+    {
+      "id": "81f785fe2622769f",
+      "file": "20261127100000_user_usage_caps.sql",
+      "line": 53,
+      "verb": "create function",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "2e487ce61e43cee4",
+      "file": "20261127100000_user_usage_caps.sql",
+      "line": 142,
+      "verb": "create function",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "4dfb38cb9845518a",
+      "file": "20261127100000_user_usage_caps.sql",
+      "line": 172,
+      "verb": "create function",
+      "rationale_ref": "function-definition"
+    },
+    {
+      "id": "8b09080d9d86095a",
+      "file": "20261127100000_user_usage_caps.sql",
+      "line": 291,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "c6c62b48765f761c",
+      "file": "20261127100000_user_usage_caps.sql",
+      "line": 293,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "87d2091636854cc4",
+      "file": "20261127100000_user_usage_caps.sql",
+      "line": 296,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "8af797ceeee384f0",
+      "file": "20261127100000_user_usage_caps.sql",
+      "line": 298,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "99320ce6017e20cd",
+      "file": "20261127100000_user_usage_caps.sql",
+      "line": 301,
+      "verb": "revoke all",
+      "rationale_ref": "privilege-revoke"
+    },
+    {
+      "id": "bf42f2124c694e0a",
+      "file": "20261127100000_user_usage_caps.sql",
+      "line": 303,
+      "verb": "grant execute",
+      "rationale_ref": "privilege-grant"
+    },
+    {
+      "id": "4b80983bd7e1fdc5",
+      "file": "20261127100000_user_usage_caps.sql",
+      "line": 308,
+      "verb": "grant create",
+      "rationale_ref": "usage-counter-schema-ddl-window"
+    },
+    {
+      "id": "fa88f72c7b65c5ef",
+      "file": "20261127100000_user_usage_caps.sql",
+      "line": 310,
+      "verb": "do",
+      "rationale_ref": "procedural-block"
+    },
+    {
+      "id": "d414c12bc146b1c1",
+      "file": "20261127100000_user_usage_caps.sql",
+      "line": 329,
+      "verb": "revoke create",
+      "rationale_ref": "privilege-revoke"
     },
     {
       "id": "1b7292108c143e8d",
