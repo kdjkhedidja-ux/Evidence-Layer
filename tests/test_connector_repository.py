@@ -142,3 +142,28 @@ class ConnectorSyncGateTests(unittest.IsolatedAsyncioTestCase):
 
         repository = ConnectorRepository(SETTINGS, transport=httpx.MockTransport(handler))
         self.assertTrue(await repository.sync_allowed("user-token", CONNECTION))
+
+
+class DocumentStateTests(unittest.IsolatedAsyncioTestCase):
+    async def test_document_states_read_revision_and_stored_type_in_one_query(self):
+        seen: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen.append(request)
+            return httpx.Response(200, json=[
+                {"external_id": "acme/docs/a.ts", "revision": "r1", "mime_type": "application/vnd.github.raw"},
+                {"external_id": "acme/docs/b.py", "revision": "r2", "mime_type": None},
+                {"external_id": "acme/docs/c.md", "revision": None, "mime_type": "text/markdown"},
+            ])
+
+        repository = ConnectorRepository(SETTINGS, transport=httpx.MockTransport(handler))
+        states = await repository.document_states(
+            "token", UUID("22222222-2222-4222-8222-222222222222")
+        )
+
+        self.assertEqual(states, {
+            "acme/docs/a.ts": ("r1", "application/vnd.github.raw"),
+            "acme/docs/b.py": ("r2", None),
+        })
+        self.assertEqual(len(seen), 1)
+        self.assertEqual(seen[0].url.params["select"], "external_id,revision,mime_type")

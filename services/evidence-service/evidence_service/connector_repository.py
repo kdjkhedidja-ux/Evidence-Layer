@@ -409,10 +409,16 @@ class ConnectorRepository:
             prefer="return=minimal",
         )
 
-    async def document_revisions(
+    async def document_states(
         self, access_token: str, connection_id: UUID
-    ) -> dict[str, str]:
-        revisions: dict[str, str] = {}
+    ) -> dict[str, tuple[str, str | None]]:
+        """Stored (revision, mime_type) per external id.
+
+        The type is part of the "unchanged" test: a file whose classification
+        changed (for example stored as binary before text types were fixed) is
+        fetched again once even when its git revision is the same.
+        """
+        states: dict[str, tuple[str, str | None]] = {}
         page_size = 1000
         for page in range(DOCUMENT_REVISION_MAX_PAGES):
             response = await self._request(
@@ -420,7 +426,7 @@ class ConnectorRepository:
                 access_token,
                 "connector_documents",
                 params={
-                    "select": "external_id,revision",
+                    "select": "external_id,revision,mime_type",
                     "connection_id": f"eq.{connection_id}",
                     "order": "external_id.asc",
                     "limit": str(page_size),
@@ -435,11 +441,15 @@ class ConnectorRepository:
                     raise ConnectorUnavailable
                 external_id = row.get("external_id")
                 revision = row.get("revision")
+                mime_type = row.get("mime_type")
                 if isinstance(external_id, str) and isinstance(revision, str):
-                    revisions[external_id] = revision
+                    states[external_id] = (
+                        revision,
+                        mime_type if isinstance(mime_type, str) else None,
+                    )
             if len(rows) < page_size:
                 break
-        return revisions
+        return states
 
     async def upsert_documents(
         self, access_token: str, documents: list[dict[str, Any]]

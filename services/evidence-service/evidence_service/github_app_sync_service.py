@@ -288,11 +288,11 @@ class GitHubAppSyncService:
                 isinstance(total_count, int) and total_count > len(considered)
             )
             try:
-                known_revisions = await self._repository.document_revisions(
+                known_states = await self._repository.document_states(
                     access_token, connection.connection_id
                 )
             except Exception:
-                known_revisions = {}
+                known_states = {}
             documents: list[dict[str, Any]] = []
             current_external_ids: set[str] = set()
             listed = 0
@@ -335,9 +335,12 @@ class GitHubAppSyncService:
                 listed += len(page.items)
                 for item in page.items:
                     current_external_ids.add(item.external_id)
+                    known = known_states.get(item.external_id)
                     if (
                         item.revision
-                        and known_revisions.get(item.external_id) == item.revision
+                        and known is not None
+                        and known[0] == item.revision
+                        and (item.mime_type is None or known[1] == item.mime_type)
                     ):
                         unchanged += 1
                         continue

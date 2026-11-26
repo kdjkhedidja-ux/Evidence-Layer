@@ -67,9 +67,9 @@ class FakeRepository:
     async def delete_stale_connector_evidence(self, access_token, connection_id, external_ids):
         self.deleted_external_ids = external_ids
 
-    async def document_revisions(self, access_token, connection_id):
+    async def document_states(self, access_token, connection_id):
         return {
-            document["external_id"]: document["revision"]
+            document["external_id"]: (document["revision"], document.get("mime_type"))
             for document in (self.documents or [])
         }
 
@@ -398,17 +398,17 @@ class GitHubSyncSafetyTests(unittest.IsolatedAsyncioTestCase):
     async def test_later_runs_fetch_the_remaining_files(self):
         paths = [f"docs/file{index:03}.md" for index in range(250)]
         repository = FakeRepository()
-        stored: dict[str, str] = {}
+        stored: dict[str, tuple[str, str | None]] = {}
 
         async def upsert_documents(access_token, documents):
             for document in documents:
-                stored[document["external_id"]] = document["revision"]
+                stored[document["external_id"]] = (document["revision"], document["mime_type"])
 
-        async def document_revisions(access_token, connection_id):
+        async def document_states(access_token, connection_id):
             return dict(stored)
 
         repository.upsert_documents = upsert_documents  # type: ignore[method-assign]
-        repository.document_revisions = document_revisions  # type: ignore[method-assign]
+        repository.document_states = document_states  # type: ignore[method-assign]
         service = self._service(_repo_handler(paths), repository)
         with patch.object(service, "_installation_token", AsyncMock(return_value="t")):
             results = [await service.sync("token", CONNECTION, limit=5) for _ in range(3)]
@@ -463,3 +463,110 @@ class GitHubSyncSafetyTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(repository.documents)
         self.assertIsNone(repository.evidence_documents)
         self.assertFalse(repository.synced)
+
+
+def _raw_repo_handler(paths, *, content_calls=None):
+    """Like GitHub's contents API: every file comes back as vnd.github.raw."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/installation/repositories":
+            return httpx.Response(200, json={"repositories": [{
+                "name": "docs", "default_branch": "main", "owner": {"login": "acme"},
+            }]})
+        if request.url.path == "/repos/acme/docs/git/trees/main":
+            return httpx.Response(200, json={"truncated": False, "tree": [
+                {"path": path, "type": "blob", "sha": f"sha-{path}", "size": 4} for path in paths
+            ]})
+        if request.url.path.startswith("/repos/acme/docs/contents/"):
+            if content_calls is not None:
+                content_calls.append(request.url.path.rsplit("/", 1)[-1])
+            return httpx.Response(
+                200, content=b"export const x = 1;",
+                headers={"content-type": "application/vnd.github.raw"},
+            )
+        return httpx.Response(404)
+
+    return handler
+
+
+SOURCE_PATHS = ["app/page.tsx", "lib/api.ts", "pyproject.toml", "ci.yml", "schema.sql", "main.py"]
+
+
+class GitHubTextDetectionTests(unittest.IsolatedAsyncioTestCase):
+    """Regression: .ts/.tsx/.toml/.yml were stored as binary in production."""
+
+    def _service(self, handler, repository):
+        return GitHubAppSyncService(
+            repository,  # type: ignore[arg-type]
+            app_id="123",
+            private_key="unused",
+            transport=httpx.MockTransport(handler),
+        )
+
+    async def test_source_files_become_text_evidence_without_a_host_mime_table(self):
+        repository = FakeRepository()
+        service = self._service(_raw_repo_handler(SOURCE_PATHS), repository)
+        # The production image has no system MIME table for these extensions.
+        with patch("evidence_layer.connectors.github.mimetypes.guess_type", return_value=(None, None)), \
+                patch.object(service, "_installation_token", AsyncMock(return_value="t")):
+            await service.sync("token", CONNECTION, limit=5)
+
+        by_name = {document["name"]: document for document in repository.documents}
+        self.assertEqual(set(by_name), {path.rsplit("/", 1)[-1] for path in SOURCE_PATHS})
+        for name, document in by_name.items():
+            self.assertEqual(document["content_text"], "export const x = 1;", name)
+            self.assertIsNone(document["content_base64"], name)
+        self.assertEqual(by_name["page.tsx"]["mime_type"], "text/x-typescript")
+        self.assertEqual(len(repository.evidence_documents), len(SOURCE_PATHS))
+
+    async def test_files_stored_with_a_stale_type_are_fetched_again_once(self):
+        repository = FakeRepository()
+        repository.documents = [
+            # Stored before the fix: same git revision, binary type, no evidence.
+            {"external_id": "acme/docs/lib/api.ts", "revision": "sha-lib/api.ts",
+             "mime_type": "application/vnd.github.raw"},
+            # Already correct: must stay unchanged.
+            {"external_id": "acme/docs/main.py", "revision": "sha-main.py",
+             "mime_type": "text/x-python"},
+        ]
+        stored = {document["external_id"]: document for document in repository.documents}
+
+        async def upsert_documents(access_token, documents):
+            # Upsert like the real table: rows not in this batch are kept.
+            stored.update({document["external_id"]: document for document in documents})
+            repository.documents = list(stored.values())
+
+        repository.upsert_documents = upsert_documents  # type: ignore[method-assign]
+        calls: list[str] = []
+        service = self._service(_raw_repo_handler(["lib/api.ts", "main.py"], content_calls=calls), repository)
+        with patch.object(service, "_installation_token", AsyncMock(return_value="t")):
+            first = await service.sync("token", CONNECTION, limit=5)
+            second = await service.sync("token", CONNECTION, limit=5)
+
+        self.assertEqual(calls, ["api.ts"])
+        self.assertEqual((first.ingested, first.unchanged), (1, 1))
+        self.assertEqual((second.ingested, second.unchanged), (0, 2))
+
+
+class GitHubMimeTypeTests(unittest.TestCase):
+    def test_allow_listed_source_extensions_always_have_a_text_type(self):
+        from evidence_layer.connectors.github import (
+            SECONDARY_EXTENSIONS,
+            PRIORITY_EXTENSIONS,
+            TEXT_MIME_TYPES,
+            _mime_type,
+        )
+
+        self.assertEqual(set(TEXT_MIME_TYPES), PRIORITY_EXTENSIONS | SECONDARY_EXTENSIONS)
+        with patch("evidence_layer.connectors.github.mimetypes.guess_type", return_value=(None, None)):
+            for extension in TEXT_MIME_TYPES:
+                mime = _mime_type(f"src/file{extension.upper()}")
+                self.assertTrue(
+                    mime.startswith("text/") or mime == "application/json", (extension, mime)
+                )
+        with patch(
+            "evidence_layer.connectors.github.mimetypes.guess_type",
+            return_value=("text/vnd.trolltech.linguist", None),
+        ):
+            self.assertEqual(_mime_type("app/main.ts"), "text/x-typescript")
+        self.assertEqual(_mime_type("docs/diagram.png"), "image/png")
