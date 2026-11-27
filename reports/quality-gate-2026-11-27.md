@@ -160,7 +160,7 @@ reach the gold in 1/22, against 2/22 for BM25 chunks and 6/22 for whole files.
 | OpenAI judge (298 calls) | $4.650 |
 | OpenAI abstention checks (40 calls) | $0.033 |
 | JEV (200 rankings) | $0.300 charged to the cap (conservative); ≤ $0.25 at $0.042 per million input tokens |
-| **Budget ledger total** | **$6.82** (cap $25; not reached) |
+| **Budget ledger total** | **$6.82** (cap $25; not reached). The addendum below added $0.59 (total $7.41) |
 
 Prices were re-checked on the providers' pages at 11:29 UTC on the day of the run.
 Both models were listed as available in the accounts.
@@ -210,10 +210,61 @@ per-question pass/fail marks, the questions and the short gold strings.
    beat the current cosine scoring on recall (14 vs 10).
 3. Exclude or down-rank archived snapshots such as `evidence/closure-2026-11-01/`,
    which take result slots from current documents (already queued).
-4. Re-run the 11 incomplete answers with a larger output limit, if the protocol
-   change is approved.
+4. Re-run the 11 incomplete answers with a larger output limit: done as a separate
+   addendum (below); conclusions unchanged.
 5. The identifier boost: +2 recall on code-identifier questions with no measurable
    change in answer quality on this set. Enabling it is the owner's decision.
+
+## Addendum — rerun of the 11 incomplete answers (not part of the frozen protocol)
+
+**This section does not change any table above.** Decided after the main run:
+only the 11 answer calls that came back incomplete (the 800-token output limit was
+reached on all 4 attempts) were rerun with a 2,000-token output limit. Same
+prompts, models, evidence and judge instructions, and the blind order each of
+these comparisons would have had in the main run. Then only the judge comparisons
+they unlocked were run. The main raw results were not modified (verified by hash).
+
+| Rerun answer | Result with 2,000 output tokens |
+|---|---|
+| C01 `base_files` | complete |
+| C05 `el_off_jev_r1` | complete |
+| C09 `base_rag` | complete |
+| M02 `base_files`, `el_off_lex`, `el_on_jev_r1` | complete |
+| M05 `el_off_jev_r1`, `el_on_jev_r1`, `el_on_jev_r2` | complete |
+| M05 `el_off_lex` | **still incomplete** (2,000 tokens reached on all 4 attempts) |
+| P11 `el_off_lex` | complete |
+
+Newly judged comparisons (correctness + completeness, first arm vs baseline):
+
+| Pairing | New comparisons |
+|---|---|
+| EL off r1 vs A (files) | C01 0–2, C05 1–4, M02 3–3, M05 1–4 |
+| EL on r1 vs A (files) | C01 4–2, M02 3–3, M05 1–4 |
+| EL off r1 vs B (RAG) | C05 2–0, C09 3–0, M05 0–3 |
+| EL off r2 vs B (RAG) | C09 4–0 |
+| EL on r1 vs B (RAG) | C09 4–0, M02 3–3, M05 0–3 |
+| EL on r2 vs B (RAG) | C09 3–0, M05 0–3 |
+| Closed book vs B (RAG) | C09 0–2 |
+
+Main comparisons plus these (every pairing now n = 45), paired bootstrap 95% CI.
+The EL lexical arm has no judged pairing, so its recovered answers do not appear here:
+
+| Pairing | Mean C+C | Δ | 95% CI | W / T / L |
+|---|---|---|---|---|
+| EL off r1 vs A | 1.91 vs 2.64 | −0.73 | [−1.20, −0.24] | 5 / 25 / 15 |
+| EL on r1 vs A | 1.96 vs 2.69 | −0.73 | [−1.27, −0.24] | 5 / 25 / 15 |
+| EL off r1 vs B | 1.89 vs 2.13 | −0.24 | [−0.73, +0.22] | 8 / 27 / 10 |
+| EL off r2 vs B | 1.91 vs 2.13 | −0.22 | [−0.73, +0.22] | 7 / 29 / 9 |
+| EL on r1 vs B | 1.96 vs 2.13 | −0.18 | [−0.62, +0.27] | 7 / 29 / 9 |
+| EL on r2 vs B | 1.91 vs 2.13 | −0.22 | [−0.67, +0.18] | 6 / 30 / 9 |
+| Closed book vs B | 0.00 vs 2.11 | −2.11 | [−2.62, −1.62] | 0 / 16 / 29 |
+
+The conclusions do not change: EL stays below baseline A (the interval excludes zero) and
+statistically tied with baseline B. Retrieval, recall and answer input tokens do
+not depend on the output limit, so those results are unchanged.
+
+Addendum spend: $0.594 (11 answer calls at the peak DeepSeek rate, plus 17 judge calls);
+cost ledger total for main run plus addendum: **$7.41** of the $25 cap.
 
 ## Appendix A — per-question recall
 
