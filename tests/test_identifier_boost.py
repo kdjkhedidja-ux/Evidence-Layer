@@ -57,17 +57,33 @@ def defines_route(item) -> bool:
 
 
 def test_natural_language_query_retrieves_the_app_py_part_that_defines_the_route() -> None:
-    result = select_evidence(repository_records(), query=NATURAL_QUERY, top_k=5, max_tokens=1200, max_chars=6000)
+    result = select_evidence(
+        repository_records(), query=NATURAL_QUERY, top_k=5, max_tokens=1200, max_chars=6000,
+        identifier_boost_enabled=True,
+    )
 
     first = result.selected[0]
     assert first.path == "services/evidence-service/evidence_service/app.py"
     assert defines_route(first)
     assert "#part=" in first.record.source_label  # app.py is indexed in parts
+    assert first.boost == IDENTIFIER_BOOST_MANY
+    assert first.boosted_score == pytest.approx(first.score * IDENTIFIER_BOOST_MANY)
+
+
+def test_with_the_flag_off_ranking_is_unchanged_and_nothing_is_boosted() -> None:
+    records = repository_records()
+    off = select_evidence(records, query=NATURAL_QUERY, top_k=5, max_tokens=1200, max_chars=6000)
+
+    assert not defines_route(off.selected[0])  # the gap the boost addresses
+    assert all(item.boost == 1.0 and item.boosted_score == item.score for item in off.selected)
 
 
 def test_on_the_jev_path_the_defining_code_beats_prose_about_it() -> None:
     records = repository_records()
-    lexical = select_evidence(records, query=NATURAL_QUERY, top_k=50, max_tokens=50_000, max_chars=200_000)
+    lexical = select_evidence(
+        records, query=NATURAL_QUERY, top_k=50, max_tokens=50_000, max_chars=200_000,
+        identifier_boost_enabled=True,
+    )
     # A provider that, as in production, prefers the README prose (0.81)
     # over the code (0.50).
     overrides = {
@@ -78,10 +94,14 @@ def test_on_the_jev_path_the_defining_code_beats_prose_about_it() -> None:
 
     result = select_evidence(
         records, query=NATURAL_QUERY, top_k=5, max_tokens=1200, max_chars=6000, score_overrides=overrides,
+        identifier_boost_enabled=True,
     )
 
-    assert defines_route(result.selected[0])
-    assert result.selected[0].score == pytest.approx(0.50 * IDENTIFIER_BOOST_MANY)
+    first = result.selected[0]
+    assert defines_route(first)
+    assert first.score == 0.50                       # the provider score, unchanged, in [0, 1]
+    assert first.boosted_score == pytest.approx(0.50 * IDENTIFIER_BOOST_MANY)
+    assert all(0 <= item.score <= 1 for item in result.selected)
 
 
 def test_queries_without_identifiers_rank_exactly_as_before() -> None:
@@ -90,8 +110,15 @@ def test_queries_without_identifiers_rank_exactly_as_before() -> None:
     assert query_identifiers(query) == frozenset()
 
     result = select_evidence(records, query=query, top_k=5, max_tokens=1200, max_chars=6000)
+    boosted = select_evidence(
+        records, query=query, top_k=5, max_tokens=1200, max_chars=6000, identifier_boost_enabled=True,
+    )
+    assert [item.chunk_id for item in boosted.selected] == [item.chunk_id for item in result.selected]
     overrides = {item.chunk_id: 0.5 for item in result.selected}
-    jev = select_evidence(records, query=query, top_k=5, max_tokens=1200, max_chars=6000, score_overrides=overrides)
+    jev = select_evidence(
+        records, query=query, top_k=5, max_tokens=1200, max_chars=6000, score_overrides=overrides,
+        identifier_boost_enabled=True,
+    )
 
     assert all(item.score == 0.5 for item in jev.selected)
 
@@ -120,3 +147,40 @@ def test_boost_applies_to_code_only_and_needs_an_exact_whole_identifier() -> Non
     assert identifier_boost(ids, path="services/app.py", content="connectornotindexedfile") == 1.0  # case-sensitive
     assert identifier_boost(frozenset(), path="services/app.py", content=code) == 1.0
     assert is_code_path("a/b.tsx") and is_code_path("x.sql") and not is_code_path("README") and not is_code_path(None)
+
+
+def test_the_api_reports_score_unchanged_and_the_boost_separately(monkeypatch: pytest.MonkeyPatch) -> None:
+    from test_evidence_service_retrieval import TOKEN, FakeRepository, make_client
+    from evidence_service.app import create_app
+
+    class RepoRepository(FakeRepository):
+        def __init__(self):
+            super().__init__()
+            self.records = [
+                EvidenceRecord(id=r.id, workspace_id=UUID("22222222-2222-4222-8222-222222222222"),
+                               content=r.content, source_label=r.source_label,
+                               created_at=r.created_at, updated_at=r.updated_at)
+                for r in repository_records()
+            ]
+
+    def run(enabled: bool | None):
+        monkeypatch.delenv("EVIDENCE_IDENTIFIER_BOOST_ENABLED", raising=False)
+        client = make_client(repository=RepoRepository())
+        if enabled is not None:
+            client.app.state.identifier_boost_enabled = enabled
+        response = client.post(
+            "/v1/personal-api-keys/workspaces/22222222-2222-4222-8222-222222222222/retrieve",
+            headers={"Authorization": f"Bearer {TOKEN}"},
+            json={"query": NATURAL_QUERY, "top_k": 3, "use_jev": False},
+        )
+        assert response.status_code == 200
+        return response.json()["evidence"]
+
+    default = run(None)
+    assert all(item["boost"] == 1.0 and item["boosted_score"] == item["score"] for item in default)
+    assert "def list_not_indexed_connector_files" not in default[0]["content"]  # default off
+
+    boosted = run(True)
+    assert "def list_not_indexed_connector_files" in boosted[0]["content"]
+    assert boosted[0]["boost"] == IDENTIFIER_BOOST_MANY
+    assert boosted[0]["boosted_score"] == pytest.approx(boosted[0]["score"] * IDENTIFIER_BOOST_MANY)
