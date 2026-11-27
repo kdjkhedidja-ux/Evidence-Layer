@@ -16,6 +16,8 @@ from evidence_service.chunking import (
     adjusted_score,
     chunk_text,
     document_title,
+    identifier_boost,
+    query_identifiers,
     source_path,
 )
 from evidence_service.connector_parts import PartLocation, parse_part_label
@@ -113,6 +115,7 @@ def select_evidence(
 ) -> RetrievalSelection:
     scorer = LexicalScorer()
     query_terms = set(scorer.normalize(query))
+    identifiers = query_identifiers(query)
     counter, estimator = token_counter()
     candidates: list[_ChunkCandidate] = []
     chunk_count = 0
@@ -128,6 +131,7 @@ def select_evidence(
             chunk_count += 1
             raw_score = scorer.score(query, chunk.content)
             related_score = (related_record_scores or {}).get(record.id, 0)
+            code_boost = identifier_boost(identifiers, path=path, content=chunk.content)
             lexical_score = (
                 adjusted_score(
                     raw_score,
@@ -136,14 +140,17 @@ def select_evidence(
                     query_terms=query_terms,
                     query=query,
                     chunk_index=chunk.index + (1 if later_part else 0),
-                )
+                ) * code_boost
                 if raw_score > 0 else 0
             )
             if lexical_score > 0:
                 matched_chunk_count += 1
             chunk_key = f"{record.id}:{chunk.start}:{chunk.end}"
             if score_overrides is not None:
-                score = score_overrides.get(chunk_key, 0)
+                # Provider (JEV) score; the exact-identifier boost is the one
+                # deterministic adjustment applied to it, so code that defines
+                # a queried identifier is not outranked by prose about it.
+                score = score_overrides.get(chunk_key, 0) * code_boost
                 if score <= 0:
                     continue
             else:

@@ -87,6 +87,7 @@ Deterministic path/title multipliers (applied to the Lexical score):
 - exact document title phrase in the query (for example `Evidence Layer`): **1.45×**
 - canonical intro chunk (`README`, `PRD`, `ARCHITECTURE`, product/overview docs): **1.15×**; **1.10×** extra for definitional queries
 - definitional queries (`what is`, `what are`, `define`, `explain`, `describe`, `overview`): ADR, roadmap, optimization-plan, development-plan, and implementation-audit paths receive **0.85×** unless the query also contains `adr`, `architecture`, `decision`, `design`, `plan`, or `roadmap`
+- exact code identifier from the query found verbatim in a **code** chunk (`.py`, `.ts`, `.tsx`, `.sql`, …): **1.6×** for one identifier, **2.0×** for two or more. Identifiers are snake_case (`retrieve_evidence`), CamelCase with at least three capitalised segments (`ConnectorNotIndexedFile`) or camelCase with at least two after the lowercase start (`getVerifiedAuthContext`), at least 6 characters; matching is case-sensitive and whole-word. Brand words (GitHub, FastAPI, JavaScript) do not count. Documentation is never boosted or penalised. This is the only deterministic adjustment also applied to JEV scores, so code that defines a queried identifier is not outranked by prose describing it.
 - closure/verification/smoke/checklist paths: **0.70×** only when the query has no ops term (audit, deploy, deletion, migration, runbook, worker, etc.), so real ops questions are not hidden
 
 Lexical scoring and chunking are deterministic and happen on every request, so
@@ -155,7 +156,7 @@ is null when JEV was not requested or completed successfully.
 
 `score` is the adjusted lexical score (or the discounted linked-seed score)
 after deterministic path/title boosts when `scoring_provider` is lexical; it
-is the provider relevance score when `scoring_provider` is `jev`.
+is the provider relevance score when `scoring_provider` is `jev`, multiplied by the exact-identifier boost for code chunks (otherwise unchanged).
 `matched_chunk_count` counts lexical matches only; relationship-only chunks do
 not inflate it. If the pinned
 tokenizer artifact is unavailable, `token_estimator` is `chars_div_4`; token
