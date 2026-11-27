@@ -36,15 +36,18 @@ from `TYPESAFE_API_KEY`.
 
 | Path | Read | Authorization |
 |---|---|---|
-| API-key retrieve, Remote MCP `retrieve_evidence` | `read_personal_api_key_evidence_candidates`: newest window + matches in **one** signed call (one count against the 60/minute key limit) | unchanged `authorize_personal_api_key_read('evidence', …)` proof; the query only narrows rows the key may already read |
-| Signed-in task-context (web) | newest rows + `search_workspace_evidence` (`SECURITY INVOKER`) | the caller's own RLS |
+| API-key retrieve, Remote MCP `retrieve_evidence` | `read_personal_api_key_evidence_candidates` with search **off** for the newest `candidate_limit + 1` rows (one signed call). Only if that extra row exists (the workspace is larger than the window), a second signed call adds the matches. | unchanged `authorize_personal_api_key_read('evidence', …)` proof; the query only narrows rows the key may already read |
+| Signed-in task-context (web) | newest rows; `search_workspace_evidence` (`SECURITY INVOKER`) runs only when that read returned 1,000 rows or more | the caller's own RLS |
+
+**Cost rule.** The search recomputes `to_tsvector` on the content of every matching row: about 0.8–1.3 s of database time on a production-size workspace (724 records, 8 M characters), against 30–90 ms for the newest-window read. It therefore runs only when the newest window is full; a workspace that fits the window is read once with search off, at the old cost. A later migration is planned to store the search vector so large workspaces stay fast. The log field `search` is `"skipped_window_not_full"`, `"workspace"` or `"newest_only"` (before the migration).
 
 The prefilter uses a GIN expression index on `to_tsvector('simple', source_label || ' ' || content)` (no stemming, so identifiers and non-English text match as written; no new column). The query becomes an OR of at most 32 distinct terms of 2–64 characters, with English stop words dropped; arbitrary input never raises a syntax error. Matches are ranked with `ts_rank` over at most the 5,000 newest matching rows of the workspace, which bounds the cost of very common terms. Every `503` response, and every Remote MCP `unavailable` or `internal_error`, writes one content-free line `{"event": "service_unavailable", "surface": "http"|"remote_mcp", "route": "POST /v1/…/{workspace_id}/retrieve", "detail": <fixed message>, "cause": [exception class names, e.g. "PersonalApiKeyDataUnavailable", "httpx.ReadTimeout"], "upstream_status": <HTTP status or null>}`. Exception messages are never read, so no URL, identifier, query, key or content is logged. Before the migration is applied, the database answers `PGRST202` (function not found, nothing runs or is counted) and retrieval keeps the newest window only. The log line `retrieval_candidates_read` (and `retrieval_candidates_search` for task-context) reports `search: "workspace"` or `"newest_only"` and the number of `search_matches`, never the query.
 
 `candidate_limit` is the newest evidence window read for the workspace. It
 defaults to, and is capped at, 1000 records (the same window the signed-in web
-app ranks), read in a single signed call so one retrieval counts once against
-the key's rate limit. Until migration `20261126130000` is applied the database
+app ranks), read in a single signed call.
+
+**Counting.** Each signed read (`evidence` candidates, the optional `relationships` read when `top_k > 1`, and the search read for a workspace larger than the window) runs `authorize_personal_api_key_read` and counts **once each** against the per-key 60/minute limit: 1 to 3 per retrieval today. The per-user caps count **one** retrieval per request regardless of the number of signed reads (tests: `tests/test_evidence_search_prefilter.py`). Counting one per retrieval for the per-key limit needs a database change and is planned for the next migration window. Until migration `20261126130000` is applied the database
 accepts at most 100, and the service falls back to that window automatically. Each retrieval writes two content-free JSON log
 lines to stdout, `retrieval_candidates_read` (`limit`, `records`,
 `legacy_fallback`, `read_ms`) and `retrieval_ranked` (`records`,

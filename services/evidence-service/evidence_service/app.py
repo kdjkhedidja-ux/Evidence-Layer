@@ -576,8 +576,12 @@ async def _read_retrieval_candidates(
 ) -> PersonalApiKeyPage:
     """Retrieval candidates for API-key and Remote MCP retrieval.
 
-    With a query, one signed call returns the newest ``limit`` records plus
-    the whole-workspace full-text matches (Step E, migration 20261127120000).
+    With a query, one signed call reads the newest ``limit + 1`` records with
+    the full-text search off (Step E, migration 20261127120000). Only when that
+    extra row exists, i.e. the workspace is larger than the window, a second
+    signed call returns the newest ``limit`` records plus the whole-workspace
+    matches. Search costs ~1 s of database time on a production-size
+    workspace, so it never runs when it could only return duplicates.
     A database without that migration answers PGRST202 without running or
     counting anything, and the newest-window read below is used instead.
     """
@@ -585,13 +589,27 @@ async def _read_retrieval_candidates(
     read_candidates = getattr(repository, "read_evidence_candidates", None)
     if query and read_candidates is not None:
         try:
+            # One signed call with the full-text search OFF. It reads one row
+            # more than the window: if that row exists, the workspace is larger
+            # than the window and only then is the (costly) search worth it.
             items = await read_candidates(
                 key_id=key_id,
                 key_hash=key_hash,
                 workspace_id=workspace_id,
-                limit=limit,
+                limit=limit + 1,
                 query=query,
+                search_limit=0,
             )
+            search = "skipped_window_not_full"
+            if len(items) > limit:
+                items = await read_candidates(
+                    key_id=key_id,
+                    key_hash=key_hash,
+                    workspace_id=workspace_id,
+                    limit=limit,
+                    query=query,
+                )
+                search = "workspace"
         except PersonalApiKeySearchUnavailable:
             pass
         else:
@@ -599,8 +617,8 @@ async def _read_retrieval_candidates(
                 "retrieval_candidates_read",
                 limit=limit,
                 records=len(items),
-                search_matches=max(0, len(items) - limit),
-                search="workspace",
+                search_matches=max(0, len(items) - limit) if search == "workspace" else 0,
+                search=search,
                 legacy_fallback=False,
                 read_ms=round((perf_counter() - started) * 1000, 1),
             )
@@ -651,8 +669,9 @@ async def _with_workspace_search(
 ) -> list[EvidenceRecord]:
     """Add whole-workspace full-text matches to the newest records (Step E).
 
-    The signed-in read returns the newest rows up to the Data API row cap; an
-    older record that answers the query is added from
+    The signed-in read returns the newest rows up to the Data API row cap.
+    Below ``RETRIEVAL_CANDIDATE_LIMIT`` rows that is the whole workspace and no
+    search runs; otherwise an older record that answers the query is added from
     ``public.search_workspace_evidence`` under the caller's RLS. Before
     migration 20261127120000 the search is unavailable and the newest rows
     are used unchanged.
@@ -660,6 +679,13 @@ async def _with_workspace_search(
     repository = _evidence_repository(request)
     search = getattr(repository, "search_records", None)
     if search is None or not query.strip():
+        return records
+    if len(records) < RETRIEVAL_CANDIDATE_LIMIT:
+        # The newest read is not capped, so it already holds the whole
+        # workspace: the full-text search could only return duplicates.
+        _log_retrieval_timing(
+            "retrieval_candidates_search", search="skipped_window_not_full", newest=len(records)
+        )
         return records
     started = perf_counter()
     try:
