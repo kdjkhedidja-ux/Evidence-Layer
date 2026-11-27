@@ -69,24 +69,32 @@ def workspace_records(workspace_id: UUID) -> tuple[list[EvidenceRecord], Evidenc
 
 
 class WholeWorkspaceRepository(FakeRepository):
-    """API-key fake: the newest window misses the answer, the search finds it."""
+    """API-key fake honouring the RPC contract: newest ``limit`` rows, plus
+    full-text matches outside them when ``search_limit`` > 0."""
 
-    def __init__(self, *, migrated: bool = True):
+    def __init__(self, *, migrated: bool = True, size: int = 1000):
         super().__init__()
-        self.newest, self.old = workspace_records(WORKSPACE)
+        newest, self.old = workspace_records(WORKSPACE)
+        self.newest = newest[:size]
         self.migrated = migrated
         self.candidate_calls: list[dict] = []
         self.newest_calls: list[int] = []
 
+    @property
+    def workspace(self) -> list[EvidenceRecord]:
+        return [*self.newest, self.old]  # newest first; the answer is the oldest
+
     async def read_evidence(self, **kwargs):
         self.newest_calls.append(kwargs["limit"])
-        return PersonalApiKeyPage(items=self.newest[: kwargs["limit"]], next_cursor=None)
+        return PersonalApiKeyPage(items=self.workspace[: kwargs["limit"]], next_cursor=None)
 
     async def read_evidence_candidates(self, **kwargs):
         self.candidate_calls.append(kwargs)
         if not self.migrated:
             raise PersonalApiKeySearchUnavailable
-        return [*self.newest[: kwargs["limit"]], self.old]
+        window = self.workspace[: kwargs["limit"]]
+        matches = [self.old] if kwargs.get("search_limit", 200) > 0 and self.old not in window else []
+        return [*window, *matches]
 
 
 def retrieve(client, query: str = QUERY):
@@ -101,7 +109,7 @@ def retrieve(client, query: str = QUERY):
 
 
 def test_api_retrieval_reaches_a_record_outside_the_1000_newest() -> None:
-    repository = WholeWorkspaceRepository()
+    repository = WholeWorkspaceRepository()  # 1000 newer records + the old answer
     assert OLD_ID not in {record.id for record in repository.newest}
 
     response = retrieve(make_client(repository=repository))
@@ -110,10 +118,24 @@ def test_api_retrieval_reaches_a_record_outside_the_1000_newest() -> None:
     body = response.json()
     assert body["evidence"][0]["evidence_id"] == str(OLD_ID)
     assert body["candidate_count"] == 1001
-    # One signed call: the newest window and the search come back together.
-    assert len(repository.candidate_calls) == 1
-    assert repository.candidate_calls[0]["limit"] == 1000
-    assert repository.candidate_calls[0]["query"] == QUERY
+    # Search off first; the extra row shows the window is full, so search runs.
+    assert [(call["limit"], call.get("search_limit", 200)) for call in repository.candidate_calls] == [
+        (1001, 0), (1000, 200),
+    ]
+    assert repository.candidate_calls[1]["query"] == QUERY
+    assert repository.newest_calls == []
+
+
+def test_a_workspace_inside_the_window_costs_one_call_without_search() -> None:
+    repository = WholeWorkspaceRepository(size=10)
+
+    response = retrieve(make_client(repository=repository))
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["candidate_count"] == 11  # the whole workspace
+    assert body["evidence"][0]["evidence_id"] == str(OLD_ID)
+    assert [(call["limit"], call["search_limit"]) for call in repository.candidate_calls] == [(1001, 0)]
     assert repository.newest_calls == []
 
 
@@ -147,20 +169,22 @@ def test_remote_mcp_retrieval_reaches_the_old_record() -> None:
     result = called.json()["result"]
     payload = result.get("structuredContent") or json.loads(result["content"][0]["text"])
     assert payload["evidence"][0]["evidence_id"] == str(OLD_ID)
-    assert repository.candidate_calls[0]["query"] == QUERY
+    assert [call.get("search_limit", 200) for call in repository.candidate_calls] == [0, 200]
 
 
 # --- signed-in task-context ---------------------------------------------------------
 
 
 class SessionEvidence:
-    def __init__(self, *, migrated: bool = True):
-        self.newest, self.old = workspace_records(WORKSPACE_A)
+    def __init__(self, *, migrated: bool = True, size: int = 1000):
+        newest, self.old = workspace_records(WORKSPACE_A)
+        self.newest = newest[:size]
         self.migrated = migrated
         self.searches: list[tuple[str, UUID, str]] = []
 
     async def list_records(self, access_token, workspace_id):
-        return list(self.newest)
+        # Capped like the Data API: the oldest record is beyond 1000 rows.
+        return [*self.newest, self.old][:1000]
 
     async def search_records(self, access_token, workspace_id, query):
         self.searches.append((access_token, workspace_id, query))
@@ -198,6 +222,16 @@ def test_task_context_reaches_a_record_outside_the_1000_newest() -> None:
     token, workspace_id, query = evidence.searches[0]
     assert (token, workspace_id) == (SESSION_TOKEN, WORKSPACE_A)
     assert QUERY in query
+
+
+def test_task_context_skips_the_search_when_the_workspace_fits_the_window() -> None:
+    evidence = SessionEvidence(size=10)
+
+    body = task_context(evidence)
+
+    assert evidence.searches == []
+    assert body["retrieval"]["candidate_count"] == 11
+    assert body["retrieval"]["evidence"][0]["evidence_id"] == str(OLD_ID)
 
 
 def test_before_the_migration_task_context_keeps_the_newest_records() -> None:
