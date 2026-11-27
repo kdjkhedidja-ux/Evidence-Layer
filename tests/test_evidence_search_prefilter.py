@@ -340,3 +340,50 @@ def test_session_search_rejects_rows_from_another_workspace() -> None:
     ))
     with pytest.raises(EvidenceDataUnavailable):
         asyncio.run(repository.search_records("user-token", WORKSPACE_A, QUERY))
+
+
+# --- counting: per-user caps vs per-key signed reads -------------------------
+
+
+def test_two_signed_calls_count_as_one_retrieval_for_the_per_user_caps() -> None:
+    from test_evidence_service_usage_caps import TOKEN_A, USER_A, FakeUsageCounter, api_client, caps
+
+    repository = WholeWorkspaceRepository()  # larger than the window: two signed calls
+    counter = FakeUsageCounter()
+    client = api_client(counter, settings=caps(), repository=repository)
+
+    response = client.post(
+        f"/v1/personal-api-keys/workspaces/{WORKSPACE}/retrieve",
+        headers={"Authorization": f"Bearer {TOKEN_A}"},
+        json={"query": QUERY, "top_k": 1, "use_jev": False},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["evidence"][0]["evidence_id"] == str(OLD_ID)
+    assert len(repository.candidate_calls) == 2
+    assert counter.calls == [("api_key", USER_A, "retrieval")]
+
+
+@pytest.mark.parametrize(
+    ("size", "top_k", "signed_reads"),
+    [
+        (10, 1, 1),    # fits the window: one evidence read
+        (10, 3, 2),    # + one relationships read (pre-existing, also counted per key)
+        (1000, 1, 2),  # larger than the window: evidence read + search read
+        (1000, 3, 3),
+    ],
+)
+def test_signed_reads_per_retrieval_are_pinned(size: int, top_k: int, signed_reads: int) -> None:
+    """Each signed read runs authorize_personal_api_key_read and therefore
+    counts once against the per-key 60/minute limit (see the migration
+    20261126130000). This pins today's cost so any change is deliberate."""
+    repository = WholeWorkspaceRepository(size=size)
+    response = make_client(repository=repository).post(
+        f"/v1/personal-api-keys/workspaces/{WORKSPACE}/retrieve",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+        json={"query": QUERY, "top_k": top_k, "use_jev": False},
+    )
+
+    assert response.status_code == 200
+    reads = len(repository.candidate_calls) + len(repository.newest_calls) + repository.relationship_reads
+    assert reads == signed_reads
