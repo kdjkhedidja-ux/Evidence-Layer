@@ -460,8 +460,7 @@ to the default (the conservative choice) and is logged.
 ```
 
 Remote MCP returns the same object as `{"error": {...}}` with
-`code: "user_rate_limited"`. If the counter cannot be read, the call fails
-closed with `503 {"detail": "Usage limits are unavailable"}`.
+`code: "user_rate_limited"`. If the counter cannot be read (timeout, error), the retrieval is **served with lexical scoring only** (JEV never runs without a verified budget) and reports `scoring_fallback_reason: "usage_counter_unavailable"`. This fail-open is bounded in each service process by the same per-minute cap (keyed by user on the web path and by API key on the API/MCP paths); over it the call gets the usual `429 user_rate_limited` (`window: "minute"`). Each fallback writes one content-free log line `{"event": "usage_counter_unavailable", "surface", "allowed", "cause", "upstream_status"}`. The daily caps are not enforced while the counter is unavailable; a full database outage still fails because the evidence reads fail.
 
 **JEV budget exhausted:** no error. The response keeps the complete lexical
 ranking (JEV and lexical scores are never mixed) and reports
