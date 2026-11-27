@@ -39,7 +39,7 @@ export default function RoiCalculator() {
   const [mode, setMode] = useState<Mode>("projected");
   const [modelId, setModelId] = useState("gpt-6.1-sol");
   const [volume, setVolume] = useState(1_000_000);
-  const [scenario, setScenario] = useState<Scenario>("measured");
+  const [scenario, setScenario] = useState<Scenario>("conservative");
   const [evidenceLayer, setEvidenceLayer] = useState(true);
   const [scorer, setScorer] = useState<Scorer>("lexical");
   const [jevIntensity, setJevIntensity] = useState(DEFAULT_JEV_INTENSITY);
@@ -109,7 +109,9 @@ export default function RoiCalculator() {
       <p>
         Applies the observed production A/B reduction from the 15-question multi-provider run to
         your own volume, then estimates API calls, cost, and latency from your assumptions. It does
-        not promise an answer-quality gain or act as an invoice.
+        not promise an answer-quality gain or act as an invoice. The default is the conservative
+        scenario: a 50-question quality gate (2026-11-27) found answer quality below a full-file
+        baseline, and retrieval improvements are in progress.
       </p>
 
       <div className="roi-observed-results" role="note">
@@ -117,7 +119,7 @@ export default function RoiCalculator() {
         <span>DeepSeek 80.9%</span>
         <span>OpenAI 80.7%</span>
         <span>Anthropic 80.5%</span>
-        <small>15 questions · 49 GitHub-bridged documents · same production retrieve budgets</small>
+        <small>15 questions · 49 GitHub-bridged documents · same production retrieve budgets · token reduction measured, answer quality not established in general</small>
       </div>
 
       <div className="roi-grid">

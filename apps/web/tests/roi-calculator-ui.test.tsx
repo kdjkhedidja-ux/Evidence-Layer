@@ -11,6 +11,8 @@ describe("ROI calculator card", () => {
     expect(screen.getByText("OpenAI 80.7%")).toBeInTheDocument();
     expect(screen.getByText("Anthropic 80.5%")).toBeInTheDocument();
     expect(screen.getByText(/Quality is not guaranteed/i)).toBeInTheDocument();
+    expect(screen.getByLabelText("Reduction scenario")).toHaveValue("conservative");
+    expect(screen.getByText(/reduction 65.0%/i)).toBeInTheDocument();
     const region = screen.getByRole("status");
     expect(region.textContent).toMatch(/Tokens avoided/);
     expect(region.textContent).toMatch(/API calls \/ request/);
@@ -20,8 +22,8 @@ describe("ROI calculator card", () => {
 
   it("switches scenario and shows the JEV cost when selected", () => {
     render(<RoiCalculator />);
-    fireEvent.change(screen.getByLabelText("Reduction scenario"), { target: { value: "conservative" } });
-    expect(screen.getByText(/reduction 65.0%/i)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Reduction scenario"), { target: { value: "median" } });
+    expect(screen.getByText(/reduction 80.7%/i)).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Evidence scorer"), { target: { value: "jev" } });
     const jevRow = screen.getByText("Estimated JEV").parentElement;

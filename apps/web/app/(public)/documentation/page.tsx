@@ -136,8 +136,10 @@ export default function DocumentationPage() {
         <p>
           The current 15-question production run reduced context tokens by <strong>80.9%</strong> with
           DeepSeek, <strong>80.7%</strong> with OpenAI, and <strong>80.5%</strong> with Anthropic. The
-          49-document GitHub-synced chunked run reduced tokens by <strong>80.7%</strong>. Quality
-          remains a guardrail, not an assumed benefit.
+          49-document GitHub-synced chunked run reduced tokens by <strong>80.7%</strong>. These
+          figures are token reduction measured on 15 questions from one repository; answer quality
+          was not established in general. A 50-question quality gate (2026-11-27) found answer
+          quality below a full-file baseline; retrieval improvements are in progress.
         </p>
         <p className="public-report-links">
           <Link href="/evaluation">Read Evaluation · Benchmarks</Link>

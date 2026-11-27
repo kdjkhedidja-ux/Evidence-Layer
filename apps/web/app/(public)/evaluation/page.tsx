@@ -3,7 +3,7 @@ import { PublicSiteShell, ResponsiveTable } from "../../public-site-shell";
 
 export const metadata: Metadata = {
   title: "Evaluation · Benchmarks | Evidence Layer",
-  description: "Evidence Layer benchmark results: context reduction, quality guardrails, and multi-provider A/B evidence.",
+  description: "Evidence Layer benchmark results: measured context reduction with its conditions, and a 50-question answer-quality gate.",
 };
 
 const phase7Report = "/evaluation/phase7-report.html";
@@ -16,7 +16,7 @@ export default function EvaluationBenchmarksPage() {
       currentPath="/evaluation"
       eyebrow="Evaluation · Benchmarks"
       title="Evaluation · Benchmarks"
-      description="One question: can Evidence Layer send less context without making the answer worse? These results keep the measured reduction, the quality guardrail, and the limits together."
+      description="Two questions: how much less context does Evidence Layer send, and what happens to answer quality? These results keep the measured reduction, its conditions, the quality findings, and the limits together."
     >
       <section className="public-callout" aria-labelledby="value-claim">
         <p className="public-eyebrow">The value test</p>
@@ -24,8 +24,19 @@ export default function EvaluationBenchmarksPage() {
         <p>
           Evidence Layer receives a task and a pool of candidate evidence, selects a bounded set,
           and returns provenance for the agent. The benchmark compares the same questions with the
-          broad baseline context and with the selected context. Token savings only count when the
-          answer remains sufficient.
+          broad baseline context and with the selected context. The 15-question runs measured token
+          reduction; they did not establish that answer quality is preserved in general.
+        </p>
+      </section>
+
+      <section className="public-callout" aria-labelledby="quality-gate-title">
+        <p className="public-eyebrow">Quality gate · 2026-11-27</p>
+        <h2 id="quality-gate-title">Answer quality is below a full-file baseline today</h2>
+        <p>
+          A 50-question, blind-judged quality gate (2026-11-27) found Evidence Layer&apos;s answer
+          quality below a full-file baseline (the three best-matching files) and statistically tied
+          with classic retrieval. The main cause is retrieval recall. Retrieval improvements are in
+          progress.
         </p>
       </section>
 
@@ -37,7 +48,7 @@ export default function EvaluationBenchmarksPage() {
         </p>
         <ResponsiveTable label="Headline Evidence Layer A/B results">
           <table className="public-table public-table--compact">
-            <caption>Context tokens without EL → with EL. Quality is a manual sufficiency readout.</caption>
+            <caption>Context tokens without EL → with EL, measured on 15 questions from one repository. Token reduction is measured; answer quality is a manual sufficiency readout on these questions only and is not established in general.</caption>
             <thead>
               <tr>
                 <th scope="col">Experiment</th>
@@ -82,10 +93,12 @@ export default function EvaluationBenchmarksPage() {
       </section>
 
       <section className="public-section" aria-labelledby="quality-title">
-        <h2 id="quality-title">The quality guardrail</h2>
+        <h2 id="quality-title">Quality readout on the 15 questions</h2>
         <p>
           The benchmark does not treat a smaller context as success by itself. The manual readout
-          checks whether the answer is sufficient, partial, or insufficient against the question.
+          checks whether the answer is sufficient, partial, or insufficient against the question,
+          on these 15 questions only; the larger 2026-11-27 quality gate above found answer
+          quality below a full-file baseline.
           The three anchor questions below remain the first check: product, architecture, and the
           deletion worker.
         </p>
