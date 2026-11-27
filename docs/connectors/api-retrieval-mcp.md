@@ -32,6 +32,15 @@ stays lexical and reports
 `scoring_fallback_reason`. The Typesafe credential is read only by the service
 from `TYPESAFE_API_KEY`.
 
+**Whole-workspace prefilter (Step E, migration `20261127120000`).** Candidates are the newest `candidate_limit` records **plus** up to 200 full-text matches from the whole workspace, so an old record outside the newest window can still be selected. Both sets are then ranked by the same chunk scorer below; nothing else in selection changes. The three paths share it:
+
+| Path | Read | Authorization |
+|---|---|---|
+| API-key retrieve, Remote MCP `retrieve_evidence` | `read_personal_api_key_evidence_candidates`: newest window + matches in **one** signed call (one count against the 60/minute key limit) | unchanged `authorize_personal_api_key_read('evidence', …)` proof; the query only narrows rows the key may already read |
+| Signed-in task-context (web) | newest rows + `search_workspace_evidence` (`SECURITY INVOKER`) | the caller's own RLS |
+
+The prefilter uses a GIN expression index on `to_tsvector('simple', source_label || ' ' || content)` (no stemming, so identifiers and non-English text match as written; no new column). The query becomes an OR of at most 32 distinct terms of 2–64 characters, with English stop words dropped; arbitrary input never raises a syntax error. Matches are ranked with `ts_rank` over at most the 5,000 newest matching rows of the workspace, which bounds the cost of very common terms. Before the migration is applied, the database answers `PGRST202` (function not found, nothing runs or is counted) and retrieval keeps the newest window only. The log line `retrieval_candidates_read` (and `retrieval_candidates_search` for task-context) reports `search: "workspace"` or `"newest_only"` and the number of `search_matches`, never the query.
+
 `candidate_limit` is the newest evidence window read for the workspace. It
 defaults to, and is capped at, 1000 records (the same window the signed-in web
 app ranks), read in a single signed call so one retrieval counts once against

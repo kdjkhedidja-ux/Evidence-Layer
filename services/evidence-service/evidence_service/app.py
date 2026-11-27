@@ -75,6 +75,7 @@ from evidence_service.evidence_repository import (
     EvidenceDataUnavailable,
     EvidenceRecord,
     EvidenceRepository,
+    EvidenceSearchUnavailable,
     SupabaseEvidenceRepository,
 )
 from evidence_service.relationship_repository import (
@@ -92,6 +93,7 @@ from evidence_service.personal_api_key_repository import (
     PersonalApiKeyLimitReached,
     PersonalApiKeyPage,
     PersonalApiKeyRateLimited,
+    PersonalApiKeySearchUnavailable,
     SupabasePersonalApiKeyRepository,
     decode_personal_api_key_cursor,
     parse_personal_api_key,
@@ -566,8 +568,39 @@ async def _read_retrieval_candidates(
     key_hash: str,
     workspace_id: UUID,
     limit: int,
+    query: str | None = None,
 ) -> PersonalApiKeyPage:
+    """Retrieval candidates for API-key and Remote MCP retrieval.
+
+    With a query, one signed call returns the newest ``limit`` records plus
+    the whole-workspace full-text matches (Step E, migration 20261127120000).
+    A database without that migration answers PGRST202 without running or
+    counting anything, and the newest-window read below is used instead.
+    """
     started = perf_counter()
+    read_candidates = getattr(repository, "read_evidence_candidates", None)
+    if query and read_candidates is not None:
+        try:
+            items = await read_candidates(
+                key_id=key_id,
+                key_hash=key_hash,
+                workspace_id=workspace_id,
+                limit=limit,
+                query=query,
+            )
+        except PersonalApiKeySearchUnavailable:
+            pass
+        else:
+            _log_retrieval_timing(
+                "retrieval_candidates_read",
+                limit=limit,
+                records=len(items),
+                search_matches=max(0, len(items) - limit),
+                search="workspace",
+                legacy_fallback=False,
+                read_ms=round((perf_counter() - started) * 1000, 1),
+            )
+            return PersonalApiKeyPage(items=items, next_cursor=None)
     fallback = False
     try:
         page = await repository.read_evidence(
@@ -598,10 +631,50 @@ async def _read_retrieval_candidates(
         "retrieval_candidates_read",
         limit=limit,
         records=len(page.items),
+        search="newest_only",
         legacy_fallback=fallback,
         read_ms=round((perf_counter() - started) * 1000, 1),
     )
     return page
+
+
+async def _with_workspace_search(
+    request: Request,
+    auth: AuthenticatedRequest,
+    workspace_id: UUID,
+    query: str,
+    records: list[EvidenceRecord],
+) -> list[EvidenceRecord]:
+    """Add whole-workspace full-text matches to the newest records (Step E).
+
+    The signed-in read returns the newest rows up to the Data API row cap; an
+    older record that answers the query is added from
+    ``public.search_workspace_evidence`` under the caller's RLS. Before
+    migration 20261127120000 the search is unavailable and the newest rows
+    are used unchanged.
+    """
+    repository = _evidence_repository(request)
+    search = getattr(repository, "search_records", None)
+    if search is None or not query.strip():
+        return records
+    started = perf_counter()
+    try:
+        matches = await _with_account_gate(
+            request, auth, lambda: search(auth.access_token, workspace_id, query)
+        )
+    except EvidenceSearchUnavailable:
+        _log_retrieval_timing("retrieval_candidates_search", search="newest_only")
+        return records
+    known = {record.id for record in records}
+    extra = [record for record in matches if record.id not in known]
+    _log_retrieval_timing(
+        "retrieval_candidates_search",
+        search="workspace",
+        newest=len(records),
+        search_matches=len(extra),
+        read_ms=round((perf_counter() - started) * 1000, 1),
+    )
+    return [*records, *extra]
 
 
 class PersonalApiKeyRetrieveRequest(BaseModel):
@@ -1833,6 +1906,7 @@ class _HostedRemoteMcpBackend:
                 key_hash=principal.key_hash,
                 workspace_id=principal.workspace_id,
                 limit=payload.candidate_limit,
+                query=payload.query,
             )
         except PersonalApiKeyAccessDenied:
             return _remote_mcp_error("unauthorized", "Personal API key is invalid or revoked")
@@ -2817,6 +2891,7 @@ def create_app(
                 key_hash=key_hash,
                 workspace_id=workspace_id,
                 limit=payload.candidate_limit,
+                query=payload.query,
             )
         except PersonalApiKeyAccessDenied as exc:
             raise HTTPException(status_code=401, detail="Personal API key is invalid or revoked") from exc
@@ -3785,6 +3860,9 @@ def create_app(
                 lambda: _evidence_repository(request).list_records(
                     auth.access_token, context.workspace_id
                 ),
+            )
+            records = await _with_workspace_search(
+                request, auth, context.workspace_id, payload.retrieval_query(), records
             )
             relationships = (
                 await _with_account_gate(

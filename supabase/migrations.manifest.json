@@ -350,6 +350,12 @@
       "version": "20261127110000",
       "sha256": "c9d50083460166f6288a147a8f66e46316a9ecad834610bdf539f4bd7cd4dd34",
       "provenance": "Connector worker stale-evidence deletion: the evidence delete audit accepts the connection owner as actor for a service-role delete of connector evidence (was 42501, blocking every stale removal)."
+    },
+    {
+      "file": "20261127120000_evidence_search_prefilter.sql",
+      "version": "20261127120000",
+      "sha256": "8a0d6980dafba80e2ca2f2a3d8c89a2a1ae6e137376996ee5324fd59a422d06c",
+      "provenance": "Step E: whole-workspace full-text prefilter for retrieval (GIN expression index, session search RPC under caller RLS, one signed API-key/MCP candidate read reusing the unchanged evidence proof)."
     }
   ]
 }

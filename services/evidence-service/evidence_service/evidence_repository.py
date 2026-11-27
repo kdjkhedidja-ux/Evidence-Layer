@@ -26,6 +26,14 @@ class EvidenceAccessDenied(Exception):
     """Postgres RLS denied access to an evidence record."""
 
 
+class EvidenceSearchUnavailable(EvidenceDataUnavailable):
+    """The database has no whole-workspace search yet (before 20261127120000)."""
+
+
+# Full-text matches added to the newest window for retrieval (Step E).
+SEARCH_CANDIDATE_LIMIT = 200
+
+
 @dataclass(frozen=True)
 class EvidenceRecord:
     id: UUID
@@ -176,6 +184,50 @@ class SupabaseEvidenceRepository:
         )
         return self._parse_deleted_row(response, workspace_id, evidence_id)
 
+    async def search_records(
+        self,
+        access_token: str,
+        workspace_id: UUID,
+        query: str,
+        limit: int = SEARCH_CANDIDATE_LIMIT,
+    ) -> list[EvidenceRecord]:
+        """Whole-workspace full-text prefilter, ranked, under the caller's RLS.
+
+        Raises ``EvidenceSearchUnavailable`` when the database does not have
+        ``public.search_workspace_evidence`` yet, so callers keep the newest
+        window only.
+        """
+        headers = {
+            "apikey": self._settings.publishable_key,
+            "Authorization": f"Bearer {access_token}",
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        }
+        url = f"{self._settings.supabase_url.rstrip('/')}/rest/v1/rpc/search_workspace_evidence"
+        try:
+            async with httpx.AsyncClient(
+                timeout=self._settings.timeout_seconds,
+                transport=self._transport,
+            ) as client:
+                response = await client.post(
+                    url,
+                    headers=headers,
+                    json={
+                        "p_workspace_id": str(workspace_id),
+                        "p_query": query[:2000],
+                        "p_limit": limit,
+                    },
+                )
+        except httpx.HTTPError as exc:
+            raise EvidenceDataUnavailable from exc
+        if response.status_code == 404 and _postgrest_code(response) == "PGRST202":
+            raise EvidenceSearchUnavailable
+        if response.status_code == 403:
+            raise EvidenceAccessDenied
+        if response.status_code != 200:
+            raise EvidenceDataUnavailable
+        return self._parse_rows(response, workspace_id)
+
     async def _request(
         self,
         method: str,
@@ -297,3 +349,12 @@ class SupabaseEvidenceRepository:
         if parsed.tzinfo is None:
             raise ValueError
         return parsed
+
+
+def _postgrest_code(response: httpx.Response) -> str | None:
+    try:
+        payload = response.json()
+    except ValueError:
+        return None
+    code = payload.get("code") if isinstance(payload, dict) else None
+    return code if isinstance(code, str) else None
