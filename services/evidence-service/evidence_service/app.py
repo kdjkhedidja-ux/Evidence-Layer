@@ -7,6 +7,7 @@ import hashlib
 import secrets
 import re
 import json
+import sys
 import logging
 import math
 import os
@@ -20,7 +21,9 @@ from uuid import UUID, uuid4
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+from fastapi.exception_handlers import http_exception_handler
 from starlette.concurrency import run_in_threadpool
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from evidence_service.account_lifecycle import (
     AccountLifecycleReader,
@@ -70,6 +73,7 @@ from evidence_service.export_repository import (
     ExportTooLarge,
     SupabaseExportRepository,
 )
+from evidence_service.error_cause import log_unavailable
 from evidence_service.evidence_repository import (
     EvidenceAccessDenied,
     EvidenceDataUnavailable,
@@ -1844,6 +1848,12 @@ class _AppStateRequest:
 
 
 def _remote_mcp_error(code: str, message: str) -> dict:
+    if code in {"unavailable", "internal_error"}:
+        # Called from inside the except block that produced the error, so the
+        # active exception is the cause (content-free: class names only).
+        log_unavailable(
+            surface="remote_mcp", route=code, detail=message, exc=sys.exc_info()[1]
+        )
     return {"error": {"code": code, "message": message}}
 
 
@@ -2046,6 +2056,19 @@ def create_app(
         redoc_url=None,
         openapi_url=None,
     )
+
+    @application.exception_handler(StarletteHTTPException)
+    async def _log_service_unavailable(request: Request, exc: StarletteHTTPException):
+        if exc.status_code == 503:
+            route = request.scope.get("route")
+            log_unavailable(
+                surface="http",
+                route=f"{request.method} {getattr(route, 'path', 'unmatched')}",
+                detail=exc.detail if isinstance(exc.detail, str) else "structured",
+                exc=exc.__cause__ or exc.__context__,
+            )
+        return await http_exception_handler(request, exc)
+
     application.state.supabase_settings = settings
     application.state.token_verifier = token_verifier
     application.state.mfa_factor_verifier = mfa_factor_verifier

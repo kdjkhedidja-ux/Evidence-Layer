@@ -17,6 +17,7 @@ from uuid import UUID, uuid4
 import httpx
 
 from evidence_service.config import SupabaseSettings
+from evidence_service.error_cause import mark_upstream_status
 from evidence_service.evidence_repository import (
     SEARCH_CANDIDATE_LIMIT,
     EvidenceRecord,
@@ -500,7 +501,7 @@ class SupabasePersonalApiKeyRepository:
                 raise PersonalApiKeyLimitReached
             if code in {"28000", "42501"}:
                 raise PersonalApiKeyAccessDenied
-            raise PersonalApiKeyDataUnavailable
+            raise mark_upstream_status(PersonalApiKeyDataUnavailable(), response.status_code)
         return response
 
     @staticmethod
