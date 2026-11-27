@@ -59,9 +59,9 @@ export default function PrivacyPage() {
         <p>
           The public website does not generate answers with OpenAI or DeepSeek and does not connect
           customer source documents to a language model. Historical benchmark runs used public
-          Real-World v1 and separately frozen synthetic evaluation materials in offline evaluations. Any future JEV, language-model, source
-          connector, or hosted retrieval integration requires a reviewed data-flow notice before it
-          is enabled. This policy makes no representation about a provider’s retention or training
+          Real-World v1 and separately frozen synthetic evaluation materials in offline evaluations. The JEV scoring
+          data flow is described in section 7. Any further language-model, source connector, or
+          hosted retrieval integration requires a reviewed data-flow notice before it is enabled. This policy makes no representation about a provider’s retention or training
           settings; those settings and contractual terms must be checked for each integration.
         </p>
       </section>
@@ -149,12 +149,17 @@ export default function PrivacyPage() {
           subprocessor register. Before publication, the operator must name each entity, purpose,
           processing location, retention, contractual role, and onward recipient. OpenAI and
           DeepSeek appear in benchmark tooling and are not connected to answer generation by the
-          public website. The hosted retrieval code also contains an optional TypeSafe/JEV scoring
-          path: it can receive the task query and bounded candidate snippets only when the caller
-          opts in for that request and the service operator enables the server-side gate. It is
-          disabled by default; provider regions, retention, and contractual terms have not been
-          verified, so an operator must complete that review and provide any required notice before
-          enabling it for customer data.
+          public website. Hosted retrieval (web task-context, API keys and Remote MCP) uses the
+          TypeSafe Jev scorer by default: for each retrieval that uses it, the service sends the
+          query and up to 50 candidate text snippets from the workspace, with technical snippet
+          identifiers (no name, email, user or workspace identifier), to TypeSafe for relevance
+          scoring. A caller can turn this off per request (<code>use_jev=false</code>); if scoring
+          is off, unavailable, over the daily budget or fails, ranking falls back to local lexical
+          scoring and nothing is sent. Per TypeSafe&apos;s published terms (checked 2026-11-27): the
+          service is hosted in the United States; inputs are not used to train or fine-tune models;
+          no fixed retention period is stated (data is kept as long as necessary for the purpose);
+          TypeSafe may derive technical telemetry from requests; zero data retention is offered
+          only to enterprise customers.
         </p>
         <p>
           If personal data is transferred outside the EEA, the controller and processor must identify
