@@ -95,12 +95,14 @@ describe("public information pages", () => {
     expect(navigation.getByRole("link", { name: "Evaluation · Benchmarks" })).toHaveAttribute("href", "/evaluation");
   });
 
-  it("presents the evidence-reduction concept and its quality guardrail", () => {
+  it("presents the evidence-reduction concept, its conditions and the quality gate", () => {
     render(<EvaluationBenchmarksPage />);
     expect(screen.getByRole("heading", { name: "Less context. Same task. Measured both ways." })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Headline results" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "What EL actually changes" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "The quality guardrail" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Quality readout on the 15 questions" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Answer quality is below a full-file baseline today" })).toBeInTheDocument();
+    expect(screen.queryByText(/without making the answer worse/i)).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "What the results do not prove" })).toBeInTheDocument();
     expect(screen.getByText("80.9%")).toBeInTheDocument();
     expect(screen.getAllByText("80.7%").length).toBeGreaterThan(0);
