@@ -742,6 +742,10 @@ class PersonalApiKeyRetrievedItem(BaseModel):
     chunk_end: int
     path: str | None
     title: str | None
+    # Exact-identifier boost (EVIDENCE_IDENTIFIER_BOOST_ENABLED). ``score`` is
+    # unchanged by it; the ranking used ``boosted_score = score * boost``.
+    boost: float = 1.0
+    boosted_score: float | None = None
 
 
 class PersonalApiKeyRetrieveResponse(BaseModel):
@@ -1622,6 +1626,7 @@ async def _retrieval_response(
     jev_scorer: JevRequestScorer | None = None,
     jev_principal_id: str | None = None,
     jev_budget: Callable[[], Awaitable[bool]] | None = None,
+    identifier_boost_enabled: bool = False,
 ) -> PersonalApiKeyRetrieveResponse:
     ranking_started = perf_counter()
     records = [item for item in page.items if hasattr(item, "content")]
@@ -1636,6 +1641,7 @@ async def _retrieval_response(
         top_k=payload.top_k,
         max_tokens=payload.max_tokens,
         max_chars=payload.max_chars,
+        identifier_boost_enabled=identifier_boost_enabled,
         seed_record_ids=seed_record_ids,
         related_record_scores=related_record_scores,
     )
@@ -1653,6 +1659,7 @@ async def _retrieval_response(
                 top_k=50,
                 max_tokens=payload.max_tokens,
                 max_chars=payload.max_chars,
+                identifier_boost_enabled=identifier_boost_enabled,
                 seed_record_ids=seed_record_ids,
                 related_record_scores=related_record_scores,
             )
@@ -1729,6 +1736,7 @@ async def _retrieval_response(
                             top_k=payload.top_k,
                             max_tokens=payload.max_tokens,
                             max_chars=payload.max_chars,
+                            identifier_boost_enabled=identifier_boost_enabled,
                             seed_record_ids=(
                                 seed_record_ids if related_record_scores else None
                             ),
@@ -1792,6 +1800,8 @@ async def _retrieval_response(
                 chunk_end=item.chunk_end,
                 path=item.path,
                 title=item.title,
+                boost=item.boost,
+                boosted_score=item.boosted_score,
             )
             for item in result.selected
         ],
@@ -1808,6 +1818,7 @@ def _relationship_expansion(
     top_k: int,
     max_tokens: int,
     max_chars: int,
+    identifier_boost_enabled: bool = False,
 ) -> tuple[set[UUID], dict[UUID, float]]:
     seed = select_evidence(
         records,
@@ -1815,6 +1826,7 @@ def _relationship_expansion(
         top_k=max(1, top_k - 1),
         max_tokens=max_tokens,
         max_chars=max_chars,
+        identifier_boost_enabled=identifier_boost_enabled,
     )
     seed_scores: dict[UUID, float] = {}
     for item in seed.selected:
@@ -1859,6 +1871,7 @@ async def _workspace_task_context_response(
     jev_scorer: JevRequestScorer | None = None,
     jev_principal_id: str | None = None,
     jev_budget: Callable[[], Awaitable[bool]] | None = None,
+    identifier_boost_enabled: bool = False,
 ) -> WorkspaceTaskContextResponse:
     query = payload.retrieval_query()
     seed_ids, related_record_scores = _relationship_expansion(
@@ -1869,6 +1882,7 @@ async def _workspace_task_context_response(
         top_k=payload.top_k,
         max_tokens=payload.max_tokens,
         max_chars=payload.max_chars,
+        identifier_boost_enabled=identifier_boost_enabled,
     )
 
     retrieval = await _retrieval_response(
@@ -1882,6 +1896,7 @@ async def _workspace_task_context_response(
         jev_scorer=jev_scorer,
         jev_principal_id=jev_principal_id,
         jev_budget=jev_budget,
+        identifier_boost_enabled=identifier_boost_enabled,
     )
     return WorkspaceTaskContextResponse(
         task=payload.task,
@@ -2014,6 +2029,7 @@ class _HostedRemoteMcpBackend:
                 top_k=payload.top_k,
                 max_tokens=payload.max_tokens,
                 max_chars=payload.max_chars,
+                identifier_boost_enabled=self._application.state.identifier_boost_enabled,
             )
             return (await _retrieval_response(
                 page,
@@ -2023,6 +2039,7 @@ class _HostedRemoteMcpBackend:
                 related_record_scores=related_scores,
                 relationships=relationships,
                 jev_enabled=self._application.state.jev_enabled,
+                identifier_boost_enabled=self._application.state.identifier_boost_enabled,
                 jev_scorer=self._application.state.jev_scorer,
                 jev_principal_id=str(principal.key_id),
                 jev_budget=refuse_jev_budget if counter_unavailable else _jev_budget_for(
@@ -2104,6 +2121,7 @@ def create_app(
     remote_mcp_enabled: bool | None = None,
     task_run_ledger_repository=None,
     task_ledger_enabled: bool | None = None,
+    identifier_boost_enabled: bool | None = None,
 ) -> FastAPI:
     """Create the service app; optional integrations are initialized on demand."""
     application = FastAPI(
@@ -2141,6 +2159,12 @@ def create_app(
     )
     application.state.usage_caps_repository = usage_caps_repository
     application.state.usage_fallback_limiter = FallbackRateLimiter()
+    # Exact-identifier boost for code chunks: off unless explicitly enabled.
+    application.state.identifier_boost_enabled = (
+        identifier_boost_enabled
+        if identifier_boost_enabled is not None
+        else os.environ.get("EVIDENCE_IDENTIFIER_BOOST_ENABLED", "").strip().lower() == "true"
+    )
     application.state.retrieval_enabled = (
         retrieval_enabled
         if retrieval_enabled is not None
@@ -3024,6 +3048,7 @@ def create_app(
             top_k=payload.top_k,
             max_tokens=payload.max_tokens,
             max_chars=payload.max_chars,
+            identifier_boost_enabled=request.app.state.identifier_boost_enabled,
         )
         return await _retrieval_response(
             page,
@@ -3033,6 +3058,7 @@ def create_app(
             related_record_scores=related_scores,
             relationships=relationships,
             jev_enabled=request.app.state.jev_enabled,
+            identifier_boost_enabled=request.app.state.identifier_boost_enabled,
             jev_scorer=request.app.state.jev_scorer,
             jev_principal_id=str(key_id),
             jev_budget=refuse_jev_budget if counter_unavailable else _jev_budget_for(
@@ -3979,6 +4005,7 @@ def create_app(
             context.workspace_id,
             payload,
             jev_enabled=request.app.state.jev_enabled,
+            identifier_boost_enabled=request.app.state.identifier_boost_enabled,
             jev_scorer=request.app.state.jev_scorer,
             jev_principal_id=str(auth.principal.subject),
             jev_budget=refuse_jev_budget if counter_unavailable else _jev_budget_for(

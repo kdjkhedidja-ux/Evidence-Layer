@@ -16,6 +16,8 @@ from evidence_service.chunking import (
     adjusted_score,
     chunk_text,
     document_title,
+    identifier_boost,
+    query_identifiers,
     source_path,
 )
 from evidence_service.connector_parts import PartLocation, parse_part_label
@@ -53,6 +55,13 @@ class SelectedEvidence:
     chunk_end: int
     path: str | None
     title: str | None
+    # Exact-identifier boost (EVIDENCE_IDENTIFIER_BOOST_ENABLED): ``score``
+    # keeps its unboosted value; ranking used ``boosted_score``.
+    boost: float = 1.0
+
+    @property
+    def boosted_score(self) -> float:
+        return self.score * self.boost
 
 
 @dataclass(frozen=True)
@@ -79,6 +88,11 @@ class _ChunkCandidate:
     char_count: int
     protected: bool = False
     part: PartLocation | None = None
+    boost: float = 1.0
+
+    @property
+    def rank_score(self) -> float:
+        return self.score * self.boost
 
     @property
     def file_range(self) -> tuple[str, int, int] | None:
@@ -110,9 +124,11 @@ def select_evidence(
     seed_record_ids: set[UUID] | None = None,
     related_record_scores: dict[UUID, float] | None = None,
     score_overrides: dict[str, float] | None = None,
+    identifier_boost_enabled: bool = False,
 ) -> RetrievalSelection:
     scorer = LexicalScorer()
     query_terms = set(scorer.normalize(query))
+    identifiers = query_identifiers(query) if identifier_boost_enabled else frozenset()
     counter, estimator = token_counter()
     candidates: list[_ChunkCandidate] = []
     chunk_count = 0
@@ -128,6 +144,7 @@ def select_evidence(
             chunk_count += 1
             raw_score = scorer.score(query, chunk.content)
             related_score = (related_record_scores or {}).get(record.id, 0)
+            code_boost = identifier_boost(identifiers, path=path, content=chunk.content)
             lexical_score = (
                 adjusted_score(
                     raw_score,
@@ -143,6 +160,8 @@ def select_evidence(
                 matched_chunk_count += 1
             chunk_key = f"{record.id}:{chunk.start}:{chunk.end}"
             if score_overrides is not None:
+                # Provider (JEV) score, reported unchanged; when enabled the
+                # exact-identifier boost only changes the ranking (rank_score).
                 score = score_overrides.get(chunk_key, 0)
                 if score <= 0:
                     continue
@@ -166,13 +185,14 @@ def select_evidence(
                         or (related_record_scores and record.id in related_record_scores)
                     ),
                     part=part,
+                    boost=code_boost,
                 )
             )
     candidates.sort(
         key=lambda item: (
             0 if seed_record_ids and item.record.id in seed_record_ids else
             1 if related_record_scores and item.record.id in related_record_scores else 2,
-            -item.score,
+            -item.rank_score,
             item.path or "",
             str(item.record.id),
             item.chunk.start,
@@ -205,8 +225,8 @@ def select_evidence(
             if per_parent.get(candidate.parent_key, 0) >= parent_limit:
                 continue
             if selected and not candidate.protected:
-                floor = max(item.score for item in selected) * MIN_RELATIVE_SCORE
-                if candidate.score < floor:
+                floor = max(item.boosted_score for item in selected) * MIN_RELATIVE_SCORE
+                if candidate.rank_score < floor:
                     continue
             if (
                 used_tokens + candidate.token_count > max_tokens
@@ -227,6 +247,7 @@ def select_evidence(
                     chunk_end=candidate.chunk.end,
                     path=candidate.path,
                     title=candidate.title,
+                    boost=candidate.boost,
                 )
             )
             selected_chunks.add(candidate.chunk_key)

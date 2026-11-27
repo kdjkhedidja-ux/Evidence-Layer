@@ -20,6 +20,25 @@ TOP_LEVEL_MARKDOWN_BOOST = 1.15
 QUERY_PATH_BOOST = 1.08
 QUERY_TITLE_BOOST = 1.08
 OPS_NOISE_PENALTY = 0.70
+# Exact code identifier from the query found verbatim in a code chunk.
+IDENTIFIER_BOOST_ONE = 1.6
+IDENTIFIER_BOOST_MANY = 2.0
+CODE_EXTENSIONS = frozenset({
+    ".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".go", ".rs", ".java",
+    ".kt", ".rb", ".php", ".c", ".h", ".cpp", ".cs", ".swift", ".sh", ".sql",
+})
+# snake_case (one underscore or more, e.g. ``retrieve_evidence``), CamelCase
+# with at least three capitalised segments (``ConnectorNotIndexedFile``) or
+# camelCase with at least two after the lowercase start
+# (``getVerifiedAuthContext``). Brand words such as GitHub, FastAPI or
+# JavaScript are not identifiers: they would boost every file naming them.
+_IDENTIFIER = re.compile(
+    r"(?<![A-Za-z0-9_])("
+    r"[A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)+"
+    r"|(?:[A-Z][a-z0-9]+){3,}[A-Za-z0-9]*"
+    r"|[a-z][a-z0-9]*(?:[A-Z][a-z0-9]+){2,}[A-Za-z0-9]*"
+    r")(?![A-Za-z0-9_])"
+)
 
 _OPS_QUERY_TERMS = frozenset(
     {
@@ -239,3 +258,37 @@ def adjusted_score(
         * _definitional_penalty(path, query)
         * _intro_boost(query, path, chunk_index)
     )
+
+
+def query_identifiers(query: str) -> frozenset[str]:
+    """Code identifiers written in the query (case kept), e.g.
+    ``list_not_indexed_connector_files`` or ``ConnectorNotIndexedFile``."""
+    return frozenset(match for match in _IDENTIFIER.findall(query or "") if len(match) >= 6)
+
+
+def is_code_path(path: str | None) -> bool:
+    if not path:
+        return False
+    name = path.lower().rsplit("/", 1)[-1]
+    dot = name.rfind(".")
+    return dot > 0 and name[dot:] in CODE_EXTENSIONS
+
+
+def identifier_boost(identifiers: frozenset[str], *, path: str | None, content: str) -> float:
+    """Multiplier for a CODE chunk that contains a query identifier verbatim.
+
+    Natural-language questions about code ("FastAPI route
+    list_not_indexed_connector_files ...") used to rank the documentation that
+    describes an identifier above the code that defines it. Only exact,
+    case-sensitive, whole-identifier matches count, only code paths are
+    boosted, and documentation is never penalised.
+    """
+    if not identifiers or not is_code_path(path):
+        return 1.0
+    hits = sum(
+        1 for identifier in identifiers
+        if re.search(rf"(?<![A-Za-z0-9_]){re.escape(identifier)}(?![A-Za-z0-9_])", content)
+    )
+    if hits == 0:
+        return 1.0
+    return IDENTIFIER_BOOST_ONE if hits == 1 else IDENTIFIER_BOOST_MANY
