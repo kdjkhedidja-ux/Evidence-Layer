@@ -316,17 +316,25 @@ def test_one_user_over_the_cap_does_not_affect_another() -> None:
     assert scorer.calls == 2
 
 
-def test_unavailable_usage_counter_fails_closed_for_the_call_cap() -> None:
+def test_unavailable_usage_counter_serves_lexical_within_the_fallback_limit() -> None:
+    """Owner decision 2026-11-27: no longer fail closed (503). Serve lexical
+    results, never JEV, bounded per minute in-process. Details in
+    tests/test_usage_counter_fallback.py."""
     counter = FakeUsageCounter()
     counter.unavailable_kinds.add("retrieval")
     repository = KeyRepository()
-    client = api_client(counter, settings=caps(), repository=repository)
+    scorer = FakeJevScorer()
+    client = api_client(counter, settings=caps(), repository=repository, scorer=scorer)
 
-    response = retrieve(client)
+    response = retrieve(client, use_jev=True)
 
-    assert response.status_code == 503
-    assert response.json() == {"detail": "Usage limits are unavailable"}
-    assert repository.evidence_reads == 0
+    assert response.status_code == 200
+    body = response.json()
+    assert body["scoring_provider"] == "lexical_stopword_filtered"
+    assert body["scoring_fallback_reason"] == "usage_counter_unavailable"
+    assert body["selected_count"] >= 1
+    assert scorer.calls == 0
+    assert repository.evidence_reads == 1
 
 
 def test_refused_usage_proof_maps_to_an_invalid_key() -> None:

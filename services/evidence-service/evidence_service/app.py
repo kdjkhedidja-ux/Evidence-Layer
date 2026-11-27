@@ -74,6 +74,13 @@ from evidence_service.export_repository import (
     SupabaseExportRepository,
 )
 from evidence_service.error_cause import log_unavailable
+from evidence_service.usage_fallback import (
+    FALLBACK_REASON,
+    CounterUnavailableForJev,
+    FallbackRateLimiter,
+    log_counter_fallback,
+    refuse_jev_budget,
+)
 from evidence_service.evidence_repository import (
     EvidenceAccessDenied,
     EvidenceDataUnavailable,
@@ -1494,6 +1501,21 @@ def _jev_budget_for(consume: Callable[[], Awaitable[UsageDecision | None]]):
     return check
 
 
+def _counter_fallback_decision(
+    request: Request, *, limiter_key: str, surface: str, exc: BaseException
+) -> UsageDecision:
+    """The usage counter could not answer: allow within the in-process
+    per-minute limit (lexical only), or refuse like a minute cap."""
+    settings: UsageCapsSettings = request.app.state.usage_caps_settings
+    allowed, retry_after = request.app.state.usage_fallback_limiter.allow(
+        limiter_key, settings.retrieval_per_minute
+    )
+    log_counter_fallback(surface=surface, allowed=allowed, exc=exc)
+    if allowed:
+        return UsageDecision(allowed=True)
+    return UsageDecision(allowed=False, window="minute", retry_after_seconds=retry_after)
+
+
 def _deletion_repository(request: Request) -> DeletionRepository:
     repository = request.app.state.deletion_repository
     if repository is None:
@@ -1584,6 +1606,8 @@ async def _jev_budget_refusal(
         return None
     try:
         allowed = await jev_budget()
+    except CounterUnavailableForJev:
+        return FALLBACK_REASON
     except Exception:
         logger.warning("jev_budget_unavailable")
         return "jev_budget_unavailable"
@@ -1945,8 +1969,14 @@ class _HostedRemoteMcpBackend:
             )
         except UsageCapsAccessDenied:
             return _remote_mcp_error("unauthorized", "Personal API key is invalid or revoked")
-        except UsageCapsUnavailable:
-            return _remote_mcp_error("unavailable", "Usage limits are unavailable")
+        except UsageCapsUnavailable as exc:
+            counter_unavailable = True
+            decision = _counter_fallback_decision(
+                self._state_request,  # type: ignore[arg-type]
+                limiter_key=f"key:{principal.key_id}", surface="remote_mcp", exc=exc,
+            )
+        else:
+            counter_unavailable = False
         if decision is not None and not decision.allowed:
             detail = _user_rate_limited_detail(decision)
             return {"error": detail}
@@ -2012,7 +2042,7 @@ class _HostedRemoteMcpBackend:
                 identifier_boost_enabled=self._application.state.identifier_boost_enabled,
                 jev_scorer=self._application.state.jev_scorer,
                 jev_principal_id=str(principal.key_id),
-                jev_budget=_jev_budget_for(
+                jev_budget=refuse_jev_budget if counter_unavailable else _jev_budget_for(
                     lambda: _consume_api_key_usage(
                         self._state_request,  # type: ignore[arg-type]
                         key_id=principal.key_id,
@@ -2128,6 +2158,7 @@ def create_app(
         else UsageCapsSettings.from_environment()
     )
     application.state.usage_caps_repository = usage_caps_repository
+    application.state.usage_fallback_limiter = FallbackRateLimiter()
     # Exact-identifier boost for code chunks: off unless explicitly enabled.
     application.state.identifier_boost_enabled = (
         identifier_boost_enabled
@@ -2954,7 +2985,12 @@ def create_app(
         except UsageCapsAccessDenied as exc:
             raise HTTPException(status_code=401, detail="Personal API key is invalid or revoked") from exc
         except UsageCapsUnavailable as exc:
-            raise HTTPException(status_code=503, detail="Usage limits are unavailable") from exc
+            counter_unavailable = True
+            decision = _counter_fallback_decision(
+                request, limiter_key=f"key:{key_id}", surface="http", exc=exc
+            )
+        else:
+            counter_unavailable = False
         if decision is not None:
             _raise_if_user_rate_limited(decision)
         try:
@@ -3025,7 +3061,7 @@ def create_app(
             identifier_boost_enabled=request.app.state.identifier_boost_enabled,
             jev_scorer=request.app.state.jev_scorer,
             jev_principal_id=str(key_id),
-            jev_budget=_jev_budget_for(
+            jev_budget=refuse_jev_budget if counter_unavailable else _jev_budget_for(
                 lambda: _consume_api_key_usage(
                     request,
                     key_id=key_id,
@@ -3925,7 +3961,12 @@ def create_app(
         except UsageCapsAccessDenied as exc:
             raise HTTPException(status_code=401, detail="Authentication is required") from exc
         except UsageCapsUnavailable as exc:
-            raise HTTPException(status_code=503, detail="Usage limits are unavailable") from exc
+            counter_unavailable = True
+            decision = _counter_fallback_decision(
+                request, limiter_key=f"user:{auth.principal.subject}", surface="task_context", exc=exc
+            )
+        else:
+            counter_unavailable = False
         if decision is not None:
             _raise_if_user_rate_limited(decision)
         try:
@@ -3967,7 +4008,7 @@ def create_app(
             identifier_boost_enabled=request.app.state.identifier_boost_enabled,
             jev_scorer=request.app.state.jev_scorer,
             jev_principal_id=str(auth.principal.subject),
-            jev_budget=_jev_budget_for(
+            jev_budget=refuse_jev_budget if counter_unavailable else _jev_budget_for(
                 lambda: _consume_session_usage(request, auth.access_token, "jev")
             ),
         )
