@@ -11,6 +11,7 @@ from uuid import UUID
 import httpx
 
 from evidence_service.config import SupabaseSettings
+from evidence_service.error_cause import mark_upstream_status
 
 EVIDENCE_COLUMNS = (
     "id,workspace_id,content,source_label,source_id,source_version_id,"
@@ -225,7 +226,7 @@ class SupabaseEvidenceRepository:
         if response.status_code == 403:
             raise EvidenceAccessDenied
         if response.status_code != 200:
-            raise EvidenceDataUnavailable
+            raise mark_upstream_status(EvidenceDataUnavailable(), response.status_code)
         return self._parse_rows(response, workspace_id)
 
     async def _request(
@@ -261,7 +262,7 @@ class SupabaseEvidenceRepository:
         if response.status_code == 403:
             raise EvidenceAccessDenied
         if response.status_code not in {200, 201}:
-            raise EvidenceDataUnavailable
+            raise mark_upstream_status(EvidenceDataUnavailable(), response.status_code)
         return response
 
     @classmethod
