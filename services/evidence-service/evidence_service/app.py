@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
 import secrets
@@ -1501,6 +1502,22 @@ def _jev_budget_for(consume: Callable[[], Awaitable[UsageDecision | None]]):
     return check
 
 
+def _background(coro) -> asyncio.Task:
+    """Start a read concurrently with the usage-counter call.
+
+    The caller awaits it only if the counter allows the request; otherwise
+    ``_discard`` cancels it, so a refused request never returns its evidence.
+    An exception of a discarded task is consumed, never surfaced or logged.
+    """
+    task = asyncio.ensure_future(coro)
+    task.add_done_callback(lambda done: None if done.cancelled() else done.exception())
+    return task
+
+
+def _discard(task: asyncio.Task) -> None:
+    task.cancel()
+
+
 def _counter_fallback_decision(
     request: Request, *, limiter_key: str, surface: str, exc: BaseException
 ) -> UsageDecision:
@@ -1614,6 +1631,21 @@ async def _jev_budget_refusal(
     return None if allowed else "jev_budget_exceeded"
 
 
+def _any_record_matches(records: list[EvidenceRecord], query: str) -> bool:
+    """True when some record shares a scored term with the query.
+
+    That is exactly when the lexical ranking can produce a candidate, so the
+    JEV budget is reserved only when JEV would run. Stops at the first hit.
+    """
+    from evidence_layer.scoring.lexical import LexicalScorer
+
+    terms = sorted(set(LexicalScorer().normalize(query)))
+    if not terms:
+        return False
+    pattern = re.compile(r"(?<![a-z0-9])(?:" + "|".join(map(re.escape, terms)) + r")(?![a-z0-9])")
+    return any(pattern.search((record.content or "").lower()) for record in records)
+
+
 async def _retrieval_response(
     page: PersonalApiKeyPage,
     workspace_id: UUID,
@@ -1635,15 +1667,27 @@ async def _retrieval_response(
         if isinstance(payload, PersonalApiKeyRetrieveRequest)
         else payload.retrieval_query()
     )
-    result: RetrievalSelection = select_evidence(
-        records,
-        query=query,
-        top_k=payload.top_k,
-        max_tokens=payload.max_tokens,
-        max_chars=payload.max_chars,
-        identifier_boost_enabled=identifier_boost_enabled,
-        seed_record_ids=seed_record_ids,
-        related_record_scores=related_record_scores,
+    # The per-user JEV budget call runs while the lexical ranking (CPU, in a
+    # worker thread) is computed. It is always awaited BEFORE any JEV call;
+    # when it refuses, JEV never runs. Started only when JEV would be used.
+    budget_task = (
+        _background(_jev_budget_refusal(jev_budget))
+        if payload.use_jev and jev_enabled and jev_principal_id is not None
+        and jev_budget is not None
+        and (related_record_scores or _any_record_matches(records, query))
+        else None
+    )
+    result: RetrievalSelection = await run_in_threadpool(
+        lambda: select_evidence(
+            records,
+            query=query,
+            top_k=payload.top_k,
+            max_tokens=payload.max_tokens,
+            max_chars=payload.max_chars,
+            identifier_boost_enabled=identifier_boost_enabled,
+            seed_record_ids=seed_record_ids,
+            related_record_scores=related_record_scores,
+        )
     )
     scoring_provider = "lexical_stopword_filtered"
     scoring_fallback_reason: str | None = None
@@ -1653,21 +1697,26 @@ async def _retrieval_response(
         elif jev_principal_id is None:
             scoring_fallback_reason = "jev_unavailable"
         else:
-            candidate_selection = select_evidence(
-                records,
-                query=query,
-                top_k=50,
-                max_tokens=payload.max_tokens,
-                max_chars=payload.max_chars,
-                identifier_boost_enabled=identifier_boost_enabled,
-                seed_record_ids=seed_record_ids,
-                related_record_scores=related_record_scores,
+            candidate_selection = await run_in_threadpool(
+                lambda: select_evidence(
+                    records,
+                    query=query,
+                    top_k=50,
+                    max_tokens=payload.max_tokens,
+                    max_chars=payload.max_chars,
+                    identifier_boost_enabled=identifier_boost_enabled,
+                    seed_record_ids=seed_record_ids,
+                    related_record_scores=related_record_scores,
+                )
             )
-            budget_refusal = (
-                await _jev_budget_refusal(jev_budget)
-                if candidate_selection.selected
-                else None
-            )
+            if budget_task is not None:
+                budget_refusal = await budget_task  # completes before any JEV call
+            else:
+                budget_refusal = (
+                    await _jev_budget_refusal(jev_budget)
+                    if candidate_selection.selected
+                    else None
+                )
             if budget_refusal is not None:
                 scoring_fallback_reason = budget_refusal
             elif candidate_selection.selected:
@@ -1959,6 +2008,14 @@ class _HostedRemoteMcpBackend:
             )
         except ValueError:
             return _remote_mcp_error("invalid_argument", "Invalid retrieve arguments")
+        read_task = _background(_read_retrieval_candidates(
+            _personal_api_key_repository(self._state_request),
+            key_id=principal.key_id,
+            key_hash=principal.key_hash,
+            workspace_id=principal.workspace_id,
+            limit=payload.candidate_limit,
+            query=payload.query,
+        ))
         try:
             decision = await _consume_api_key_usage(
                 self._state_request,  # type: ignore[arg-type]
@@ -1968,6 +2025,7 @@ class _HostedRemoteMcpBackend:
                 kind="retrieval",
             )
         except UsageCapsAccessDenied:
+            _discard(read_task)
             return _remote_mcp_error("unauthorized", "Personal API key is invalid or revoked")
         except UsageCapsUnavailable as exc:
             counter_unavailable = True
@@ -1975,20 +2033,17 @@ class _HostedRemoteMcpBackend:
                 self._state_request,  # type: ignore[arg-type]
                 limiter_key=f"key:{principal.key_id}", surface="remote_mcp", exc=exc,
             )
+        except BaseException:
+            _discard(read_task)
+            raise
         else:
             counter_unavailable = False
         if decision is not None and not decision.allowed:
+            _discard(read_task)
             detail = _user_rate_limited_detail(decision)
             return {"error": detail}
         try:
-            page = await _read_retrieval_candidates(
-                _personal_api_key_repository(self._state_request),
-                key_id=principal.key_id,
-                key_hash=principal.key_hash,
-                workspace_id=principal.workspace_id,
-                limit=payload.candidate_limit,
-                query=payload.query,
-            )
+            page = await read_task
         except PersonalApiKeyAccessDenied:
             return _remote_mcp_error("unauthorized", "Personal API key is invalid or revoked")
         except PersonalApiKeyRateLimited:
@@ -2974,6 +3029,16 @@ def create_app(
             raise HTTPException(status_code=404, detail="Retrieval API is not enabled")
         await _require_recovery_fence_open(request)
         key_id, key_hash = parsed_key
+        # The candidate read runs concurrently with the usage-counter call; it
+        # is used only if the counter allows the request.
+        read_task = _background(_read_retrieval_candidates(
+            _personal_api_key_repository(request),
+            key_id=key_id,
+            key_hash=key_hash,
+            workspace_id=workspace_id,
+            limit=payload.candidate_limit,
+            query=payload.query,
+        ))
         try:
             decision = await _consume_api_key_usage(
                 request,
@@ -2983,25 +3048,23 @@ def create_app(
                 kind="retrieval",
             )
         except UsageCapsAccessDenied as exc:
+            _discard(read_task)
             raise HTTPException(status_code=401, detail="Personal API key is invalid or revoked") from exc
         except UsageCapsUnavailable as exc:
             counter_unavailable = True
             decision = _counter_fallback_decision(
                 request, limiter_key=f"key:{key_id}", surface="http", exc=exc
             )
+        except BaseException:
+            _discard(read_task)
+            raise
         else:
             counter_unavailable = False
-        if decision is not None:
+        if decision is not None and not decision.allowed:
+            _discard(read_task)
             _raise_if_user_rate_limited(decision)
         try:
-            page = await _read_retrieval_candidates(
-                _personal_api_key_repository(request),
-                key_id=key_id,
-                key_hash=key_hash,
-                workspace_id=workspace_id,
-                limit=payload.candidate_limit,
-                query=payload.query,
-            )
+            page = await read_task
         except PersonalApiKeyAccessDenied as exc:
             raise HTTPException(status_code=401, detail="Personal API key is invalid or revoked") from exc
         except PersonalApiKeyRateLimited as exc:
@@ -3956,30 +4019,41 @@ def create_app(
         started_at = perf_counter()
         await _require_recovery_fence_open(request)
         context = await _resolve_workspace_or_404(request, auth, workspace_id)
-        try:
-            decision = await _consume_session_usage(request, auth.access_token, "retrieval")
-        except UsageCapsAccessDenied as exc:
-            raise HTTPException(status_code=401, detail="Authentication is required") from exc
-        except UsageCapsUnavailable as exc:
-            counter_unavailable = True
-            decision = _counter_fallback_decision(
-                request, limiter_key=f"user:{auth.principal.subject}", surface="task_context", exc=exc
-            )
-        else:
-            counter_unavailable = False
-        if decision is not None:
-            _raise_if_user_rate_limited(decision)
-        try:
-            records = await _with_account_gate(
+        async def read_records() -> list[EvidenceRecord]:
+            newest = await _with_account_gate(
                 request,
                 auth,
                 lambda: _evidence_repository(request).list_records(
                     auth.access_token, context.workspace_id
                 ),
             )
-            records = await _with_workspace_search(
-                request, auth, context.workspace_id, payload.retrieval_query(), records
+            return await _with_workspace_search(
+                request, auth, context.workspace_id, payload.retrieval_query(), newest
             )
+
+        # The evidence read runs concurrently with the usage-counter call; it
+        # is used only if the counter allows the request.
+        read_task = _background(read_records())
+        try:
+            decision = await _consume_session_usage(request, auth.access_token, "retrieval")
+        except UsageCapsAccessDenied as exc:
+            _discard(read_task)
+            raise HTTPException(status_code=401, detail="Authentication is required") from exc
+        except UsageCapsUnavailable as exc:
+            counter_unavailable = True
+            decision = _counter_fallback_decision(
+                request, limiter_key=f"user:{auth.principal.subject}", surface="task_context", exc=exc
+            )
+        except BaseException:
+            _discard(read_task)
+            raise
+        else:
+            counter_unavailable = False
+        if decision is not None and not decision.allowed:
+            _discard(read_task)
+            _raise_if_user_rate_limited(decision)
+        try:
+            records = await read_task
             relationships = (
                 await _with_account_gate(
                     request,
